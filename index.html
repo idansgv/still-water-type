@@ -340,12 +340,47 @@
   // ---------- lyric stepping ----------
   let lineTimer = 0;
   function nextLine() {
-    if (!song.lyrics.length) return;
+    if (spotifyLive || !song.lyrics.length) return;
     lineIdx = (lineIdx + 1) % song.lyrics.length;
     uploadType();
     splash([0, 0, 1], -0.4);   // the new line drops into the water
     lineTimer = 0;
   }
+
+  // ---------- Spotify live lyrics (Wordflow3d, same machine only) ----------
+  // Whenever Wordflow3d's Flask server is running on this Mac, its current word takes over the
+  // lyric line here too. Any failure (server not running, blocked, offline) just falls back
+  // silently to the normal content — this never affects anyone but you, on your own machine.
+  const SPOTIFY_URL = 'http://127.0.0.1:8888/status';
+  let spotifyLive = false, spotifyTrackId = null, spotifyWord = '';
+  async function pollSpotify() {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 900);
+    try {
+      const res = await fetch(SPOTIFY_URL, { signal: ctrl.signal, cache: 'no-store' });
+      clearTimeout(timeout);
+      if (!res.ok) throw 0;
+      const s = await res.json();
+      if (!s.playing || !s.track_id) throw 0;
+
+      spotifyLive = true;
+      if (s.track_id !== spotifyTrackId) { spotifyTrackId = s.track_id; spotifyWord = ''; song = { title: s.track || '', artist: s.artist || '', lyrics: [''] }; }
+      if (s.word && s.word !== '...' && s.word !== spotifyWord) {
+        spotifyWord = s.word;
+        song.lyrics = [spotifyWord]; lineIdx = 0;
+        uploadType();
+        splash([0, 0, 1], -0.16);   // a light tap per word — words land every fraction of a second
+      }
+    } catch (e) {
+      clearTimeout(timeout);
+      if (spotifyLive) {   // the server just went away: hand the water back to the normal content
+        spotifyLive = false; spotifyTrackId = null; spotifyWord = '';
+        song = { ...DEFAULT }; lineIdx = 0; lineTimer = 0;
+        uploadType();
+      }
+    }
+  }
+  setInterval(pollSpotify, 250);
 
   // ---------- loop ----------
   const dropU = new Float32Array(32);
