@@ -1,0 +1,469 @@
+<title>Still Water Type</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #000000;
+    --fg: #f4f2ee;
+    --dim: #8a8782;
+    --line: #2a2927;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --display: "Archivo", "Arial Black", "Helvetica Neue", system-ui, sans-serif;
+  }
+  html, body { height: 100%; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--fg); overflow: hidden; font-family: var(--mono); }
+  #gl, #fallback { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+  .chrome {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    padding: 0 max(16px, 4.5vw) calc(max(16px, 2.4vh) + env(safe-area-inset-bottom, 0px));
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
+    pointer-events: none;
+  }
+  .chrome > * { pointer-events: auto; }
+  .hint { display: flex; gap: 18px; flex-wrap: wrap; }
+  .hint kbd { font: inherit; color: var(--fg); }
+  .links { display: flex; gap: 16px; flex-wrap: wrap; }
+  .links a { color: var(--dim); text-decoration: none; }
+  .links a:hover, .links a:focus-visible { color: var(--fg); }
+  .links a:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+  .btn {
+    font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--fg);
+    background: none; border: 1px solid var(--line); padding: 7px 10px; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--dim); }
+  .btn:focus-visible, .field:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  #editor {
+    position: fixed; right: max(16px, 4.5vw); bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    width: min(420px, calc(100vw - 32px)); background: #0b0b0a; border: 1px solid var(--line);
+    padding: 16px; display: grid; gap: 12px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
+  }
+  #editor label { display: grid; gap: 6px; }
+  .field {
+    font: 14px/1.4 var(--mono); letter-spacing: 0; text-transform: none; color: var(--fg);
+    background: #000; border: 1px solid var(--line); padding: 8px 10px; resize: vertical;
+  }
+  .row { display: flex; gap: 8px; justify-content: flex-end; }
+  #toast { position: fixed; top: calc(max(16px, 2.4vh) + env(safe-area-inset-top, 0px)); right: max(16px, 4.5vw); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); transition: opacity .6s; pointer-events: none; }
+  @media (max-width: 520px) { .hint .opt { display: none; } }
+</style>
+
+<canvas id="gl" aria-label="Song title, artist and current lyric line set in large type on black. The type ripples like water when you touch it."></canvas>
+
+<div class="chrome">
+  <div class="hint" aria-hidden="true">
+    <span>Move to stir</span><span>Click to drop</span><span class="opt"><kbd>Space</kbd> next line</span><span class="opt"><kbd>R</kbd> rain</span>
+  </div>
+  <nav class="links" aria-label="Profiles">
+    <a href="https://linkedin.com/in/REPLACE-ME" target="_blank" rel="noopener">LinkedIn</a>
+    <a href="https://instagram.com/REPLACE-ME" target="_blank" rel="noopener">Instagram</a>
+    <a href="https://x.com/REPLACE-ME" target="_blank" rel="noopener">X</a>
+  </nav>
+  <button class="btn" id="editBtn" type="button" aria-expanded="false" aria-controls="editor">Edit text</button>
+</div>
+
+<div id="toast" aria-live="polite"></div>
+
+<form id="editor" hidden>
+  <label>Song<input class="field" id="fTitle" autocomplete="off"></label>
+  <label>Artist<input class="field" id="fArtist" autocomplete="off"></label>
+  <label>Lyrics, one line per row<textarea class="field" id="fLyrics" rows="6"></textarea></label>
+  <div class="row"><button class="btn" type="button" id="cancelBtn">Cancel</button><button class="btn" type="submit">Apply</button></div>
+</form>
+
+<script>
+(() => {
+  // ---------- content ----------
+  // Placeholder lines. Paste real lyrics through "Edit text" (kept in this browser only).
+  const DEFAULT = {
+    title: 'Idan Segev',
+    artist: 'Design',
+    lyrics: [],   // parked: the lyric line and its cycling stay in the code, ready for real lyrics later
+  };
+  let song = { ...DEFAULT };
+  try { const s = JSON.parse(localStorage.getItem('swt-song') || 'null'); if (s && s.title) song = s; } catch (e) {}
+  let lineIdx = 0;
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const AMP = reduced ? 0.45 : 1;
+  const LINE_MS = 9000;
+  const FONT = '"Archivo", "Arial Black", "Helvetica Neue", sans-serif';
+
+  // ---------- type layout, drawn into an offscreen canvas as channel masks ----------
+  // R = bright type (title + lyric), G = dim type (artist), B = lyric only (for the splash)
+  const tc = document.createElement('canvas');
+  const tx = tc.getContext('2d');
+
+  function fitSize(text, weight, maxW, maxSize) {
+    tx.font = `${weight} 100px ${FONT}`;
+    const w = tx.measureText(text).width || 1;
+    return Math.min(maxSize, (maxW / w) * 100);
+  }
+  function wrap(words, maxW) {
+    const lines = []; let cur = '';
+    for (const w of words) {
+      const t = cur ? cur + ' ' + w : w;
+      if (cur && tx.measureText(t).width > maxW) { lines.push(cur); cur = w; } else cur = t;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function drawType(W, H, dpr) {
+    tc.width = W; tc.height = H;
+    tx.fillStyle = '#000'; tx.fillRect(0, 0, W, H);
+    tx.textBaseline = 'alphabetic';
+    if ('letterSpacing' in tx) tx.letterSpacing = '0px';
+    const pad = Math.max(16 * dpr, W * 0.045);
+    const maxW = W - pad * 2;
+
+    // title
+    const tSize = fitSize(song.title, 900, maxW, H * 0.2);
+    const tBase = pad + tSize * 0.78;
+    tx.font = `900 ${tSize}px ${FONT}`;
+    tx.fillStyle = 'rgb(255,0,0)';
+    tx.fillText(song.title, pad - tSize * 0.04, tBase);
+
+    // artist
+    const aSize = Math.max(tSize * 0.3, 18 * dpr);
+    const aBase = tBase + aSize * 1.3;
+    tx.font = `700 ${aSize}px ${FONT}`;
+    tx.fillStyle = 'rgb(0,255,0)';
+    tx.fillText(song.artist, pad, aBase);
+
+    // lyric: as big as fits, bottom-aligned above the hint bar
+    const line = song.lyrics[lineIdx % Math.max(1, song.lyrics.length)] || '';
+    const words = line.split(/\s+/).filter(Boolean);
+    const chromeH = document.querySelector('.chrome').offsetHeight || 48;
+    const bottom = H - Math.max(pad, (chromeH + 20) * dpr);
+    const avail = bottom - (aBase + aSize * 1.2);
+    let size = Math.min(W * 0.15, H * 0.22), lines = [];
+    for (let i = 0; i < 40; i++) {
+      tx.font = `900 ${size}px ${FONT}`;
+      lines = wrap(words, maxW);
+      const widest = Math.max(0, ...lines.map((l) => tx.measureText(l).width));
+      if (lines.length * size * 0.95 <= avail && widest <= maxW) break;
+      size *= 0.93;
+    }
+    tx.fillStyle = 'rgb(255,0,255)';
+    const lh = size * 0.95;
+    lines.forEach((l, i) => tx.fillText(l, pad - size * 0.04, bottom - (lines.length - 1 - i) * lh));
+  }
+
+  // ---------- WebGL2 ----------
+  const canvas = document.getElementById('gl');
+  const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false, preserveDrawingBuffer: true });
+  const canFloat = gl && (gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
+
+  if (!gl || !canFloat) { // no ripples: show the type flat
+    canvas.remove();
+    const fb = document.createElement('canvas'); fb.id = 'fallback'; document.body.prepend(fb);
+    const fx = fb.getContext('2d');
+    const paint = () => {
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      fb.width = innerWidth * dpr; fb.height = innerHeight * dpr;
+      drawType(fb.width, fb.height, dpr);
+      const d = tx.getImageData(0, 0, fb.width, fb.height), p = d.data;
+      for (let i = 0; i < p.length; i += 4) {
+        const r = p[i] / 255, g = p[i + 1] / 255, v = Math.max(r * 244, g * 138), w = Math.max(r * 242, g * 135), z = Math.max(r * 238, g * 130);
+        p[i] = v; p[i + 1] = w; p[i + 2] = z; p[i + 3] = 255;
+      }
+      fx.putImageData(d, 0, 0);
+    };
+    document.fonts.ready.then(paint); addEventListener('resize', paint);
+    setupUI(paint, () => {});
+    return;
+  }
+
+  const VS = `#version 300 es
+  in vec2 a; out vec2 uv;
+  void main(){ uv = a * 0.5 + 0.5; gl_Position = vec4(a, 0.0, 1.0); }`;
+
+  // The ripple field: the wave equation on a grid (same scheme as caustic-volume's lite sim).
+  // r = height now, g = height last step. Edges clamp, so waves bounce off the screen edges.
+  const SIM_FS = `#version 300 es
+  precision highp float;
+  uniform sampler2D uPrev, uText;
+  uniform vec2 uRes;
+  uniform vec4 uDrops[8];          // x, y (sim px), radius (sim px), amplitude
+  uniform vec4 uSeg; uniform vec2 uSegP;   // pointer wake: a.xy, b.xy; amplitude, radius
+  uniform vec3 uStampW; uniform float uStamp;
+  uniform float uDamp;
+  out vec4 o;
+  void main(){
+    vec2 px = 1.0 / uRes, uv = gl_FragCoord.xy * px;
+    vec4 c = texture(uPrev, uv);
+    float nb = texture(uPrev, uv + vec2(px.x, 0.0)).r + texture(uPrev, uv - vec2(px.x, 0.0)).r
+             + texture(uPrev, uv + vec2(0.0, px.y)).r + texture(uPrev, uv - vec2(0.0, px.y)).r;
+    float h = (nb * 0.5 - c.g) * uDamp;
+    vec2 p = gl_FragCoord.xy;
+    for (int i = 0; i < 8; i++) {
+      vec2 q = (p - uDrops[i].xy) / max(uDrops[i].z, 1e-3);
+      h += uDrops[i].w * exp(-dot(q, q));
+    }
+    vec2 a = uSeg.xy, ba = uSeg.zw - uSeg.xy;
+    float t = clamp(dot(p - a, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
+    float d = length(p - a - ba * t);
+    h += uSegP.x * exp(-d * d / (uSegP.y * uSegP.y));
+    h += uStamp * dot(texture(uText, uv).rgb, uStampW);   // the type itself splashes in
+    o = vec4(h, c.r, 0.0, 1.0);
+  }`;
+
+  // Display: the type is seen through the water. Refraction only, then a hard threshold,
+  // so however hard the surface moves, the letters stay flat and solid.
+  const OUT_FS = `#version 300 es
+  precision highp float;
+  in vec2 uv;
+  uniform sampler2D uSim, uText;
+  uniform vec2 uSimRes, uRes;
+  uniform float uRefract;
+  uniform vec3 uBg, uFg, uDim;
+  uniform float uLamp;             // easter egg: 0 day, 1 night with a lamp
+  uniform vec2 uLampPos, uCss;     // lamp position (uv); screen size (css px)
+  out vec4 o;
+  void main(){
+    vec2 s = 1.0 / uSimRes;
+    float c = texture(uSim, uv).r;
+    float r = texture(uSim, uv + vec2(s.x, 0.0)).r, l = texture(uSim, uv - vec2(s.x, 0.0)).r;
+    float u = texture(uSim, uv + vec2(0.0, s.y)).r, d = texture(uSim, uv - vec2(0.0, s.y)).r;
+    float hx = r - l, hy = u - d;
+    vec2 off = vec2(hx, hy) * uRefract / uRes;
+    vec3 t = texture(uText, uv - off).rgb;
+    float bright = smoothstep(0.38, 0.62, t.r), dim = smoothstep(0.38, 0.62, t.g);
+    vec3 col = mix(uBg, uDim, dim);
+    col = mix(col, uFg, bright);
+
+    if (uLamp > 0.0) {
+      // The lamp's light passes through the moving surface; where it curves, light gathers into
+      // bright lines (caustics, as in caustic-volume) and thins out between them.
+      float ur = texture(uSim, uv + s).r, dl = texture(uSim, uv - s).r;
+      float ul = texture(uSim, uv + vec2(-s.x, s.y)).r, dr = texture(uSim, uv + vec2(s.x, -s.y)).r;
+      vec3 hs = vec3(r - 2.0 * c + l, u - 2.0 * c + d, (ur - ul - dr + dl) * 0.25);
+      hs = sign(hs) * max(abs(hs) - 0.003, 0.0);
+      vec3 m = 80.0 * hs;
+      float det = (1.0 + m.x) * (1.0 + m.y) - m.z * m.z;
+      float caus = 1.0 / max(abs(det), 0.06);
+      float line = smoothstep(1.35, 2.1, caus), shade = smoothstep(0.45, 0.9, caus);
+      vec2 dp = (uv - uLampPos) * uCss;
+      float pool = exp(-dot(dp, dp) / (0.09 * dot(uCss, uCss)));
+      float lit = pool * (0.35 + 0.65 * shade) + pool * line * 0.9;
+      float type = max(bright, dim * 0.6);
+      vec3 night = uFg * type * clamp(0.06 + lit, 0.0, 1.0)            // type, lit by the lamp
+                 + uFg * (1.0 - type) * pool * line * 0.22;           // the faint net on the black
+      col = mix(col, night, uLamp);
+    }
+    o = vec4(col, 1.0);
+  }`;
+
+  function prog(vs, fs) {
+    const p = gl.createProgram();
+    for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      gl.attachShader(p, s);
+    }
+    gl.bindAttribLocation(p, 0, 'a'); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++) { const name = gl.getActiveUniform(p, i).name.replace('[0]', ''); u[name] = gl.getUniformLocation(p, name); }
+    return { p, u };
+  }
+  const simP = prog(VS, SIM_FS), outP = prog(VS, OUT_FS);
+
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+  function tex(w, h, internal, format, type) {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, type, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
+  }
+
+  let W = 0, H = 0, dpr = 1, SW = 0, SH = 0, simScale = 1;
+  let sims = [], fbos = [], cur = 0, textTex = null;
+
+  function uploadType() {
+    drawType(W, H, dpr);
+    gl.bindTexture(gl.TEXTURE_2D, textTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, tc);
+  }
+
+  function resize() {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr);
+    canvas.width = W; canvas.height = H;
+    simScale = Math.max(2, Math.ceil(innerWidth / 480)) * dpr;   // sim cell size in device px
+    SW = Math.ceil(W / simScale); SH = Math.ceil(H / simScale);
+    sims.forEach((t) => gl.deleteTexture(t)); fbos.forEach((f) => gl.deleteFramebuffer(f));
+    sims = [0, 1].map(() => tex(SW, SH, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT));
+    fbos = sims.map((t) => {
+      const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+      gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+      return f;
+    });
+    if (!textTex) textTex = tex(W, H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
+    uploadType();
+  }
+
+  // ---------- input -> water ----------
+  const drops = [];
+  // A splash is eased in over ~0.5 s (60 sim steps) so type sinks in instead of slamming.
+  const STAMP_STEPS = 60;
+  let stampTotal = 0, stampStep = STAMP_STEPS, stampW = [0, 0, 0];
+  const toSim = (x, y) => [x * dpr / simScale, SH - y * dpr / simScale];
+  function drop(x, y, a = 3, r = 7) { drops.push([x, y, r, a * AMP]); }
+  function splash(weights, amt) { stampW = weights; stampTotal = amt * AMP; stampStep = 0; }
+  function rain(n = 14) {
+    for (let i = 0; i < n; i++) setTimeout(() => drop(Math.random() * SW, Math.random() * SH, (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 1.5), 3 + Math.random() * 4), i * 60);
+  }
+
+  let ptr = null, last = null, downAt = null;
+  canvas.addEventListener('pointermove', (e) => { ptr = toSim(e.clientX, e.clientY); if (!last) last = ptr; });
+  canvas.addEventListener('pointerleave', () => { ptr = last = null; });
+  canvas.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; ptr = last = toSim(e.clientX, e.clientY); });
+  canvas.addEventListener('pointerup', (e) => {
+    if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 8) { const [x, y] = toSim(e.clientX, e.clientY); drop(x, y, -4, 9); }
+    downAt = null;
+    if (e.pointerType !== 'mouse') ptr = last = null;
+  });
+
+  // ---------- lyric stepping ----------
+  let lineTimer = 0;
+  function nextLine() {
+    if (!song.lyrics.length) return;
+    lineIdx = (lineIdx + 1) % song.lyrics.length;
+    uploadType();
+    splash([0, 0, 1], -0.4);   // the new line drops into the water
+    lineTimer = 0;
+  }
+
+  // ---------- loop ----------
+  const dropU = new Float32Array(32);
+  function step() {
+    gl.useProgram(simP.p); const u = simP.u;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbos[1 - cur]); gl.viewport(0, 0, SW, SH);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, sims[cur]); gl.uniform1i(u.uPrev, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, textTex); gl.uniform1i(u.uText, 1);
+    gl.uniform2f(u.uRes, SW, SH);
+    gl.uniform1f(u.uDamp, 0.993);
+    dropU.fill(0);
+    drops.splice(0, 8).forEach((d, i) => dropU.set(d, i * 4));
+    gl.uniform4fv(u.uDrops, dropU);
+    if (ptr && last) {
+      const dist = Math.hypot(ptr[0] - last[0], ptr[1] - last[1]);
+      gl.uniform4f(u.uSeg, last[0], last[1], ptr[0], ptr[1]);
+      gl.uniform2f(u.uSegP, Math.min(dist * 0.05, 0.6) * AMP, 3.5);
+      last = ptr;
+    } else gl.uniform2f(u.uSegP, 0, 1);
+    let stamp = 0;
+    if (stampStep < STAMP_STEPS) { stamp = stampTotal * Math.sin(Math.PI * (stampStep + 0.5) / STAMP_STEPS) * Math.PI / (2 * STAMP_STEPS); stampStep++; }
+    gl.uniform3fv(u.uStampW, stampW); gl.uniform1f(u.uStamp, stamp);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    cur = 1 - cur;
+  }
+  function render() {
+    gl.useProgram(outP.p); const u = outP.u;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, sims[cur]); gl.uniform1i(u.uSim, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, textTex); gl.uniform1i(u.uText, 1);
+    gl.uniform2f(u.uSimRes, SW, SH); gl.uniform2f(u.uRes, W, H);
+    gl.uniform1f(u.uRefract, 26 * dpr);
+    gl.uniform3f(u.uBg, 0, 0, 0);
+    gl.uniform3f(u.uFg, 0.957, 0.949, 0.933);
+    gl.uniform3f(u.uDim, 0.541, 0.529, 0.51);
+    gl.uniform1f(u.uLamp, lamp.fade);
+    gl.uniform2f(u.uLampPos, lamp.x, lamp.y); gl.uniform2f(u.uCss, innerWidth, innerHeight);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  // ---------- easter egg: the lamp ----------
+  // L, or three quick taps, turns the day off and hangs a lamp over the water (caustic-volume's night scene).
+  const lamp = { on: false, fade: 0, x: 0.5, y: 0.6, tx: 0.5, ty: 0.6, idle: 0, drip: 0 };
+  const toast = document.getElementById('toast'); let toastT;
+  function setLamp(v) {
+    lamp.on = v;
+    toast.textContent = v ? 'Lamp on · L to switch off' : 'Lamp off';
+    toast.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { toast.style.opacity = 0; }, 1800);
+    if (v) rain(8);
+  }
+  canvas.addEventListener('pointermove', (e) => { lamp.tx = e.clientX / innerWidth; lamp.ty = 1 - e.clientY / innerHeight; lamp.idle = 0; });
+  let taps = [];
+  canvas.addEventListener('pointerup', (e) => {
+    const now = performance.now();
+    taps = taps.filter((t) => now - t.t < 650 && Math.hypot(t.x - e.clientX, t.y - e.clientY) < 50);
+    taps.push({ t: now, x: e.clientX, y: e.clientY });
+    if (taps.length >= 3) { taps = []; setLamp(!lamp.on); }
+  });
+  function moveLamp(dt, now) {
+    lamp.fade += ((lamp.on ? 1 : 0) - lamp.fade) * Math.min(1, dt * 3);
+    if (lamp.fade < 0.002) lamp.fade = 0;
+    if ((lamp.idle += dt) > 2.5) {   // no pointer for a while: the lamp sways on its own
+      lamp.tx = 0.5 + 0.3 * Math.sin(now * 0.00021); lamp.ty = 0.5 + 0.22 * Math.sin(now * 0.00033 + 1.3);
+    }
+    const k = Math.min(1, dt * 4);
+    lamp.x += (lamp.tx - lamp.x) * k; lamp.y += (lamp.ty - lamp.y) * k;
+    if (lamp.on && !reduced && (lamp.drip += dt) > 1.1) {   // at night, a slow drip keeps the light moving
+      lamp.drip = 0; drop(Math.random() * SW, Math.random() * SH, 0.9, 3 + Math.random() * 2);
+    }
+  }
+
+  let prev = performance.now(), acc = 0, paused = false;
+  function frame(now) {
+    const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
+    acc += dt;
+    let n = 0; while (acc >= 1 / 120 && n < 6) { step(); acc -= 1 / 120; n++; }
+    if (n === 6) acc = 0;
+    if (!paused && (lineTimer += dt * 1000) > LINE_MS) nextLine();
+    moveLamp(dt, now);
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(resize, 120); });
+  resize();
+  requestAnimationFrame(frame);
+  document.fonts.ready.then(() => { uploadType(); splash([1, 0.6, 0], -1.2); });
+
+  setupUI(() => { lineIdx = 0; uploadType(); splash([1, 0.6, 0], -1.2); lineTimer = 0; }, (p) => { paused = p; });
+
+  addEventListener('keydown', (e) => {
+    if (e.target.closest('input, textarea') || (e.target.closest('button') && (e.code === 'Space' || e.key === 'Enter'))) return;
+    if (e.code === 'Space') { e.preventDefault(); nextLine(); }
+    else if (e.key === 'r' || e.key === 'R') rain();
+    else if (e.key === 'l' || e.key === 'L') setLamp(!lamp.on);
+  });
+
+  // ---------- edit panel ----------
+  function setupUI(apply, setPaused) {
+    const ed = document.getElementById('editor'), btn = document.getElementById('editBtn');
+    const fT = document.getElementById('fTitle'), fA = document.getElementById('fArtist'), fL = document.getElementById('fLyrics');
+    const open = (v) => {
+      ed.hidden = !v; btn.setAttribute('aria-expanded', String(v)); setPaused(v);
+      if (v) { fT.value = song.title; fA.value = song.artist; fL.value = song.lyrics.join('\n'); fT.focus(); }
+    };
+    btn.addEventListener('click', () => open(ed.hidden));
+    document.getElementById('cancelBtn').addEventListener('click', () => open(false));
+    ed.addEventListener('submit', (e) => {
+      e.preventDefault();
+      song = {
+        title: fT.value.trim() || DEFAULT.title,
+        artist: fA.value.trim(),
+        lyrics: fL.value.split('\n').map((s) => s.trim()).filter(Boolean),
+      };
+      try { localStorage.setItem('swt-song', JSON.stringify(song)); } catch (err) {}
+      open(false); apply();
+    });
+    ed.addEventListener('keydown', (e) => { if (e.key === 'Escape') open(false); });
+  }
+})();
+</script>
