@@ -7,7 +7,7 @@
   :root {
     color-scheme: dark;
     --bg: #000000;
-    --fg: #f4f2ee;
+    --fg: #ffffff;
     --dim: #8a8782;
     --line: #2a2927;
     --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -441,7 +441,7 @@
     gl.uniform2f(u.uSimRes, SW, SH); gl.uniform2f(u.uRes, W, H);
     gl.uniform1f(u.uRefract, 26 * dpr);
     gl.uniform3f(u.uBg, 0, 0, 0);
-    gl.uniform3f(u.uFg, 0.957, 0.949, 0.933);
+    gl.uniform3f(u.uFg, 1, 1, 1);
     gl.uniform3f(u.uDim, 0.541, 0.529, 0.51);
     gl.uniform1f(u.uLamp, lamp.fade);
     gl.uniform2f(u.uLampPos, lamp.x, lamp.y); gl.uniform2f(u.uCss, innerWidth, innerHeight);
