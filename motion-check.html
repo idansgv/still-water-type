@@ -1,0 +1,169 @@
+<title>Motion Access Check</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  /* Layout: a checklist stacked above a live tilt readout (dot in a box), test button pinned below both. */
+  :root {
+    --bg: #f4f2ee; --fg: #16140f; --dim: #6b675f; --line: #d9d5cc;
+    --ok: #1d6b3e; --ok-bg: #e4f1e8;
+    --bad: #a3311a; --bad-bg: #fbe9e4;
+    --pending-bg: #ece9e2;
+    --accent: #16140f;
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111110; --fg: #f1efe9; --dim: #97938a; --line: #2c2a26;
+      --ok: #6fd39a; --ok-bg: #163326;
+      --bad: #ff8b73; --bad-bg: #3a1712;
+      --pending-bg: #201e1a;
+      --accent: #f1efe9;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111110; --fg: #f1efe9; --dim: #97938a; --line: #2c2a26;
+    --ok: #6fd39a; --ok-bg: #163326;
+    --bad: #ff8b73; --bad-bg: #3a1712;
+    --pending-bg: #201e1a;
+    --accent: #f1efe9;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--mono); }
+  .wrap { min-height: 100%; max-width: 460px; margin: 0 auto; padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 20px; }
+  h1 { font-size: 17px; margin: 0; letter-spacing: 0.01em; }
+  p.lede { margin: 0; color: var(--dim); font-size: 13px; line-height: 1.5; }
+  .rows { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: none; }
+  .row .k { color: var(--dim); font-size: 13px; }
+  .v { font-size: 13px; padding: 2px 8px; border-radius: 5px; background: var(--pending-bg); color: var(--dim); white-space: nowrap; }
+  .v.ok { background: var(--ok-bg); color: var(--ok); }
+  .v.bad { background: var(--bad-bg); color: var(--bad); }
+  .stage { border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .box { position: relative; width: 100%; max-width: 220px; aspect-ratio: 1; border: 1px solid var(--line); border-radius: 10px; background: var(--pending-bg); }
+  .box::before, .box::after { content: ""; position: absolute; background: var(--line); }
+  .box::before { left: 0; right: 0; top: 50%; height: 1px; }
+  .box::after { top: 0; bottom: 0; left: 50%; width: 1px; }
+  .dot { position: absolute; width: 16px; height: 16px; margin: -8px; left: 50%; top: 50%; border-radius: 50%; background: var(--accent); transition: transform 60ms linear; }
+  .readout { display: flex; gap: 16px; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--dim); }
+  .readout b { color: var(--fg); font-weight: 600; }
+  button {
+    font: 600 15px var(--mono); letter-spacing: 0.01em; color: var(--bg); background: var(--accent);
+    border: none; border-radius: 10px; padding: 14px; cursor: pointer;
+  }
+  button:active { opacity: 0.85; }
+  button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .copy { font: inherit; color: var(--dim); background: none; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; align-self: flex-start; }
+  details { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+  summary { cursor: pointer; color: var(--dim); font-size: 13px; }
+  pre { font: 11px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; color: var(--dim); margin: 10px 0 0; }
+</style>
+
+<div class="wrap">
+  <div>
+    <h1>Motion Access Check</h1>
+    <p class="lede">Tests whether this phone lets a website read its tilt (the same permission Still Water Type's gyro parallax needs). Nothing here is sent anywhere.</p>
+  </div>
+
+  <div class="rows" id="rows">
+    <div class="row"><span class="k">Sensor API present</span><span class="v" id="rSupport">—</span></div>
+    <div class="row"><span class="k">Needs a tap to ask</span><span class="v" id="rGate">—</span></div>
+    <div class="row"><span class="k">Permission result</span><span class="v" id="rPerm">not tested yet</span></div>
+    <div class="row"><span class="k">Receiving live data</span><span class="v" id="rLive">—</span></div>
+  </div>
+
+  <div class="stage">
+    <div class="box"><div class="dot" id="dot"></div></div>
+    <div class="readout"><span>β <b id="beta">–</b></span><span>γ <b id="gamma">–</b></span><span>α <b id="alpha">–</b></span></div>
+  </div>
+
+  <button id="testBtn" type="button">Tap to test</button>
+
+  <details>
+    <summary>Full report (for copying back)</summary>
+    <pre id="report"></pre>
+    <button class="copy" id="copyBtn" type="button" style="margin-top:10px">Copy report</button>
+  </details>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const rSupport = $('rSupport'), rGate = $('rGate'), rPerm = $('rPerm'), rLive = $('rLive');
+  const dot = $('dot'), betaEl = $('beta'), gammaEl = $('gamma'), alphaEl = $('alpha');
+  const report = $('report'), btn = $('testBtn');
+
+  function setBadge(el, text, cls) { el.textContent = text; el.className = 'v' + (cls ? ' ' + cls : ''); }
+
+  const hasAPI = typeof DeviceOrientationEvent !== 'undefined';
+  const hasGate = hasAPI && typeof DeviceOrientationEvent.requestPermission === 'function';
+  setBadge(rSupport, hasAPI ? 'yes' : 'no', hasAPI ? 'ok' : 'bad');
+  setBadge(rGate, hasAPI ? (hasGate ? 'yes (iOS-style)' : 'no') : '—', hasAPI ? undefined : undefined);
+
+  let base = null, gotData = false;
+  const dead = { alpha: false }; // track whether alpha ever arrives (some browsers omit it)
+
+  function onOrientation(e) {
+    if (e.beta == null && e.gamma == null && e.alpha == null) return;
+    gotData = true;
+    setBadge(rLive, 'yes', 'ok');
+    betaEl.textContent = e.beta == null ? '–' : e.beta.toFixed(1);
+    gammaEl.textContent = e.gamma == null ? '–' : e.gamma.toFixed(1);
+    alphaEl.textContent = e.alpha == null ? '–' : e.alpha.toFixed(1);
+    if (!base && e.beta != null && e.gamma != null) base = { beta: e.beta, gamma: e.gamma };
+    if (base) {
+      const dx = Math.max(-1, Math.min(1, (e.gamma - base.gamma) / 30));
+      const dy = Math.max(-1, Math.min(1, (e.beta - base.beta) / 30));
+      dot.style.transform = `translate(${dx * 85}px, ${dy * 85}px)`;
+    }
+  }
+
+  function buildReport(extra) {
+    const lines = [
+      'Motion Access Check',
+      'UA: ' + navigator.userAgent,
+      'Platform: ' + (navigator.platform || '—'),
+      'Sensor API present: ' + hasAPI,
+      'Needs permission gate: ' + hasGate,
+      'Permission result: ' + (extra.perm || 'not tested'),
+      'Received live data: ' + gotData,
+    ];
+    if (extra.error) lines.push('Error: ' + extra.error);
+    report.textContent = lines.join('\n');
+  }
+  buildReport({});
+
+  function afterAttempt(permText, permCls, errorMsg) {
+    setBadge(rPerm, permText, permCls);
+    buildReport({ perm: permText, error: errorMsg });
+    setTimeout(() => { if (!gotData) setBadge(rLive, 'no data received', 'bad'); }, 2500);
+  }
+
+  btn.addEventListener('click', () => {
+    if (!hasAPI) { afterAttempt('no sensor API', 'bad'); return; }
+    if (hasGate) {
+      DeviceOrientationEvent.requestPermission()
+        .then((r) => {
+          if (r === 'granted') { addEventListener('deviceorientation', onOrientation); afterAttempt('granted', 'ok'); }
+          else afterAttempt(r, 'bad');
+        })
+        .catch((e) => afterAttempt('request threw', 'bad', (e && e.message) || String(e)));
+    } else {
+      addEventListener('deviceorientation', onOrientation);
+      afterAttempt('no permission needed', 'ok');
+    }
+  });
+
+  $('copyBtn').addEventListener('click', async () => {
+    const btn2 = $('copyBtn');
+    try { await navigator.clipboard.writeText(report.textContent); btn2.textContent = 'Copied'; }
+    catch (e) {
+      const r = document.createRange(); r.selectNodeContents(report);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      btn2.textContent = 'Selected — copy manually';
+    }
+    setTimeout(() => { btn2.textContent = 'Copy report'; }, 1800);
+  });
+})();
+</script>

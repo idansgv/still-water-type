@@ -329,10 +329,35 @@
     for (let i = 0; i < n; i++) setTimeout(() => drop(Math.random() * SW, Math.random() * SH, (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 1.5), 3 + Math.random() * 4), i * 60);
   }
 
+  // ---------- click spark: a small burst of ascii glyphs, in our own type and tone ----------
+  // (the idea: sushan.xyz/thoughts's click burst, redrawn in mono type instead of colored blocks)
+  const SPARK_GLYPHS = "~*+.:;'^-/\\".split('');
+  function spark(x, y) {
+    for (let i = 0; i < 6; i++) {
+      const el = document.createElement('span');
+      el.textContent = SPARK_GLYPHS[Math.floor(Math.random() * SPARK_GLYPHS.length)];
+      el.setAttribute('aria-hidden', 'true');
+      Object.assign(el.style, {
+        position: 'fixed', left: x + 'px', top: y + 'px', zIndex: 40, pointerEvents: 'none',
+        fontFamily: 'var(--mono)', fontWeight: '700', fontSize: (11 + Math.random() * 9).toFixed(1) + 'px',
+        color: 'var(--fg)',
+      });
+      document.body.appendChild(el);
+      const ang = Math.random() * Math.PI * 2, dist = 14 + Math.random() * 20;
+      const dx = (Math.cos(ang) * dist).toFixed(1), dy = (Math.sin(ang) * dist).toFixed(1);
+      const rot = (Math.random() * 60 - 30).toFixed(0);
+      const anim = el.animate([
+        { transform: 'translate(-50%, -50%) scale(1) rotate(0deg)', opacity: 1 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.3) rotate(${rot}deg)`, opacity: 0 },
+      ], { duration: 420 + Math.random() * 140, delay: Math.random() * 40, easing: 'cubic-bezier(0.19, 1, 0.22, 1)', fill: 'both' });
+      anim.onfinish = () => el.remove();
+    }
+  }
+
   let ptr = null, last = null, downAt = null;
   canvas.addEventListener('pointermove', (e) => { ptr = toSim(e.clientX, e.clientY); if (!last) last = ptr; });
   canvas.addEventListener('pointerleave', () => { ptr = last = null; });
-  canvas.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; ptr = last = toSim(e.clientX, e.clientY); });
+  canvas.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; ptr = last = toSim(e.clientX, e.clientY); spark(e.clientX, e.clientY); });
   canvas.addEventListener('pointerup', (e) => {
     if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 8) { const [x, y] = toSim(e.clientX, e.clientY); drop(x, y, -4, 9); }
     downAt = null;
