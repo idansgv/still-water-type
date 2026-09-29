@@ -77,6 +77,7 @@
 
 <script>
 (() => {
+  console.log('%cStill Water Type — build 2026-09-29-tilt-toast', 'color:#8a8782;font:11px monospace');
   // ---------- content ----------
   // Placeholder lines. Paste real lyrics through "Edit text" (kept in this browser only).
   const DEFAULT = {
@@ -430,16 +431,28 @@
   // at all on desktop, where there's no tilt to read.
   const tilt = { x: 0, y: 0, tx: 0, ty: 0, base: null };
   const DEPTH_PX = reduced ? 0 : 6;   // max shift, in css px, at a moderate tilt
+  function tiltStatus(msg) {   // a toast, so it's visible on the phone itself rather than only in a console
+    toast.textContent = msg;
+    toast.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { toast.style.opacity = 0; }, 2400);
+  }
   function onOrientation(e) {
     if (e.beta == null || e.gamma == null) return;
-    if (!tilt.base) tilt.base = { beta: e.beta, gamma: e.gamma };
+    if (!tilt.base) { tilt.base = { beta: e.beta, gamma: e.gamma }; tiltStatus('Tilt on'); }
     tilt.tx = Math.max(-1, Math.min(1, (e.gamma - tilt.base.gamma) / 28));
     tilt.ty = Math.max(-1, Math.min(1, (e.beta - tilt.base.beta) / 28));
   }
-  function startTilt() { if (typeof DeviceOrientationEvent !== 'undefined' && DEPTH_PX > 0) addEventListener('deviceorientation', onOrientation); }
+  function startTilt() {
+    if (typeof DeviceOrientationEvent === 'undefined' || DEPTH_PX === 0) return;
+    addEventListener('deviceorientation', onOrientation);
+    setTimeout(() => { if (!tilt.base) tiltStatus('Tilt: no sensor found'); }, 2500);
+  }
   if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
     // iOS gates motion access behind a user gesture — the first tap-to-stir doubles as that ask.
-    canvas.addEventListener('pointerdown', () => { DeviceOrientationEvent.requestPermission().then((r) => { if (r === 'granted') startTilt(); }).catch(() => {}); }, { once: true });
+    canvas.addEventListener('pointerdown', () => {
+      DeviceOrientationEvent.requestPermission()
+        .then((r) => { if (r === 'granted') startTilt(); else tiltStatus('Tilt: motion access denied'); })
+        .catch(() => tiltStatus('Tilt: motion request failed'));
+    }, { once: true });
   } else {
     startTilt();
   }
