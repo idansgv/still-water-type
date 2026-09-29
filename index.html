@@ -81,7 +81,7 @@
   // ---------- content ----------
   // Placeholder lines. Paste real lyrics through "Edit text" (kept in this browser only).
   const DEFAULT = {
-    title: 'Idan Segev',
+    title: 'Idan\nSegev',
     artist: 'Design',
     lyrics: [],   // parked: the lyric line and its cycling stay in the code, ready for real lyrics later
   };
@@ -121,12 +121,16 @@
     const pad = Math.max(16 * dpr, W * 0.045);
     const maxW = W - pad * 2;
 
-    // title
-    const tSize = fitSize(song.title, 900, maxW, H * 0.2);
-    const tBase = pad + tSize * 0.78;
+    // title: one line, or several if it carries its own line breaks (e.g. "Idan\nSegev")
+    const titleLines = song.title.split('\n');
+    tx.font = `900 100px ${FONT}`;
+    const titleW = Math.max(1, ...titleLines.map((l) => tx.measureText(l).width || 1));
+    const tSize = Math.min(H * 0.2 / Math.max(1, titleLines.length * 0.72), (maxW / titleW) * 100);
+    const tLH = tSize * 0.86;
     tx.font = `900 ${tSize}px ${FONT}`;
     tx.fillStyle = 'rgb(255,0,0)';
-    tx.fillText(song.title, pad - tSize * 0.04, tBase);
+    titleLines.forEach((l, i) => tx.fillText(l, pad - tSize * 0.04, pad + tSize * 0.78 + i * tLH));
+    const tBase = pad + tSize * 0.78 + (titleLines.length - 1) * tLH;
 
     // artist
     const aSize = Math.max(tSize * 0.3, 18 * dpr);
