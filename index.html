@@ -223,6 +223,7 @@
   uniform vec3 uBg, uFg, uDim;
   uniform float uLamp;             // easter egg: 0 day, 1 night with a lamp
   uniform vec2 uLampPos, uCss;     // lamp position (uv); screen size (css px)
+  uniform vec2 uTilt;              // device tilt (device px): a light parallax, mainly seen on a phone
   out vec4 o;
   void main(){
     vec2 s = 1.0 / uSimRes;
@@ -230,7 +231,7 @@
     float r = texture(uSim, uv + vec2(s.x, 0.0)).r, l = texture(uSim, uv - vec2(s.x, 0.0)).r;
     float u = texture(uSim, uv + vec2(0.0, s.y)).r, d = texture(uSim, uv - vec2(0.0, s.y)).r;
     float hx = r - l, hy = u - d;
-    vec2 off = vec2(hx, hy) * uRefract / uRes;
+    vec2 off = vec2(hx, hy) * uRefract / uRes + uTilt / uRes;
     vec3 t = texture(uText, uv - off).rgb;
     float bright = smoothstep(0.38, 0.62, t.r), dim = smoothstep(0.38, 0.62, t.g);
     vec3 col = mix(uBg, uDim, dim);
@@ -418,7 +419,29 @@
     gl.uniform3f(u.uDim, 0.541, 0.529, 0.51);
     gl.uniform1f(u.uLamp, lamp.fade);
     gl.uniform2f(u.uLampPos, lamp.x, lamp.y); gl.uniform2f(u.uCss, innerWidth, innerHeight);
+    gl.uniform2f(u.uTilt, tilt.x * DEPTH_PX * dpr, tilt.y * DEPTH_PX * dpr);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  // ---------- depth: a light gyro parallax on mobile ----------
+  // Tilting the device shifts the type very slightly against the black, like a shallow
+  // parallax card — most noticeable held in the hand, not lying flat on a desk. Calibrates
+  // to however you're already holding it rather than to a level phone, and does nothing
+  // at all on desktop, where there's no tilt to read.
+  const tilt = { x: 0, y: 0, tx: 0, ty: 0, base: null };
+  const DEPTH_PX = reduced ? 0 : 6;   // max shift, in css px, at a moderate tilt
+  function onOrientation(e) {
+    if (e.beta == null || e.gamma == null) return;
+    if (!tilt.base) tilt.base = { beta: e.beta, gamma: e.gamma };
+    tilt.tx = Math.max(-1, Math.min(1, (e.gamma - tilt.base.gamma) / 28));
+    tilt.ty = Math.max(-1, Math.min(1, (e.beta - tilt.base.beta) / 28));
+  }
+  function startTilt() { if (typeof DeviceOrientationEvent !== 'undefined' && DEPTH_PX > 0) addEventListener('deviceorientation', onOrientation); }
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS gates motion access behind a user gesture — the first tap-to-stir doubles as that ask.
+    canvas.addEventListener('pointerdown', () => { DeviceOrientationEvent.requestPermission().then((r) => { if (r === 'granted') startTilt(); }).catch(() => {}); }, { once: true });
+  } else {
+    startTilt();
   }
 
   // ---------- easter egg: the lamp ----------
@@ -460,6 +483,8 @@
     if (n === 6) acc = 0;
     if (!paused && (lineTimer += dt * 1000) > LINE_MS) nextLine();
     moveLamp(dt, now);
+    const tk = Math.min(1, dt * 4);
+    tilt.x += (tilt.tx - tilt.x) * tk; tilt.y += (tilt.ty - tilt.y) * tk;
     render();
     requestAnimationFrame(frame);
   }
