@@ -1,0 +1,79 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Share images</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>body{margin:0;background:#222;color:#aaa;font:13px monospace;padding:16px} canvas{display:block;margin:12px 0;max-width:100%;border:1px solid #444}</style>
+<p>Draws the site's share image and touch icon, then posts them to tools/save-server.py (run that first).</p>
+<canvas id="og" width="1200" height="630"></canvas>
+<canvas id="icon" width="180" height="180"></canvas>
+<pre id="log"></pre>
+<script>
+// "Melt": extend every column's lowest ink downward as round-tipped drips, the same idea the Meltdown poster
+// runs live in a shader. Deterministic (seeded), so the share image never changes by accident.
+function rng(seed) { let a = seed; return () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+function melt(ctx, w, h, { cellA, cellB, reachA, reachB, seed }) {
+  const r = rng(seed);
+  const img = ctx.getImageData(0, 0, w, h), d = img.data;
+  const cellsA = {}, cellsB = {};
+  const layer = (c, cw, lo, hi, store) => {
+    const id = Math.floor(c / cw);
+    if (!(id in store)) store[id] = lo + (hi - lo) * r();
+    const f = ((c / cw) - id) * 2 - 1, body = 0.62;
+    if (Math.abs(f) > body) return 0;
+    const rad = body * cw * 0.5, x = f / body, L = store[id];
+    return Math.max(0, L - rad + rad * Math.sqrt(Math.max(0, 1 - x * x)));
+  };
+  for (let x = 0; x < w; x++) {
+    let bottom = -1;
+    for (let y = h - 1; y >= 0; y--) if (d[(y * w + x) * 4] > 128) { bottom = y; break; }
+    if (bottom < 0) continue;
+    const L = Math.max(layer(x, cellA, reachA[0], reachA[1], cellsA), layer(x, cellB, reachB[0], reachB[1], cellsB));
+    for (let y = bottom; y < Math.min(h, bottom + L); y++) {
+      const i = (y * w + x) * 4; d[i] = d[i + 1] = d[i + 2] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function post(canvas, name) {
+  return new Promise((res) => canvas.toBlob(async (b) => {
+    try { await fetch('http://127.0.0.1:8920/save?name=' + name, { method: 'POST', body: b }); document.getElementById('log').textContent += 'posted ' + name + '\n'; }
+    catch (e) { document.getElementById('log').textContent += 'FAILED ' + name + ' ' + e + '\n'; }
+    res();
+  }, 'image/png'));
+}
+
+async function draw() {
+  await document.fonts.load('900 100px Archivo', 'Idan Segev');
+  await document.fonts.load('400 20px "IBM Plex Mono"', 'Design leadership');
+
+  // ---- share image, 1200 x 630 ----
+  const og = document.getElementById('og'), g = og.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, 1200, 630);
+  g.fillStyle = '#fff'; g.textBaseline = 'alphabetic';
+  const pad = 56;
+  g.font = '900 100px Archivo';
+  const m = g.measureText('Idan Segev');
+  const size = ((1200 - pad * 2) / m.width) * 100;
+  g.font = `900 ${size}px Archivo`;
+  const m2 = g.measureText('Idan Segev');
+  const cap = m2.actualBoundingBoxAscent;
+  g.fillText('Idan Segev', pad + m2.actualBoundingBoxLeft, 140 + cap);
+  // melt only the type (before the caption goes on)
+  melt(g, 1200, 630, { cellA: 18, cellB: 46, reachA: [8, 46], reachB: [20, 118], seed: 7 });
+  g.fillStyle = '#9a9a9a'; g.font = '400 24px "IBM Plex Mono"';
+  g.fillText('Design leadership', pad, 590);
+  g.textAlign = 'right'; g.fillText('idansegev.com', 1200 - pad, 590); g.textAlign = 'left';
+  await post(og, 'og.png');
+
+  // ---- touch icon, 180 x 180 (also reads as the favicon) ----
+  const ic = document.getElementById('icon'), c = ic.getContext('2d');
+  c.fillStyle = '#000'; c.fillRect(0, 0, 180, 180);
+  c.fillStyle = '#fff';
+  c.fillRect(65, 34, 50, 76);                    // the I, with one drip (same shapes as assets/favicon.svg)
+  c.beginPath(); c.moveTo(79, 110); c.lineTo(101, 110); c.lineTo(101, 122); c.arc(90, 122, 11, 0, Math.PI); c.closePath(); c.fill();
+  await post(ic, 'apple-touch-icon.png');
+}
+draw();
+</script>

@@ -1,0 +1,194 @@
+// The shell: picks a poster at random, mounts it, and keeps the page furniture honest.
+
+import { POSTERS, bySlug, pickTheme } from './posters/index.js';
+import { createStage, THEMES, fontsReady, mulberry32 } from './engine.js';
+
+const $ = (id) => document.getElementById(id);
+const stageEl = $('stage');
+const hintEl = $('hint');
+const toastEl = $('toast');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const params = new URLSearchParams(location.search);
+
+let current = null;       // { poster, stage, seed, theme }
+let busy = false;
+let hintTimer = 0;
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const randomSeed = () => (Math.random() * 4294967296) >>> 0;
+
+// ---------- small things ----------
+let toastTimer = 0;
+export function toast(msg, ms = 2200) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('on'), ms);
+}
+
+const TAGLINES = [
+  'Design leadership, occasionally liquid.',
+  'Design leadership. Mostly flat.',
+  'Design leadership in three dimensions.',
+  'Design leadership under load.',
+  'Systems, teams, and the odd meltdown.',
+  'Design leadership. Please refresh.',
+];
+
+// ---------- the click spark ----------
+const GLYPHS = "~*+.:;'^-/\\".split('');
+function spark(x, y) {
+  if (reduced) return;
+  for (let i = 0; i < 6; i++) {
+    const el = document.createElement('span');
+    el.className = 'spark';
+    el.textContent = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+    el.setAttribute('aria-hidden', 'true');
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.fontSize = (11 + Math.random() * 9).toFixed(1) + 'px';
+    document.body.appendChild(el);
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 14 + Math.random() * 20;
+    const dx = (Math.cos(ang) * dist).toFixed(1);
+    const dy = (Math.sin(ang) * dist).toFixed(1);
+    const rot = (Math.random() * 60 - 30).toFixed(0);
+    const a = el.animate(
+      [
+        { transform: 'translate(-50%, -50%) scale(1) rotate(0deg)', opacity: 1 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.3) rotate(${rot}deg)`, opacity: 0 },
+      ],
+      { duration: 420 + Math.random() * 140, delay: Math.random() * 40, easing: 'cubic-bezier(0.19, 1, 0.22, 1)', fill: 'both' },
+    );
+    a.onfinish = () => el.remove();
+  }
+}
+stageEl.addEventListener('pointerdown', (e) => spark(e.clientX, e.clientY));
+
+// ---------- picking ----------
+function pickOther(slug) {
+  const pool = POSTERS.filter((p) => p.slug !== slug);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function pickFirst() {
+  const fixed = document.documentElement.dataset.poster || params.get('p');
+  if (fixed && bySlug(fixed)) return bySlug(fixed);
+  let last = null;
+  try { last = localStorage.getItem('swt:last'); } catch (e) { /* private mode */ }
+  return pickOther(last);
+}
+function seedFromHash() {
+  const m = /[#&]s=([0-9a-z]+)/i.exec(location.hash);
+  return m ? parseInt(m[1], 36) >>> 0 : null;
+}
+function chooseTheme(poster, seed) {
+  const forced = params.get('theme');
+  if (forced === 'light' || forced === 'dark') return forced;
+  return pickTheme(poster, mulberry32(seed ^ 0x9e3779b9));
+}
+
+// ---------- mounting ----------
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme.name;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', theme.bg);
+}
+
+function showFallback(poster) {
+  const el = document.createElement('div');
+  el.className = 'fallback';
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = poster.words.map((w) => `<span>${w}</span>`).join('');
+  stageEl.appendChild(el);
+}
+
+function setChrome(poster) {
+  const i = POSTERS.indexOf(poster);
+  $('folio-title').textContent = poster.title;
+  $('folio-count').textContent = ` ${i + 1}/${POSTERS.length}`;
+  document.title = `${poster.title} · Idan Segev`;
+}
+
+function armHint(poster, stage) {
+  clearTimeout(hintTimer);
+  hintEl.classList.remove('on');
+  if (!poster.hint) return;
+  const hide = () => { hintEl.classList.remove('on'); clearTimeout(hintTimer); };
+  stage.on('down', hide);
+  stage.on('move', () => { if (stage.ptr.down) hide(); });
+  hintTimer = setTimeout(() => {
+    if (!stage.interacted) { hintEl.textContent = poster.hint; hintEl.classList.add('on'); }
+  }, 6500);
+}
+
+async function show(poster, { seed = randomSeed(), themeName } = {}) {
+  busy = true;
+  const theme = THEMES[themeName || chooseTheme(poster, seed)];
+
+  if (current) {
+    stageEl.classList.add('swap');
+    await wait(reduced ? 0 : 100);
+    if (current.stage) current.stage.destroy();
+    stageEl.querySelectorAll('.fallback').forEach((n) => n.remove());
+  }
+  applyTheme(theme);
+  setChrome(poster);
+
+  const stage = createStage(stageEl, { seed, theme, toast });
+  current = { poster, stage, seed, theme };
+  let inst = null;
+  try {
+    await fontsReady();
+    const mod = await poster.load();
+    inst = await mod.mount(stage);
+    current.inst = inst;
+    stage.start();
+    armHint(poster, stage);
+  } catch (err) {
+    console.error(`[poster:${poster.slug}]`, err);
+    stage.destroy();
+    current.stage = null;
+    showFallback(poster);
+  }
+  window.__poster = { slug: poster.slug, seed, theme: theme.name, stage: current.stage, inst };
+  try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
+  requestAnimationFrame(() => stageEl.classList.remove('swap'));
+  busy = false;
+}
+
+async function shuffle() {
+  if (busy || !current) return;
+  const next = pickOther(current.poster.slug);
+  if (location.pathname !== '/') history.replaceState(null, '', '/');
+  await show(next);
+}
+
+async function share() {
+  if (!current) return;
+  const { poster, seed } = current;
+  const url = `${location.origin}/p/${poster.slug}/#s=${seed.toString(36)}`;
+  const data = { title: `${poster.title} · Idan Segev`, text: poster.blurb, url };
+  if (navigator.share) {
+    try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(url); toast('Link copied'); }
+  catch (e) { toast(url, 4000); }
+}
+
+// ---------- wiring ----------
+$('btn-shuffle').addEventListener('click', shuffle);
+$('btn-share').addEventListener('click', share);
+$('tagline').textContent = TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
+
+addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target.closest && e.target.closest('input, textarea, [contenteditable]')) return;
+  const onControl = e.target.closest && e.target.closest('button, a');
+  if (e.key === ' ' || e.key === 'Enter') { if (onControl) return; e.preventDefault(); shuffle(); }
+  else if (e.key === 'ArrowRight' || e.key === 'r' || e.key === 'R') { e.preventDefault(); shuffle(); }
+  else if (e.key === 'w' || e.key === 'W') { location.href = '/work/'; }
+  else if (e.key === 's' || e.key === 'S') { share(); }
+});
+
+const first = pickFirst();
+show(first, { seed: seedFromHash() ?? randomSeed() });

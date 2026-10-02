@@ -1,0 +1,10 @@
+{
+  "name": "idansegev-site",
+  "private": true,
+  "type": "module",
+  "description": "Idan Segev: interactive typographic posters and a quiet index of work. Static, no build step.",
+  "scripts": {
+    "stubs": "node tools/build.mjs",
+    "moovit": "bash tools/sync-moovit.sh"
+  }
+}
