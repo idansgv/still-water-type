@@ -49,6 +49,16 @@ export const POSTERS = [
     load: () => import('./breath.js'),
   },
   {
+    slug: 'sheet',
+    title: 'Sheet',
+    words: ['Nothing', 'to see', 'here.'],
+    blurb: 'A flat poster. Tilt it.',
+    hint: null,
+    themes: { dark: 1, light: 0 },
+    draft: true,
+    load: () => import('./sheet.js'),
+  },
+  {
     slug: 'point-of-view',
     title: 'Point of view',
     words: ['Point', 'of', 'view'],
