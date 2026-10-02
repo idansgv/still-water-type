@@ -45,6 +45,7 @@ export async function mount(ctx) {
   const DEFAULTS = {
     relief: 1.6, restFrame: 16, extra: 0.35, creases: 5, reach: 1, width: 1, softness: 0.012, align: 0.5, bow: 0.05, edge: 0.5,
     size: 0.92, density: ctx.W < 600 ? 170 : 250,
+    shadows: 1, bgL: 0, paperL: 1, inkL: 0,
     shading: 0.85, ao: 0.7, yaw: 0.62, pitch: 0.42, damping: 14, sway: 0.36,
     typeSize: 1, margin: 0.075, phrases: PHRASES,
     crumpleTime: 0.8, exitTime: 0.7, unfoldTime: 0.9,
@@ -61,7 +62,7 @@ export async function mount(ctx) {
   uniform vec2 uGrid, uSheetHalf, uCenter, uFlip;
   uniform mat3 uRot, uSpin;
   uniform vec3 uMove;               // slide x, y and spin (unused z)
-  uniform float uA, uSize, uShade, uAmp, uExtra, uLift, uFrame, uRestFrame, uCrumple, uAO, uReveal;
+  uniform float uA, uSize, uShade, uAmp, uExtra, uLift, uFrame, uRestFrame, uCrumple, uAO, uReveal, uShadows;
   out vec2 vTex;
   out vec2 vSheet;
   out float vShade;
@@ -134,8 +135,8 @@ export async function mount(ctx) {
     float delta = (dot(n, vNow) - dot(n, vRest)) * uShade;       // zero at rest, grows as the view moves
     float blend = smoothstep(0.0, 0.25, uCrumple);
     float light = 0.42 + 0.58 * abs(dot(n, normalize(vec3(0.35, 0.55, 1.0))));
-    vShade = mix(delta, light - 1.0, blend);
-    vAO = 1.0 - uAO * nn.w * max(uReveal, blend);                // creases darken once the view moves, or the paper balls up
+    vShade = uShadows > 0.5 ? mix(delta, light - 1.0, blend) : 0.0;
+    vAO = uShadows > 0.5 ? 1.0 - uAO * nn.w * max(uReveal, blend) : 1.0;   // creases darken once the view moves, or the paper balls up
   }`;
   const FS = `#version 300 es
   precision highp float;
@@ -146,7 +147,7 @@ export async function mount(ctx) {
   uniform sampler2D uMask;
   uniform vec2 uRes, uSheetHalf, uCos;
   uniform float uSize;
-  uniform vec3 uBg, uFg;
+  uniform vec3 uPaper, uInk;
   out vec4 o;
   void main() {
     vec2 pc = gl_PointCoord - 0.5;
@@ -157,7 +158,7 @@ export async function mount(ctx) {
     vec2 uvt = vTex + vec2(off.x * uRes.y / uRes.x, off.y) * 0.5;
     float ink = smoothstep(0.42, 0.58, texture(uMask, uvt).r);
     float paper = clamp((1.0 + vShade) * vAO, 0.14, 1.0);
-    o = vec4(mix(uFg * paper, uBg, ink), 1.0);
+    o = vec4(mix(uPaper * paper, uInk, ink), 1.0);
   }`;
 
   const prog = compile(gl, VS, FS);
@@ -420,6 +421,9 @@ export async function mount(ctx) {
         R('width', 'Crease width', 0.3, 2.2, 0.05), R('softness', 'Crease softness', 0.004, 0.06, 0.002),
         R('align', 'Fold scatter', 0, 1, 0.05), R('bow', 'Bow', 0, 0.15, 0.005), R('edge', 'Edge lift', 0, 1.5, 0.05)] },
       { name: 'Sheet', items: [R('size', 'Sheet size', 0.5, 1, 0.01), R('density', 'Points (thousands)', 40, 400, 10)] },
+      { name: 'Look', items: [
+        { key: 'shadows', label: 'Shadows and shading', type: 'toggle' },
+        R('bgL', 'Background (0 black, 1 white)', 0, 1, 0.05), R('paperL', 'Paper', 0, 1, 0.05), R('inkL', 'Type', 0, 1, 0.05)] },
       { name: 'View', items: [
         R('shading', 'Shading', 0, 2, 0.05), R('ao', 'Crease shadow', 0, 1.5, 0.05), R('yaw', 'Tilt sideways', 0, 1.2, 0.02), R('pitch', 'Tilt up and down', 0, 1, 0.02),
         R('damping', 'Follow speed', 3, 30, 1), R('sway', 'Opening sway', 0, 1, 0.02)] },
@@ -442,10 +446,13 @@ export async function mount(ctx) {
       if (HEIGHT_KEYS.has(key)) dirtyHeights = true;
       if (LAYOUT_KEYS.has(key)) dirtyLayout = true;
       if (key === 'phrases') phraseBag = [];
+      if (key === 'bgL') ctx.setBackdrop(P.bgL);
       save();
     },
-    reset() { Object.assign(P, DEFAULTS); dirtyHeights = dirtyLayout = true; phraseBag = []; save(); },
+    reset() { Object.assign(P, DEFAULTS); dirtyHeights = dirtyLayout = true; phraseBag = []; ctx.setBackdrop(P.bgL); save(); },
   };
+
+  ctx.setBackdrop(P.bgL);
 
   // ---------- frame ----------
   const rot = new Float32Array(9);
@@ -484,7 +491,7 @@ export async function mount(ctx) {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, ctx.pw, ctx.ph);
-    gl.clearColor(...ctx.colors.bg, 1); gl.clearDepth(1);
+    gl.clearColor(P.bgL, P.bgL, P.bgL, 1); gl.clearDepth(1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS);
     prog.use(); const u = prog.u;
@@ -501,8 +508,9 @@ export async function mount(ctx) {
     gl.uniform2f(u.uSheetHalf, sheetHalf[0], sheetHalf[1]);
     gl.uniform2f(u.uCenter, center[0], center[1]);
     gl.uniform2f(u.uCos, Math.max(0.35, Math.cos(ang.x)), Math.max(0.35, Math.cos(ang.y)));
-    gl.uniform3f(u.uBg, ...ctx.colors.bg);
-    gl.uniform3f(u.uFg, ...ctx.colors.fg);
+    gl.uniform3f(u.uPaper, P.paperL, P.paperL, P.paperL);
+    gl.uniform3f(u.uInk, P.inkL, P.inkL, P.inkL);
+    gl.uniform1f(u.uShadows, P.shadows ? 1 : 0);
     if (outgoing) drawSheet(outgoing);
     drawSheet(anim ? anim.incoming : current);
   }));
@@ -510,6 +518,6 @@ export async function mount(ctx) {
   return {
     tune,
     debug: { toss, get sheet() { return current; }, get anim() { return anim; }, get count() { return nx * ny; } },
-    destroy() { offs.forEach((off) => off()); },
+    destroy() { offs.forEach((off) => off()); ctx.setBackdrop(null); },
   };
 }

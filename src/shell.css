@@ -127,6 +127,7 @@ body {
 .tune-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: baseline; margin-bottom: 8px; }
 .tune-row output { color: #fff; font-variant-numeric: tabular-nums; }
 .tune-row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: #fff; height: 18px; margin: 0; }
+.tune-toggle input[type="checkbox"] { grid-column: 1 / -1; justify-self: start; width: 18px; height: 18px; margin: 2px 0 0; accent-color: #fff; }
 .tune-text textarea { grid-column: 1 / -1; width: 100%; font: inherit; color: #fff; background: #000; border: 1px solid #3a3a3a; padding: 6px; resize: vertical; }
 
 @media (max-width: 720px) {

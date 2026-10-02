@@ -106,8 +106,26 @@ function chooseTheme(poster, seed) {
 // ---------- mounting ----------
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme.name;
+  const root = document.documentElement.style;
+  ['--bg', '--fg', '--dim'].forEach((k) => root.removeProperty(k));
+  stageEl.style.background = '';
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', theme.bg);
+}
+
+// A poster that lets the page background be tuned (grey level 0..1) calls this; null hands it back to the theme.
+function setBackdrop(level) {
+  if (level == null) { if (current) applyTheme(current.theme); return; }
+  const v = Math.round(Math.min(1, Math.max(0, level)) * 255), light = level > 0.5;
+  const root = document.documentElement.style;
+  const bg = `rgb(${v},${v},${v})`;
+  root.setProperty('--bg', bg);
+  root.setProperty('--fg', light ? '#000' : '#fff');
+  root.setProperty('--dim', light ? '#767676' : '#8a8a8a');
+  stageEl.style.background = bg;
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', bg);
 }
 
 function showFallback(poster) {
@@ -151,7 +169,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   applyTheme(theme);
   setChrome(poster);
 
-  const stage = createStage(stageEl, { seed, theme, toast });
+  const stage = createStage(stageEl, { seed, theme, toast, setBackdrop });
   current = { poster, stage, seed, theme };
   let inst = null;
   try {

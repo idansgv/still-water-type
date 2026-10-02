@@ -4,7 +4,7 @@ Interactive typographic posters about design and technology coming apart, and a 
 Static files, no build step, no dependencies. Read [BRIEF.md](BRIEF.md) for the thinking.
 
 ```bash
-python3 tools/dev.py             # then open http://127.0.0.1:8910 (a no-cache server; plain http.server lets browsers keep stale modules)
+python3 tools/dev.py             # then open http://127.0.0.1:8910 (a no-cache server; plain http.server lets browsers keep stale modules). If an edit does not show, hard-reload with Cmd+Shift+R: Chrome can keep an imported module in memory
 node tools/build.mjs             # after changing the poster registry: rewrites p/<slug>/ share pages
 bash tools/sync-moovit.sh        # rebuild the Moovit case into work/moovit
 ```

@@ -54,7 +54,15 @@ export function createPanel(tune, { toast = () => {}, onClose = () => {} } = {})
       const name = document.createElement('span');
       name.textContent = it.label;
       row.appendChild(name);
-      if (it.type === 'text') {
+      if (it.type === 'toggle') {
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.checked = !!tune.values[it.key];
+        const out = document.createElement('output');
+        out.textContent = cb.checked ? 'on' : 'off';
+        cb.addEventListener('input', () => { out.textContent = cb.checked ? 'on' : 'off'; tune.set(it.key, cb.checked ? 1 : 0); });
+        row.classList.add('tune-toggle');
+        row.appendChild(out); row.appendChild(cb); refs[it.key] = { input: cb, out, toggle: true };
+      } else if (it.type === 'text') {
         const ta = document.createElement('textarea');
         ta.rows = it.rows || 5; ta.value = tune.values[it.key];
         ta.addEventListener('input', () => tune.set(it.key, ta.value));
@@ -80,6 +88,7 @@ export function createPanel(tune, { toast = () => {}, onClose = () => {} } = {})
 
   function sync() {
     for (const [k, r] of Object.entries(refs)) {
+      if (r.toggle) { r.input.checked = !!tune.values[k]; r.out.textContent = r.input.checked ? 'on' : 'off'; continue; }
       r.input.value = tune.values[k];
       if (!r.text) r.out.textContent = fmt(tune.values[k], r.step);
     }

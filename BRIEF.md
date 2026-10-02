@@ -123,7 +123,9 @@ empty space; still at rest; nothing instructional.
 - **Not adopted from the article:** the physics engine (grab, push, roll, throw) and the SSAO post pass.
 - **Copy.** Eight dry one-liners are placeholders (editable in the panel): Nothing to see here. / Still flat. / Look
   again. / Handle with care. / Version 7. Final. / Please do not fold. / Draft. / Not a poster.
-- **Tuning panel.** `?p=sheet&tune` (or press T): relief, wrinkle depth, extra creases, sheet size, point count,
+- **Tuning panel.** `?p=sheet&tune` (or press T): a Shadows on/off switch (off removes all shading and creases'
+  shadow, leaving only the geometry), background, paper and type greys (0 black to 1 white; the page chrome
+  follows the background), relief, wrinkle depth, extra creases, sheet size, point count,
   shading, crease shadow, tilt range and follow speed, opening sway, the lines of type, type size and margin,
   crumple / throw / unfold times. Values persist per browser while `?tune` is on; "Copy settings" outputs JSON to
   paste into `DEFAULTS` in `src/posters/sheet.js`. The panel is `src/panel.js`; any poster can use it by returning
@@ -243,7 +245,7 @@ Hosting: Vercel project `ripple`, repo `idansgv/still-water-type`, `main` deploy
 get preview deployments (which Vercel may put behind login). The pre-portfolio single-poster site is tagged
 `still-water-v1`. Share images are drawn in the browser by `tools/og.html` and saved by `tools/save-server.py`.
 
-Local preview: `python3 tools/dev.py` (a no-cache server; plain `http.server` lets browsers keep stale ES modules).
+Local preview: `python3 tools/dev.py` (a no-cache server; plain `http.server` lets browsers keep stale ES modules). Even so, Chrome can reuse an *imported* module from memory within a tab, so if a change does not show up, hard-reload (Cmd+Shift+R) or open DevTools with "Disable cache" ticked.
 Dev switches: `?p=<slug>`, `?theme=light|dark`, `#s=<seed>`, `?tune` (settings panel), `?debug` (show poster errors on screen), `?live` (Still Water mirrors a local Wordflow3d server;
 off by default because a public page reaching for localhost can trigger a local-network permission prompt).
 
