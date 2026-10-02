@@ -164,6 +164,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     armHint(poster, stage);
   } catch (err) {
     console.error(`[poster:${poster.slug}]`, err);
+    if (params.has('tune') || params.has('debug')) toast(`${poster.slug}: ${String(err && err.message || err).slice(0, 140)}`, 12000);
     stage.destroy();
     current.stage = null;
     showFallback(poster);
