@@ -93,6 +93,9 @@ The bar, taken from Still Water: one material rather than an effect; the type st
 | **Emboss** (`emboss`) | "Flat. / Not entirely." blind-embossed: the type is the same tone as the paper and shows only as relief | A height field built from the type mask, finite-difference normals, a low point light that follows the cursor, a little paper tooth; a pressed finger dents the soft stock and it relaxes over a few seconds | Move the light; press to dent |
 | *Draft:* **Point of view** (`point-of-view`) | A drifting cloud that nearly reads "POINT OF VIEW" | 20–40k points placed along sight lines from one secret viewpoint (an anamorphosis). The viewpoint is random per load. Near it, points pull into the word and a crisp solid fades in | Move or drag to look around; find the angle |
 
+
+**Sheet** (draft) also has a tuning panel and a click interaction. `?p=sheet&tune` (or press T on any poster that offers settings) opens sliders for relief, creases, softness, sheet size, point count, tilt range, shading, the lines of type and the crumple timing. Settings persist per browser while `?tune` is on; "Copy settings" puts them on the clipboard as JSON to paste into `DEFAULTS` in `src/posters/sheet.js`. A click or tap (not a drag) crumples the sheet, throws it off a random edge, and slides in a new one with new folds and the next line. The panel lives in `src/panel.js` and any poster can use it by returning `tune` from `mount()`.
+
 ### Backlog (ideas, unranked)
 
 - **Drop**: letters are rigid bodies that fall under real gravity (tilt sets it), pile up, can be thrown.

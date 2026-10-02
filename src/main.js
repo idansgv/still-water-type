@@ -2,6 +2,7 @@
 
 import { POSTERS, PUBLISHED, bySlug, pickTheme } from './posters/index.js';
 import { createStage, THEMES, fontsReady, mulberry32 } from './engine.js';
+import { createPanel } from './panel.js';
 
 const $ = (id) => document.getElementById(id);
 const stageEl = $('stage');
@@ -13,6 +14,7 @@ const params = new URLSearchParams(location.search);
 let current = null;       // { poster, stage, seed, theme }
 let busy = false;
 let hintTimer = 0;
+let panel = null, wantPanel = params.has('tune');
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const randomSeed = () => (Math.random() * 4294967296) >>> 0;
@@ -24,6 +26,19 @@ export function toast(msg, ms = 2200) {
   toastEl.classList.add('on');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove('on'), ms);
+}
+
+// ---------- settings panel (posters that offer one: ?tune, or press T) ----------
+function syncPanel() {
+  if (panel) { panel.destroy(); panel = null; }
+  if (wantPanel && current && current.inst && current.inst.tune) {
+    panel = createPanel(current.inst.tune, { toast, onClose: () => { wantPanel = false; panel = null; } });
+  }
+}
+function togglePanel() {
+  wantPanel = !wantPanel;
+  if (wantPanel && !(current && current.inst && current.inst.tune)) { toast('This poster has no settings'); wantPanel = false; }
+  syncPanel();
 }
 
 const TAGLINES = [
@@ -126,6 +141,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   busy = true;
   const theme = THEMES[themeName || chooseTheme(poster, seed)];
 
+  if (panel) { panel.destroy(); panel = null; }
   if (current) {
     stageEl.classList.add('swap');
     await wait(reduced ? 0 : 100);
@@ -144,6 +160,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     inst = await mod.mount(stage);
     current.inst = inst;
     stage.start();
+    syncPanel();
     armHint(poster, stage);
   } catch (err) {
     console.error(`[poster:${poster.slug}]`, err);
@@ -189,6 +206,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowRight' || e.key === 'r' || e.key === 'R') { e.preventDefault(); shuffle(); }
   else if (e.key === 'w' || e.key === 'W') { location.href = '/work/'; }
   else if (e.key === 's' || e.key === 'S') { share(); }
+  else if (e.key === 't' || e.key === 'T') { togglePanel(); }
 });
 
 const first = pickFirst();
