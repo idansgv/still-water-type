@@ -43,13 +43,14 @@ export async function mount(ctx) {
   const tuning = new URLSearchParams(location.search).has('tune');
   const KEY = 'swt:tune:sheet';
   const DEFAULTS = {
-    relief: 1.6, restFrame: 16, extra: 0.35, creases: 5, reach: 1, width: 1, softness: 0.012, align: 0.5, bow: 0.05, edge: 0.5,
-    size: 0.92, density: ctx.W < 600 ? 170 : 250,
-    shadows: 1, bgL: 0, paperL: 1, inkL: 0,
-    shading: 0.85, ao: 0.7, yaw: 0.62, pitch: 0.42, damping: 14, sway: 0.36,
-    typeSize: 1, margin: 0.075, phrases: PHRASES,
+    relief: 0, restFrame: 21, extra: 1.2, creases: 11, reach: 1.45, width: 0.75, softness: 0.004, align: 0.45, bow: 0, edge: 0.5,
+    size: 0.91, density: ctx.W < 600 ? 170 : 210,
+    shadows: 0, bgL: 0.95, paperL: 1, inkL: 0,
+    shading: 0, ao: 0, yaw: 0.22, pitch: 0.16, damping: 19, sway: 0.28,
+    typeSize: 1, margin: 0.075, phrases: ['Nothing to see here.', 'Version 7. Final.', 'Draft.', 'Not a poster.'].join('\n'),
     crumpleTime: 0.8, exitTime: 0.7, unfoldTime: 0.9,
   };
+
   const P = { ...DEFAULTS };
   if (tuning) { try { Object.assign(P, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* none */ } }
 
