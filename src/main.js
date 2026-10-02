@@ -68,6 +68,7 @@ stageEl.addEventListener('pointerdown', (e) => spark(e.clientX, e.clientY));
 // ---------- picking ----------
 function pickOther(slug) {
   const pool = PUBLISHED.filter((p) => p.slug !== slug);
+  if (!pool.length) return PUBLISHED[0];            // only one poster is published: shuffle just reloads it
   return pool[Math.floor(Math.random() * pool.length)];
 }
 function pickFirst() {

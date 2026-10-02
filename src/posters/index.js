@@ -35,6 +35,7 @@ export const POSTERS = [
     blurb: 'Paper that is flat, mostly. Move the light.',
     hint: null,
     themes: { dark: 0.35, light: 0.65 },
+    draft: true,
     load: () => import('./emboss.js'),
   },
   {
