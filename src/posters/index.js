@@ -6,6 +6,7 @@
 //   hint     one quiet line that appears only if the visitor has not touched anything for a while
 //   themes   relative odds of dark and light each time the poster is drawn
 //   blurb    what a shared link says
+//   draft    not in the random rotation, no share page; still reachable with ?p=<slug> while it is worked on
 
 export const POSTERS = [
   {
@@ -24,16 +25,17 @@ export const POSTERS = [
     blurb: 'Design and technology, at the point where both give way.',
     hint: 'Touch it.',
     themes: { dark: 0.7, light: 0.3 },
+    draft: true,
     load: () => import('./meltdown.js'),
   },
   {
-    slug: 'flat',
-    title: 'Flat',
-    words: ['Flat'],
-    blurb: 'A flat poster. Probably.',
-    hint: 'Move.',
-    themes: { dark: 0.3, light: 0.7 },
-    load: () => import('./flat.js'),
+    slug: 'emboss',
+    title: 'Emboss',
+    words: ['Flat.', 'Not entirely.'],
+    blurb: 'Paper that is flat, mostly. Move the light.',
+    hint: null,
+    themes: { dark: 0.35, light: 0.65 },
+    load: () => import('./emboss.js'),
   },
   {
     slug: 'point-of-view',
@@ -42,11 +44,13 @@ export const POSTERS = [
     blurb: 'It only reads from one place. Find it.',
     hint: 'Find the angle.',
     themes: { dark: 0.8, light: 0.2 },
+    draft: true,
     load: () => import('./point-of-view.js'),
   },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);
+export const PUBLISHED = POSTERS.filter((p) => !p.draft);
 
 export function pickTheme(poster, rand) {
   const { dark, light } = poster.themes;

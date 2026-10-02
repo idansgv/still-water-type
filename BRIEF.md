@@ -82,12 +82,16 @@ To make it fully hidden today, delete the `Work` link in `index.html` and keep t
 
 ### In v0.1
 
+Only posters that clear the bar are in the random rotation (`PUBLISHED` in `src/posters/index.js`). Drafts stay reachable with `?p=<slug>` while they are reworked, and get no share page.
+
+The bar, taken from Still Water: one material rather than an effect; the type stays intact and legible; the response is proportional and continuous, with memory that decays; a small, asymmetric composition with plenty of empty space; still at rest; nothing instructional.
+
 | Poster | At rest | Hidden underneath | Touch |
 |---|---|---|---|
 | **Still Water** (`still-water`) | White "Idan / Segev" on black | Wave-equation ripple simulation on the GPU; a lamp (L, or three taps) casting caustics through the water | Move to wake the water; tap to drop |
-| **Meltdown** (`meltdown`) | "MELT / DOWN" in crisp type | A heat field plus a shader that finds the nearest letter upstream along gravity and pours it as round-tipped drips; phones drip toward real gravity | Hold or drag to melt; it re-solidifies over a few seconds |
-| **Flat** (`flat`) | The word FLAT, flat. Rotated up the side on phones | A ray-marched solid slab read straight from the type mask: side walls, cast shadow, orbit camera | Move or drag to orbit; tilt a phone |
-| **Point of view** (`point-of-view`) | A drifting cloud that nearly reads "POINT OF VIEW" | 20–40k points placed along sight lines from one secret viewpoint (an anamorphosis). The viewpoint is random per load. Near it, points pull into the word and a crisp solid fades in | Move or drag to look around; find the angle |
+| *Draft:* **Meltdown** (`meltdown`) | "MELT / DOWN" in crisp type | A heat field plus a shader that finds the nearest letter upstream along gravity and pours it as round-tipped drips; phones drip toward real gravity | Hold or drag to melt; it re-solidifies over a few seconds |
+| **Emboss** (`emboss`) | "Flat. / Not entirely." blind-embossed: the type is the same tone as the paper and shows only as relief | A height field built from the type mask, finite-difference normals, a low point light that follows the cursor, a little paper tooth; a pressed finger dents the soft stock and it relaxes over a few seconds | Move the light; press to dent |
+| *Draft:* **Point of view** (`point-of-view`) | A drifting cloud that nearly reads "POINT OF VIEW" | 20–40k points placed along sight lines from one secret viewpoint (an anamorphosis). The viewpoint is random per load. Near it, points pull into the word and a crisp solid fades in | Move or drag to look around; find the angle |
 
 ### Backlog (ideas, unranked)
 
@@ -204,7 +208,7 @@ off by default because a public page reaching for localhost can trigger a local-
 
 ## 11. Roadmap
 
-- **v0.1 (this branch).** Shell, engine, four posters, Work index, Moovit vendored, share previews, brief.
+- **v0.1 (this branch).** Shell, engine, two published posters (Still Water, Emboss) and two drafts, Work index, Moovit vendored, share previews, brief.
 - **v0.2.** Per-poster share images; two or three more posters from the backlog; "save this poster as an image"
   (and share it as a file on phones); Work option B, the hidden glyph; a second case.
 - **v0.3.** Teaching and talks; a case template once two exist; privacy-friendly analytics to learn which posters

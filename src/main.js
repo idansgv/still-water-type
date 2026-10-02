@@ -1,6 +1,6 @@
 // The shell: picks a poster at random, mounts it, and keeps the page furniture honest.
 
-import { POSTERS, bySlug, pickTheme } from './posters/index.js';
+import { POSTERS, PUBLISHED, bySlug, pickTheme } from './posters/index.js';
 import { createStage, THEMES, fontsReady, mulberry32 } from './engine.js';
 
 const $ = (id) => document.getElementById(id);
@@ -67,7 +67,7 @@ stageEl.addEventListener('pointerdown', (e) => spark(e.clientX, e.clientY));
 
 // ---------- picking ----------
 function pickOther(slug) {
-  const pool = POSTERS.filter((p) => p.slug !== slug);
+  const pool = PUBLISHED.filter((p) => p.slug !== slug);
   return pool[Math.floor(Math.random() * pool.length)];
 }
 function pickFirst() {
@@ -103,9 +103,9 @@ function showFallback(poster) {
 }
 
 function setChrome(poster) {
-  const i = POSTERS.indexOf(poster);
+  const i = PUBLISHED.indexOf(poster);
   $('folio-title').textContent = poster.title;
-  $('folio-count').textContent = ` ${i + 1}/${POSTERS.length}`;
+  $('folio-count').textContent = i >= 0 ? ` ${i + 1}/${PUBLISHED.length}` : ' draft';
   document.title = `${poster.title} · Idan Segev`;
 }
 
