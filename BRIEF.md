@@ -381,3 +381,5 @@ Published to `main` / idansegev.com: Still Water, Meltdown, Breath, Sheet, Puff,
 **Soft type fix.** Releasing during the flicker warning now launches a full-air rocket (it used to just deflate). Only still holding to the end bursts.
 
 **Soft type hint and tap (branch).** Until the first touch: after ~3 s an extremely light breeze sways the letters (about 6 px, out of step with each other), and every 4.5-7.5 s one letter breathes in and out (sin-squared, eased at both ends). A quick tap (under 0.22 s, no movement) inflates the letter by itself over 0.85 s (eased in-out) and fires it, with the stress marks on the way. Holding still keeps the manual inflate. The pre-burst wobble is about half as strong (ripple 0.055, shudder 0.45 / 1.2).
+
+**Soft type: no blink.** The critical phase no longer flickers the letter out; the warning is the shudder, ripple and stress marks only (same ~1.15 s before the burst).

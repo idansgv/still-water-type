@@ -12,8 +12,8 @@
 // As the air runs out the tube goes limp and thin, the thrust dies and the letter stops. Then air creeps back in
 // through the mouth and it re-inflates where it is. Every visit starts with slightly uneven letters.
 //
-// Hold too long and it goes critical: the stroke trembles and distorts, the letter flickers out a few times as a
-// warning, and if you are still holding it bursts. The burst throws every other letter across the page and draws
+// Hold too long and it goes critical: the stroke trembles and distorts and bristles with marks as a warning, and if
+// you are still holding it bursts. The burst throws every other letter across the page and draws
 // a few cartoon motion lines. Let go during the warning and it rockets off at full power.
 //
 // Cartoon marks tell the story: speed lines stream behind a rocketing letter, and little flicks bristle off the
@@ -137,7 +137,6 @@ export function mount(stage) {
   const HOLD_DELAY = 0.22, FLICKER_T = 1.15;
   let bursts = [], marks = [], shake = 0;
   const mark = (x, y, a, s0, len, w, life, bend) => { if (marks.length < 220) marks.push({ x, y, a, s0, len, w, life, bend, age: 0 }); };
-  const blinkOff = (t) => [0.18, 0.44, 0.7].some((b) => t > b && t < b + 0.13);
   const rng = (() => { const r = []; for (let i = 0; i < 12; i++) r.push([stage.rand() - 0.5, stage.rand() - 0.5, stage.rand() - 0.5, stage.rand() - 0.5]); return r; })();
 
   function layout() {
@@ -407,7 +406,7 @@ export function mount(stage) {
     ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
     if (shake > 0) { const a = shake / 0.4 * 9; ctx.translate((Math.random() - 0.5) * a, (Math.random() - 0.5) * a); }
     ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    for (const g of glyphs) { if (g.state === 'critical' && blinkOff(g.t)) continue; for (const p of g.paths) strokePath(p); }
+    for (const g of glyphs) for (const p of g.paths) strokePath(p);
     for (const m of marks) {                                 // hand-flicked marks: travel out, then thin away (same hand as the burst)
       const u = m.age / m.life, ease = (v) => 1 - (1 - clamp(v, 0, 1)) ** 3;
       const head = m.s0 + m.len * ease(m.age / (m.life * 0.5)), tail = m.s0 + m.len * ease((m.age - m.life * 0.18) / (m.life * 0.6));
