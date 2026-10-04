@@ -27,7 +27,10 @@ body {
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
+  -webkit-user-select: none; user-select: none;      /* a long press on a poster must not select the page */
+  -webkit-touch-callout: none;
 }
+.tune, .tune textarea, .tune input { -webkit-user-select: text; user-select: text; }
 
 .sr-only {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;

@@ -336,7 +336,10 @@ parallax, and a `?live` mode mirroring Wordflow3d lyrics. That version is tagged
     starts with slightly uneven letters (tilt, offset, size, seeded). Second revision: inflation is air, not scale. Air enters (and leaves) through a mouth particle and spreads along the tube,
     so the stroke swells from the mouth outward while the skeleton only stretches ~20% of the swell; a spent letter is a limp
     thin tube at the same footprint (no more mismatched scale), and air creeps back in through the mouth so it re-inflates where
-    it stopped. The knot dot and aim dots are gone. No audio ever existed in this poster. Lesson: a stroke end must not weld onto its own neighbouring particle (it chamfered corners). Re-form is in the panel (`T`).
+    it stopped. The knot dot and aim dots are gone. No audio ever existed in this poster. Third revision: much bigger inflation (stroke up to 2.6x), the skin ripples and the letter shudders past 72% air, at full
+    air it goes critical: it flickers out three times over ~1.1s, then bursts if still held (releasing during the warning just
+    deflates). The burst empties the letter, throws every other letter away by mass, shakes the canvas and draws 16 cartoon
+    motion lines. Rockets are twice as strong. Long-press selection and the context menu are blocked shell-wide for mobile. Lesson: a stroke end must not weld onto its own neighbouring particle (it chamfered corners). Re-form is in the panel (`T`).
 
 **References parked for later** (not opened or analysed): an Instagram post, reactbits.dev and its tech-text animation,
 balloons.shader.se, spacetypegenerator.com, `cullenwebber.github.io/three-html-to-canvas` (flagged by Idan as the most

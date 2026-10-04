@@ -79,6 +79,7 @@ function spark(x, y) {
   }
 }
 stageEl.addEventListener('pointerdown', (e) => spark(e.clientX, e.clientY));
+stageEl.addEventListener('contextmenu', (e) => e.preventDefault());   // no long-press menu or selection on the poster
 
 // ---------- picking ----------
 function pickOther(slug) {
