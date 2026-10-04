@@ -134,8 +134,8 @@ export function mount(stage) {
   let W = 1, H = 1, glyphs = [], nodes = [], neighbors = new Set();
   let drag = null, press = null, quiet = 0, acc = 0, settling = false, touched = false, idle = 0, pulses = 0;
   const HOLD_DELAY = 0.22, FLICKER_T = 1.15;
-  let bursts = [], shake = 0;
-  const hash = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+  let bursts = [], marks = [], shake = 0;
+  const mark = (x, y, a, s0, len, w, life, bend) => { if (marks.length < 220) marks.push({ x, y, a, s0, len, w, life, bend, age: 0 }); };
   const blinkOff = (t) => [0.18, 0.44, 0.7].some((b) => t > b && t < b + 0.13);
   const rng = (() => { const r = []; for (let i = 0; i < 12; i++) r.push([stage.rand() - 0.5, stage.rand() - 0.5, stage.rand() - 0.5, stage.rand() - 0.5]); return r; })();
 
@@ -244,6 +244,7 @@ export function mount(stage) {
     }
     for (const g of glyphs) {
       g.t += dt;
+      spawnMarks(g);
       if (g.state === 'inflating') { g.air = Math.min(1, g.air + dt * 0.24); if (g.air >= 1) { g.state = 'critical'; g.t = 0; } }
       else if (g.state === 'pulse') { const u = clamp(g.t / 1.5, 0, 1); g.air = AREST + 0.2 * Math.sin(Math.PI * u); if (u >= 1) { g.air = AREST; g.state = 'home'; } }
       else if (g.state === 'critical') { if (g.t > FLICKER_T) explode(g); }
@@ -256,6 +257,27 @@ export function mount(stage) {
         if (g.air < AREST) g.air = Math.min(AREST, g.air + dt * 0.22);
         else if (g.air > AREST) g.air = Math.max(AREST, g.air - dt * 0.9);
       }
+    }
+  }
+  // Marks: streaks left behind a rocketing letter, and little flicks off the skin of one that is close to bursting.
+  function spawnMarks(g) {
+    if (g.state === 'flying') {
+      const sp = Math.hypot(g.vx, g.vy); if (sp < 7) return;
+      const ux = -g.vx / sp, uy = -g.vy / sp, px = -uy, py = ux, ext = g.h * 0.5;
+      let back = 0; for (const n of g.nodes) back = Math.max(back, (n.x - g.cx) * ux + (n.y - g.cy) * uy + n.rad);
+      const count = sp > 22 ? 2 : 1;
+      for (let k = 0; k < count; k++) {
+        if (Math.random() > 0.65) continue;
+        const o = (Math.random() - 0.5) * 2 * ext * 0.9, a = Math.atan2(uy, ux) + (Math.random() - 0.5) * 0.18;
+        const start = back + 6 + Math.random() * 16;
+        mark(g.cx + px * o + ux * start, g.cy + py * o + uy * start, a, 0, clamp(sp * (4 + Math.random() * 5), 40, 320), 5 + Math.random() * 4, 0.36 + Math.random() * 0.16, (Math.random() - 0.5) * 0.3);
+      }
+    } else if ((g.state === 'inflating' || g.state === 'critical') && g.stress > 0.05) {
+      if (Math.random() > g.stress * (g.state === 'critical' ? 0.6 : 0.3)) return;
+      const n = g.nodes[Math.floor(Math.random() * g.nodes.length)];
+      let dx = n.x - g.cx, dy = n.y - g.cy; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
+      const a0 = Math.atan2(dy, dx), r0 = n.rad + 5 + Math.random() * 5, len = (14 + 30 * g.stress) * (0.7 + Math.random() * 0.6);
+      for (const da of [-0.26, 0, 0.26]) mark(n.x + dx * r0, n.y + dy * r0, a0 + da + (Math.random() - 0.5) * 0.1, 0, da === 0 ? len : len * 0.62, 4.5 + Math.random() * 1.5, 0.3 + Math.random() * 0.1, da * 0.5);
     }
   }
   // The burst: the letter empties at once, every other letter is thrown away from it, and cartoon lines fly out.
@@ -366,37 +388,22 @@ export function mount(stage) {
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(n.x, n.y, b[0], b[1]); ctx.stroke();
     }
   }
-  // how far the letter reaches from its centre in a direction, stroke thickness included
-  function reach(g, dx, dy) { let r = 0; for (const n of g.nodes) r = Math.max(r, (n.x - g.cx) * dx + (n.y - g.cy) * dy + n.rad); return r; }
-  function speedLines(g) {                                  // streaks stream out behind a rocketing letter
-    const sp = Math.hypot(g.vx, g.vy); if (sp < 5) return;
-    const dx = g.vx / sp, dy = g.vy / sp, px = -dy, py = dx, back = reach(g, -dx, -dy), ext = g.h * 0.5, fl = Math.floor(g.t * 22);
-    ctx.lineWidth = 5;
-    for (let k = 0; k < 7; k++) {
-      const o = ((k + hash(k, g.ph)) / 6.4 - 0.5) * 2 * ext * 0.95, j = hash(k, fl + g.ph);
-      const start = back + 10 + j * 14, len = clamp(sp * 4.5, 24, 300) * (0.45 + 0.55 * hash(fl, k));
-      const x0 = g.cx + px * o - dx * start, y0 = g.cy + py * o - dy * start;
-      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 - dx * len, y0 - dy * len); ctx.stroke();
-    }
-  }
-  function tensionTicks(g) {                                // short ticks bristle round a letter that is close to bursting
-    const s = g.stress * (g.state === 'critical' ? 1.4 : 1), n = Math.round(5 + 11 * Math.min(1, s)), fl = Math.floor(g.t * 30);
-    ctx.lineWidth = 4.5;
-    for (let k = 0; k < n; k++) {
-      const a = g.ph + k * 2.399 + 0.15 * Math.sin(g.t * 30 + k), dx = Math.cos(a), dy = Math.sin(a), j = hash(k, fl + g.ph);
-      const r0 = reach(g, dx, dy) + 8 + 5 * j, len = 12 + 26 * Math.min(1, s) * (0.4 + 0.6 * hash(fl, k));
-      ctx.beginPath(); ctx.moveTo(g.cx + dx * r0, g.cy + dy * r0); ctx.lineTo(g.cx + dx * (r0 + len), g.cy + dy * (r0 + len)); ctx.stroke();
-    }
-  }
   function draw() {
     ctx.setTransform(stage.pw / W, 0, 0, stage.ph / H, 0, 0);
     ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
     if (shake > 0) { const a = shake / 0.4 * 9; ctx.translate((Math.random() - 0.5) * a, (Math.random() - 0.5) * a); }
     ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     for (const g of glyphs) { if (g.state === 'critical' && blinkOff(g.t)) continue; for (const p of g.paths) strokePath(p); }
-    for (const g of glyphs) {
-      if (g.state === 'flying') speedLines(g);
-      if ((g.state === 'inflating' || g.state === 'critical') && g.stress > 0.02) tensionTicks(g);
+    for (const m of marks) {                                 // hand-flicked marks: travel out, then thin away (same hand as the burst)
+      const u = m.age / m.life, ease = (v) => 1 - (1 - clamp(v, 0, 1)) ** 3;
+      const head = m.s0 + m.len * ease(m.age / (m.life * 0.5)), tail = m.s0 + m.len * ease((m.age - m.life * 0.18) / (m.life * 0.6));
+      if (tail >= head - 0.5) continue;
+      const c = Math.cos(m.a), sn = Math.sin(m.a), mid = (head + tail) / 2, off = m.bend * (head - tail);
+      ctx.lineWidth = Math.max(0.8, m.w * (1 - clamp((u - 0.45) / 0.55, 0, 0.75)));
+      ctx.beginPath();
+      ctx.moveTo(m.x + c * tail, m.y + sn * tail);
+      ctx.quadraticCurveTo(m.x + c * mid - sn * off, m.y + sn * mid + c * off, m.x + c * head, m.y + sn * head);
+      ctx.stroke();
     }
     for (const b of bursts) {                                // minimal cartoon motion lines: each stroke travels out and thins away
       const ease = (u) => 1 - (1 - clamp(u, 0, 1)) ** 3;
@@ -472,8 +479,10 @@ export function mount(stage) {
     }
     if (!ran) return;
     for (const b of bursts) b.t += 1 / 60;
+    for (const m of marks) m.age += 1 / 60;
+    marks = marks.filter((m) => m.age < m.life);
     bursts = bursts.filter((b) => b.t < 0.8); shake = Math.max(0, shake - 1 / 60);
-    const busy = drag || settling || bursts.length || shake || glyphs.some((g) => g.state !== 'home' || g.air !== AREST);
+    const busy = drag || settling || bursts.length || marks.length || shake || glyphs.some((g) => g.state !== 'home' || g.air !== AREST);
     quiet = !busy && e < 0.08 ? quiet + 1 : 0;
     if (quiet < 40) draw();
     else if (quiet === 40) { for (const n of nodes) n.vx = n.vy = 0; draw(); }
@@ -486,7 +495,7 @@ export function mount(stage) {
       actions: { 'Re-form': reform },
       set() {}, reset() { reform(); },
     },
-    debug: { glyphs: () => glyphs, step: () => step() },
+    debug: { glyphs: () => glyphs, marks: () => marks, step: () => step() },
     destroy() {
       offs.forEach((f) => f());
       stage.root.style.cursor = '';
