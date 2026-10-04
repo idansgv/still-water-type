@@ -69,6 +69,16 @@ export const POSTERS = [
     load: () => import('./puff.js'),
   },
   {
+    slug: 'soft-type',
+    title: 'Soft type',
+    words: ['Idan', 'Segev'],
+    blurb: 'Letters made of one soft material. Drag them, squash them, hold one until it pops.',
+    hint: null,
+    themes: { dark: 0.15, light: 0.85 },
+    draft: true,
+    load: () => import('./soft-type.js'),
+  },
+  {
     slug: 'point-of-view',
     title: 'Point of view',
     words: ['Point', 'of', 'view'],

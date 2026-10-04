@@ -322,6 +322,13 @@ parallax, and a `?live` mode mirroring Wordflow3d lyrics. That version is tagged
    outlines or corners. Its gravity and slow-motion controls became the settings panel (`T`). Open items from the
    original project (tear effect, keyboard control, high-DPI seam check, split into modules) are not done. The original
    `reference/balloon-rockets-blobs.html` stays in Downloads. Not yet tested on a real phone.
+10. **Soft type (draft).** Reverse-engineered colederochie.com: a hand-written Canvas 2D soft-body. Each letter is a few
+    skeleton strokes sampled into round particles; the bubbly look is one round-capped stroke along the particle path.
+    Position-based dynamics: distance links, a bending-smoothing pass, spatial-hash contacts, a weak pull toward each
+    letter's own rest shape (so a dragged letter keeps where you leave it), velocity damping 0.94, substeps for fast drags.
+    Hold a letter to swell, tremble and pop back with an elastic wobble. Our own implementation in
+    `src/posters/soft-type.js` (no code copied, no sound, our own skeletons for I D A N S E G V). Draft, `?p=soft-type`.
+    Lesson: a stroke end must not weld onto its own neighbouring particle (it chamfered corners). Re-form is in the panel (`T`).
 
 **References parked for later** (not opened or analysed): an Instagram post, reactbits.dev and its tech-text animation,
 balloons.shader.se, spacetypegenerator.com, `cullenwebber.github.io/three-html-to-canvas` (flagged by Idan as the most
