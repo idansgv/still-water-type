@@ -328,7 +328,8 @@ parallax, and a `?live` mode mirroring Wordflow3d lyrics. That version is tagged
     letter's own rest shape (so a dragged letter keeps where you leave it), velocity damping 0.94, substeps for fast drags.
     Hold a letter to swell, tremble and pop back with an elastic wobble. Our own implementation in
     `src/posters/soft-type.js` (no code copied, no sound, our own skeletons for I D A N S E G V). Draft, `?p=soft-type`.
-    Lesson: a stroke end must not weld onto its own neighbouring particle (it chamfered corners). Re-form is in the panel (`T`).
+    Balloon-rocket mode (from Puff) added: hold still to inflate, drag to aim, release to launch; thrust leaves through the knot
+    and whips the soft letter, air runs out, it lands and springs home. Letters can now rotate (shape matching). Lesson: a stroke end must not weld onto its own neighbouring particle (it chamfered corners). Re-form is in the panel (`T`).
 
 **References parked for later** (not opened or analysed): an Instagram post, reactbits.dev and its tech-text animation,
 balloons.shader.se, spacetypegenerator.com, `cullenwebber.github.io/three-html-to-canvas` (flagged by Idan as the most
