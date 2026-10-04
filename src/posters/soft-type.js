@@ -16,9 +16,10 @@
 // warning, and if you are still holding it bursts. The burst throws every other letter across the page and draws
 // a few cartoon motion lines. Let go during the warning and it rockets off at full power.
 //
-// Cartoon marks tell the story: speed lines stream behind a rocketing letter, and short tension ticks bristle
-// around it as it nears the limit. If nobody has touched anything for a while one letter breathes once, as the
-// only hint that letters can be pressed.
+// Cartoon marks tell the story: speed lines stream behind a rocketing letter, and little flicks bristle off the
+// skin of one that is nearing the limit. A quick tap inflates a letter by itself and fires it. Until the first
+// touch, after a few seconds, a very light breeze moves the letters and now and then one breathes in and out,
+// eased, as the hint that letters are pressable.
 //
 // Mass follows size: a letter weighs its stroke length times its stroke width, so a swollen letter is heavier.
 // Heavy letters shove light ones in contacts and keep their momentum longer. The air is the stored energy.
@@ -113,10 +114,10 @@ class Glyph {
     m.q += (this.air - m.q) * 0.5;
     for (let it = 0; it < 5; it++) for (const l of this.links) { const d = (l.b.q - l.a.q) * 0.3; l.a.q += d; l.b.q -= d; }
     let sum = 0, off = 0;
-    const stress = clamp((this.air - 0.72) / 0.28, 0, 1) * (this.state === 'inflating' || this.state === 'critical' ? 1 : 0);
+    const stress = clamp((this.air - 0.72) / 0.28, 0, 1) * (this.state === 'inflating' || this.state === 'auto' || this.state === 'critical' ? 1 : 0);
     this.stress = stress;
     for (const n of this.nodes) {
-      n.rad = this.r0 * rm(n.q) * (1 + stress * 0.1 * Math.sin(this.t * 38 + n.id * 1.9));   // the skin strains and ripples near its limit
+      n.rad = this.r0 * rm(n.q) * (1 + stress * 0.055 * Math.sin(this.t * 34 + n.id * 1.9));   // the skin strains and ripples near its limit
       sum += n.rad; off = Math.max(off, Math.abs(n.q - this.air)); }
     const mean = sum / this.nodes.length / this.r0;
     this.lk = 1 + 0.3 * (mean - 1);                      // the skeleton only stretches a little; the stroke does the swelling
@@ -132,7 +133,7 @@ export function mount(stage) {
   stage.setBackdrop(dark ? 0 : 1);
 
   let W = 1, H = 1, glyphs = [], nodes = [], neighbors = new Set();
-  let drag = null, press = null, quiet = 0, acc = 0, settling = false, touched = false, idle = 0, pulses = 0;
+  let drag = null, press = null, quiet = 0, acc = 0, settling = false, touched = false, idle = 0, nextPulse = 3, breeze = 0, windT = 0;
   const HOLD_DELAY = 0.22, FLICKER_T = 1.15;
   let bursts = [], marks = [], shake = 0;
   const mark = (x, y, a, s0, len, w, life, bend) => { if (marks.length < 220) marks.push({ x, y, a, s0, len, w, life, bend, age: 0 }); };
@@ -246,7 +247,12 @@ export function mount(stage) {
       g.t += dt;
       spawnMarks(g);
       if (g.state === 'inflating') { g.air = Math.min(1, g.air + dt * 0.24); if (g.air >= 1) { g.state = 'critical'; g.t = 0; } }
-      else if (g.state === 'pulse') { const u = clamp(g.t / 1.5, 0, 1); g.air = AREST + 0.2 * Math.sin(Math.PI * u); if (u >= 1) { g.air = AREST; g.state = 'home'; } }
+      else if (g.state === 'pulse') { const u = clamp(g.t / 2.2, 0, 1); g.air = AREST + 0.27 * Math.sin(Math.PI * u) ** 2; if (u >= 1) { g.air = AREST; g.state = 'home'; } }   // in and out, eased at both ends
+      else if (g.state === 'auto') {                        // a tap: inflate by itself, eased, then let go
+        const u = clamp(g.t / 0.85, 0, 1), e = u < 0.5 ? 4 * u ** 3 : 1 - (-2 * u + 2) ** 3 / 2;
+        g.air = g.air0 + (0.93 - g.air0) * e;
+        if (u >= 1) { g.state = 'flying'; g.t = 0; }
+      }
       else if (g.state === 'critical') { if (g.t > FLICKER_T) explode(g); }
       else if (g.state === 'flying') {                      // the fuller the balloon, the longer the burn
         g.air -= dt * (0.95 + 0.7 * g.air) / Math.max(0.7, rm(g.air));
@@ -272,7 +278,7 @@ export function mount(stage) {
         const start = back + 6 + Math.random() * 16;
         mark(g.cx + px * o + ux * start, g.cy + py * o + uy * start, a, 0, clamp(sp * (4 + Math.random() * 5), 40, 320), 5 + Math.random() * 4, 0.36 + Math.random() * 0.16, (Math.random() - 0.5) * 0.3);
       }
-    } else if ((g.state === 'inflating' || g.state === 'critical') && g.stress > 0.05) {
+    } else if ((g.state === 'inflating' || g.state === 'auto' || g.state === 'critical') && g.stress > 0.05) {
       if (Math.random() > g.stress * (g.state === 'critical' ? 0.6 : 0.3)) return;
       const n = g.nodes[Math.floor(Math.random() * g.nodes.length)];
       let dx = n.x - g.cx, dy = n.y - g.cy; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
@@ -306,13 +312,21 @@ export function mount(stage) {
     shake = 0.4; quiet = 0;
   }
   function forces() {
+    windT += 1 / 60;
     for (const g of glyphs) {
+      if (breeze > 0.001 && (g.state === 'home' || g.state === 'pulse')) {   // an extremely light breeze: every particle sways a little, out of step with its neighbours
+        const b = 0.0042 * breeze;
+        for (const n of g.nodes) {
+          n.vx += b * Math.sin(windT * 0.9 + n.x * 0.006 + n.y * 0.004);
+          n.vy += b * 0.6 * Math.sin(windT * 0.7 + n.x * 0.004 - n.y * 0.006 + 1.3);
+        }
+      }
       if (g.state === 'returning') {
         const pull = 0.05 * Math.min(1, g.ret / 60);
         for (const n of g.nodes) { n.vx += (n.hx - n.x) * pull; n.vy += (n.hy - n.y) * pull; }
       }
       if (g.stress > 0) {                                   // near the limit the whole letter shudders
-        const k = g.stress * (g.state === 'critical' ? 2.4 : 1.0);
+        const k = g.stress * (g.state === 'critical' ? 1.2 : 0.45);
         for (const n of g.nodes) { n.vx += (Math.random() - 0.5) * k; n.vy += (Math.random() - 0.5) * k; }
       }
       if (g.state === 'flying') {                           // the jet leaves through the mouth, so as the letter spins the push turns with it
@@ -450,6 +464,10 @@ export function mount(stage) {
     if (g && g.state === 'inflating') {
       if (g.air > g.air0 + 0.12) { g.state = 'flying'; g.t = 0; } else g.state = 'home';
     } else if (g && g.state === 'critical') { g.state = 'flying'; g.t = 0; }   // let go during the warning: full air, so the hardest rocket
+    else if (g && press.live && g.state === 'home' && press.t < HOLD_DELAY) {   // a quick tap: inflate and fire by itself
+      g.state = 'auto'; g.air0 = g.air; g.t = 0;
+      g.mouth = g.nodes[Math.floor(Math.random() * g.nodes.length)];
+    }
     press = null; drag = null; pid = null; quiet = 0;
   };
   offs.push(stage.on('up', release));
@@ -464,14 +482,15 @@ export function mount(stage) {
 
   offs.push(stage.frame((dt) => {
     if (stage.reduced && quiet > 2) return;
-    if (!touched && pulses < 2 && !stage.reduced && !drag) {   // the only hint: one letter breathes once, then once more if still untouched
+    if (!touched && !stage.reduced && !drag) {                // the hint, until the first touch: a faint breeze, and now and then a letter breathes
       idle += dt;
-      if (idle > (pulses === 0 ? 2.4 : 9) && glyphs.every((g) => g.state === 'home')) {
+      breeze = clamp((idle - 3) / 2.5, 0, 1);
+      if (idle > nextPulse && glyphs.every((g) => g.state === 'home')) {
         const g = glyphs[Math.floor(Math.random() * glyphs.length)];
         g.state = 'pulse'; g.t = 0; g.mouth = g.nodes[Math.floor(Math.random() * g.nodes.length)];
-        pulses++; idle = 0; quiet = 0;
+        nextPulse = idle + 4.5 + Math.random() * 3; quiet = 0;
       }
-    }
+    } else breeze = Math.max(0, breeze - dt * 2.5);
     acc = Math.min(acc + dt, 0.05);
     let e = 0, ran = false;
     while (acc >= 1 / 60) {
@@ -482,7 +501,7 @@ export function mount(stage) {
     for (const m of marks) m.age += 1 / 60;
     marks = marks.filter((m) => m.age < m.life);
     bursts = bursts.filter((b) => b.t < 0.8); shake = Math.max(0, shake - 1 / 60);
-    const busy = drag || settling || bursts.length || marks.length || shake || glyphs.some((g) => g.state !== 'home' || g.air !== AREST);
+    const busy = drag || settling || breeze > 0.001 || bursts.length || marks.length || shake || glyphs.some((g) => g.state !== 'home' || g.air !== AREST);
     quiet = !busy && e < 0.08 ? quiet + 1 : 0;
     if (quiet < 40) draw();
     else if (quiet === 40) { for (const n of nodes) n.vx = n.vy = 0; draw(); }
