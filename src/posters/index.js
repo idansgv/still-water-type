@@ -19,15 +19,6 @@ export const POSTERS = [
     load: () => import('./still-water.js'),
   },
   {
-    slug: 'meltdown',
-    title: 'Meltdown',
-    words: ['Melt', 'down'],
-    blurb: 'Design and technology, at the point where both give way.',
-    hint: 'Touch it.',
-    themes: { dark: 0.7, light: 0.3 },
-    load: () => import('./meltdown.js'),
-  },
-  {
     slug: 'emboss',
     title: 'Emboss',
     words: ['Flat.', 'Not entirely.'],
@@ -36,15 +27,6 @@ export const POSTERS = [
     themes: { dark: 0.35, light: 0.65 },
     draft: true,
     load: () => import('./emboss.js'),
-  },
-  {
-    slug: 'breath',
-    title: 'Breath',
-    words: ['Clear.'],
-    blurb: 'Frosted glass. Wipe it clear; the fog finds its way back.',
-    hint: null,
-    themes: { dark: 1, light: 0 },
-    load: () => import('./breath.js'),
   },
   {
     slug: 'sheet',
@@ -56,15 +38,6 @@ export const POSTERS = [
     load: () => import('./sheet.js'),
   },
   {
-    slug: 'puff',
-    title: 'Puff up and away',
-    words: ['Puff up', 'and away'],
-    blurb: 'Every letter is a balloon. Hold to inflate, aim, let go.',
-    hint: 'Hold a letter. Drag. Let go.',
-    themes: { dark: 0.3, light: 0.7 },
-    load: () => import('./puff.js'),
-  },
-  {
     slug: 'soft-type',
     title: 'Soft type',
     words: ['Idan', 'Segev'],
@@ -72,15 +45,6 @@ export const POSTERS = [
     hint: null,
     themes: { dark: 0.15, light: 0.85 },
     load: () => import('./soft-type.js'),
-  },
-  {
-    slug: 'point-of-view',
-    title: 'Point of view',
-    words: ['Point', 'of', 'view'],
-    blurb: 'It only reads from one place. Find it.',
-    hint: 'Find the angle.',
-    themes: { dark: 0.8, light: 0.2 },
-    load: () => import('./point-of-view.js'),
   },
 ];
 

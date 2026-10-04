@@ -9,7 +9,7 @@ node tools/build.mjs             # after changing the poster registry: rewrites 
 bash tools/sync-moovit.sh        # rebuild the Moovit case into work/moovit
 ```
 
-Dev switches: `/?p=meltdown` forces a poster, `&theme=light|dark` forces a theme, `#s=<seed>` replays a
+Dev switches: `/?p=soft-type` forces a poster, `&theme=light|dark` forces a theme, `#s=<seed>` replays a
 random variation, `?live` mirrors a local Wordflow3d server in Still Water.
 
 | Path | What |

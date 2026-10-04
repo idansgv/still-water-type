@@ -371,3 +371,5 @@ the Apple model it depends on is research-only, so it was not run).
 ## 16. Release 1 (published)
 
 Published to `main` / idansegev.com: Still Water, Meltdown, Breath, Sheet, Puff, Soft type, Point of view. Emboss stays a draft (rejected). The Work section is not live: it is preserved on the `work-moovit` branch (rebuild with `tools/sync-moovit.sh`) until Moovit asset rights and the Leida font licence are confirmed. Sheet and Soft type are unmeasured on real phones.
+
+**Release 1 amendment.** Breath ("Clear"), Meltdown, Puff and Point of view were removed at Idan's request: files and share pages deleted, registry rows gone. They remain in git history (commit `e09f0ad` and earlier). Rotation is now Still Water, Sheet and Soft type; Emboss is still a draft.
