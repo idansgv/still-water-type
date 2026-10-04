@@ -59,6 +59,16 @@ export const POSTERS = [
     load: () => import('./sheet.js'),
   },
   {
+    slug: 'puff',
+    title: 'Puff up and away',
+    words: ['Puff up', 'and away'],
+    blurb: 'Every letter is a balloon. Hold to inflate, aim, let go.',
+    hint: 'Hold a letter. Drag. Let go.',
+    themes: { dark: 0.3, light: 0.7 },
+    draft: true,
+    load: () => import('./puff.js'),
+  },
+  {
     slug: 'point-of-view',
     title: 'Point of view',
     words: ['Point', 'of', 'view'],

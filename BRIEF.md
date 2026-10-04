@@ -316,6 +316,12 @@ parallax, and a `?live` mode mirroring Wordflow3d lyrics. That version is tagged
    stale-module scare), `?debug` error toasts, the draft flag, a guard so Shuffle works with one published poster.
 8. **Commits.** Seven commits are local only and not yet pushed: Emboss, parking Emboss, Breath, Sheet, Sheet panel and
    click, dev server, Sheet simulation. The pushed state of `portfolio-v1` is the first portfolio commit.
+9. **Puff up and away (draft).** Idan's standalone Vite project (`~/Downloads/puff`: Canvas 2D, each letter a balloon
+   with an elastic spring mesh) ported to `src/posters/puff.js` as a draft poster, `?p=puff`. Its own rules are kept:
+   pure black/white (via the stage theme and `setBackdrop`), DynaPuff 700 (loaded by the poster, not the shell), no
+   outlines or corners. Its gravity and slow-motion controls became the settings panel (`T`). Open items from the
+   original project (tear effect, keyboard control, high-DPI seam check, split into modules) are not done. The original
+   `reference/balloon-rockets-blobs.html` stays in Downloads. Not yet tested on a real phone.
 
 **References parked for later** (not opened or analysed): an Instagram post, reactbits.dev and its tech-text animation,
 balloons.shader.se, spacetypegenerator.com, `cullenwebber.github.io/three-html-to-canvas` (flagged by Idan as the most
