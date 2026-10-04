@@ -377,3 +377,5 @@ Published to `main` / idansegev.com: Still Water, Meltdown, Breath, Sheet, Puff,
 **Soft type marks (branch, unpublished).** Speed lines stream behind a rocketing letter (from its velocity), tension ticks bristle around a letter past ~72% air and more in the critical phase, and the only hint that letters are pressable is one letter breathing once after ~2.4 s untouched (a second time at ~9 s if still untouched; skipped under reduced motion). No instructional text.
 
 **Soft type marks, revision.** The ruler-straight speed lines and ellipse ticks were replaced by one family of hand-flicked marks in the explosion's own language: curved, round-capped strokes that travel out and thin away. Streaks are spawned behind a rocketing letter from its velocity and stay in the world as it leaves them; stress flicks are small three-stroke fans spawned off the letter's actual skin, more of them as it nears the limit.
+
+**Soft type fix.** Releasing during the flicker warning now launches a full-air rocket (it used to just deflate). Only still holding to the end bursts.

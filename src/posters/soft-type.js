@@ -14,7 +14,7 @@
 //
 // Hold too long and it goes critical: the stroke trembles and distorts, the letter flickers out a few times as a
 // warning, and if you are still holding it bursts. The burst throws every other letter across the page and draws
-// a few cartoon motion lines. Let go during the warning and it just lets the air out.
+// a few cartoon motion lines. Let go during the warning and it rockets off at full power.
 //
 // Cartoon marks tell the story: speed lines stream behind a rocketing letter, and short tension ticks bristle
 // around it as it nears the limit. If nobody has touched anything for a while one letter breathes once, as the
@@ -449,7 +449,7 @@ export function mount(stage) {
     const g = press && press.g;
     if (g && g.state === 'inflating') {
       if (g.air > g.air0 + 0.12) { g.state = 'flying'; g.t = 0; } else g.state = 'home';
-    } else if (g && g.state === 'critical') g.state = 'home';   // let go during the warning: it just lets the air out
+    } else if (g && g.state === 'critical') { g.state = 'flying'; g.t = 0; }   // let go during the warning: full air, so the hardest rocket
     press = null; drag = null; pid = null; quiet = 0;
   };
   offs.push(stage.on('up', release));
