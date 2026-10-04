@@ -1,9 +1,8 @@
 // Soft type: every letter is a few skeleton strokes, sampled into round particles that behave like one
 // elastic material. The thick, bubbly look is a round-capped stroke along the particle path.
 //
-// Study: colederochie.com (hand-written Canvas 2D; position-based dynamics on stroke particles, with a
-// spatial hash for contacts and a weak pull back to each letter's own rest shape). This is our own
-// implementation of that idea, written from how it behaves; no code was copied, and the skeletons are our own.
+// Built on position-based dynamics: distance links, a bending-smoothing pass, a spatial hash for contacts and a weak
+// pull back to each letter's own rest shape. The skeletons and everything else here are our own.
 //
 // Drag a letter: it bends, squashes against its neighbours and keeps where you left it.
 // Hold a letter without moving: air flows in through a point on the letter (its mouth). The tube swells, starting at
