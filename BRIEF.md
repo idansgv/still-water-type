@@ -331,7 +331,9 @@ parallax, and a `?live` mode mirroring Wordflow3d lyrics. That version is tagged
     Balloon-rocket mode (from Puff) added: hold still to inflate, drag to aim, release to launch; thrust leaves through the knot
     and whips the soft letter, air runs out, it lands and springs home. Letters can now rotate (shape matching). Mass and energy: mass is ink area (heavier letters give way less in contacts and coast longer), inflating raises size and
     therefore mass and stored air; thrust and burn time scale with it; air runs out, the letter shrinks to a minimal size (0.8),
-    thrust and motion die, it drifts, then re-inflates to normal and returns. Lesson: a stroke end must not weld onto its own neighbouring particle (it chamfered corners). Re-form is in the panel (`T`).
+    thrust and motion die, it drifts, then re-inflates to normal and returns. Revision: no gravity, no user aim. Each inflation puts a knot at a random spot; thrust leaves through it and turns with the
+    letter as it spins. Letters deflate to 0.28x and stay tiny and where they stopped (inflate again, or Re-form). Each visit
+    starts with slightly uneven letters (tilt, offset, size, seeded). Lesson: a stroke end must not weld onto its own neighbouring particle (it chamfered corners). Re-form is in the panel (`T`).
 
 **References parked for later** (not opened or analysed): an Instagram post, reactbits.dev and its tech-text animation,
 balloons.shader.se, spacetypegenerator.com, `cullenwebber.github.io/three-html-to-canvas` (flagged by Idan as the most
