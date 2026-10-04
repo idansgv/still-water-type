@@ -333,7 +333,10 @@ parallax, and a `?live` mode mirroring Wordflow3d lyrics. That version is tagged
     therefore mass and stored air; thrust and burn time scale with it; air runs out, the letter shrinks to a minimal size (0.8),
     thrust and motion die, it drifts, then re-inflates to normal and returns. Revision: no gravity, no user aim. Each inflation puts a knot at a random spot; thrust leaves through it and turns with the
     letter as it spins. Letters deflate to 0.28x and stay tiny and where they stopped (inflate again, or Re-form). Each visit
-    starts with slightly uneven letters (tilt, offset, size, seeded). Lesson: a stroke end must not weld onto its own neighbouring particle (it chamfered corners). Re-form is in the panel (`T`).
+    starts with slightly uneven letters (tilt, offset, size, seeded). Second revision: inflation is air, not scale. Air enters (and leaves) through a mouth particle and spreads along the tube,
+    so the stroke swells from the mouth outward while the skeleton only stretches ~20% of the swell; a spent letter is a limp
+    thin tube at the same footprint (no more mismatched scale), and air creeps back in through the mouth so it re-inflates where
+    it stopped. The knot dot and aim dots are gone. No audio ever existed in this poster. Lesson: a stroke end must not weld onto its own neighbouring particle (it chamfered corners). Re-form is in the panel (`T`).
 
 **References parked for later** (not opened or analysed): an Instagram post, reactbits.dev and its tech-text animation,
 balloons.shader.se, spacetypegenerator.com, `cullenwebber.github.io/three-html-to-canvas` (flagged by Idan as the most

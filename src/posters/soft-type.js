@@ -1,23 +1,21 @@
 // Soft type: every letter is a few skeleton strokes, sampled into round particles that behave like one
-// elastic material. The thick, bubbly look is just a round-capped stroke along the particle path.
+// elastic material. The thick, bubbly look is a round-capped stroke along the particle path.
 //
 // Study: colederochie.com (hand-written Canvas 2D; position-based dynamics on stroke particles, with a
 // spatial hash for contacts and a weak pull back to each letter's own rest shape). This is our own
 // implementation of that idea, written from how it behaves; no code was copied, and the skeletons are our own.
 //
 // Drag a letter: it bends, squashes against its neighbours and keeps where you left it.
-// Hold a letter without moving: it inflates like a balloon with a knot somewhere on it. Let go: it rockets out of
-// the knot, spins as it goes, and there is no steering. There is no gravity. As the air runs out the letter shrinks,
-// far below its normal size, and stops where it is. It stays small until you inflate it again or press Re-form.
-// Every visit starts with slightly uneven letters.
+// Hold a letter without moving: air flows in through a point on the letter (its mouth). The tube swells, starting at
+// the mouth and spreading along the stroke; the letter itself only grows a little, it is the stroke that fattens.
+// Let go: the air rushes out of the mouth and the letter rockets the other way. There is no steering and no gravity.
+// As the air runs out the tube goes limp and thin, the thrust dies and the letter stops. Then air creeps back in
+// through the mouth and it re-inflates where it is. Every visit starts with slightly uneven letters.
 //
-// Mass is size: a letter weighs (stroke length x stroke width), so inflating a letter makes it heavier. Heavy letters
-// shove light ones in contacts and keep their momentum longer. Inflating also stores energy: the bigger the balloon,
-// the harder and longer it pushes. Firing it drains the air, the letter shrinks to a minimal size, the thrust dies,
-// and its motion dies with it.
+// Mass follows size: a letter weighs its stroke length times its stroke width, so a swollen letter is heavier.
+// Heavy letters shove light ones in contacts and keep their momentum longer. The air is the stored energy.
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 
 // ---- skeletons: unit box, x in -.3..+.3, y in -.35..+.35 (y down) ----
 const line = (...p) => ({ pts: p.map(([x, y]) => ({ x, y })), sharp: true });
@@ -42,13 +40,16 @@ const SKELETON = {
 const ratio = (c, w, h) => (c === 'I' ? h * 0.11 : Math.min(w * 0.25, h * (c === 'E' ? 0.1 : 0.118)));
 const radiusFor = (c, w, h) => Math.max(6, ratio(c, w, h));
 
+const AREST = 0.5, rm = (q) => 0.3 + 1.4 * q;   // air level -> stroke thickness; the rest level gives exactly the designed stroke
+
 class Glyph {
   constructor(ch, pose) {
     const jf = pose.f || 1, ja = pose.a || 0, jc = Math.cos(ja), js = Math.sin(ja);
-    this.ch = ch; this.w = pose.w * jf; this.h = pose.h * jf; this.scale = 1;
-    this.r0 = radiusFor(ch, this.w, this.h); this.r = this.r0;
-    this.nodes = []; this.paths = []; this.links = []; this.puff = null;
-    this.m = 1; this.state = 'home'; this.air = 0; this.knot = 0; this.angle = 0; this.air0 = 0; this.t = 0; this.ret = 0; this.ph = Math.random() * 6.28;
+    this.ch = ch; this.w = pose.w * jf; this.h = pose.h * jf;
+    this.r0 = radiusFor(ch, this.w, this.h);
+    this.nodes = []; this.paths = []; this.links = [];
+    this.m = 1; this.base = 1; this.lk = 1; this.state = 'home'; this.air = AREST; this.air0 = AREST;
+    this.mouth = null; this.angle = 0; this.t = 0; this.ret = 0; this.ph = Math.random() * 6.28;
     const r = this.r0;
     for (const st of SKELETON[ch].s()) {
       const pts = st.pts.map((p) => { const x = p.x * this.w, y = p.y * this.h; return { x: x * jc - y * js, y: x * js + y * jc }; });
@@ -74,7 +75,7 @@ class Glyph {
         const end = !st.closed && (i === 0 || i === samples.length - 1);
         let best = r * (end ? 1.1 : 0.28), node = null;       // stroke ends weld onto whatever they touch
         for (const m of this.nodes) { if (path.includes(m)) continue; const d = Math.hypot(m.ox - s.x, m.oy - s.y); if (d < best) { best = d; node = m; } }
-        if (!node) { node = { g: this, ox: s.x, oy: s.y, x: pose.x + s.x, y: pose.y + s.y, vx: 0, vy: 0 }; this.nodes.push(node); }
+        if (!node) { node = { g: this, ox: s.x, oy: s.y, x: pose.x + s.x, y: pose.y + s.y, vx: 0, vy: 0, q: AREST, rad: this.r0 }; this.nodes.push(node); }
         if (path[path.length - 1] !== node) path.push(node);
       });
       for (let i = 1; i < path.length; i++) this.link(path[i - 1], path[i]);
@@ -89,18 +90,26 @@ class Glyph {
       if (Math.hypot(a.ox - b.ox, a.oy - b.oy) < r * 2.2) this.link(a, b);
     }));
     this.cx = pose.x; this.cy = pose.y;
+    this.mouth = this.nodes[Math.floor(Math.random() * this.nodes.length)];
   }
-  link(a, b) { this.links.push({ a, b, len: Math.hypot(a.ox - b.ox, a.oy - b.oy) }); }
+  link(a, b) { this.links.push({ a, b, len0: Math.hypot(a.ox - b.ox, a.oy - b.oy) }); }
   center() {
     let x = 0, y = 0; for (const n of this.nodes) { x += n.x; y += n.y; }
     this.cx = x / this.nodes.length; this.cy = y / this.nodes.length;
   }
-  hit(p) { const rr = Math.max(this.r * 1.1, 20); return this.nodes.some((n) => (p.x - n.x) ** 2 + (p.y - n.y) ** 2 <= rr * rr); }
-  // Scale the letter about its centre: rest shape, stroke width and current pose together.
-  rescale(k) {
-    this.center(); this.scale *= k; this.r *= k; this.m *= k * k;
-    for (const n of this.nodes) { n.ox *= k; n.oy *= k; n.x = this.cx + (n.x - this.cx) * k; n.y = this.cy + (n.y - this.cy) * k; }
-    for (const l of this.links) l.len *= k;
+  hit(p) { return this.nodes.some((n) => { const rr = Math.max(n.rad * 1.1, 20); return (p.x - n.x) ** 2 + (p.y - n.y) ** 2 <= rr * rr; }); }
+  // Air moves through the tube from the mouth: the mouth follows the glyph's air level, and every other
+  // particle follows its neighbours, so a swell or a deflation travels along the stroke.
+  flow() {
+    const m = this.mouth;
+    m.q += (this.air - m.q) * 0.5;
+    for (let it = 0; it < 5; it++) for (const l of this.links) { const d = (l.b.q - l.a.q) * 0.3; l.a.q += d; l.b.q -= d; }
+    let sum = 0, off = 0;
+    for (const n of this.nodes) { n.rad = this.r0 * rm(n.q); sum += n.rad; off = Math.max(off, Math.abs(n.q - this.air)); }
+    const mean = sum / this.nodes.length / this.r0;
+    this.lk = 1 + 0.2 * (mean - 1);                      // the skeleton only stretches a little; the stroke does the swelling
+    this.m = this.base * this.lk * mean;
+    return off;
   }
 }
 
@@ -111,10 +120,8 @@ export function mount(stage) {
   stage.setBackdrop(dark ? 0 : 1);
 
   let W = 1, H = 1, glyphs = [], nodes = [], neighbors = new Set();
-  let drag = null, press = null, quiet = 0, acc = 0;
-  const HOLD_DELAY = 0.22, SMIN = 0.28, SMAX = 1.7;
-  const sizeOf = (air) => SMIN + (SMAX - SMIN) * air;
-  const airOf = (size) => clamp((size - SMIN) / (SMAX - SMIN), 0, 1);
+  let drag = null, press = null, quiet = 0, acc = 0, settling = false;
+  const HOLD_DELAY = 0.22;
   const rng = (() => { const r = []; for (let i = 0; i < 12; i++) r.push([stage.rand() - 0.5, stage.rand() - 0.5, stage.rand() - 0.5, stage.rand() - 0.5]); return r; })();
 
   function layout() {
@@ -150,13 +157,13 @@ export function mount(stage) {
 
   function build() {
     glyphs = layout().map((p) => new Glyph(p.ch, p));
-    const raw = glyphs.map((g) => g.links.reduce((t, l) => t + l.len, 0) * g.r), ref = raw.reduce((a, b) => a + b, 0) / raw.length;
-    glyphs.forEach((g, i) => { g.m = Math.pow(raw[i] / ref, 0.6); });   // rest mass from ink area, compressed so an I is light but not weightless
+    const raw = glyphs.map((g) => g.links.reduce((t, l) => t + l.len0, 0) * g.r0), ref = raw.reduce((a, b) => a + b, 0) / raw.length;
+    glyphs.forEach((g, i) => { g.base = Math.pow(raw[i] / ref, 0.6); g.m = g.base; });   // rest mass from ink area, compressed so an I is light but not weightless
     nodes = glyphs.flatMap((g) => g.nodes);
     nodes.forEach((n, i) => { n.id = i; });
     neighbors = new Set();
     for (const g of glyphs) {
-      for (const a of g.nodes) for (const b of g.nodes) if (a.id < b.id && Math.hypot(a.ox - b.ox, a.oy - b.oy) < g.r * 2.1) neighbors.add(a.id + ':' + b.id);
+      for (const a of g.nodes) for (const b of g.nodes) if (a.id < b.id && Math.hypot(a.ox - b.ox, a.oy - b.oy) < g.r0 * 2.1) neighbors.add(a.id + ':' + b.id);
       for (const l of g.links) neighbors.add(Math.min(l.a.id, l.b.id) + ':' + Math.max(l.a.id, l.b.id));
     }
     drag = null; press = null;
@@ -167,28 +174,29 @@ export function mount(stage) {
   }
 
   function confine(n) {
-    const r = n.g.r, floor = H - (W < 720 ? 78 : 70);
+    const r = n.rad, floor = H - (W < 720 ? 78 : 70);
     n.x = clamp(n.x, r + 3, W - r - 3); n.y = clamp(n.y, r + 3, Math.max(r + 4, floor - r));
   }
 
   function solve() {
     for (const g of glyphs) {
+      const lk = g.lk;
       for (const l of g.links) {
-        const dx = l.b.x - l.a.x, dy = l.b.y - l.a.y, d = Math.hypot(dx, dy) || 1, k = (d - l.len) / d * 0.24;
+        const dx = l.b.x - l.a.x, dy = l.b.y - l.a.y, d = Math.hypot(dx, dy) || 1, k = (d - l.len0 * lk) / d * 0.24;
         l.a.x += dx * k; l.a.y += dy * k; l.b.x -= dx * k; l.b.y -= dy * k;
       }
       for (const path of g.paths) {                         // bending stiffness: a stroke bows, then springs straight
         const ns = path.nodes, c = ns.length, s = path.closed ? 0 : 1, e = path.closed ? c : c - 1;
         for (let i = s; i < e; i++) {
           const n = ns[i], a = ns[(i - 1 + c) % c], b = ns[(i + 1) % c];
-          const dx = ((a.x + b.x) / 2 - n.x + (n.ox - (a.ox + b.ox) / 2)) * 0.18;
-          const dy = ((a.y + b.y) / 2 - n.y + (n.oy - (a.oy + b.oy) / 2)) * 0.18;
+          const dx = ((a.x + b.x) / 2 - n.x + (n.ox - (a.ox + b.ox) / 2) * lk) * 0.18;
+          const dy = ((a.y + b.y) / 2 - n.y + (n.oy - (a.oy + b.oy) / 2) * lk) * 0.18;
           n.x += dx; n.y += dy; a.x -= dx / 2; a.y -= dy / 2; b.x -= dx / 2; b.y -= dy / 2;
         }
       }
     }
     // contacts through a spatial hash: strokes squash against each other and never interlock
-    let rmax = 8; for (const g of glyphs) rmax = Math.max(rmax, g.r);
+    let rmax = 8; for (const n of nodes) rmax = Math.max(rmax, n.rad);
     const cell = rmax * 2 + 3, grid = new Map();
     for (const a of nodes) {
       const gx = Math.floor(a.x / cell), gy = Math.floor(a.y / cell);
@@ -196,7 +204,7 @@ export function mount(stage) {
         const bucket = grid.get(x * 4099 + y); if (!bucket) continue;
         for (const b of bucket) {
           if (a.g === b.g && neighbors.has(b.id + ':' + a.id)) continue;
-          const dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy) || 0.001, over = a.g.r + b.g.r + 1.8 - d;
+          const dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy) || 0.001, over = a.rad + b.rad + 1.8 - d;
           if (over > 0) {                                  // the heavier body gives way less
             const wa = 1 / a.g.m, wb = 1 / b.g.m, ta = wa / (wa + wb) * over / d, tb = wb / (wa + wb) * over / d;
             a.x += dx * ta; a.y += dy * ta; b.x -= dx * tb; b.y -= dy * tb;
@@ -208,38 +216,29 @@ export function mount(stage) {
     for (const n of nodes) confine(n);
   }
 
-  function followPuffs() {
-    for (const g of glyphs) {
-      const p = g.puff; if (!p) continue;
-      const k = p.elastic ? 220 : 260, c = p.elastic ? 7 : 32;
-      p.v += ((p.target - p.size) * k - p.v * c) / 60;
-      const next = Math.max(0.15, p.size + p.v / 60);
-      g.rescale(next / p.size); p.size = next;
-      if (Math.abs(p.size - p.target) < 0.001 && Math.abs(p.v) < 0.01) { g.rescale(p.target / p.size); g.puff = null; }
-    }
-  }
-  const setPuff = (g, target, elastic = false) => { g.puff ??= { size: g.scale, v: 0 }; g.puff.target = target; g.puff.elastic = elastic; quiet = 0; };
-
-  // The balloon life cycle: home -> inflating (held still) -> flying (air runs out) -> spent (limp, tiny) -> home.
+  // The balloon life cycle: home -> inflating (held still) -> flying (air runs out) -> spent (limp) -> home (air creeps back).
   // 'returning' is only used by Re-form.
   function lifecycle(dt) {
     if (press && press.live) {
       press.t += dt;
       if (press.t > HOLD_DELAY && press.g.state === 'home') {
         const g = press.g; drag = null;
-        g.state = 'inflating'; g.air = g.air0 = airOf(g.scale); g.t = 0;
-        g.knot = Math.random() * Math.PI * 2;               // where the knot is, in the letter's own frame
+        g.state = 'inflating'; g.air0 = g.air; g.t = 0;
+        g.mouth = g.nodes[Math.floor(Math.random() * g.nodes.length)];   // a new mouth each time
       }
     }
     for (const g of glyphs) {
       g.t += dt;
-      if (g.state === 'inflating') { g.air = Math.min(1, g.air + dt * 0.55); setPuff(g, sizeOf(g.air)); }
-      else if (g.state === 'flying') {                      // the bigger the balloon, the longer the burn
-        g.air -= dt * (0.55 + 0.4 * g.air) / g.scale;
-        if (g.air <= 0) { g.air = 0; g.state = 'spent'; g.t = 0; setPuff(g, SMIN); }
-        else setPuff(g, sizeOf(g.air));
+      if (g.state === 'inflating') g.air = Math.min(1, g.air + dt * 0.55);
+      else if (g.state === 'flying') {                      // the fuller the balloon, the longer the burn
+        g.air -= dt * (0.55 + 0.4 * g.air) / Math.max(0.6, rm(g.air));
+        if (g.air <= 0) { g.air = 0; g.state = 'spent'; g.t = 0; }
       } else if (g.state === 'spent') { if (g.t > 1.3) g.state = 'home'; }
-      else if (g.state === 'returning') { if (--g.ret <= 0) g.state = 'home'; }
+      else if (g.state === 'returning') { g.air = AREST; if (--g.ret <= 0) g.state = 'home'; }
+      else if (g.state === 'home') {                        // air creeps in through the mouth, or leaks out of an over-filled letter
+        if (g.air < AREST) g.air = Math.min(AREST, g.air + dt * 0.22);
+        else if (g.air > AREST) g.air = Math.max(AREST, g.air - dt * 0.4);
+      }
     }
   }
   function forces() {
@@ -248,12 +247,13 @@ export function mount(stage) {
         const pull = 0.05 * Math.min(1, g.ret / 60);
         for (const n of g.nodes) { n.vx += (n.hx - n.x) * pull; n.vy += (n.hy - n.y) * pull; }
       }
-      if (g.state === 'flying') {                           // thrust leaves through the knot, so as the letter spins the push turns with it
+      if (g.state === 'flying') {                           // the jet leaves through the mouth, so as the letter spins the push turns with it
+        const m = g.mouth, ext = g.h * 0.5;
+        let ax = g.cx - m.x, ay = g.cy - m.y; const al = Math.hypot(ax, ay) || 1; ax /= al; ay /= al;
         const jit = Math.sin(g.t * 26 + g.ph) * 0.28 * (0.4 + g.air) + Math.sin(g.t * 13 + g.ph * 2) * 0.18;
-        const ka = g.knot + g.angle, dir = ka + Math.PI + jit, T = g.air * g.scale * g.h * 0.0085, ext = g.h * 0.5 * g.scale;
-        const kx = g.cx + Math.cos(ka) * ext, ky = g.cy + Math.sin(ka) * ext;
+        const dir = Math.atan2(ay, ax) + jit, T = g.air * g.h * 0.0145;
         for (const n of g.nodes) {
-          const d = Math.hypot(n.x - kx, n.y - ky), w = 0.3 + 0.7 * Math.exp(-((d / ext) ** 2));
+          const d = Math.hypot(n.x - m.x, n.y - m.y), w = 0.3 + 0.7 * Math.exp(-((d / ext) ** 2));
           n.vx += Math.cos(dir) * T * w; n.vy += Math.sin(dir) * T * w;
         }
       }
@@ -261,7 +261,6 @@ export function mount(stage) {
   }
 
   function step() {
-    followPuffs();
     forces();
     const old = nodes.map((n) => [n.x, n.y]);
     for (const g of glyphs) {                                // shape memory: pulled toward its own rest shape, free to rotate
@@ -270,9 +269,9 @@ export function mount(stage) {
       let sa = 0, sb = 0;
       for (const n of g.nodes) { const ox = n.ox - mx, oy = n.oy - my, dx = n.x - g.cx, dy = n.y - g.cy; sa += ox * dy - oy * dx; sb += ox * dx + oy * dy; }
       g.angle = Math.atan2(sa, sb);
-      const th = g.angle * (g.state === 'flying' || g.state === 'inflating' ? 1 : 0.85), c = Math.cos(th), sn = Math.sin(th);
+      const th = g.angle * (g.state === 'flying' || g.state === 'inflating' ? 1 : 0.85), c = Math.cos(th), sn = Math.sin(th), lk = g.lk;
       for (const n of g.nodes) {
-        const ox = n.ox - mx, oy = n.oy - my;
+        const ox = (n.ox - mx) * lk, oy = (n.oy - my) * lk;
         n.vx += (g.cx + ox * c - oy * sn - n.x) * 0.024; n.vy += (g.cy + ox * sn + oy * c - n.y) * 0.024;
       }
     }
@@ -283,7 +282,7 @@ export function mount(stage) {
       held = { n, x0: n.x, y0: n.y, x: n.x + mx, y: n.y + my };
     }
     let far = 0, thin = Infinity;
-    for (const g of glyphs) thin = Math.min(thin, g.r);
+    for (const n of nodes) thin = Math.min(thin, n.rad);
     for (const [x, y] of move) far = Math.max(far, Math.hypot(x, y));
     if (held) far = Math.max(far, Math.hypot(held.x - held.x0, held.y - held.y0));
     const steps = clamp(Math.ceil(far / (thin * 0.5)), 1, 8), passes = Math.ceil(6 / steps);
@@ -300,37 +299,30 @@ export function mount(stage) {
       n.vx = clamp((n.x - old[i][0]) * k, -30, 30); n.vy = clamp((n.y - old[i][1]) * k, -30, 30);
       e += n.vx * n.vx + n.vy * n.vy;
     });
+    let off = 0; for (const g of glyphs) off = Math.max(off, g.flow());
+    settling = off > 0.004;
     return Math.sqrt(e / nodes.length);
   }
 
-  function pathTo(p) {
+  // Each stroke is drawn piece by piece so its thickness can change along the tube: a swell travels from the mouth.
+  function strokePath(p) {
     const ns = p.nodes, c = ns.length;
     if (c < 2) return;
     const mid = (a, b) => [(a.x + b.x) / 2, (a.y + b.y) / 2];
-    if (p.closed) {
-      const m0 = mid(ns[c - 1], ns[0]); ctx.moveTo(m0[0], m0[1]);
-      for (let i = 0; i < c; i++) { const m = mid(ns[i], ns[(i + 1) % c]); ctx.quadraticCurveTo(ns[i].x, ns[i].y, m[0], m[1]); }
-      ctx.closePath();
-    } else {
-      ctx.moveTo(ns[0].x, ns[0].y);
-      for (let i = 1; i < c - 1; i++) { const m = mid(ns[i], ns[i + 1]); ctx.quadraticCurveTo(ns[i].x, ns[i].y, m[0], m[1]); }
-      ctx.lineTo(ns[c - 1].x, ns[c - 1].y);
+    for (let i = 0; i < c; i++) {
+      const n = ns[i];
+      let a, b;
+      if (p.closed) { a = mid(ns[(i - 1 + c) % c], n); b = mid(n, ns[(i + 1) % c]); }
+      else { a = i === 0 ? [n.x, n.y] : mid(ns[i - 1], n); b = i === c - 1 ? [n.x, n.y] : mid(n, ns[i + 1]); }
+      ctx.lineWidth = n.rad * 2;
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(n.x, n.y, b[0], b[1]); ctx.stroke();
     }
   }
   function draw() {
     ctx.setTransform(stage.pw / W, 0, 0, stage.ph / H, 0, 0);
     ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    for (const g of glyphs) {
-      ctx.lineWidth = g.r * 2;
-      ctx.beginPath(); for (const p of g.paths) pathTo(p); ctx.stroke();
-    }
-    ctx.fillStyle = ink;                                     // the knot: a small oval at the balloon's mouth
-    for (const g of glyphs) {
-      if (g.state !== 'inflating' && g.state !== 'flying') continue;
-      const ka = g.knot + g.angle, d = g.h * 0.5 * g.scale + g.r * 0.6;
-      ctx.beginPath(); ctx.ellipse(g.cx + Math.cos(ka) * d, g.cy + Math.sin(ka) * d, g.r * 0.7, g.r * 0.45, ka, 0, Math.PI * 2); ctx.fill();
-    }
+    for (const g of glyphs) for (const p of g.paths) strokePath(p);
   }
 
   // ---- input ----
@@ -341,7 +333,7 @@ export function mount(stage) {
     if (pid !== null) return;
     const g = hit(q); if (!g) return;
     pid = e.pointerId;
-    if (g.state !== 'home') { g.state = 'home'; g.air = 0; setPuff(g, g.scale); }
+    if (g.state !== 'home') g.state = 'home';                // grabbing a flying or limp letter catches it
     const node = g.nodes.reduce((a, b) => (Math.hypot(a.x - q.x, a.y - q.y) < Math.hypot(b.x - q.x, b.y - q.y) ? a : b));
     drag = { g, node, x: q.x, y: q.y, dx: node.x - q.x, dy: node.y - q.y };
     glyphs.splice(glyphs.indexOf(g), 1); glyphs.push(g);     // newest on top for hit testing
@@ -360,7 +352,7 @@ export function mount(stage) {
     if (e.pointerId !== pid) return;
     const g = press && press.g;
     if (g && g.state === 'inflating') {
-      if (g.air > g.air0 + 0.12) { g.state = 'flying'; g.t = 0; } else { g.state = 'home'; setPuff(g, sizeOf(g.air0)); }
+      if (g.air > g.air0 + 0.12) { g.state = 'flying'; g.t = 0; } else g.state = 'home';
     }
     press = null; drag = null; pid = null; quiet = 0;
   };
@@ -382,13 +374,13 @@ export function mount(stage) {
       acc -= 1 / 60; lifecycle(1 / 60); e = step(); ran = true;
     }
     if (!ran) return;
-    const busy = drag || glyphs.some((g) => g.puff || g.state !== 'home');
+    const busy = drag || settling || glyphs.some((g) => g.state !== 'home' || g.air !== AREST);
     quiet = !busy && e < 0.08 ? quiet + 1 : 0;
     if (quiet < 40) draw();
     else if (quiet === 40) { for (const n of nodes) n.vx = n.vy = 0; draw(); }
   }));
 
-  const reform = () => { for (const g of glyphs) { g.state = 'returning'; g.ret = 180; g.air = 0; setPuff(g, 1); } quiet = 0; };
+  const reform = () => { for (const g of glyphs) { g.state = 'returning'; g.ret = 180; g.air = AREST; } quiet = 0; };
   return {
     tune: {
       title: 'Soft type', values: {}, defaults: {}, groups: [],
