@@ -366,3 +366,8 @@ the Apple model it depends on is research-only, so it was not run).
   Cloudflare-protected pages (Codrops) need the preview browser, not `curl`. Three GitHub accounts are logged into
   `gh`; pushing this repo needs `idansgv` (switch, push, switch back).
 
+
+
+## 16. Release 1 (published)
+
+Published to `main` / idansegev.com: Still Water, Meltdown, Breath, Sheet, Puff, Soft type, Point of view. Emboss stays a draft (rejected). The Work section is not live: it is preserved on the `work-moovit` branch (rebuild with `tools/sync-moovit.sh`) until Moovit asset rights and the Leida font licence are confirmed. Sheet and Soft type are unmeasured on real phones.

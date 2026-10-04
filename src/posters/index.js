@@ -25,7 +25,6 @@ export const POSTERS = [
     blurb: 'Design and technology, at the point where both give way.',
     hint: 'Touch it.',
     themes: { dark: 0.7, light: 0.3 },
-    draft: true,
     load: () => import('./meltdown.js'),
   },
   {
@@ -45,7 +44,6 @@ export const POSTERS = [
     blurb: 'Frosted glass. Wipe it clear; the fog finds its way back.',
     hint: null,
     themes: { dark: 1, light: 0 },
-    draft: true,
     load: () => import('./breath.js'),
   },
   {
@@ -55,7 +53,6 @@ export const POSTERS = [
     blurb: 'A flat poster. Tilt it.',
     hint: null,
     themes: { dark: 1, light: 0 },
-    draft: true,
     load: () => import('./sheet.js'),
   },
   {
@@ -65,7 +62,6 @@ export const POSTERS = [
     blurb: 'Every letter is a balloon. Hold to inflate, aim, let go.',
     hint: 'Hold a letter. Drag. Let go.',
     themes: { dark: 0.3, light: 0.7 },
-    draft: true,
     load: () => import('./puff.js'),
   },
   {
@@ -75,7 +71,6 @@ export const POSTERS = [
     blurb: 'Letters made of one soft material. Drag them, squash them, hold one until it pops.',
     hint: null,
     themes: { dark: 0.15, light: 0.85 },
-    draft: true,
     load: () => import('./soft-type.js'),
   },
   {
@@ -85,7 +80,6 @@ export const POSTERS = [
     blurb: 'It only reads from one place. Find it.',
     hint: 'Find the angle.',
     themes: { dark: 0.8, light: 0.2 },
-    draft: true,
     load: () => import('./point-of-view.js'),
   },
 ];
