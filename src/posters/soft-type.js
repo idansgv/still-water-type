@@ -239,10 +239,10 @@ export function mount(stage) {
     }
     for (const g of glyphs) {
       g.t += dt;
-      if (g.state === 'inflating') { g.air = Math.min(1, g.air + dt * 0.4); if (g.air >= 1) { g.state = 'critical'; g.t = 0; } }
+      if (g.state === 'inflating') { g.air = Math.min(1, g.air + dt * 0.24); if (g.air >= 1) { g.state = 'critical'; g.t = 0; } }
       else if (g.state === 'critical') { if (g.t > FLICKER_T) explode(g); }
       else if (g.state === 'flying') {                      // the fuller the balloon, the longer the burn
-        g.air -= dt * (0.55 + 0.4 * g.air) / Math.max(0.6, rm(g.air));
+        g.air -= dt * (0.95 + 0.7 * g.air) / Math.max(0.7, rm(g.air));
         if (g.air <= 0) { g.air = 0; g.state = 'spent'; g.t = 0; }
       } else if (g.state === 'spent') { if (g.t > 1.3) g.state = 'home'; }
       else if (g.state === 'returning') { g.air = AREST; if (--g.ret <= 0) g.state = 'home'; }
@@ -290,8 +290,8 @@ export function mount(stage) {
       if (g.state === 'flying') {                           // the jet leaves through the mouth, so as the letter spins the push turns with it
         const m = g.mouth, ext = g.h * 0.5;
         let ax = g.cx - m.x, ay = g.cy - m.y; const al = Math.hypot(ax, ay) || 1; ax /= al; ay /= al;
-        const jit = Math.sin(g.t * 26 + g.ph) * 0.28 * (0.4 + g.air) + Math.sin(g.t * 13 + g.ph * 2) * 0.18;
-        const dir = Math.atan2(ay, ax) + jit, T = g.air * g.h * 0.03;
+        const jit = Math.sin(g.t * 26 + g.ph) * 0.4 * (0.4 + g.air) + Math.sin(g.t * 13 + g.ph * 2) * 0.28;
+        const dir = Math.atan2(ay, ax) + jit, T = g.air * g.h * 0.06;
         for (const n of g.nodes) {
           const d = Math.hypot(n.x - m.x, n.y - m.y), w = 0.3 + 0.7 * Math.exp(-((d / ext) ** 2));
           n.vx += Math.cos(dir) * T * w; n.vy += Math.sin(dir) * T * w;
@@ -335,8 +335,8 @@ export function mount(stage) {
     }
     let e = 0;
     nodes.forEach((n, i) => {
-      const g = n.g, k = g.state === 'spent' ? 0.8 : g.state === 'flying' ? 1 - 0.06 / clamp(g.m, 0.5, 3) : 0.94;   // heavy letters coast; a spent one has no motion left
-      const cap = g.state === 'flying' ? 46 : 36;
+      const g = n.g, k = g.state === 'spent' ? 0.8 : g.state === 'flying' ? 1 - 0.035 / clamp(g.m, 0.5, 3) : 0.94;   // heavy letters coast; a spent one has no motion left
+      const cap = g.state === 'flying' ? 70 : 36;
       n.vx = clamp((n.x - old[i][0]) * k, -cap, cap); n.vy = clamp((n.y - old[i][1]) * k, -cap, cap);
       e += n.vx * n.vx + n.vy * n.vy;
     });
