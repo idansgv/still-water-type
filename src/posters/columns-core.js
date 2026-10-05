@@ -276,11 +276,11 @@ export async function mountColumns(stage, mode) {
   }
 
   function build() {
-    sim = newWorld(); solids = []; letters = []; pending = []; press = null; pid = null; shardCount = 0; shardVerts = 0;
     S = 1; // placeholder so the layout can be measured in pixels
     const poses = layoutPx();
-    S = poses[0].h / UNIT_H;
+    S = poses[0].h / UNIT_H;             // the scale must be known before the world is made: the walls are placed from it
     colH = P.height;
+    sim = newWorld(); solids = []; letters = []; pending = []; press = null; pid = null; shardCount = 0; shardVerts = 0;
     camera();
     for (const p of poses) addLetter(p);
     fade = 0;
