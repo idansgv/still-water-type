@@ -127,6 +127,15 @@ export class Sim {
     return { body, point: { x: origin.x + dir.x * t, y: origin.y + dir.y * t, z: origin.z + dir.z * t }, collider: hit.collider };
   }
 
+  /** where two colliders are touching, in world space, or null (only meaningful right after a step) */
+  contactPoint(h1, h2) {
+    try {
+      const c1 = this.world.getCollider(h1), c2 = this.world.getCollider(h2); let pt = null;
+      this.world.narrowPhase.contactPair(c1, c2, (m) => { if (!pt && m.numSolverContacts() > 0) { const p = m.solverContactPoint(0); pt = { x: p.x, y: p.y, z: p.z }; } });
+      return pt;
+    } catch (e) { return null; }
+  }
+
   step(dt, onHit) {
     this.world.timestep = dt;
     for (const b of this.dynamics) { b.pv.x = b.velocity.x; b.pv.y = b.velocity.y; b.pv.z = b.velocity.z; }
@@ -134,7 +143,7 @@ export class Sim {
     if (onHit) this.queue.drainCollisionEvents((h1, h2, started) => {
       if (!started) return;
       const a = this.owner.get(h1), b = this.owner.get(h2);
-      if (a && b) onHit(a, b);
+      if (a && b) onHit(a, b, h1, h2);
     });
     else this.queue.drainCollisionEvents(() => {});
     for (const b of this.dynamics) if (!b.rb.isSleeping()) b.sync();

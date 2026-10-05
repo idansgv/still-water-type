@@ -15,6 +15,7 @@ import { perspective, ortho, lookAt, mul, invert, transformPoint } from './lib3d
 import { SKELETON, ratio } from './lettering.js';
 import { compile } from '../engine.js';
 import { shatterBox } from './shatter.js';
+import { Dust } from './dust.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qmul = (a, b) => ({ x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y, y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w, w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z });
@@ -139,8 +140,9 @@ export async function mountColumns(stage, mode) {
   overlay.setAttribute('aria-hidden', 'true');
   stage.root.appendChild(overlay);
   const octx = overlay.getContext('2d');
+  const dust = new Dust(gl);
 
-  const P = EXPLODE ? { gravity: 40, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.4, rough: 1, gap: 0.8, crack: 2.9, crackAt: 0.25, jitter: 1, reach: 3, passive: 1, transfer: 0.7, bounce: 0.05, friction: 0.98, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
+  const P = EXPLODE ? { gravity: 40, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.4, rough: 1, gap: 0.8, crack: 2.9, crackAt: 0.25, jitter: 1, reach: 3, passive: 1, transfer: 0.7, bounce: 0.05, friction: 0.98, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   let pending = [], timers = [];
   let W = 1, H = 1, S = 100, sim = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
@@ -173,15 +175,16 @@ export async function mountColumns(stage, mode) {
   // ---------- camera ----------
   // Straight down and orthographic by default, so the type reads flat. The camera settings are for setting up and
   // previewing: tilt and turn orbit the centre of the page, zoom scales, and perspective eases from orthographic to a real lens.
-  let VP = null, invVP = null;
+  let VP = null, invVP = null, wref = 1, puffBudget = 0;
   function camera() {
     const hh = H / 2 / S / P.zoom, hw = W / 2 / S / P.zoom, pitch = P.camPitch, yaw = P.camYaw;
     const dist = 60, eye = [dist * Math.sin(yaw) * Math.cos(pitch), dist * Math.sin(pitch), dist * Math.cos(yaw) * Math.cos(pitch)];
     const view = lookAt(eye, [0, 0, 0], [0, 1, 0]);
     let proj;
+    wref = 1;
     if (P.persp < 0.01) proj = ortho(hw, hh, 5, 200);
     else {                                                            // a closer camera for more perspective, with the page the same size at the centre
-      const d = 60 - P.persp * 50;
+      const d = 60 - P.persp * 50; wref = d;
       const v2 = lookAt([d * Math.sin(yaw) * Math.cos(pitch), d * Math.sin(pitch), d * Math.cos(yaw) * Math.cos(pitch)], [0, 0, 0], [0, 1, 0]);
       VP = mul(perspective(2 * Math.atan(hh / d), W / H, 1, 300), v2); invVP = invert(VP); return;
     }
@@ -252,7 +255,7 @@ export async function mountColumns(stage, mode) {
     let vol = 0; for (const b of boxes) vol += 8 * b.hx * b.hy * (COL_H / 2);
     const [wx, wy] = toWorld(p.x, p.y), pos = { x: wx, y: wy, z: COL_H / 2 };
     const body = EXPLODE ? sim.fixed(pos) : sim.dynamic(pos, { linearDamping: 0.04, angularDamping: 0.06 });
-    const colliders = boxes.map((b) => sim.box(body, [b.hx, b.hy, COL_H / 2], { offset: { x: b.x, y: b.y, z: 0 }, angle: b.a, density: EXPLODE ? undefined : 3 / vol, events: EXPLODE }));
+    const colliders = boxes.map((b) => sim.box(body, [b.hx, b.hy, COL_H / 2], { offset: { x: b.x, y: b.y, z: 0 }, angle: b.a, density: EXPLODE ? undefined : 3 / vol, events: true }));
     body.isLetter = true; body.ch = p.ch; body.vol = vol;
     if (EXPLODE) {
       body.cells = boxes.map((b, i) => ({ ...b, alive: true, dmg: 0, collider: colliders[i] }));
@@ -313,9 +316,9 @@ export async function mountColumns(stage, mode) {
         let ok = null;
         if (size < 0.2) {                                          // the tiniest pieces collide as boxes: cheaper, and nobody can tell
           let mx = 0, my = 0, mz = 0; for (const v of pc.verts) { mx = Math.max(mx, Math.abs(v[0])); my = Math.max(my, Math.abs(v[1])); mz = Math.max(mz, Math.abs(v[2])); }
-          ok = sim.box(sb, [Math.max(0.02, mx * 0.82), Math.max(0.02, my * 0.82), Math.max(0.02, mz * 0.82)], { density: 0.6 });
+          ok = sim.box(sb, [Math.max(0.02, mx * 0.82), Math.max(0.02, my * 0.82), Math.max(0.02, mz * 0.82)], { density: 0.6, events: true });
         } else {
-          ok = sim.hull(sb, Float32Array.from(pc.verts.flat()), { density: 0.6 });
+          ok = sim.hull(sb, Float32Array.from(pc.verts.flat()), { density: 0.6, events: true });
         }
         if (!ok) { sim.remove(sb); continue; }
         if (opt && opt.jitter) {                                      // cracked in place: a small shove and twist, so the pieces end up slightly out of line
@@ -364,6 +367,8 @@ export async function mountColumns(stage, mode) {
     letter.blown = true; letter.detonated = true;
     const power = P.blast * Math.pow(P.decay, gen), passive = P.passive && gen > 0 && vel;
     spawnPieces(letter, letter.cells, cx, cy, power, gen, passive ? { x: cx, y: cy, vx: vel[0], vy: vel[1], vz: vel[2] } : undefined);
+    letterDust(letter, letter.cells, cx, cy, power);
+    if (P.dust > 0) dust.puff(cx, cy, 0.2, Math.round(30 * P.dust * (0.4 + power)), { speed: 2.4, up: 1.6, size: 0.38 * P.dustSize, life: P.dustLife });
     sim.remove(letter);
     solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1);
     if (!passive) burstLines(cx, cy, power);
@@ -393,15 +398,45 @@ export async function mountColumns(stage, mode) {
     const k = letter.cells.indexOf(cell); if (k < 0) return;
     letter.cells.splice(k, 1); sim.removeCollider(letter, cell.collider);
     const kin = vel ? { x: sx, y: sy, vx: vel[0], vy: vel[1], vz: vel[2] } : undefined;
+    if (P.dust > 0) dust.puff(letter.position.x + cell.x, letter.position.y + cell.y, 0.3 + Math.random(), Math.round((away ? 22 : 8) * P.dust), { speed: away ? 1.4 : 0.6, up: 0.9, size: 0.3 * P.dustSize, life: P.dustLife, spread: 0.5 });
     if (away) spawnPieces(letter, [cell], sx, sy, 0.55, 3, P.passive ? kin : undefined);
     else spawnPieces(letter, [cell], sx, sy, 0.1, 3, kin, { jitter: true, fit: Math.max(P.gap, 0.93) });
     if (P.shake) shake = Math.max(shake, away ? 0.12 : 0.05);
     if (!letter.cells.length && away) { sim.remove(letter); solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1); letter.blown = true; }
   }
 
+  // ---------- dust ----------
+  // Where something hard lands, a few puffs: placed at the point Rapier reports the two touching, more of them and
+  // faster the harder the hit. A cooldown per body and a budget per frame keep a pile settling from becoming fog.
+  function impactDust(a, b, h1, h2) {
+    if (puffBudget <= 0) return;
+    const mover = a.isWall || a.static ? b : a;                       // the one that is moving
+    if (mover.isWall || mover.static) return;
+    const rel = Math.hypot(a.pv.x - b.pv.x, a.pv.y - b.pv.y, a.pv.z - b.pv.z) * 0.9;
+    if (rel < 2.4 || (mover.dustAt != null && dust.t - mover.dustAt < 0.3)) return;
+    mover.dustAt = dust.t; puffBudget--;
+    const pt = sim.contactPoint(h1, h2) || { x: mover.position.x, y: mover.position.y, z: 0.1 };
+    dust.puff(pt.x, pt.y, Math.max(0.05, pt.z), Math.max(1, Math.round(Math.min(10, rel * 1.1) * P.dust)), { speed: 0.5 + rel * 0.12, up: 0.4 + rel * 0.06, size: 0.22 * P.dustSize, life: P.dustLife * 0.8 });
+  }
+  // The surface a letter occupied turns to dust: points scattered over its boxes, thrown away from the blow.
+  function letterDust(letter, cells, cx, cy, power) {
+    if (!(P.dust > 0) || !cells.length) return;
+    let total = 0; for (const c of cells) total += c.hx * c.hy;
+    const n = Math.min(260, Math.round(170 * P.dust * (0.4 + power)));
+    for (let i = 0; i < n; i++) {
+      let r = Math.random() * total, c = cells[0]; for (const k of cells) { r -= k.hx * k.hy; if (r <= 0) { c = k; break; } }
+      const lx = (Math.random() * 2 - 1) * c.hx, ly = (Math.random() * 2 - 1) * c.hy, ca = Math.cos(c.a), sa = Math.sin(c.a);
+      const x = letter.position.x + c.x + ca * lx - sa * ly, y = letter.position.y + c.y + sa * lx + ca * ly, z = 0.1 + Math.random() * COL_H * 0.95;
+      let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy) || 1, sp = (0.5 + Math.random() * 1.6) * (0.5 + power);
+      dust.emit(x, y, z, dx / d * sp + (Math.random() - 0.5) * 0.5, dy / d * sp + (Math.random() - 0.5) * 0.5, 0.2 + Math.random() * 0.9, P.dustLife * (0.7 + Math.random() * 0.7), (0.22 + Math.random() * 0.3) * P.dustSize);
+    }
+  }
+
   // A piece that hits another letter hard sets the whole letter off; a lesser hit only damages the box it struck.
   // (Rapier reports that two things touched, not how hard, so the speed is the piece's own, just before the step.)
-  function onHit(a, b) {
+  function onHit(a, b, h1, h2) {
+    if (P.dust > 0 && P.dustHits) impactDust(a, b, h1, h2);
+    if (!EXPLODE) return;
     const sb = a.isShard ? a : b.isShard ? b : null, o = sb === a ? b : a;
     if (!sb || !o.isLetter || o.blown) return;
     const v = Math.hypot(sb.pv.x, sb.pv.y, sb.pv.z) * 0.85, vel = [sb.pv.x, sb.pv.y, sb.pv.z];
@@ -512,6 +547,7 @@ export async function mountColumns(stage, mode) {
       gl.drawArrays(gl.TRIANGLES, 0, shardVerts);
     }
     gl.bindVertexArray(null);
+    if (P.dust > 0) dust.draw(vp, [2 * S * P.zoom / W, 2 * S * P.zoom / H], wref, (P.bg + P.fg) / 2, 0.8);
 
     // burst lines
     octx.setTransform(stage.pw / W, 0, 0, stage.ph / H, 0, 0);
@@ -534,11 +570,11 @@ export async function mountColumns(stage, mode) {
   resize();
 
   offs.push(stage.frame((dt) => {
-    acc = Math.min(acc + dt, 0.05);
+    acc = Math.min(acc + dt, 0.05); puffBudget = 14; dust.tick(dt);
     while (acc >= DT) {
       acc -= DT;
       if (!EXPLODE) interact(DT);
-      sim.step(DT, EXPLODE ? onHit : null);
+      sim.step(DT, onHit);
       if (pending.length) { const list = pending; pending = []; for (const p of list) { if (p.hurt) hurt(p.letter, p.cell, p.amount, p.x, p.y, p.vel); else detonate(p.letter, p.x, p.y, p.gen, p.vel); } }
     }
     if (timers.length) { for (const q of timers) { q.t -= dt; if (q.t <= 0 && q.l.world) { detonate(q.l, q.l.position.x, q.l.position.y, 0); q.done = true; } } timers = timers.filter((q) => !q.done); }
@@ -549,7 +585,7 @@ export async function mountColumns(stage, mode) {
     draw();
   }));
 
-  const reform = () => { timers = []; build(); resize2(); };
+  const reform = () => { timers = []; dust.clear(); build(); resize2(); };
   const detonateAll = () => { timers = letters.map((l, i) => ({ l, t: i * 0.11 })); };   // one after another, left to right
   const cameraGroup = { name: 'Camera (for setting up)', items: [{ key: 'camPitch', label: 'Tilt', min: 0, max: 1.3, step: 0.01 }, { key: 'camYaw', label: 'Turn', min: -1.6, max: 1.6, step: 0.01 }, { key: 'zoom', label: 'Zoom', min: 0.4, max: 2.5, step: 0.02 }, { key: 'persp', label: 'Perspective (0 = flat)', min: 0, max: 1, step: 0.01 }] };
   const colourGroup = { name: 'Colour (black and white only)', items: [{ key: 'bg', label: 'Background', min: 0, max: 1, step: 0.01 }, { key: 'fg', label: 'Foreground', min: 0, max: 1, step: 0.01 }] };
@@ -558,10 +594,11 @@ export async function mountColumns(stage, mode) {
        { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.4, max: 2.5, step: 0.05 }, { key: 'speed', label: 'Outward speed', min: 0.3, max: 2.5, step: 0.05 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
        { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 2, max: 20, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.2, max: 1, step: 0.02 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'reach', label: 'Crack reach', min: 1, max: 9, step: 0.25 }, { key: 'crackAt', label: 'Damage that starts a crack', min: 0.05, max: 1, step: 0.01 }, { key: 'jitter', label: 'Jitter (0 = boxes only break away)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.2, max: 2, step: 0.05 }] },
        { name: 'Pieces (next blast)', items: [{ key: 'size', label: 'Size (small = many)', min: 0.1, max: 1.6, step: 0.02 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.8, max: 1, step: 0.01 }] },
-       { name: 'Effects', items: [{ key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }] },
+       { name: 'Effects', items: [{ key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }, { key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.3, max: 3, step: 0.05 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.4, max: 5, step: 0.1 }, { key: 'dustHits', label: 'Dust from impacts', type: 'toggle' }] },
        colourGroup, cameraGroup]
     : [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }] },
        { name: 'Touch', items: [{ key: 'topple', label: 'Tap push', min: 6, max: 50, step: 1 }] },
+       { name: 'Effects', items: [{ key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.3, max: 3, step: 0.05 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.4, max: 5, step: 0.1 }] },
        colourGroup, cameraGroup];
   const tuneApi = {
     title: EXPLODE ? 'Explode' : 'Collapse',
