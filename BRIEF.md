@@ -463,26 +463,28 @@ Equal masses, bouncier letter contacts and a fixed generous knock beat sizing th
 chain wiped out all nine letters in half a second and cost 20 to 40 ms a frame: fewer, larger slabs, fewer solver iterations,
 coarse physics shapes, a higher chain threshold and a weaker chain fixed both.
 
-### Drape (draft, `?p=drape`)
-Flat white "Idan / Segev" on black, projected onto a cloth stretched over hidden balls.
+### Skyline (draft, `?p=skyline`)
+Flat white "Idan / Segev" on black, projected onto a field of hard-edged blocks of different heights. Replaces **Drape**
+(a cloth over hidden balls, built and then removed on 5 October 2026: Idan found a soft geometry too weak; it is in git history
+at commit `90a158a`). The lesson: the hidden geometry has to be hard-edged, so the print is visibly cut and displaced at every
+edge when the view moves.
 
-**The trick.** The camera starts exactly where the projector is, so the print lands perfectly flat however lumpy the cloth is
-(the same idea as Sheet). Move the cursor, drag a finger or tilt the phone and the print stays where the projector put it
-while the cloth moves under it: the lettering slides over the lumps and the balls are revealed. Shading appears with camera
-movement and with disturbance (`reveal`), and is absent at rest.
+**The trick.** The camera starts exactly where the projector is, so the print lands perfectly flat however the blocks stand
+(as in Sheet). Move the cursor, drag a finger or tilt the phone and the print stays put while the blocks move under it: the
+lettering is sliced at every block edge and jumps from height to height; block sides appear. Shading is absent at rest and
+appears with camera movement and with disturbance (`reveal`).
 
-**Model.** The cloth is a height field: a damped wave equation on a grid of about 16 to 26 thousand cells, pinned at the edge
-(a drum skin), simulated on the CPU at 120 Hz, uploaded each frame as a float texture and displaced in the vertex shader from
-a grid laid out by `gl_VertexID` (no vertex buffer). 6 to 8 spheres sit under it, each a small rigid body on a hidden floor:
-it can jump, fall back (bouncing a little), roll with friction, hit the walls and the other balls. Wherever a sphere reaches
-through the cloth it holds the cloth up. Cost measured: about 1 ms per frame on desktop, in portrait too.
+**Model.** About 70 rigid bodies (cannon-es) standing on a floor and tiling the sheet (a grid of blocks with a hair of gap),
+heights from smooth noise quantised into whole steps (0.12 to 1.5 units; the camera is 5 away) so they read as a stepped
+skyline. One instanced WebGL2 draw (plus a floor slab); the type mask is looked up per pixel through the projector, so every
+surface, the floor included, carries the print. About 0.1 ms per frame on desktop when settled.
 
-**Interactions.** Touch near a ball (within its radius plus 1.5 units): it is kicked up and shoved aside, weaker with
-distance, so almost any touch finds one. Dragging sweeps the balls under the finger along. Moving the pointer is the camera.
-Settings (T): camera yaw and pitch, tension, poke strength, ball count (Re-roll).
+**Interactions.** Touch: blocks within 1.5 units are thrown up and aside, harder the nearer, and tumble, land on each other and
+leave gaps through to the floor. Dragging pushes the blocks it passes. Moving the pointer is the camera. Settings (T): camera
+yaw and pitch, block size (Re-form), poke strength, gravity.
 
-**Known limits.** The cloth is a membrane, not a true fabric: no wrinkles or folds, lumps are smooth tents. In portrait the
-two-line type is small; the layout there is a candidate for rework. Dark theme only. Not tested on a real phone.
+**Open questions.** What the blocks should do after they are thrown (they stay where they land; Re-form is in the panel and a
+double tap is not wired yet); whether tops should be tilted facets rather than flat steps; a hint; a light theme; real phones.
 
 ## 18. The next chapter (proposed, not built)
 
@@ -502,6 +504,6 @@ behaviour. Three new posters:
 
 **Decisions (5 October 2026):** build the columns first; use a vendored MIT physics library (cannon-es) rather than writing
 one; split them into two posters (Collapse and Explode); Explode is tap-to-detonate with a chain reaction and triangular slabs;
-the hidden form for the projection poster is **cloth over hidden balls** (a live cloth simulation draped over concealed spheres;
-pushing one lifts and ripples the print); the garden is a fourth, after those. **Status:** Collapse and Explode are built as
-drafts awaiting Idan's review; Drape (the projection poster) is built as a first draft and awaiting review; the garden is not started.
+the hidden form for the projection poster was first a cloth over hidden balls (Drape, rejected as too soft), then **hard-edged
+blocks** (Skyline); the garden is a fourth, after those. **Status:** Collapse and Explode are built as
+drafts awaiting Idan's review; Skyline (the projection poster, hard-edged blocks, after Drape was rejected as too soft) is built as a first draft and awaiting review; the garden is not started.

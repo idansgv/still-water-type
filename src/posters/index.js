@@ -67,14 +67,14 @@ export const POSTERS = [
     load: () => import('./explode.js'),
   },
   {
-    slug: 'drape',
-    title: 'Drape',
+    slug: 'skyline',
+    title: 'Skyline',
     words: ['Idan', 'Segev'],
-    blurb: 'Flat type, printed on a cloth over hidden balls. Move, and it gives them away.',
+    blurb: 'Flat type, printed over hard-edged blocks. Move, and it gives them away.',
     hint: null,
     themes: { dark: 1, light: 0 },
     draft: true,
-    load: () => import('./drape.js'),
+    load: () => import('./skyline.js'),
   },
 ];
 
