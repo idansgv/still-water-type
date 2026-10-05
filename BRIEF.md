@@ -432,32 +432,36 @@ max(0.7, rm)`, velocity cap 70 flying and 36 otherwise, stress starts at 72% air
 than shrink; no blink in the warning; marks should look hand-drawn, not schematic; tap should fire by itself; inflation slower
 and rockets faster and more kinetic.
 
-### Columns (draft, `?p=columns`)
-"IDAN / SEGEV" as flat white type on black that is really tall columns, seen straight down through an orthographic
-camera, so only the tops show. Draft, not in the rotation yet.
+### Collapse and Explode (drafts, `?p=collapse`, `?p=explode`)
+Two posters on one core (`src/posters/columns-core.js`, thin wrappers `collapse.js` and `explode.js`). Idan's framing (5
+October 2026): three different posters, projection, columns collapse, columns explode (plus a fourth, the garden, after).
 
-**Model.** The same letter skeletons as Soft type (`src/posters/lettering.js`), thickened into overlapping boxes (mitred at
-joints so curves stay smooth, about 130 boxes in total) and extruded 3.4 units tall (a letter is 2 high). Each letter is one
-cannon-es compound rigid body with the same mass (equal masses let a falling letter carry the next one). The floor grips and
-letters are slippery against each other, so a push tips a column instead of sliding it. Physics runs at 180 Hz because the
-impacts are hard and cannon's contacts are soft. Low boxes (not infinite planes) edge the screen so towers can lean out over
-them. Rendering is one instanced WebGL2 draw: tops pure white, the letter-shaped face stays bright even when a column lies
-down, sides grey.
+**Shared look and model.** "IDAN / SEGEV" as flat white type on black that is really tall columns, seen straight down
+through an orthographic camera, so only the tops show. The letters are the Soft type skeletons (`lettering.js`) thickened
+into overlapping boxes (mitred at joints so curves stay smooth) and extruded 3.4 units tall (a letter is 2 high). Physics
+is cannon-es. Rendering is instanced WebGL2: tops pure white, the letter-shaped face stays bright even when a column lies
+down, sides grey. A double tap on empty space re-forms the letters (also Re-form in the panel, T). Dark theme only for now.
 
-**Interactions.**
-| Gesture | What happens |
-|---|---|
-| Quick tap | a firm knock at the top, away from where you touched; the letter tips and falls on its neighbours (at the default strength 15 of 16 test taps toppled the letter, with a neighbour or two going over about half the time) |
-| Drag | a spring from the point you grabbed to your finger: it tilts, and if you pull far enough it goes over; let go early and it rocks back |
-| Hold still | it shudders harder and harder for 1.5 s, then bursts into about 60 shards (each box split along its length and height); the blast throws the shards and knocks over nearby columns; 16 hand-flicked lines fly out and the canvas shakes |
-| Double tap on empty space | re-forms the letters (also Re-form in the panel, T) |
+**Collapse.** Columns are free rigid bodies, all the same mass so a falling letter can carry the next. The floor grips and
+letters are slippery against each other, so a push tips a column instead of sliding it. Tap = a firm knock at the top, away
+from where you touched (default strength 26: in 16 test taps every one toppled the letter, and a neighbour went over 1.6 times
+on average, so chains are probabilistic, like dominoes). Drag = a spring from the grabbed point to your finger: it tilts and
+rocks back, or goes over if you pull far enough. Physics at 180 Hz (impacts are hard and cannon's contacts are soft); letter
+restitution 0.55. Settings: gravity, tap push.
 
-**Settings (T):** gravity, tap push (default 26), hold-to-burst time, blast.
+**Explode.** Columns are anchored (static). Tap = it blows at once, from the point you touched, into triangular slabs: each
+stroke piece is cut into cells, each cell into two triangles along a random diagonal, each triangle into 2 layers (24 to 60
+slabs a letter), and each slab is a real convex body (a triangular prism). Slabs that hit another letter harder than 10.5 units
+per second set that letter off too, at half the strength each generation (so chains die out: from one tap, between 1 and 8 of
+the 9 letters went, depending on the letter). 16 hand-flicked lines and a short shake go with every detonation. Cost: about
+0.6 to 6 ms per frame on a desktop, worst case 16 ms with a big chain (180 to 210 slabs); watch it on phones. The anchored
+letters are physics-simplified (coarse boxes) but drawn smooth from the fine boxes. Settings: gravity, blast, chain threshold,
+chain strength kept.
 
-**Lessons while building it.** Infinite wall planes at the screen edge stopped tall towers from falling at all, so use low
-boxes. Contact softness made hard impacts plastic: raise letter-on-letter restitution (0.55), shrink the time step, equalise
-masses. Do not size the knock from tipping energy; a fixed, generous knock reads better. Heavy neighbours absorb a push, so
-chains are probabilistic, which is what dominoes are.
+**Lessons while building them.** Infinite wall planes at the screen edge stopped tall towers from falling, so use low boxes.
+Equal masses, bouncier letter contacts and a fixed generous knock beat sizing the knock from tipping energy. A first Explode
+chain wiped out all nine letters in half a second and cost 20 to 40 ms a frame: fewer, larger slabs, fewer solver iterations,
+coarse physics shapes, a higher chain threshold and a weaker chain fixed both.
 
 ## 18. The next chapter (proposed, not built)
 
@@ -475,9 +479,8 @@ behaviour. Three new posters:
 
 **Process, unchanged:** propose, get a yes, build one, show it, iterate in short rounds. Taste rules apply (section 15).
 
-**Decisions (5 October 2026):** build Columns first; use a vendored MIT physics library (cannon-es) rather than writing one;
-the hidden form for the projected-geometry poster is **cloth over hidden balls** (a live cloth simulation draped over concealed
-spheres; pushing one lifts and ripples the print). **Status:** Columns is built as a draft and awaiting Idan's review; the
-garden and the cloth poster are not started. Still to add to Columns: the explosion as per-triangle shatter if shards read
-as too blocky, a light theme, and a real-phone check.
-
+**Decisions (5 October 2026):** build the columns first; use a vendored MIT physics library (cannon-es) rather than writing
+one; split them into two posters (Collapse and Explode); Explode is tap-to-detonate with a chain reaction and triangular slabs;
+the hidden form for the projection poster is **cloth over hidden balls** (a live cloth simulation draped over concealed spheres;
+pushing one lifts and ripples the print); the garden is a fourth, after those. **Status:** Collapse and Explode are built as
+drafts awaiting Idan's review; projection and garden are not started.

@@ -47,14 +47,24 @@ export const POSTERS = [
     load: () => import('./soft-type.js'),
   },
   {
-    slug: 'columns',
-    title: 'Columns',
+    slug: 'collapse',
+    title: 'Collapse',
     words: ['Idan', 'Segev'],
-    blurb: 'Flat type that is really standing columns. Tip one over; hold one too long.',
+    blurb: 'Flat type that is really standing columns. Knock one over and watch them fall on each other.',
     hint: null,
     themes: { dark: 1, light: 0 },
     draft: true,
-    load: () => import('./columns.js'),
+    load: () => import('./collapse.js'),
+  },
+  {
+    slug: 'explode',
+    title: 'Explode',
+    words: ['Idan', 'Segev'],
+    blurb: 'Flat type that is really solid. Touch a letter and it shatters, and the pieces set off the rest.',
+    hint: null,
+    themes: { dark: 1, light: 0 },
+    draft: true,
+    load: () => import('./explode.js'),
   },
 ];
 
