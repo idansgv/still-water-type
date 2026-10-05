@@ -75,6 +75,10 @@ body {
 }
 .chrome > * { pointer-events: auto; }
 .id { grid-area: id; display: flex; flex-direction: column; gap: 0; min-width: 0; }
+/* the page's own words can be selected and copied; the controls and the poster cannot */
+.id, .links { -webkit-user-select: text; user-select: text; cursor: text; }
+.links a { cursor: pointer; }
+.chrome button { -webkit-user-select: none; user-select: none; }
 .id b { color: var(--fg); font-weight: 500; }
 .folio { opacity: 0.9; }
 .links { grid-area: links; display: flex; gap: 18px; justify-content: center; }

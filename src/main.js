@@ -42,12 +42,12 @@ function togglePanel() {
 }
 
 const TAGLINES = [
-  'Design leadership, occasionally liquid.',
-  'Design leadership. Mostly flat.',
-  'Design leadership in three dimensions.',
-  'Design leadership under load.',
+  'Design leadership and Builder culture, occasionally liquid.',
+  'Design leadership and Builder culture. Mostly flat.',
+  'Design leadership and Builder culture in three dimensions.',
+  'Design leadership and Builder culture under load.',
   'Systems, teams, and the odd meltdown.',
-  'Design leadership. Please refresh.',
+  'Design leadership and Builder culture. Please refresh.',
 ];
 
 // ---------- the click spark ----------

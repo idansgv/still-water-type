@@ -13,11 +13,13 @@
 import * as CANNON from '../vendor/cannon-es.js';
 import { SKELETON, ratio } from './lettering.js';
 import { compile } from '../engine.js';
+import { shatterBox } from './shatter.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const UNIT_H = 2.0;            // letter height in world units
 const COL_H = 3.4;             // column height
 const MAX_INST = 4000;
+const MAX_SHARDS = 900, MAX_SHARD_VERTS = 150000;
 const MAT = { floor: new CANNON.Material('floor'), letter: new CANNON.Material('letter') };
 
 const VS = `#version 300 es
@@ -26,29 +28,54 @@ layout(location=1) in vec3 aNrm;
 layout(location=2) in vec3 iPos;
 layout(location=3) in vec4 iQuat;
 layout(location=4) in vec3 iHalf;
+layout(location=5) in float iDmg;
 uniform vec2 uView;
 out vec3 vN;
 out float vTop;
+out float vDmg;
 vec3 rot(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
 void main() {
   vec3 p = rot(iQuat, aPos * iHalf) + iPos;
   vN = rot(iQuat, aNrm);
   vTop = aNrm.z > 0.9 ? 1.0 : 0.0;     // the face the letter is cut into, whichever way the column lies
+  vDmg = iDmg;
   gl_Position = vec4(p.x / uView.x, p.y / uView.y, -p.z / 40.0, 1.0);   // orthographic, looking straight down
+}`;
+// the pieces of a shattered letter: free-form meshes, each vertex tagged with its piece, placed from a transform texture
+const VS_SHARD = `#version 300 es
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNrm;
+layout(location=2) in float aShard;
+uniform sampler2D uXf;
+uniform vec2 uView;
+out vec3 vN;
+out float vTop;
+out float vDmg;
+vec3 rot(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
+void main() {
+  int i = int(aShard + 0.5);
+  vec4 a = texelFetch(uXf, ivec2(i * 2, 0), 0), q = texelFetch(uXf, ivec2(i * 2 + 1, 0), 0);
+  vec3 p = rot(q, aPos) + a.xyz;
+  vN = rot(q, aNrm);
+  vTop = aNrm.z > 0.99 ? 1.0 : 0.0;
+  vDmg = 0.0;
+  gl_Position = vec4(p.x / uView.x, p.y / uView.y, -p.z / 40.0, 1.0);
 }`;
 const FS = `#version 300 es
 precision highp float;
 in vec3 vN;
 in float vTop;
+in float vDmg;
 uniform float uFade;
-uniform float uInk;
+uniform float uFg;
+uniform float uBg;
 out vec4 o;
 void main() {
   vec3 n = normalize(vN);
   float lit = clamp(dot(n.xy, vec2(-0.6, 0.8)), 0.0, 1.0);
-  float c = vTop > 0.5 ? 0.5 + 0.5 * clamp(n.z, 0.0, 1.0) : 0.1 + 0.22 * clamp(n.z, 0.0, 1.0) + 0.3 * lit;
-  c = clamp(c, 0.0, 1.0) * uFade;
-  o = vec4(vec3(uInk > 0.5 ? c : 1.0 - c), 1.0);
+  float c = vTop > 0.5 ? (0.5 + 0.5 * clamp(n.z, 0.0, 1.0)) * (1.0 - 0.5 * vDmg) : 0.1 + 0.22 * clamp(n.z, 0.0, 1.0) + 0.3 * lit;
+  c = clamp(c, 0.0, 1.0);
+  o = vec4(vec3(mix(uBg, mix(uBg, uFg, c), uFade)), 1.0);
 }`;
 
 function cubeMesh() {
@@ -65,59 +92,11 @@ function cubeMesh() {
   return { v: new Float32Array(v), i: new Uint16Array(idx) };
 }
 
-const VS_PRISM = `#version 300 es
-layout(location=0) in vec3 aW;      // which corner of the triangle this vertex is made of
-layout(location=1) in vec2 aZF;     // top (+1) or bottom (-1), and which face
-layout(location=2) in vec3 iPos;
-layout(location=3) in vec4 iQuat;
-layout(location=4) in vec4 iA;      // x0 y0 x1 y1
-layout(location=5) in vec3 iB;      // x2 y2 half-thickness
-uniform vec2 uView;
-out vec3 vN;
-out float vTop;
-vec3 rot(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
-void main() {
-  vec2 t0 = iA.xy, t1 = iA.zw, t2 = iB.xy;
-  vec2 xy = aW.x * t0 + aW.y * t1 + aW.z * t2;
-  vec3 pl = vec3(xy, aZF.x * iB.z);
-  int f = int(aZF.y + 0.5);
-  vec3 nl;
-  if (f == 3) nl = vec3(0.0, 0.0, 1.0);
-  else if (f == 4) nl = vec3(0.0, 0.0, -1.0);
-  else {
-    vec2 a = f == 0 ? t0 : (f == 1 ? t1 : t2);
-    vec2 b = f == 0 ? t1 : (f == 1 ? t2 : t0);
-    vec2 d = b - a;
-    nl = vec3(normalize(vec2(d.y, -d.x)), 0.0);
-  }
-  vec3 p = rot(iQuat, pl) + iPos;
-  vN = rot(iQuat, nl);
-  vTop = f == 3 ? 1.0 : 0.0;
-  gl_Position = vec4(p.x / uView.x, p.y / uView.y, -p.z / 40.0, 1.0);
-}`;
-
-// a triangular prism: corner weights, (top/bottom, face) per vertex
-function prismMesh() {
-  const v = [], idx = [];
-  const E = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
-  for (let i = 0; i < 3; i++) v.push(...E[i], 1, 3);                  // top, face 3
-  for (let i = 0; i < 3; i++) v.push(...E[i], -1, 4);                 // bottom, face 4
-  idx.push(0, 1, 2, 3, 5, 4);
-  for (let k = 0; k < 3; k++) {
-    const j = (k + 1) % 3, base = v.length / 5;
-    v.push(...E[k], 1, k, ...E[k], -1, k, ...E[j], -1, k, ...E[j], 1, k);
-    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-  }
-  return { v: new Float32Array(v), i: new Uint16Array(idx) };
-}
-
 export function mountColumns(stage, mode) {
   const EXPLODE = mode === 'explode';
   const canvas = stage.canvas;
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
   if (!gl) throw new Error('WebGL2 unavailable');
-  const dark = stage.theme.name === 'dark';
-  stage.setBackdrop(dark ? 0 : 1);
 
   const prog = compile(gl, VS, FS);
   const cube = cubeMesh();
@@ -126,27 +105,27 @@ export function mountColumns(stage, mode) {
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
   const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cube.i, gl.STATIC_DRAW);
-  const inst = new Float32Array(MAX_INST * 10), instBuf = gl.createBuffer();
+  const inst = new Float32Array(MAX_INST * 11), instBuf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, instBuf); gl.bufferData(gl.ARRAY_BUFFER, inst.byteLength, gl.DYNAMIC_DRAW);
-  [[2, 3, 0], [3, 4, 12], [4, 3, 28]].forEach(([loc, size, off]) => {
-    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 40, off); gl.vertexAttribDivisor(loc, 1);
+  [[2, 3, 0], [3, 4, 12], [4, 3, 28], [5, 1, 40]].forEach(([loc, size, off]) => {
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 44, off); gl.vertexAttribDivisor(loc, 1);
   });
   gl.bindVertexArray(null);
 
-  // the slabs (Explode): triangular prisms, one instance per slab
-  const progP = compile(gl, VS_PRISM, FS);
-  const prism = prismMesh();
-  const vaoP = gl.createVertexArray(); gl.bindVertexArray(vaoP);
-  const vbP = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbP); gl.bufferData(gl.ARRAY_BUFFER, prism.v, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
-  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 12);
-  const ibP = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibP); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, prism.i, gl.STATIC_DRAW);
-  const instP = new Float32Array(MAX_INST * 14), instPBuf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, instPBuf); gl.bufferData(gl.ARRAY_BUFFER, instP.byteLength, gl.DYNAMIC_DRAW);
-  [[2, 3, 0], [3, 4, 12], [4, 4, 28], [5, 3, 44]].forEach(([loc, size, off]) => {
-    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 56, off); gl.vertexAttribDivisor(loc, 1);
-  });
+  // the pieces (Explode): one growing vertex buffer of free-form meshes, placed each frame from a float texture
+  const progS = compile(gl, VS_SHARD, FS);
+  const vaoS = gl.createVertexArray(); gl.bindVertexArray(vaoS);
+  const shardBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, shardBuf); gl.bufferData(gl.ARRAY_BUFFER, MAX_SHARD_VERTS * 28, gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
   gl.bindVertexArray(null);
+  const xfTex = gl.createTexture(), xf = new Float32Array(MAX_SHARDS * 8);
+  gl.bindTexture(gl.TEXTURE_2D, xfTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, MAX_SHARDS * 2, 1, 0, gl.RGBA, gl.FLOAT, xf);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  let shardCount = 0, shardVerts = 0;
 
   // a 2D layer on top for the burst lines
   const overlay = document.createElement('canvas');
@@ -155,11 +134,12 @@ export function mountColumns(stage, mode) {
   stage.root.appendChild(overlay);
   const octx = overlay.getContext('2d');
 
-  const P = EXPLODE ? { gravity: 12, blast: 1, speed: 1, lift: 1, spin: 1, chain: 10.5, decay: 0.5, size: 0.75, layers: 2, gap: 0.97, bounce: 0.55, friction: 0.18, lines: 1, shake: 1 } : { gravity: 12, topple: 26 };
+  const P = EXPLODE ? { gravity: 12, blast: 1, speed: 1, lift: 1, spin: 1, chain: 12, decay: 0.5, size: 1.1, rough: 0.8, gap: 0.97, crack: 1, bounce: 0.55, friction: 0.18, lines: 1, shake: 1, bg: 0, fg: 1 } : { gravity: 12, topple: 26, bg: 0, fg: 1 };
   const DT = EXPLODE ? 1 / 90 : 1 / 180;       // small steps: bodies hit each other fast, and cannon's contacts are soft
   let pending = [], cmLL = null, timers = [];
   let W = 1, H = 1, S = 100, world = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
   let press = null, pid = null, lastEmptyTap = 0, acc = 0;
+  stage.setBackdrop(P.bg);
 
   // ---------- layout (pixels), same composition as Soft type ----------
   function layoutPx() {
@@ -249,13 +229,24 @@ export function mountColumns(stage, mode) {
       body.addShape(new CANNON.Box(new CANNON.Vec3(b.hx, b.hy, COL_H / 2)), new CANNON.Vec3(b.x, b.y, 0), q);
     }
     body.isLetter = true; body.ch = p.ch; body.vol = vol;
-    if (EXPLODE) { body.cells = boxes; body.drawn = fine; }
+    if (EXPLODE) {
+      body.cells = boxes.map((b) => ({ ...b, alive: true, dmg: 0 }));
+      for (const f of fine) {                                       // each smooth box belongs to the nearest physics box
+        let best = Infinity;
+        for (const c of body.cells) {
+          const cs = Math.cos(c.a), sn = Math.sin(c.a), dx = f.x - c.x, dy = f.y - c.y, lx = dx * cs + dy * sn, ly = -dx * sn + dy * cs;
+          const d = Math.hypot(Math.max(Math.abs(lx) - c.hx, 0), Math.max(Math.abs(ly) - c.hy, 0));
+          if (d < best) { best = d; f.cell = c; }
+        }
+      }
+      body.drawn = fine;
+    }
     world.addBody(body); solids.push(body); letters.push(body);
     if (!EXPLODE) body.sleep();
   }
 
   function build() {
-    world = newWorld(); solids = []; letters = []; pending = []; press = null; pid = null;
+    world = newWorld(); solids = []; letters = []; pending = []; press = null; pid = null; shardCount = 0; shardVerts = 0;
     S = 1; // placeholder so the layout can be measured in pixels
     const poses = layoutPx();
     S = poses[0].h / UNIT_H;
@@ -283,62 +274,96 @@ export function mountColumns(stage, mode) {
     body.applyImpulse(new CANNON.Vec3(dx * J, dy * J, 0), new CANNON.Vec3(point.x - body.position.x, point.y - body.position.y, point.z - body.position.z));
   }
 
-  // Explode: a letter blows into triangular slabs. Each stroke piece is cut into cells, each cell into two triangles
-  // along a random diagonal, and each triangle into layers. The slabs fly out from (cx, cy). `gen` counts how many
-  // detonations the chain has passed through; every one is weaker.
-    function detonate(letter, cx, cy, gen) {
-    if (letter.blown) return;
-    letter.blown = true; letter.detonated = true;
-    const power = P.blast * Math.pow(P.decay, gen), sp0 = Math.sqrt(power);
-    const LAYERS = clamp(Math.round(P.layers), 1, 4), lh = COL_H / LAYERS, hh = lh / 2 * 0.96, shards = [];
-    for (const b of letter.cells) {
-      const nx = Math.max(1, Math.round(b.hx * 2 / P.size)), ny = Math.max(1, Math.round(b.hy * 2 / (P.size * 0.8)));
-      const ca = Math.cos(b.a), sa = Math.sin(b.a);
-      for (let ix = 0; ix < nx; ix++) for (let iy = 0; iy < ny; iy++) {
-        const x0 = -b.hx + ix * 2 * b.hx / nx, x1 = x0 + 2 * b.hx / nx, y0 = -b.hy + iy * 2 * b.hy / ny, y1 = y0 + 2 * b.hy / ny;
-        const tris = Math.random() < 0.5 ? [[[x0, y0], [x1, y0], [x1, y1]], [[x0, y0], [x1, y1], [x0, y1]]] : [[[x0, y0], [x1, y0], [x0, y1]], [[x1, y0], [x1, y1], [x0, y1]]];
-        for (const tri of tris) {
-          const mx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3, my = (tri[0][1] + tri[1][1] + tri[2][1]) / 3;
-          let v = tri.map(([x, y]) => [(x - mx) * P.gap, (y - my) * P.gap]);
-          if ((v[1][0] - v[0][0]) * (v[2][1] - v[0][1]) - (v[2][0] - v[0][0]) * (v[1][1] - v[0][1]) < 0) v = [v[0], v[2], v[1]];   // counter-clockwise
-          const area = Math.abs((v[1][0] - v[0][0]) * (v[2][1] - v[0][1]) - (v[2][0] - v[0][0]) * (v[1][1] - v[0][1])) / 2;
-          const verts = [...v.map(([x, y]) => new CANNON.Vec3(x, y, hh)), ...v.map(([x, y]) => new CANNON.Vec3(x, y, -hh))];
-          const faces = [[0, 1, 2], [3, 5, 4], [0, 3, 4, 1], [1, 4, 5, 2], [2, 5, 3, 0]];
-          for (let iz = 0; iz < LAYERS; iz++) {
-            const px = letter.position.x + b.x + ca * mx - sa * my, py = letter.position.y + b.y + sa * mx + ca * my, pz = iz * lh + lh / 2;
-            const sb = new CANNON.Body({ material: MAT.letter, mass: Math.max(0.03, area * 2 * hh * 0.6), position: new CANNON.Vec3(px, py, pz), linearDamping: 0.05, angularDamping: 0.1, allowSleep: true, sleepSpeedLimit: 0.2, sleepTimeLimit: 0.5 });
-            sb.quaternion.setFromEuler(0, 0, b.a);
-            sb.addShape(new CANNON.ConvexPolyhedron({ vertices: verts, faces }));
-            let dx = px - cx, dy = py - cy; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
-            const sp = (3.5 + Math.random() * 6) * sp0 * P.speed, spinAmt = 14 * P.spin;
-            sb.velocity.set(dx * sp + (Math.random() - 0.5) * 2, dy * sp + (Math.random() - 0.5) * 2, (2 + Math.random() * 5) * sp0 * P.lift);
-            sb.angularVelocity.set((Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt);
-            sb.isShard = true; sb.gen = gen;
-            sb.tri = [v[0][0], v[0][1], v[1][0], v[1][1], v[2][0], v[2][1], hh];
-            sb.addEventListener('collide', (e) => {            // a slab that hits another letter hard sets it off
-              const o = e.body;
-              if (o && o.isLetter && !o.detonated && Math.abs(e.contact.getImpactVelocityAlongNormal()) > P.chain) {
-                o.detonated = true;                              // claimed now, detonated after the step
-                pending.push({ letter: o, x: sb.position.x, y: sb.position.y, gen: sb.gen + 1 });
-              }
-            });
-            shards.push(sb);
-          }
-        }
+  // ---------- Explode ----------
+  // Pieces: every box a letter is made of is shattered into irregular convex pieces (see shatter.js), each a rigid body
+  // and a free-form mesh. `power` scales how hard they are thrown; `gen` counts how far along a chain they are.
+  function spawnPieces(letter, cells, cx, cy, power, gen) {
+    const sp0 = Math.sqrt(power), made = [], size = P.size * (1 + shardCount / 400);   // the more rubble already, the coarser the next pieces
+    for (const c of cells) {
+      const ca = Math.cos(c.a), sa = Math.sin(c.a), parts = shatterBox(c.hx, c.hy, COL_H / 2, size, P.rough, P.gap);
+      for (const pc of parts) {
+        if (shardCount >= MAX_SHARDS || shardVerts + pc.tris.length / 6 > MAX_SHARD_VERTS) break;
+        const px = letter.position.x + c.x + ca * pc.c[0] - sa * pc.c[1], py = letter.position.y + c.y + sa * pc.c[0] + ca * pc.c[1], pz = letter.position.z + pc.c[2];
+        let shape;
+        try { shape = new CANNON.ConvexPolyhedron({ vertices: pc.verts.map((v) => new CANNON.Vec3(v[0], v[1], v[2])), faces: pc.faces }); } catch (e) { continue; }
+        const sb = new CANNON.Body({ material: MAT.letter, mass: Math.max(0.03, pc.vol * 0.6), position: new CANNON.Vec3(px, py, pz), linearDamping: 0.05, angularDamping: 0.1, allowSleep: true, sleepSpeedLimit: 0.2, sleepTimeLimit: 0.5 });
+        sb.quaternion.setFromEuler(0, 0, c.a);
+        sb.addShape(shape);
+        let dx = px - cx, dy = py - cy; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
+        const sp = (3.5 + Math.random() * 6) * sp0 * P.speed, spinAmt = 14 * P.spin;
+        sb.velocity.set(dx * sp + (Math.random() - 0.5) * 2, dy * sp + (Math.random() - 0.5) * 2, (2 + Math.random() * 5) * sp0 * P.lift);
+        sb.angularVelocity.set((Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt);
+        sb.isShard = true; sb.gen = gen; sb.sidx = shardCount;
+        sb.addEventListener('collide', (e) => onShardHit(sb, e));
+        // the mesh joins the shared buffer, tagged with its index
+        const n = pc.tris.length / 6, buf = new Float32Array(n * 7);
+        for (let k = 0; k < n; k++) { buf.set(pc.tris.subarray(k * 6, k * 6 + 6), k * 7); buf[k * 7 + 6] = shardCount; }
+        gl.bindBuffer(gl.ARRAY_BUFFER, shardBuf); gl.bufferSubData(gl.ARRAY_BUFFER, shardVerts * 28, buf);
+        shardVerts += n; shardCount++;
+        made.push(sb);
       }
     }
-    world.removeBody(letter);
-    solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1);
-    for (const sb of shards) { world.addBody(sb); solids.push(sb); }
-    // cartoon lines, in pixels
+    for (const sb of made) { world.addBody(sb); solids.push(sb); }
+    return made;
+  }
+
+  function burstLines(cx, cy, power) {
+    if (!P.lines) return;
     const [bx, by] = toPx(cx, cy), size = S * UNIT_H * (0.6 + 0.4 * power), lines = [], N = 16;
     for (let i = 0; i < N; i++) {
       const a = i / N * Math.PI * 2 + (Math.random() - 0.5) * 0.3, long = i % 2 === 0;
       const s0 = size * (0.5 + Math.random() * 0.15), e0 = s0 + size * (long ? 0.7 + Math.random() * 0.6 : 0.28 + Math.random() * 0.2);
       lines.push({ a, s0, e0, bend: (Math.random() - 0.5) * 0.35, w: long ? 7 + Math.random() * 2.5 : 5 });
     }
-    if (P.lines) bursts.push({ x: bx, y: by, t: 0, lines });
+    bursts.push({ x: bx, y: by, t: 0, lines });
+  }
+
+  // A letter blows apart, thrown from (cx, cy). Letters that are only nearby are cracked rather than destroyed.
+  function detonate(letter, cx, cy, gen) {
+    if (letter.blown) return;
+    letter.blown = true; letter.detonated = true;
+    const power = P.blast * Math.pow(P.decay, gen);
+    spawnPieces(letter, letter.cells, cx, cy, power, gen);
+    world.removeBody(letter);
+    solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1);
+    burstLines(cx, cy, power);
     if (P.shake) shake = Math.max(shake, 0.3 * Math.min(1, power + 0.3));
+    if (P.crack > 0) {                                              // the blast cracks the nearest columns: whole chunks of them fall away
+      const R = 3.4 * P.blast;
+      for (const L of letters.slice()) {
+        if (L.blown) continue;
+        for (const c of L.cells.slice()) {
+          const d = Math.hypot(L.position.x + c.x - cx, L.position.y + c.y - cy), f = Math.max(0, 1 - d / R) ** 1.1;
+          if (f > 0) hurt(L, c, f * power * 1.25 * P.crack, cx, cy);
+        }
+      }
+    }
+  }
+
+  // Damage accumulates in a column's boxes (they darken as it does); at 1 that box breaks off and the rest stands.
+  function hurt(letter, cell, amount, sx, sy) {
+    if (!cell.alive || letter.blown) return;
+    cell.dmg += amount;
+    if (cell.dmg < 1) return;
+    cell.alive = false;
+    const k = letter.cells.indexOf(cell); if (k < 0) return;
+    letter.cells.splice(k, 1); letter.shapes.splice(k, 1); letter.shapeOffsets.splice(k, 1); letter.shapeOrientations.splice(k, 1);
+    letter.updateBoundingRadius(); letter.aabbNeedsUpdate = true;
+    spawnPieces(letter, [cell], sx, sy, 0.55, 3);
+    if (P.shake) shake = Math.max(shake, 0.12);
+    if (!letter.cells.length) { world.removeBody(letter); solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1); letter.blown = true; }
+  }
+
+  // A piece that hits another letter hard sets the whole letter off; a lesser hit only damages the box it struck.
+  function onShardHit(sb, e) {
+    const o = e.body;
+    if (!o || !o.isLetter || o.blown) return;
+    const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
+    if (v > P.chain) { if (!o.detonated) { o.detonated = true; pending.push({ letter: o, x: sb.position.x, y: sb.position.y, gen: sb.gen + 1 }); } return; }
+    if (P.crack > 0 && v > 4.5) {
+      const shape = e.contact.bi === o ? e.contact.si : e.contact.sj, k = o.shapes.indexOf(shape);
+      if (k >= 0) pending.push({ hurt: true, letter: o, cell: o.cells[k], amount: ((v - 4.5) / Math.max(1, P.chain - 4.5)) * 0.55 * P.crack, x: sb.position.x, y: sb.position.y });
+    }
   }
 
   const offs = [];
@@ -386,23 +411,17 @@ export function mountColumns(stage, mode) {
   // ---------- drawing ----------
   const qa = new CANNON.Quaternion(), vv = new CANNON.Vec3();
   function draw() {
-    let n = 0, m = 0;
+    let n = 0;
     for (const b of solids) {
-      if (b.isShard) {
-        if (m >= MAX_INST) continue;
-        const o = m * 14, t = b.tri, q = b.quaternion;
-        instP[o] = b.position.x; instP[o + 1] = b.position.y; instP[o + 2] = b.position.z;
-        instP[o + 3] = q.x; instP[o + 4] = q.y; instP[o + 5] = q.z; instP[o + 6] = q.w;
-        for (let k = 0; k < 7; k++) instP[o + 7 + k] = t[k];
-        m++; continue;
-      }
+      if (b.isShard) continue;
       if (b.drawn) {                                                  // an anchored letter is drawn smooth, from its fine boxes
         for (const f of b.drawn) {
           if (n >= MAX_INST) break;
-          const o = n * 10, a = f.a / 2;
+          if (!f.cell.alive) continue;                               // that part has broken off
+          const o = n * 11, a = f.a / 2;
           inst[o] = b.position.x + f.x; inst[o + 1] = b.position.y + f.y; inst[o + 2] = b.position.z;
           inst[o + 3] = 0; inst[o + 4] = 0; inst[o + 5] = Math.sin(a); inst[o + 6] = Math.cos(a);
-          inst[o + 7] = f.hx; inst[o + 8] = f.hy; inst[o + 9] = COL_H / 2;
+          inst[o + 7] = f.hx; inst[o + 8] = f.hy; inst[o + 9] = COL_H / 2; inst[o + 10] = Math.min(0.9, f.cell.dmg);
           n++;
         }
         continue;
@@ -410,39 +429,44 @@ export function mountColumns(stage, mode) {
       for (let i = 0; i < b.shapes.length && n < MAX_INST; i++) {
         const sh = b.shapes[i];
         b.quaternion.mult(b.shapeOrientations[i], qa); b.quaternion.vmult(b.shapeOffsets[i], vv);
-        const o = n * 10;
+        const o = n * 11;
         inst[o] = b.position.x + vv.x; inst[o + 1] = b.position.y + vv.y; inst[o + 2] = b.position.z + vv.z;
         inst[o + 3] = qa.x; inst[o + 4] = qa.y; inst[o + 5] = qa.z; inst[o + 6] = qa.w;
-        inst[o + 7] = sh.halfExtents.x; inst[o + 8] = sh.halfExtents.y; inst[o + 9] = sh.halfExtents.z;
+        inst[o + 7] = sh.halfExtents.x; inst[o + 8] = sh.halfExtents.y; inst[o + 9] = sh.halfExtents.z; inst[o + 10] = 0;
         n++;
       }
     }
+    if (shardCount) {
+      for (const b of solids) if (b.isShard) { const o = b.sidx * 8, q = b.quaternion; xf[o] = b.position.x; xf[o + 1] = b.position.y; xf[o + 2] = b.position.z; xf[o + 4] = q.x; xf[o + 5] = q.y; xf[o + 6] = q.z; xf[o + 7] = q.w; }
+      gl.bindTexture(gl.TEXTURE_2D, xfTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, shardCount * 2, 1, gl.RGBA, gl.FLOAT, xf);
+    }
     gl.viewport(0, 0, stage.pw, stage.ph);
-    gl.clearColor(dark ? 0 : 1, dark ? 0 : 1, dark ? 0 : 1, 1);
+    gl.clearColor(P.bg, P.bg, P.bg, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.disable(gl.CULL_FACE);
     if (n) {
       prog.use();
       gl.uniform2f(prog.u.uView, W / 2 / S, H / 2 / S);
-      gl.uniform1f(prog.u.uFade, fade); gl.uniform1f(prog.u.uInk, dark ? 0 : 1);
+      gl.uniform1f(prog.u.uFade, fade); gl.uniform1f(prog.u.uFg, P.fg); gl.uniform1f(prog.u.uBg, P.bg);
       gl.bindVertexArray(vao);
-      gl.bindBuffer(gl.ARRAY_BUFFER, instBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, inst, 0, n * 10);
+      gl.bindBuffer(gl.ARRAY_BUFFER, instBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, inst, 0, n * 11);
       gl.drawElementsInstanced(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0, n);
     }
-    if (m) {
-      progP.use();
-      gl.uniform2f(progP.u.uView, W / 2 / S, H / 2 / S);
-      gl.uniform1f(progP.u.uFade, fade); gl.uniform1f(progP.u.uInk, dark ? 0 : 1);
-      gl.bindVertexArray(vaoP);
-      gl.bindBuffer(gl.ARRAY_BUFFER, instPBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, instP, 0, m * 14);
-      gl.drawElementsInstanced(gl.TRIANGLES, prism.i.length, gl.UNSIGNED_SHORT, 0, m);
+    if (shardCount) {
+      progS.use();
+      gl.uniform2f(progS.u.uView, W / 2 / S, H / 2 / S);
+      gl.uniform1f(progS.u.uFade, fade); gl.uniform1f(progS.u.uFg, P.fg); gl.uniform1f(progS.u.uBg, P.bg);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, xfTex); gl.uniform1i(progS.u.uXf, 0);
+      gl.bindVertexArray(vaoS);
+      gl.drawArrays(gl.TRIANGLES, 0, shardVerts);
     }
     gl.bindVertexArray(null);
 
     // burst lines
     octx.setTransform(stage.pw / W, 0, 0, stage.ph / H, 0, 0);
     octx.clearRect(0, 0, W, H);
-    octx.strokeStyle = dark ? '#fff' : '#000'; octx.lineCap = 'round';
+    const fgv = Math.round(P.fg * 255); octx.strokeStyle = `rgb(${fgv},${fgv},${fgv})`; octx.lineCap = 'round';
     const ease = (u) => 1 - (1 - clamp(u, 0, 1)) ** 3;
     for (const b of bursts) for (const l of b.lines) {
       const head = l.s0 + (l.e0 - l.s0) * ease(b.t / 0.32), tail = l.s0 + (l.e0 - l.s0) * ease((b.t - 0.1) / 0.42);
@@ -465,7 +489,7 @@ export function mountColumns(stage, mode) {
       acc -= DT;
       if (!EXPLODE) interact(DT);
       world.step(DT);
-      if (pending.length) { const list = pending; pending = []; for (const p of list) detonate(p.letter, p.x, p.y, p.gen); }
+      if (pending.length) { const list = pending; pending = []; for (const p of list) { if (p.hurt) hurt(p.letter, p.cell, p.amount, p.x, p.y); else detonate(p.letter, p.x, p.y, p.gen); } }
     }
     if (timers.length) { for (const q of timers) { q.t -= dt; if (q.t <= 0 && q.l.world) { detonate(q.l, q.l.position.x, q.l.position.y, 0); q.done = true; } } timers = timers.filter((q) => !q.done); }
     for (const b of bursts) b.t += dt;
@@ -477,14 +501,17 @@ export function mountColumns(stage, mode) {
 
   const reform = () => { timers = []; build(); resize2(); };
   const detonateAll = () => { timers = letters.map((l, i) => ({ l, t: i * 0.11 })); };   // one after another, left to right
+  const colourGroup = { name: 'Colour (black and white only)', items: [{ key: 'bg', label: 'Background', min: 0, max: 1, step: 0.01 }, { key: 'fg', label: 'Foreground', min: 0, max: 1, step: 0.01 }] };
   const groups = EXPLODE
     ? [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }, { key: 'bounce', label: 'Bounce (contacts)', min: 0.05, max: 0.95, step: 0.05 }, { key: 'friction', label: 'Slipperiness (low = grippy)', min: 0.02, max: 1, step: 0.02 }] },
        { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.4, max: 2.5, step: 0.05 }, { key: 'speed', label: 'Outward speed', min: 0.3, max: 2.5, step: 0.05 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
-       { name: 'Chain', items: [{ key: 'chain', label: 'Impact needed', min: 2, max: 20, step: 0.5 }, { key: 'decay', label: 'Strength kept', min: 0.2, max: 1, step: 0.02 }] },
-       { name: 'Slabs (next blast)', items: [{ key: 'size', label: 'Size', min: 0.4, max: 1.6, step: 0.05 }, { key: 'layers', label: 'Layers', min: 1, max: 4, step: 1 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.8, max: 1, step: 0.01 }] },
-       { name: 'Effects', items: [{ key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }] }]
+       { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 2, max: 20, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.2, max: 1, step: 0.02 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }] },
+       { name: 'Pieces (next blast)', items: [{ key: 'size', label: 'Size (small = many, heavy)', min: 0.22, max: 1.6, step: 0.02 }, { key: 'rough', label: 'Irregularity', min: 0, max: 1, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.8, max: 1, step: 0.01 }] },
+       { name: 'Effects', items: [{ key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }] },
+       colourGroup]
     : [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }] },
-       { name: 'Touch', items: [{ key: 'topple', label: 'Tap push', min: 6, max: 50, step: 1 }] }];
+       { name: 'Touch', items: [{ key: 'topple', label: 'Tap push', min: 6, max: 50, step: 1 }] },
+       colourGroup];
   return {
     tune: {
       title: EXPLODE ? 'Explode' : 'Collapse',
@@ -493,10 +520,11 @@ export function mountColumns(stage, mode) {
       set(k, v) {
         P[k] = v; this.values[k] = v;
         if (k === 'gravity') world.gravity.set(0, 0, -v);
+        if (k === 'bg') stage.setBackdrop(v);
         if (k === 'bounce' && cmLL) cmLL.restitution = v;
         if (k === 'friction' && cmLL) cmLL.friction = v;
       },
-      reset() { Object.assign(P, this.defaults); Object.assign(this.values, this.defaults); world.gravity.set(0, 0, -P.gravity); },
+      reset() { Object.assign(P, this.defaults); Object.assign(this.values, this.defaults); world.gravity.set(0, 0, -P.gravity); stage.setBackdrop(P.bg); },
     },
     debug: { world: () => world, letters: () => letters, solids: () => solids, topple, detonate, S: () => S, pick, pending: () => pending },
     destroy() {

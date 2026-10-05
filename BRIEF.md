@@ -442,23 +442,26 @@ into overlapping boxes (mitred at joints so curves stay smooth) and extruded 3.4
 is cannon-es. Rendering is instanced WebGL2: tops pure white, the letter-shaped face stays bright even when a column lies
 down, sides grey. A double tap on empty space re-forms the letters (also Re-form in the panel, T). Dark theme only for now.
 
-**Collapse.** Columns are free rigid bodies, all the same mass so a falling letter can carry the next. The floor grips and
+**Collapse.** (also has the Colour sliders) Columns are free rigid bodies, all the same mass so a falling letter can carry the next. The floor grips and
 letters are slippery against each other, so a push tips a column instead of sliding it. Tap = a firm knock at the top, away
 from where you touched (default strength 26: in 16 test taps every one toppled the letter, and a neighbour went over 1.6 times
 on average, so chains are probabilistic, like dominoes). Drag = a spring from the grabbed point to your finger: it tilts and
 rocks back, or goes over if you pull far enough. Physics at 180 Hz (impacts are hard and cannon's contacts are soft); letter
 restitution 0.55. Settings: gravity, tap push.
 
-**Explode.** Columns are anchored (static). Tap = it blows at once, from the point you touched, into triangular slabs: each
-stroke piece is cut into cells, each cell into two triangles along a random diagonal, each triangle into 2 layers (24 to 60
-slabs a letter), and each slab is a real convex body (a triangular prism). Slabs that hit another letter harder than 10.5 units
-per second set that letter off too, at half the strength each generation (so chains die out: from one tap, between 1 and 8 of
-the 9 letters went, depending on the letter). 16 hand-flicked lines and a short shake go with every detonation. Cost: about
-0.6 to 6 ms per frame on a desktop, worst case 16 ms with a big chain (180 to 210 slabs); watch it on phones. The anchored
-letters are physics-simplified (coarse boxes) but drawn smooth from the fine boxes. Settings (T, or `?tune` on a phone): World (gravity, bounce, slipperiness), Blast (power, outward
-speed, lift, spin), Chain (impact needed, strength kept), Slabs for the next blast (size, layers, fit), Effects (burst lines and
-screen shake on or off), and actions Re-form and Detonate all (left to right, 0.11 s apart; about 240 slabs at once, the heaviest
-case).
+**Explode.** Columns are anchored (static). Tap = it blows at once, from the point you touched, into free-form pieces
+(`src/posters/shatter.js`): each stroke box is shattered by cutting it with the bisecting planes between jittered seed points
+(a Voronoi cell per seed, all convex, volume conserved), so no two pieces are alike. Every piece is a real convex rigid body
+and a free-form mesh (one growing vertex buffer, each piece placed each frame from a float texture). Pieces that hit another
+letter harder than 12 units per second set that whole letter off, at half the strength each generation. Lesser blows **crack**
+the standing letters: each physics box has a damage value (its smooth top darkens as it grows); the blast damages the nearest
+boxes of other letters, and hard-ish piece impacts damage the box they hit; at 1 that box breaks off into pieces and the rest of
+the letter stands with a hole. 16 hand-flicked lines and a short shake go with each detonation. Cost: about 5 ms per frame with
+default pieces (50 to 60 per letter), more with small pieces; the piece size coarsens automatically as rubble builds up (cap 900
+pieces). Settings (T, or `?tune` on a phone): World (gravity, bounce, slipperiness), Blast (power, outward speed, lift, spin),
+Chain and cracks (impact that sets a letter off, strength kept, cracking where 0 means whole-or-gone), Pieces for the next blast
+(size down to 0.22, irregularity, fit), Effects (lines, shake), Colour (background and foreground, black to white only), and
+actions Re-form and Detonate all.
 
 **Lessons while building them.** Infinite wall planes at the screen edge stopped tall towers from falling, so use low boxes.
 Equal masses, bouncier letter contacts and a fixed generous knock beat sizing the knock from tipping energy. A first Explode
