@@ -80,6 +80,8 @@ body {
 .links a { cursor: pointer; }
 .chrome button { -webkit-user-select: none; user-select: none; }
 .id b { color: var(--fg); font-weight: 500; }
+.id .role { color: var(--dim); }
+#tagline { color: var(--dim); opacity: 0.78; }
 .folio { opacity: 0.9; }
 .links { grid-area: links; display: flex; gap: 18px; justify-content: center; }
 .actions { grid-area: actions; display: flex; gap: 6px; justify-content: flex-end; }

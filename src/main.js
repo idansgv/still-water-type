@@ -41,13 +41,16 @@ function togglePanel() {
   syncPanel();
 }
 
-const TAGLINES = [
-  'Design leadership and Builder culture, occasionally liquid.',
-  'Design leadership and Builder culture. Mostly flat.',
-  'Design leadership and Builder culture in three dimensions.',
-  'Design leadership and Builder culture under load.',
-  'Systems, teams, and the odd meltdown.',
-  'Design leadership and Builder culture. Please refresh.',
+// The footer reads: name, a fixed role line, then one of these asides, chosen at random on each load.
+const ASIDES = [
+  'Teams, systems, and things that break on purpose.',
+  'Craft is the credential.',
+  'Prototypes over decks.',
+  'Handle with care.',
+  'Mostly flat.',
+  'Some cracks are intentional.',
+  'Load-bearing.',
+  'Please refresh.',
 ];
 
 // ---------- the click spark ----------
@@ -216,7 +219,7 @@ async function share() {
 // ---------- wiring ----------
 $('btn-shuffle').addEventListener('click', shuffle);
 $('btn-share').addEventListener('click', share);
-$('tagline').textContent = TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
+$('tagline').textContent = ASIDES[Math.floor(Math.random() * ASIDES.length)];
 
 addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
