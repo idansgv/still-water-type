@@ -42,7 +42,8 @@ link and the preview looks great; a recruiter finds the work in under thirty sec
 5. **One loud thing.** The posters are the boldness. Everything around them (chrome, Work, copy) stays
    disciplined and quiet.
 6. **No build, no dependencies.** Plain ES modules and hand-written shaders, deployable by copying files. It
-   stays hackable and it will not rot.
+   stays hackable and it will not rot. One deliberate exception (5 October 2026): `src/vendor/cannon-es.js`, the MIT-licensed rigid-body physics
+   engine (minified, 140 KB), vendored as a single file with its licence beside it, for Columns only.
 
 ## 4. Experience map
 
@@ -431,6 +432,33 @@ max(0.7, rm)`, velocity cap 70 flying and 36 otherwise, stress starts at 72% air
 than shrink; no blink in the warning; marks should look hand-drawn, not schematic; tap should fire by itself; inflation slower
 and rockets faster and more kinetic.
 
+### Columns (draft, `?p=columns`)
+"IDAN / SEGEV" as flat white type on black that is really tall columns, seen straight down through an orthographic
+camera, so only the tops show. Draft, not in the rotation yet.
+
+**Model.** The same letter skeletons as Soft type (`src/posters/lettering.js`), thickened into overlapping boxes (mitred at
+joints so curves stay smooth, about 130 boxes in total) and extruded 3.4 units tall (a letter is 2 high). Each letter is one
+cannon-es compound rigid body with the same mass (equal masses let a falling letter carry the next one). The floor grips and
+letters are slippery against each other, so a push tips a column instead of sliding it. Physics runs at 180 Hz because the
+impacts are hard and cannon's contacts are soft. Low boxes (not infinite planes) edge the screen so towers can lean out over
+them. Rendering is one instanced WebGL2 draw: tops pure white, the letter-shaped face stays bright even when a column lies
+down, sides grey.
+
+**Interactions.**
+| Gesture | What happens |
+|---|---|
+| Quick tap | a firm knock at the top, away from where you touched; the letter tips and falls on its neighbours (at the default strength 15 of 16 test taps toppled the letter, with a neighbour or two going over about half the time) |
+| Drag | a spring from the point you grabbed to your finger: it tilts, and if you pull far enough it goes over; let go early and it rocks back |
+| Hold still | it shudders harder and harder for 1.5 s, then bursts into about 60 shards (each box split along its length and height); the blast throws the shards and knocks over nearby columns; 16 hand-flicked lines fly out and the canvas shakes |
+| Double tap on empty space | re-forms the letters (also Re-form in the panel, T) |
+
+**Settings (T):** gravity, tap push (default 26), hold-to-burst time, blast.
+
+**Lessons while building it.** Infinite wall planes at the screen edge stopped tall towers from falling at all, so use low
+boxes. Contact softness made hard impacts plastic: raise letter-on-letter restitution (0.55), shrink the time step, equalise
+masses. Do not size the knock from tipping energy; a fixed, generous knock reads better. Heavy neighbours absorb a push, so
+chains are probabilistic, which is what dominoes are.
+
 ## 18. The next chapter (proposed, not built)
 
 **The brief from Idan (5 October 2026).** Take Soft type's level of scrutiny to the basic concept: the first impression is
@@ -446,5 +474,10 @@ behaviour. Three new posters:
    "Exploding 3D objects" technique, per-triangle displacement) and the pieces impact each other.
 
 **Process, unchanged:** propose, get a yes, build one, show it, iterate in short rounds. Taste rules apply (section 15).
-Open decisions are in the conversation that follows this brief, not here.
+
+**Decisions (5 October 2026):** build Columns first; use a vendored MIT physics library (cannon-es) rather than writing one;
+the hidden form for the projected-geometry poster is **cloth over hidden balls** (a live cloth simulation draped over concealed
+spheres; pushing one lifts and ripples the print). **Status:** Columns is built as a draft and awaiting Idan's review; the
+garden and the cloth poster are not started. Still to add to Columns: the explosion as per-triangle shatter if shards read
+as too blocky, a light theme, and a real-phone check.
 

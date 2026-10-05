@@ -46,6 +46,16 @@ export const POSTERS = [
     themes: { dark: 0.15, light: 0.85 },
     load: () => import('./soft-type.js'),
   },
+  {
+    slug: 'columns',
+    title: 'Columns',
+    words: ['Idan', 'Segev'],
+    blurb: 'Flat type that is really standing columns. Tip one over; hold one too long.',
+    hint: null,
+    themes: { dark: 1, light: 0 },
+    draft: true,
+    load: () => import('./columns.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

@@ -23,30 +23,9 @@
 // Mass follows size: a letter weighs its stroke length times its stroke width, so a swollen letter is heavier.
 // Heavy letters shove light ones in contacts and keep their momentum longer. The air is the stored energy.
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+import { SKELETON, ratio, radiusFor } from './lettering.js';
 
-// ---- skeletons: unit box, x in -.3..+.3, y in -.35..+.35 (y down) ----
-const line = (...p) => ({ pts: p.map(([x, y]) => ({ x, y })), sharp: true });
-function arc(a0, a1, cx = 0, cy = 0, rx = 0.31, ry = 0.35, closed = false) {
-  const n = 28;
-  return { closed, pts: Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return { x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry }; }) };
-}
-const PI = Math.PI;
-const SKELETON = {
-  I: { wf: 0.34, s: () => [line([0, -0.35], [0, 0.35])] },
-  D: { wf: 0.86, s: () => [line([-0.3, -0.35], [-0.3, 0.35]), arc(-PI / 2, PI / 2, -0.3, 0, 0.6, 0.35)] },
-  A: { wf: 0.98, s: () => [line([-0.3, 0.35], [0, -0.35], [0.3, 0.35]), line([-0.19, 0.1], [0.19, 0.1])] },
-  N: { wf: 0.9, s: () => [line([-0.3, 0.35], [-0.3, -0.35], [0.3, 0.35], [0.3, -0.35])] },
-  S: { wf: 0.78, s: () => {
-    const top = arc(-0.15 * PI, -1.5 * PI, 0, -0.175, 0.29, 0.175), bot = arc(-0.5 * PI, 0.85 * PI, 0, 0.175, 0.29, 0.175);
-    return [{ pts: top.pts.concat(bot.pts.slice(1)) }];
-  } },
-  E: { wf: 0.76, s: () => [line([-0.29, -0.35], [-0.29, 0.35]), line([-0.29, -0.35], [0.3, -0.35]), line([-0.29, 0], [0.22, 0]), line([-0.29, 0.35], [0.3, 0.35])] },
-  G: { wf: 0.92, s: () => [arc(-0.28 * PI, -2 * PI, 0, 0, 0.31, 0.35), line([0.31, 0.02], [0.04, 0.02])] },
-  V: { wf: 0.98, s: () => [line([-0.3, -0.35], [0, 0.35], [0.3, -0.35])] },
-};
-const ratio = (c, w, h) => (c === 'I' ? h * 0.11 : Math.min(w * 0.25, h * (c === 'E' ? 0.1 : 0.118)));
-const radiusFor = (c, w, h) => Math.max(6, ratio(c, w, h));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 const AREST = 0.5, rm = (q) => (q <= 0.5 ? 0.3 + 1.4 * q : 1 + 3.2 * (q - 0.5));   // air level -> stroke thickness; the rest level gives exactly the designed stroke
 
