@@ -37,7 +37,7 @@ in vec2 vQ;
 in float vA;
 in float vSeed;
 uniform vec3 uCol;
-uniform float uAlpha;
+uniform float uAlpha, uSoft;
 out vec4 o;
 float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 p) {                                                // value noise
@@ -50,8 +50,10 @@ void main() {
   vec2 q = vQ * 2.2 + vSeed * 31.0;
   float wisp = 0.65 * vn(q) + 0.35 * vn(q * 2.3 + 7.0);              // a puff is ragged, not a disc
   float body = smoothstep(1.0, 0.0, r);
-  float a = smoothstep(0.28, 0.8, wisp * (0.55 + 0.9 * body)) * body;
-  o = vec4(uCol, a * vA * uAlpha);
+  float v = wisp * (0.55 + 0.9 * body);
+  // softness 1: feathered smoke; softness 0: crisp-edged ink blots that still thin out with age
+  float a = smoothstep(mix(0.44, 0.28, uSoft), mix(0.47, 0.8, uSoft), v) * mix(step(r, 0.97), body, uSoft);
+  o = vec4(uCol, a * mix(step(0.001, vA) * (0.25 + 0.75 * vA), vA, uSoft) * uAlpha);
 }`;
 
 export class Dust {
@@ -91,13 +93,13 @@ export class Dust {
     else gl.bufferSubData(gl.ARRAY_BUFFER, this.lo * 40, this.data, this.lo * 10, (this.hi - this.lo + 1) * 10);
     this.lo = Infinity; this.hi = -1;
   }
-  draw(vp, px, wref, grey, alpha) {
+  draw(vp, px, wref, grey, alpha, soft = 0.6) {
     if (!this.live) return;
     const gl = this.gl, u = this.prog.u;
     this.flush();
     this.prog.use();
     gl.uniformMatrix4fv(u.uVP, false, vp); gl.uniform2f(u.uPx, px[0], px[1]); gl.uniform1f(u.uT, this.t); gl.uniform1f(u.uWref, wref);
-    gl.uniform3f(u.uCol, grey, grey, grey); gl.uniform1f(u.uAlpha, alpha);
+    gl.uniform3f(u.uCol, grey, grey, grey); gl.uniform1f(u.uAlpha, alpha); gl.uniform1f(u.uSoft, soft);
     gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(this.vao);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.max);

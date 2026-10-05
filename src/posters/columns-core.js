@@ -24,9 +24,8 @@ const qrot = (q, v) => {
   return { x: v.x + q.w * tx + (q.y * tz - q.z * ty), y: v.y + q.w * ty + (q.z * tx - q.x * tz), z: v.z + q.w * tz + (q.x * ty - q.y * tx) };
 };
 const UNIT_H = 2.0;            // letter height in world units
-const COL_H = 3.4;             // column height
 const MAX_INST = 4000;
-const MAX_SHARDS = 2500, MAX_SHARD_VERTS = 400000;
+const MAX_SHARDS = 4000, MAX_SHARD_VERTS = 400000, XF_W = 2048;   // the transform texture is XF_W wide and as many rows as it needs
 
 const VS = `#version 300 es
 layout(location=0) in vec3 aPos;
@@ -60,7 +59,8 @@ out float vDmg;
 vec3 rot(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
 void main() {
   int i = int(aShard + 0.5);
-  vec4 a = texelFetch(uXf, ivec2(i * 2, 0), 0), q = texelFetch(uXf, ivec2(i * 2 + 1, 0), 0);
+  int k = i * 2;
+  vec4 a = texelFetch(uXf, ivec2(k % 2048, k / 2048), 0), q = texelFetch(uXf, ivec2((k + 1) % 2048, (k + 1) / 2048), 0);
   vec3 p = rot(q, aPos) + a.xyz;
   vN = rot(q, aNrm);
   vTop = aNrm.z > 0.99 ? 1.0 : 0.0;
@@ -101,6 +101,7 @@ function cubeMesh() {
 export async function mountColumns(stage, mode) {
   const EXPLODE = mode === 'explode';
   const R = await loadRapier();
+  let colH = 3.4;                  // extrusion height, from the Height setting (letters are built with it)
   const canvas = stage.canvas;
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
   if (!gl) throw new Error('WebGL2 unavailable');
@@ -129,7 +130,7 @@ export async function mountColumns(stage, mode) {
   gl.bindVertexArray(null);
   const xfTex = gl.createTexture(), xf = new Float32Array(MAX_SHARDS * 8);
   gl.bindTexture(gl.TEXTURE_2D, xfTex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, MAX_SHARDS * 2, 1, 0, gl.RGBA, gl.FLOAT, xf);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, XF_W, Math.ceil(MAX_SHARDS * 2 / XF_W), 0, gl.RGBA, gl.FLOAT, xf);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   let shardCount = 0, shardVerts = 0;
@@ -142,7 +143,7 @@ export async function mountColumns(stage, mode) {
   const octx = overlay.getContext('2d');
   const dust = new Dust(gl);
 
-  const P = EXPLODE ? { gravity: 40, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.4, rough: 1, gap: 0.8, crack: 2.9, crackAt: 0.25, jitter: 1, reach: 3, passive: 1, transfer: 0.7, bounce: 0.05, friction: 0.98, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
+  const P = EXPLODE ? { gravity: 20, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.1, rough: 2, gap: 0.8, crack: 0, crackAt: 0.05, jitter: 0, reach: 1, passive: 1, transfer: 0.2, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0.95, dustSize: 0.4, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   let pending = [], timers = [];
   let W = 1, H = 1, S = 100, sim = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
@@ -252,10 +253,10 @@ export async function mountColumns(stage, mode) {
 
   function addLetter(p) {
     const fine = strokeBoxes(p, false), boxes = EXPLODE ? strokeBoxes(p, true) : fine;   // Explode: the physics uses fewer, longer boxes
-    let vol = 0; for (const b of boxes) vol += 8 * b.hx * b.hy * (COL_H / 2);
-    const [wx, wy] = toWorld(p.x, p.y), pos = { x: wx, y: wy, z: COL_H / 2 };
+    let vol = 0; for (const b of boxes) vol += 8 * b.hx * b.hy * (colH / 2);
+    const [wx, wy] = toWorld(p.x, p.y), pos = { x: wx, y: wy, z: colH / 2 };
     const body = EXPLODE ? sim.fixed(pos) : sim.dynamic(pos, { linearDamping: 0.04, angularDamping: 0.06 });
-    const colliders = boxes.map((b) => sim.box(body, [b.hx, b.hy, COL_H / 2], { offset: { x: b.x, y: b.y, z: 0 }, angle: b.a, density: EXPLODE ? undefined : 3 / vol, events: true }));
+    const colliders = boxes.map((b) => sim.box(body, [b.hx, b.hy, colH / 2], { offset: { x: b.x, y: b.y, z: 0 }, angle: b.a, density: EXPLODE ? undefined : 3 / vol, events: true }));
     body.isLetter = true; body.ch = p.ch; body.vol = vol;
     if (EXPLODE) {
       body.cells = boxes.map((b, i) => ({ ...b, alive: true, dmg: 0, collider: colliders[i] }));
@@ -278,6 +279,7 @@ export async function mountColumns(stage, mode) {
     S = 1; // placeholder so the layout can be measured in pixels
     const poses = layoutPx();
     S = poses[0].h / UNIT_H;
+    colH = P.height;
     camera();
     for (const p of poses) addLetter(p);
     fade = 0;
@@ -307,7 +309,7 @@ export async function mountColumns(stage, mode) {
   function spawnPieces(letter, cells, cx, cy, power, gen, kin, opt) {
     const sp0 = Math.sqrt(power), made = [], size = P.size * (1 + shardCount / 1400);   // the more rubble already, the coarser the next pieces
     for (const c of cells) {
-      const ca = Math.cos(c.a), sa = Math.sin(c.a), parts = shatterBox(c.hx, c.hy, COL_H / 2, size, P.rough, opt && opt.fit ? opt.fit : P.gap, 140);
+      const ca = Math.cos(c.a), sa = Math.sin(c.a), parts = shatterBox(c.hx, c.hy, colH / 2, size, P.rough, opt && opt.fit ? opt.fit : P.gap, 220);
       for (const pc of parts) {
         if (shardCount >= MAX_SHARDS || shardVerts + pc.tris.length / 6 > MAX_SHARD_VERTS) break;
         const px = letter.position.x + c.x + ca * pc.c[0] - sa * pc.c[1], py = letter.position.y + c.y + sa * pc.c[0] + ca * pc.c[1], pz = letter.position.z + pc.c[2];
@@ -426,7 +428,7 @@ export async function mountColumns(stage, mode) {
     for (let i = 0; i < n; i++) {
       let r = Math.random() * total, c = cells[0]; for (const k of cells) { r -= k.hx * k.hy; if (r <= 0) { c = k; break; } }
       const lx = (Math.random() * 2 - 1) * c.hx, ly = (Math.random() * 2 - 1) * c.hy, ca = Math.cos(c.a), sa = Math.sin(c.a);
-      const x = letter.position.x + c.x + ca * lx - sa * ly, y = letter.position.y + c.y + sa * lx + ca * ly, z = 0.1 + Math.random() * COL_H * 0.95;
+      const x = letter.position.x + c.x + ca * lx - sa * ly, y = letter.position.y + c.y + sa * lx + ca * ly, z = 0.1 + Math.random() * colH * 0.95;
       let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy) || 1, sp = (0.5 + Math.random() * 1.6) * (0.5 + power);
       dust.emit(x, y, z, dx / d * sp + (Math.random() - 0.5) * 0.5, dy / d * sp + (Math.random() - 0.5) * 0.5, 0.2 + Math.random() * 0.9, P.dustLife * (0.7 + Math.random() * 0.7), (0.22 + Math.random() * 0.3) * P.dustSize);
     }
@@ -506,7 +508,7 @@ export async function mountColumns(stage, mode) {
           const o = n * 11, a = f.a / 2;
           inst[o] = b.position.x + f.x; inst[o + 1] = b.position.y + f.y; inst[o + 2] = b.position.z;
           inst[o + 3] = 0; inst[o + 4] = 0; inst[o + 5] = Math.sin(a); inst[o + 6] = Math.cos(a);
-          inst[o + 7] = f.hx; inst[o + 8] = f.hy; inst[o + 9] = COL_H / 2; inst[o + 10] = Math.min(0.9, f.cell.dmg);
+          inst[o + 7] = f.hx; inst[o + 8] = f.hy; inst[o + 9] = colH / 2; inst[o + 10] = Math.min(0.9, f.cell.dmg);
           n++;
         }
         continue;
@@ -524,7 +526,7 @@ export async function mountColumns(stage, mode) {
     if (shardCount) {
       for (const b of solids) if (b.isShard) { const o = b.sidx * 8, q = b.quaternion; xf[o] = b.position.x; xf[o + 1] = b.position.y; xf[o + 2] = b.position.z; xf[o + 4] = q.x; xf[o + 5] = q.y; xf[o + 6] = q.z; xf[o + 7] = q.w; }
       gl.bindTexture(gl.TEXTURE_2D, xfTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, shardCount * 2, 1, gl.RGBA, gl.FLOAT, xf);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, XF_W, Math.min(Math.ceil(MAX_SHARDS * 2 / XF_W), Math.ceil(shardCount * 2 / XF_W)), gl.RGBA, gl.FLOAT, xf);
     }
     gl.viewport(0, 0, stage.pw, stage.ph);
     gl.clearColor(P.bg, P.bg, P.bg, 1);
@@ -547,7 +549,7 @@ export async function mountColumns(stage, mode) {
       gl.drawArrays(gl.TRIANGLES, 0, shardVerts);
     }
     gl.bindVertexArray(null);
-    if (P.dust > 0) dust.draw(vp, [2 * S * P.zoom / W, 2 * S * P.zoom / H], wref, (P.bg + P.fg) / 2, 0.8);
+    if (P.dust > 0) dust.draw(vp, [2 * S * P.zoom / W, 2 * S * P.zoom / H], wref, P.dustTone, P.dustAlpha, P.dustSoft);
 
     // burst lines
     octx.setTransform(stage.pw / W, 0, 0, stage.ph / H, 0, 0);
@@ -590,15 +592,15 @@ export async function mountColumns(stage, mode) {
   const cameraGroup = { name: 'Camera (for setting up)', items: [{ key: 'camPitch', label: 'Tilt', min: 0, max: 1.3, step: 0.01 }, { key: 'camYaw', label: 'Turn', min: -1.6, max: 1.6, step: 0.01 }, { key: 'zoom', label: 'Zoom', min: 0.4, max: 2.5, step: 0.02 }, { key: 'persp', label: 'Perspective (0 = flat)', min: 0, max: 1, step: 0.01 }] };
   const colourGroup = { name: 'Colour (black and white only)', items: [{ key: 'bg', label: 'Background', min: 0, max: 1, step: 0.01 }, { key: 'fg', label: 'Foreground', min: 0, max: 1, step: 0.01 }] };
   const groups = EXPLODE
-    ? [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }, { key: 'bounce', label: 'Bounce (contacts)', min: 0.05, max: 0.95, step: 0.05 }, { key: 'friction', label: 'Slipperiness (low = grippy)', min: 0.02, max: 1, step: 0.02 }] },
-       { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.4, max: 2.5, step: 0.05 }, { key: 'speed', label: 'Outward speed', min: 0.3, max: 2.5, step: 0.05 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
-       { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 2, max: 20, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.2, max: 1, step: 0.02 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'reach', label: 'Crack reach', min: 1, max: 9, step: 0.25 }, { key: 'crackAt', label: 'Damage that starts a crack', min: 0.05, max: 1, step: 0.01 }, { key: 'jitter', label: 'Jitter (0 = boxes only break away)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.2, max: 2, step: 0.05 }] },
-       { name: 'Pieces (next blast)', items: [{ key: 'size', label: 'Size (small = many)', min: 0.1, max: 1.6, step: 0.02 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.8, max: 1, step: 0.01 }] },
-       { name: 'Effects', items: [{ key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }, { key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.3, max: 3, step: 0.05 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.4, max: 5, step: 0.1 }, { key: 'dustHits', label: 'Dust from impacts', type: 'toggle' }] },
+    ? [{ name: 'World', items: [{ key: 'height', label: 'Extrusion height (re-forms)', min: 0.05, max: 8, step: 0.05 }, { key: 'gravity', label: 'Gravity', min: 2, max: 40, step: 1 }, { key: 'bounce', label: 'Bounce (contacts)', min: 0.05, max: 0.95, step: 0.05 }, { key: 'friction', label: 'Slipperiness (low = grippy)', min: 0.02, max: 1, step: 0.02 }] },
+       { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.02, max: 2.5, step: 0.01 }, { key: 'speed', label: 'Outward speed', min: 0.02, max: 2.5, step: 0.01 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
+       { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 1, max: 30, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.02, max: 1, step: 0.01 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'reach', label: 'Crack reach', min: 0.2, max: 9, step: 0.05 }, { key: 'crackAt', label: 'Damage that starts a crack', min: 0.05, max: 1, step: 0.01 }, { key: 'jitter', label: 'Jitter (0 = boxes only break away)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.01, max: 2, step: 0.01 }] },
+       { name: 'Pieces (next blast)', items: [{ key: 'size', label: 'Size (small = many)', min: 0.03, max: 1.6, step: 0.01 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.5, max: 1, step: 0.01 }] },
+       { name: 'Effects', items: [{ key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }, { key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.05, max: 3, step: 0.01 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.2, max: 5, step: 0.1 }, { key: 'dustTone', label: 'Dust tone (0 black, 1 white)', min: 0, max: 1, step: 0.01 }, { key: 'dustSoft', label: 'Dust softness (0 = hard edged)', min: 0, max: 1, step: 0.01 }, { key: 'dustAlpha', label: 'Dust opacity', min: 0.1, max: 1, step: 0.01 }, { key: 'dustHits', label: 'Dust from impacts', type: 'toggle' }] },
        colourGroup, cameraGroup]
-    : [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }] },
+    : [{ name: 'World', items: [{ key: 'height', label: 'Extrusion height (re-forms)', min: 0.05, max: 8, step: 0.05 }, { key: 'gravity', label: 'Gravity', min: 2, max: 40, step: 1 }] },
        { name: 'Touch', items: [{ key: 'topple', label: 'Tap push', min: 6, max: 50, step: 1 }] },
-       { name: 'Effects', items: [{ key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.3, max: 3, step: 0.05 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.4, max: 5, step: 0.1 }] },
+       { name: 'Effects', items: [{ key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.05, max: 3, step: 0.01 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.2, max: 5, step: 0.1 }, { key: 'dustTone', label: 'Dust tone (0 black, 1 white)', min: 0, max: 1, step: 0.01 }, { key: 'dustSoft', label: 'Dust softness (0 = hard edged)', min: 0, max: 1, step: 0.01 }, { key: 'dustAlpha', label: 'Dust opacity', min: 0.1, max: 1, step: 0.01 }] },
        colourGroup, cameraGroup];
   const tuneApi = {
     title: EXPLODE ? 'Explode' : 'Collapse',
@@ -609,6 +611,7 @@ export async function mountColumns(stage, mode) {
     set(k, v) {
       P[k] = v; this.values[k] = v;
       if (k === 'gravity') sim.setGravity(v);
+      if (k === 'height') reform();
       if (k === 'bg') stage.setBackdrop(v);
       if (EXPLODE && (k === 'bounce' || k === 'friction')) sim.setMaterial(P.friction, P.bounce);
     },
