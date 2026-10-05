@@ -1,8 +1,9 @@
 # Idan Segev, personal site: brief
 
-Version 0.2, 2 October 2026. Lives on the `portfolio-v1` branch until promoted; `main` (idansegev.com) still serves
-the single Still Water poster. Written for Idan and for any Claude Code session that picks this up later, so it
-records decisions, reasons and dead ends, not only wishes. The running record is section 14.
+Version 0.3, 5 October 2026. Live on idansegev.com (`main`): Still Water, Sheet and Soft type in a random rotation.
+The Work section is built but held back (section 16). Written for Idan and for any Claude Code session that picks this
+up later, so it records decisions, reasons and dead ends, not only wishes. The running record is section 14; what each
+live poster is and how it is tuned is section 17; what comes next is section 18.
 
 ---
 
@@ -52,7 +53,7 @@ link and the preview looks great; a recruiter finds the work in under thirty sec
  /work/moovit/     a case study (the first)
 ```
 
-Keys on the front: Space, Enter, → or R shuffle. S shares. W opens Work. Still Water also has L (lamp), X (rain).
+Keys on the front: Space, Enter, → or R shuffle. S shares. T opens a poster's settings panel when it has one. Still Water also has L (lamp), X (rain). (The Work routes and the W key are not live: see section 16.)
 
 ### The door to Work: options
 
@@ -70,6 +71,8 @@ Recommendation: ship A now, add B as a delight on top, and judge from real visit
 To make it fully hidden today, delete the `Work` link in `index.html` and keep the W key.
 
 ## 5. The poster series
+
+> Status note (5 October 2026): this section is the original thinking and the history of every poster tried. Only Still Water, Sheet and Soft type are live; Meltdown, Breath, Puff and Point of view were removed, Emboss was rejected. Section 17 describes the live ones as they are now.
 
 ### What makes a poster
 
@@ -251,11 +254,11 @@ off by default because a public page reaching for localhost can trigger a local-
 
 ## 11. Roadmap
 
-- **Done (v0.1 to v0.2, this branch).** Shell, engine, share pages, Work index with Moovit vendored, brief; Still Water
-  ported as the one published poster; Sheet, Breath, Meltdown, Point of view built as drafts; tuning panel; dev server.
-- **Next.** Refine Sheet with the panel (wrinkle strength, timing, copy) and measure it on a real phone; decide whether
-  to add the article's grab-and-throw physics; rework Breath (the word, the wipe edge, fog speed); then promote the posters
-  that clear the bar into the rotation and merge `portfolio-v1` to `main`.
+- **Done.** Shell, engine, share pages, brief; Still Water, Sheet and Soft type live; Work built and parked; tuning panel;
+  dev server; mobile long-press blocked; seven posters tried, four removed, one rejected (Emboss).
+- **Next.** Section 18: three new posters (a rethought garden, a type that is projected over hidden geometry, extruded
+  type that falls and explodes), each proposed, approved, built one at a time. Also: measure Sheet and Soft type on a real
+  phone; decide when Work can return.
 - **v0.3.** Per-poster share images; "save this poster as an image" (and share it as a file on phones); Work option B,
   the hidden glyph; a second case; compress the Moovit assets.
 - **Later.** Teaching and talks; a case template once two exist; privacy-friendly analytics; a short about page; poster
@@ -314,32 +317,15 @@ parallax, and a `?live` mode mirroring Wordflow3d lyrics. That version is tagged
    simulation from the Codrops VAT article, for realistic wrinkles, crumple and unfold.
 7. **Infrastructure along the way.** `src/panel.js` (settings panel), `tools/dev.py` (no-cache server, after a
    stale-module scare), `?debug` error toasts, the draft flag, a guard so Shuffle works with one published poster.
-8. **Commits.** Seven commits are local only and not yet pushed: Emboss, parking Emboss, Breath, Sheet, Sheet panel and
-   click, dev server, Sheet simulation. The pushed state of `portfolio-v1` is the first portfolio commit.
-9. **Puff up and away (draft).** Idan's standalone Vite project (`~/Downloads/puff`: Canvas 2D, each letter a balloon
-   with an elastic spring mesh) ported to `src/posters/puff.js` as a draft poster, `?p=puff`. Its own rules are kept:
-   pure black/white (via the stage theme and `setBackdrop`), DynaPuff 700 (loaded by the poster, not the shell), no
-   outlines or corners. Its gravity and slow-motion controls became the settings panel (`T`). Open items from the
-   original project (tear effect, keyboard control, high-DPI seam check, split into modules) are not done. The original
-   `reference/balloon-rockets-blobs.html` stays in Downloads. Not yet tested on a real phone.
-10. **Soft type (draft).** A hand-written Canvas 2D soft body, inspired by the idea of type as a squashy material. Each letter is a few
-    skeleton strokes sampled into round particles; the bubbly look is one round-capped stroke along the particle path.
-    Position-based dynamics: distance links, a bending-smoothing pass, spatial-hash contacts, a weak pull toward each
-    letter's own rest shape (so a dragged letter keeps where you leave it), velocity damping 0.94, substeps for fast drags.
-    Hold a letter to swell, tremble and pop back with an elastic wobble. Our own implementation in
-    `src/posters/soft-type.js` (no sound, our own skeletons for I D A N S E G V). Draft, `?p=soft-type`.
-    Balloon-rocket mode (from Puff) added: hold still to inflate, drag to aim, release to launch; thrust leaves through the knot
-    and whips the soft letter, air runs out, it lands and springs home. Letters can now rotate (shape matching). Mass and energy: mass is ink area (heavier letters give way less in contacts and coast longer), inflating raises size and
-    therefore mass and stored air; thrust and burn time scale with it; air runs out, the letter shrinks to a minimal size (0.8),
-    thrust and motion die, it drifts, then re-inflates to normal and returns. Revision: no gravity, no user aim. Each inflation puts a knot at a random spot; thrust leaves through it and turns with the
-    letter as it spins. Letters deflate to 0.28x and stay tiny and where they stopped (inflate again, or Re-form). Each visit
-    starts with slightly uneven letters (tilt, offset, size, seeded). Second revision: inflation is air, not scale. Air enters (and leaves) through a mouth particle and spreads along the tube,
-    so the stroke swells from the mouth outward while the skeleton only stretches ~20% of the swell; a spent letter is a limp
-    thin tube at the same footprint (no more mismatched scale), and air creeps back in through the mouth so it re-inflates where
-    it stopped. The knot dot and aim dots are gone. No audio ever existed in this poster. Third revision: much bigger inflation (stroke up to 2.6x), the skin ripples and the letter shudders past 72% air, at full
-    air it goes critical: it flickers out three times over ~1.1s, then bursts if still held (releasing during the warning just
-    deflates). The burst empties the letter, throws every other letter away by mass, shakes the canvas and draws 16 cartoon
-    motion lines. Rockets are twice as strong. Long-press selection and the context menu are blocked shell-wide for mobile. Lesson: a stroke end must not weld onto its own neighbouring particle (it chamfered corners). Re-form is in the panel (`T`).
+8. **Puff up and away (removed).** Idan's standalone Vite project (Canvas 2D, each letter a balloon on an elastic spring
+   mesh) was ported as a draft, and its balloon-rocket idea became the seed of Soft type. Removed from the site later; in
+   git history (`e09f0ad` and earlier).
+9. **Soft type.** Reverse-engineering a soft-bodied type site showed the idea: letters as particles with a shape memory,
+   so type behaves as one elastic material. Our own implementation, then many short rounds with Idan: balloon-rocket
+   behaviour, mass equals size, air as stored energy, inflation as a force on the stroke rather than a scale, a
+   critical phase and a burst, cartoon marks, a tap that fires by itself, a breeze-and-breathing hint. Full spec in
+   section 17.
+10. **Release 1** (see section 16): three posters published, four removed, Work held back.
 
 **References parked for later** (not opened or analysed): an Instagram post, reactbits.dev and its tech-text animation,
 balloons.shader.se, spacetypegenerator.com, `cullenwebber.github.io/three-html-to-canvas` (flagged by Idan as the most
@@ -355,8 +341,9 @@ the Apple model it depends on is research-only, so it was not run).
   posters in one pass without Idan in the loop. **Rule: propose, get a yes, build one, show it, iterate in short rounds.**
 - **What is landing.** Physical, familiar materials behind the type (glass, paper), where the response has memory and
   the reveal needs a gesture. Real simulation data beats procedural noise for realism (Sheet's cloth).
-- **Idan's taste rules** (also in the assistant's memory): no automatic effects at rest beyond one short intro; no
-  instructional text; pure white on black; no accent colour; never show debug text to visitors; confirm before
+- **Idan's taste rules** (also in the assistant's memory): no automatic effects at rest beyond one short intro (Idan later
+  asked Soft type for a faint breeze and recurring breathing as a hint until the first touch, so a hint may be motion, never
+  words); no instructional text; pure white on black; no accent colour; never show debug text to visitors; confirm before
   pushing to `main`.
 - **Technique notes.** In GLSL `flat` is a reserved word. Inside a ray march use `textureLod`, not `texture`
   (derivatives are meaningless there). Hash-only navigation does not reload a page in the preview browser: add a
@@ -368,18 +355,96 @@ the Apple model it depends on is research-only, so it was not run).
 
 
 
-## 16. Release 1 (published)
+## 16. Release 1 (live)
 
-Published to `main` / idansegev.com: Still Water, Meltdown, Breath, Sheet, Puff, Soft type, Point of view. Emboss stays a draft (rejected). The Work section is not live: it is preserved on the `work-moovit` branch (rebuild with `tools/sync-moovit.sh`) until Moovit asset rights and the Leida font licence are confirmed. Sheet and Soft type are unmeasured on real phones.
+- **Live on idansegev.com (`main`):** Still Water, Sheet, Soft type. Shuffle and a fresh load pick one at random, never the
+  same twice in a row.
+- **Removed at Idan's request:** Breath ("Clear"), Meltdown, Puff, Point of view. Files and share pages deleted; they are in
+  git history (commit `e09f0ad` and earlier). **Emboss** stays a draft (rejected, `?p=emboss`).
+- **Work is not live.** The Work index and the Moovit case are preserved on the `work-moovit` branch (rebuild with
+  `tools/sync-moovit.sh`). Reasons to wait: Moovit assets are about 19 MB with unconfirmed rights, and the Leida font is
+  unlicensed (Georgia fallback). The footer link, the W key and the vendored files were removed from the release.
+- **Unverified:** Sheet and Soft type have never been run on a real phone; Sheet's per-frame cost is unmeasured.
+- **Credit and trace hygiene:** Soft type's comments describe it as our own work. One old commit message (`062b520`)
+  still names the site that inspired it; removing it needs a history rewrite and a force-push, which has not been done.
 
-**Release 1 amendment.** Breath ("Clear"), Meltdown, Puff and Point of view were removed at Idan's request: files and share pages deleted, registry rows gone. They remain in git history (commit `e09f0ad` and earlier). Rotation is now Still Water, Sheet and Soft type; Emboss is still a draft.
+## 17. The live posters, in detail
 
-**Soft type marks (branch, unpublished).** Speed lines stream behind a rocketing letter (from its velocity), tension ticks bristle around a letter past ~72% air and more in the critical phase, and the only hint that letters are pressable is one letter breathing once after ~2.4 s untouched (a second time at ~9 s if still untouched; skipped under reduced motion). No instructional text.
+### Still Water
+A wave-equation ripple simulation under flat white type on black; touch stirs it, the surface remembers then forgets.
+Keys L (a hidden lamp) and X (rain). `?live` mirrors a local Wordflow3d server (off by default: a public page that
+contacts localhost can trigger Chrome's local-network prompt).
 
-**Soft type marks, revision.** The ruler-straight speed lines and ellipse ticks were replaced by one family of hand-flicked marks in the explosion's own language: curved, round-capped strokes that travel out and thin away. Streaks are spawned behind a rocketing letter from its velocity and stay in the world as it leaves them; stress flicks are small three-stroke fans spawned off the letter's actual skin, more of them as it nears the limit.
+### Sheet
+Type projected onto a lightly wrinkled sheet of paper; flat at rest, it only reads as paper when the view moves. The
+paper is a baked Houdini Vellum cloth simulation (data from item-develop/paper-crumple-demo, MIT, notice in
+`src/posters/data/crumple.LICENSE.txt`, extraction in `tools/vat-extract.mjs`): 50 frames, a 70 by 50 grid stored as
+vertex-animation textures. Camera-at-rest equals projector, so the print is flat until the view moves. A click crumples
+the sheet, throws it, and a new one arrives as a ball and unfolds. Settings panel at `?tune` or T; defaults are Idan's
+tuned values (relief 0, shadows off, light page 0.95). Technique informed by cullenwebber/three-ml-sharp (no code copied;
+Apple's ml-sharp model is research-only and was not run).
 
-**Soft type fix.** Releasing during the flicker warning now launches a full-air rocket (it used to just deflate). Only still holding to the end bursts.
+### Soft type (`src/posters/soft-type.js`)
+"IDAN / SEGEV" as thick black strokes on white (a dark theme exists at 15%), plain at rest, a soft material underneath.
 
-**Soft type hint and tap (branch).** Until the first touch: after ~3 s an extremely light breeze sways the letters (about 6 px, out of step with each other), and every 4.5-7.5 s one letter breathes in and out (sin-squared, eased at both ends). A quick tap (under 0.22 s, no movement) inflates the letter by itself over 0.85 s (eased in-out) and fires it, with the stress marks on the way. Holding still keeps the manual inflate. The pre-burst wobble is about half as strong (ripple 0.055, shudder 0.45 / 1.2).
+**Model.** Each letter is hand-defined skeleton strokes (I D A N S E G V), sampled into round particles. The thick look is
+a round-capped stroke along the particle path, drawn piece by piece so its width can vary. Position-based dynamics: distance
+links, a bending-smoothing pass, brace links at junctions, spatial-hash contacts, a weak pull toward each letter's own rest
+shape (the letter may translate and rotate freely and keeps where you leave it), damping 0.94. Strokes that meet are welded;
+a stroke end must not weld onto its own neighbour (that chamfered corners). Every visit starts slightly uneven (tilt ±0.07 rad,
+offset ±3.5% of letter height, size ±5%), seeded from the stage seed so a resize keeps it. A resize rebuilds and resets.
 
-**Soft type: no blink.** The critical phase no longer flickers the letter out; the warning is the shudder, ripple and stress marks only (same ~1.15 s before the burst).
+**Air.** Each letter has an air level (rest 0.5) and a *mouth* particle (random on every inflation). Air flows in and out
+through the mouth and diffuses along the tube, so a swell or a deflation travels along the stroke. Air maps to stroke
+thickness `rm(q)`: 0.3 at empty, 1.0 at rest, 2.6 at full. The skeleton itself only stretches 30% of the swell, so a limp
+letter keeps its footprint (an early version scaled whole letters and looked mismatched). Mass is ink area (compressed so an
+I is light) times length stretch times mean thickness: swollen letters are heavier. In contacts the heavier body gives way
+less; heavy letters also coast farther.
+
+**Interactions.**
+| Gesture | What happens |
+|---|---|
+| Drag (move more than 8 px) | the letter bends, squashes against neighbours, stays where you leave it |
+| Quick tap (under 0.22 s, no move) | inflates by itself over 0.85 s (eased), then rockets |
+| Hold still | inflates at 0.24 air/s from rest to full in about 2 s; releasing before full launches a rocket |
+| Hold to full air | *critical* for 1.15 s: the skin ripples, the letter shudders, stress flicks bristle off its outline; release launches at full power, still holding bursts |
+| Burst | the letter empties at once, every other letter is thrown away (lighter letters farther, 34 px per frame at the centre falling to zero at 0.6 of the screen), the canvas shakes for 0.4 s, 16 curved cartoon lines fly out |
+| Rocket | thrust leaves through the mouth, so as the letter spins the push turns with it; no steering, no gravity; the air burns down in about 0.7 s, the tube thins to limp, thrust and motion die |
+| After a rocket or burst | the letter stays where it stopped, drifts a moment, then air creeps back in through the mouth (0.22 air/s) and it re-inflates in place. Over-filled letters leak at 0.9 air/s. Re-form in the panel (T) springs every letter home |
+
+**Marks.** One hand-drawn family in the explosion's language: curved, round-capped strokes that travel out then thin away.
+Streaks spawn behind a rocketing letter from its velocity and stay in the world; stress flicks are three-stroke fans spawned
+off the letter's real skin, more as it nears the limit.
+
+**Hint, until the first touch.** After about 3 seconds a faint breeze (about 6 px of sway, out of step between letters)
+begins, and every 4.5 to 7.5 seconds one random letter breathes in and out, eased at both ends. Both stop at the first
+press on a letter. Skipped under reduced motion. No instructional text anywhere.
+
+**Mobile.** Text selection, the long-press callout and the context menu are blocked shell-wide.
+
+**Constants worth knowing** (all in the file): `HOLD_DELAY 0.22`, inflate `0.24`, `FLICKER_T 1.15` (the critical
+duration; the name is a leftover from the blink that was removed), thrust `g.h * 0.06 * air`, burn `(0.95 + 0.7 air) /
+max(0.7, rm)`, velocity cap 70 flying and 36 otherwise, stress starts at 72% air, ripple 0.055, shudder 0.45 inflating and
+1.2 critical. Debug: `window.__poster.inst.debug` exposes `glyphs()`, `marks()`, `step()`.
+
+**What shaped it** (each was a round with Idan): no gravity; no user aim (the mouth decides); deflate to a limp tube rather
+than shrink; no blink in the warning; marks should look hand-drawn, not schematic; tap should fire by itself; inflation slower
+and rockets faster and more kinetic.
+
+## 18. The next chapter (proposed, not built)
+
+**The brief from Idan (5 October 2026).** Take Soft type's level of scrutiny to the basic concept: the first impression is
+very simple, just plain text; interaction reveals that it sits on top of a rich, complex system, always with physics
+behaviour. Three new posters:
+
+1. **A rethink of Type Garden** (type-garden.vercel.app): typing makes vines, leaves and roses grow out of the word in flat
+   colour. Our version has to be its own thing, inside the site's rules (black and white, no typing UI, no instruction text).
+2. **Type projected over hidden geometry**, in the manner of cullenwebber/three-ml-sharp: type that reads as flat at first,
+   and the geometry it lies on is revealed by interaction.
+3. **Type that is secretly extruded 3D**, viewed straight from above with no perspective so it reads as flat. Interaction
+   topples the columns so they fall onto and knock each other over; a second mode explodes them (after the Codrops
+   "Exploding 3D objects" technique, per-triangle displacement) and the pieces impact each other.
+
+**Process, unchanged:** propose, get a yes, build one, show it, iterate in short rounds. Taste rules apply (section 15).
+Open decisions are in the conversation that follows this brief, not here.
+

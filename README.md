@@ -6,7 +6,7 @@ Static files, no build step, no dependencies. Read [BRIEF.md](BRIEF.md) for the 
 ```bash
 python3 tools/dev.py             # then open http://127.0.0.1:8910 (a no-cache server; plain http.server lets browsers keep stale modules). If an edit does not show, hard-reload with Cmd+Shift+R: Chrome can keep an imported module in memory
 node tools/build.mjs             # after changing the poster registry: rewrites p/<slug>/ share pages
-bash tools/sync-moovit.sh        # rebuild the Moovit case into work/moovit
+bash tools/sync-moovit.sh        # rebuild the Moovit case into work/moovit (Work lives on the work-moovit branch for now)
 ```
 
 Dev switches: `/?p=soft-type` forces a poster, `&theme=light|dark` forces a theme, `#s=<seed>` replays a
@@ -16,7 +16,7 @@ random variation, `?live` mirrors a local Wordflow3d server in Still Water.
 |---|---|
 | `index.html`, `src/` | The shell, the shared engine, and the posters (`src/posters/`) |
 | `p/<slug>/` | Generated share pages, one per poster (link previews need their own HTML) |
-| `work/` | The Work index, and the Moovit case vendored from its own repo |
+| `work/` | Not on this branch: the Work index and the Moovit case are kept on `work-moovit` |
 | `assets/` | Favicon, touch icon, share image |
 | `tools/` | Stub generator, Moovit sync, share-image maker, motion-sensor check |
 
