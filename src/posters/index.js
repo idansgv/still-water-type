@@ -66,6 +66,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./explode.js'),
   },
+  {
+    slug: 'drape',
+    title: 'Drape',
+    words: ['Idan', 'Segev'],
+    blurb: 'Flat type, printed on a cloth over hidden balls. Move, and it gives them away.',
+    hint: null,
+    themes: { dark: 1, light: 0 },
+    draft: true,
+    load: () => import('./drape.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);
