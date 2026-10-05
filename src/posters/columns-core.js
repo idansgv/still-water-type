@@ -144,7 +144,7 @@ export async function mountColumns(stage, mode) {
   const octx = overlay.getContext('2d');
   const dust = new Dust(gl);
 
-  const P = EXPLODE ? { gravity: 20, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.1, rough: 2, gap: 0.8, crack: 0, crackAt: 0.05, jitter: 0, reach: 1, passive: 1, transfer: 0.2, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0.95, dustSize: 0.4, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
+  const P = EXPLODE ? { gravity: 26, blast: 0.4, speed: 1.12, lift: 0.4, spin: 1.4, chain: 30, decay: 0.3, size: 0.1, rough: 2, gap: 0.8, crack: 0.25, crackAt: 0.46, jitter: 0.05, reach: 2.95, passive: 1, transfer: 0.2, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.4, dustLife: 1.6, dustHits: 0, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 0.85 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (third set, 5 Oct 2026)
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   let pending = [], timers = [];
   let W = 1, H = 1, S = 100, sim = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
