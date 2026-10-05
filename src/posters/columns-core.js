@@ -144,7 +144,7 @@ export async function mountColumns(stage, mode) {
   const octx = overlay.getContext('2d');
   const dust = new Dust(gl);
 
-  const P = EXPLODE ? { gravity: 26, blast: 0.4, speed: 1.12, lift: 0.4, spin: 1.4, chain: 30, decay: 0.3, size: 0.1, rough: 2, gap: 0.8, crack: 0.25, crackAt: 0.46, jitter: 0.05, reach: 2.95, passive: 1, transfer: 0.2, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.4, dustLife: 1.6, dustHits: 0, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 0.85, adapt: 1 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (third set, 5 Oct 2026)
+  const P = EXPLODE ? { gravity: 26, blast: 0.4, speed: 1.12, lift: 0.4, spin: 1.4, chain: 30, decay: 0.3, size: 0.16, rough: 2, gap: 0.8, crack: 0.25, crackAt: 0.46, jitter: 0.05, reach: 2.95, hit: 0.35, passive: 1, transfer: 0.2, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.4, dustLife: 1.6, dustHits: 0, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 0.85, adapt: 1 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (third set, 5 Oct 2026)
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   let pending = [], timers = [];
   // Adapting to the device: the piece size is multiplied by `perf`, which starts a little coarse on a phone with few cores
@@ -448,14 +448,14 @@ export async function mountColumns(stage, mode) {
     if (!sb || !o.isLetter || o.blown) return;
     const v = Math.hypot(sb.pv.x, sb.pv.y, sb.pv.z) * 0.85, vel = [sb.pv.x, sb.pv.y, sb.pv.z];
     if (v > P.chain) { if (!o.detonated) { o.detonated = true; pending.push({ letter: o, x: sb.position.x, y: sb.position.y, gen: sb.gen + 1, vel }); } return; }
-    if (P.crack > 0 && v > 4.5) {
+    if (P.crack > 0 && P.hit > 0 && v > 5.5) {
       let best = null, bd = Infinity;                               // the box nearest to where the piece landed
       for (const c of o.cells) {
         const cs = Math.cos(c.a), sn = Math.sin(c.a), dx = sb.position.x - o.position.x - c.x, dy = sb.position.y - o.position.y - c.y;
         const lx = dx * cs + dy * sn, ly = -dx * sn + dy * cs, d = Math.hypot(Math.max(Math.abs(lx) - c.hx, 0), Math.max(Math.abs(ly) - c.hy, 0));
         if (d < bd) { bd = d; best = c; }
       }
-      if (best) pending.push({ hurt: true, letter: o, cell: best, amount: ((v - 4.5) / Math.max(1, P.chain - 4.5)) * 0.55 * P.crack, x: sb.position.x, y: sb.position.y, vel });
+      if (best) pending.push({ hurt: true, letter: o, cell: best, amount: ((v - 5.5) / Math.max(1, P.chain - 5.5)) * 0.55 * P.crack * P.hit, x: sb.position.x, y: sb.position.y, vel });
     }
   }
 
@@ -620,7 +620,7 @@ export async function mountColumns(stage, mode) {
   const groups = EXPLODE
     ? [{ name: 'World', items: [{ key: 'height', label: 'Extrusion height (re-forms)', min: 0.05, max: 8, step: 0.05 }, { key: 'gravity', label: 'Gravity', min: 2, max: 40, step: 1 }, { key: 'bounce', label: 'Bounce (contacts)', min: 0.05, max: 0.95, step: 0.05 }, { key: 'friction', label: 'Slipperiness (low = grippy)', min: 0.02, max: 1, step: 0.02 }] },
        { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.02, max: 2.5, step: 0.01 }, { key: 'speed', label: 'Outward speed', min: 0.02, max: 2.5, step: 0.01 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
-       { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 1, max: 30, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.02, max: 1, step: 0.01 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'reach', label: 'Crack reach', min: 0.2, max: 9, step: 0.05 }, { key: 'crackAt', label: 'Damage that starts a crack', min: 0.05, max: 1, step: 0.01 }, { key: 'jitter', label: 'Jitter (0 = boxes only break away)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.01, max: 2, step: 0.01 }] },
+       { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 1, max: 30, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.02, max: 1, step: 0.01 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'reach', label: 'Crack reach', min: 0.2, max: 9, step: 0.05 }, { key: 'hit', label: 'Damage from flying pieces', min: 0, max: 3, step: 0.01 }, { key: 'crackAt', label: 'Damage that starts a crack', min: 0.05, max: 1, step: 0.01 }, { key: 'jitter', label: 'Jitter (0 = boxes only break away)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.01, max: 2, step: 0.01 }] },
        { name: 'Pieces (next blast)', items: [{ key: 'size', label: 'Size (small = many)', min: 0.03, max: 1.6, step: 0.01 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.5, max: 1, step: 0.01 }] },
        { name: 'Effects', items: [{ key: 'adapt', label: 'Adapt to slow devices', type: 'toggle' }, { key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }, { key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.05, max: 3, step: 0.01 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.2, max: 5, step: 0.1 }, { key: 'dustTone', label: 'Dust tone (0 black, 1 white)', min: 0, max: 1, step: 0.01 }, { key: 'dustSoft', label: 'Dust softness (0 = hard edged)', min: 0, max: 1, step: 0.01 }, { key: 'dustAlpha', label: 'Dust opacity', min: 0.1, max: 1, step: 0.01 }, { key: 'dustHits', label: 'Dust from impacts', type: 'toggle' }] },
        colourGroup, cameraGroup]

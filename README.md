@@ -1,7 +1,7 @@
 # idansegev.com
 
 Interactive typographic posters about design and technology coming apart, and a quiet index of work.
-Static files, no build step, no dependencies. Read [BRIEF.md](BRIEF.md) for the thinking.
+Static files, no build step. Read [docs/](docs/README.md) for the project and each poster, and [BRIEF.md](BRIEF.md) for the running record of every decision.
 
 ```bash
 python3 tools/dev.py             # then open http://127.0.0.1:8910 (a no-cache server; plain http.server lets browsers keep stale modules). If an edit does not show, hard-reload with Cmd+Shift+R: Chrome can keep an imported module in memory
@@ -19,5 +19,6 @@ random variation, `?live` mirrors a local Wordflow3d server in Still Water.
 | `work/` | Not on this branch: the Work index and the Moovit case are kept on `work-moovit` |
 | `assets/` | Favicon, touch icon, share image |
 | `tools/` | Stub generator, Moovit sync, share-image maker, motion-sensor check |
+| `docs/` | The project doc, and one doc per poster (including drafts and removed ones) |
 
 The single-poster version of this site is tagged `still-water-v1`.
