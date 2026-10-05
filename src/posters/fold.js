@@ -3,7 +3,9 @@
 // Head-on, the camera is exactly where the projector is, so every letter lands as a flat, crisp shape and the
 // creases give nothing away. Tilt the view (cursor, finger, or a phone) and the folds appear in each letter, as
 // facets that catch the light. Tap a letter and that letter crumples into a ball and is thrown off the page; a new
-// one arrives as a ball and unfolds into its place.
+// one arrives as a ball and unfolds into its place. The crumpled ones are not thrown away: each stays on the page as a
+// ball of paper, tossed aside, and the balls roll, knock into each other and the edges of the page, and settle. Tap a
+// ball to knock it.
 //
 // Under the graphic: every letter is a small patch of GPU point sprites, laid out from gl_VertexID, whose shape is
 // a real cloth simulation (Houdini Vellum baked as a Vertex Animation Texture; MIT, see data/crumple.LICENSE.txt).
@@ -25,11 +27,12 @@ export async function mount(ctx) {
   const rand = ctx.rand;
 
   const DEFAULTS = {
-    relief: 2, restFrame: 21, extra: 1, creases: 9, reach: 1.2, width: 0.75, softness: 0.012, align: 0.45, bow: 0, edge: 0.4,
-    density: ctx.W < 600 ? 150 : 230, margin: 0.06, typeSize: 1,
-    shadows: 1, bgL: 0, paperL: 1, shading: 1.5, ao: 0.8, yaw: 0.3, pitch: 0.22, damping: 19, sway: 0.25,
-    crumpleTime: 0.8, exitTime: 0.7, unfoldTime: 0.9,
-  };
+    relief: 0.65, restFrame: 24.25, extra: 0.3, creases: 4, reach: 1.2, width: 0.6, softness: 0.012, align: 0.4, bow: 0, edge: 0.45,
+    density: 330, margin: 0.06, typeSize: 0.96,
+    shadows: 1, bgL: 0, paperL: 1, shading: 0.35, ao: 0.1, yaw: 0, pitch: 0.22, damping: 19, sway: 0.25,
+    crumpleTime: 0.5, exitTime: 1.15, unfoldTime: 0.9,
+    shadowSoft: 0, shadowLevels: 2, shadowCut: 0.05, shadowDepth: 0.5,                     // hard-edged shadows: the shading is cut into a few flat tones (soft = 1 is the old smooth look)
+    ballSize: 0.42, bounce: 0.55, drag: 1.1, toss: 2.6, maxBalls: 36,  };
   const P = { ...DEFAULTS };
 
   // ---------- shaders (the paper is the letter: points outside the type are discarded) ----------
@@ -121,7 +124,7 @@ export async function mount(ctx) {
   in float vAO;
   uniform sampler2D uMask;
   uniform vec2 uRes, uSheetHalf, uCos;
-  uniform float uSize, uChan;
+  uniform float uSize, uChan, uSoft, uLevels, uCut, uDepth;
   uniform vec3 uPaper;
   out vec4 o;
   void main() {
@@ -134,7 +137,12 @@ export async function mount(ctx) {
     float ink = uChan < 0.5 ? m.r : (uChan < 1.5 ? m.g : m.b);            // this letter's own channel
     if (smoothstep(0.42, 0.58, ink) < 0.5) discard;                         // outside the letter there is no paper
     float paper = clamp((1.0 + vShade) * vAO, 0.14, 1.0);
-    o = vec4(uPaper * paper, 1.0);
+    // hard shadows: anything darker than the cut becomes a flat shadow tone (a few of them, deeper where it is darker), anything lighter stays paper
+    float dark = 1.0 - paper;
+    float step1 = (0.86 - uCut) / uLevels;
+    float q = dark > uCut ? min(ceil((dark - uCut) / step1), uLevels) : 0.0;
+    float hard = 1.0 - uDepth * q / uLevels;
+    o = vec4(uPaper * mix(hard, paper, uSoft), 1.0);
   }`;
 
   const prog = compile(gl, VS, FS);
@@ -190,6 +198,7 @@ export async function mount(ctx) {
   // "Idan / Segev" justified to the width like the other posters. Each letter gets a patch of paper a little larger than
   // its ink, a channel in the shared mask (three channels, so a letter's neighbours are never in its channel), and its own state.
   let A = 1, k = 1, letters = [], sizePx = 4, maskTex = texture(gl, { w: 1, h: 1 });
+  let balls = [], bounds = { x: 1.7, top: 0.97, bottom: -0.9 };   // the crumpled letters left on the page, and the edges they bounce off
   const LINES = ['Idan', 'Segev'];
   function layout() {
     const W = ctx.pw, H = ctx.ph;
@@ -226,6 +235,7 @@ export async function mount(ctx) {
     for (const L of letters) { L.phx = L.hw * pad + 6 * k; L.phy = L.hh * pad + 6 * k; area += 4 * L.phx * L.phy; }
     const spacing = Math.max(1.4 * k, Math.sqrt(area / (P.density * 1000)));
     sizePx = spacing * 1.9;
+    bounds = { x: A - 0.03, top: 1 - 0.04, bottom: 1 - 2 * usable / H + 0.02 };
     for (const L of letters) {
       L.half = [L.phx * px2w, L.phy * px2w];
       L.center = [(L.cx - W / 2) * px2w, (H / 2 - L.cy) * px2w];
@@ -294,41 +304,82 @@ export async function mount(ctx) {
 
   function build() {
     for (const L of letters) { freePaper(L.cur); freePaper(L.out); if (L.anim) freePaper(L.anim.incoming); }
+    for (const b of balls) freePaper(b.s); balls = [];
     layout(); drawMask();
     for (const L of letters) { L.cur = makePaper(L, (rand() * 4294967296) >>> 0); L.out = null; L.anim = null; L.delay = -1; }
   }
   build();
   offs.push(ctx.on('resize', () => build()));
 
-  // ---------- tapping a letter: crumple it, throw it, and unfold a new one ----------
+  // ---------- tapping a letter: crumple it, toss it aside, and unfold a new one ----------
+  // The crumpled paper becomes a ball that stays on the page. Balls are small circles in the plane of the page: they roll
+  // and spin (the orientation is a matrix handed to the paper's shader), push each other apart and bounce off each other
+  // and off the edges of the page, and slow down until they stop.
   const ease = {
     inOut: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
     in: (t) => t * t * t,
     out: (t) => 1 - Math.pow(1 - t, 3),
   };
-  const reach = () => Math.max(A, 1) + 1.2;
+  const identity = () => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  const matMul = (a, b) => { const o = new Float32Array(9); for (let c = 0; c < 3; c++) for (let r = 0; r < 3; r++) o[c * 3 + r] = a[r] * b[c * 3] + a[3 + r] * b[c * 3 + 1] + a[6 + r] * b[c * 3 + 2]; return o; };
+  const rodrigues = (wx, wy, wz, dt) => {                                  // the rotation made by turning at (wx, wy, wz) for dt
+    const w = Math.hypot(wx, wy, wz), a = w * dt; if (a < 1e-6) return identity();
+    const x = wx / w, y = wy / w, z = wz / w, c = Math.cos(a), s2 = Math.sin(a), t = 1 - c;
+    return new Float32Array([t * x * x + c, t * x * y + s2 * z, t * x * z - s2 * y, t * x * y - s2 * z, t * y * y + c, t * y * z + s2 * x, t * x * z + s2 * y, t * y * z - s2 * x, t * z * z + c]);
+  };
   function toss(L) {
     if (L.anim) return;
     const a = rand() * Math.PI * 2;
-    L.anim = { t: 0, dx: Math.cos(a), dy: Math.sin(a), w: (rand() < 0.5 ? -1 : 1) * (4 + rand() * 4), incoming: null };
+    L.anim = { t: 0, dx: Math.cos(a), dy: Math.sin(a), spawned: false, incoming: null };
     L.out = L.cur;
     const n = L.anim.incoming = makePaper(L, (rand() * 4294967296) >>> 0);
-    n.crumple = 1; n.mx = -L.anim.dx * 9; n.my = -L.anim.dy * 9;
+    n.crumple = 1;
+  }
+  function spawnBall(L, an) {
+    const s = L.out, r = P.ballSize * (L.half[0] + L.half[1]) * 0.5;
+    const sp = P.toss * (0.7 + rand() * 0.6);
+    const b = { L, s, x: L.center[0], y: L.center[1], vx: an.dx * sp, vy: an.dy * sp, r, m: r * r, R: identity(), wz: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 5) };
+    s.crumple = 1; s.mx = 0; s.my = 0; s.angle = 0;
+    balls.push(b);
+    while (balls.length > P.maxBalls) { freePaper(balls[0].s); balls.shift(); }
   }
   function stepAnim(L, dt) {
     const an = L.anim; an.t += dt;
-    const tc = Math.max(0.05, P.crumpleTime), te = Math.max(0.05, P.exitTime), tu = Math.max(0.05, P.unfoldTime);
+    const tc = Math.max(0.05, P.crumpleTime), tu = Math.max(0.05, P.unfoldTime);
     const o = L.out, n = an.incoming;
-    o.crumple = ease.inOut(clamp(an.t / tc, 0, 1));
-    const tt = Math.max(0, an.t - tc * 0.85);
-    const e = ease.in(clamp(tt / te, 0, 1)) * reach();
-    o.mx = an.dx * e; o.my = an.dy * e; o.angle = an.w * tt;
-    const tin = an.t - tc * 0.9, tf = te * 1.15;
-    const f = clamp(tin / tf, 0, 1), ie = (1 - ease.out(f)) * reach();
-    n.mx = -an.dx * ie; n.my = -an.dy * ie; n.angle = an.w * (1 - ease.out(f)) * 0.9;
-    const u = clamp((tin - tf * 0.72) / tu, 0, 1);
-    n.crumple = 1 - ease.inOut(u);
-    if (an.t > tc * 0.85 + te && u >= 1) { freePaper(L.out); L.out = null; n.angle = 0; L.cur = n; L.anim = null; }
+    if (o) {
+      o.crumple = ease.inOut(clamp(an.t / tc, 0, 1));
+      if (an.t >= tc) { spawnBall(L, an); L.out = null; an.spawned = true; an.t0 = an.t; }
+    }
+    if (an.spawned) {                                                       // the new one unfolds in place once the old one has left
+      const u = clamp((an.t - an.t0 - 0.12) / tu, 0, 1);
+      n.crumple = 1 - ease.inOut(u);
+      if (u >= 1) { L.cur = n; L.anim = null; }
+    }
+  }
+  function stepBalls(dt) {
+    const sub = Math.max(1, Math.ceil(dt / (1 / 120))), h = dt / sub, drag = Math.exp(-P.drag * h);
+    for (let it = 0; it < sub; it++) {
+      for (const b of balls) {
+        b.x += b.vx * h; b.y += b.vy * h; b.vx *= drag; b.vy *= drag; b.wz *= Math.exp(-0.9 * h);
+        if (b.x < -bounds.x + b.r) { b.x = -bounds.x + b.r; b.vx = Math.abs(b.vx) * P.bounce; } else if (b.x > bounds.x - b.r) { b.x = bounds.x - b.r; b.vx = -Math.abs(b.vx) * P.bounce; }
+        if (b.y < bounds.bottom + b.r) { b.y = bounds.bottom + b.r; b.vy = Math.abs(b.vy) * P.bounce; } else if (b.y > bounds.top - b.r) { b.y = bounds.top - b.r; b.vy = -Math.abs(b.vy) * P.bounce; }
+        if (Math.hypot(b.vx, b.vy) < 0.015) { b.vx = b.vy = 0; }
+      }
+      for (let i = 0; i < balls.length; i++) for (let j = i + 1; j < balls.length; j++) {     // balls push each other apart and bounce
+        const a = balls[i], c = balls[j], dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy) || 1e-4, min = a.r + c.r;
+        if (d >= min) continue;
+        const nx = dx / d, ny = dy / d, over = min - d, ma = a.m, mc = c.m;
+        a.x -= nx * over * mc / (ma + mc); a.y -= ny * over * mc / (ma + mc); c.x += nx * over * ma / (ma + mc); c.y += ny * over * ma / (ma + mc);
+        const rv = (c.vx - a.vx) * nx + (c.vy - a.vy) * ny;
+        if (rv < 0) { const j2 = -(1 + P.bounce) * rv / (1 / ma + 1 / mc); a.vx -= nx * j2 / ma; a.vy -= ny * j2 / ma; c.vx += nx * j2 / mc; c.vy += ny * j2 / mc; a.wz += (ny * (c.vx - a.vx) - nx * (c.vy - a.vy)) * 0.4; c.wz -= (ny * (c.vx - a.vx) - nx * (c.vy - a.vy)) * 0.4; }
+      }
+      for (const b of balls) {                                                     // each ball rolls as it moves, and spins
+        const spd = Math.hypot(b.vx, b.vy);
+        if (spd > 0.01 || Math.abs(b.wz) > 0.05) b.R = matMul(rodrigues(-b.vy / b.r, b.vx / b.r, b.wz, h), b.R);
+        b.s.mx = b.x - b.L.center[0]; b.s.my = b.y - b.L.center[1];
+      }
+    }
   }
 
   let down = null;
@@ -339,7 +390,12 @@ export async function mount(ctx) {
   };
   offs.push(ctx.on('down', (p) => { down = { x: p.x, y: p.y, t: performance.now() }; }));
   offs.push(ctx.on('up', (p) => {
-    if (down && Math.hypot(p.x - down.x, p.y - down.y) < 10 && performance.now() - down.t < 450) { const L = letterAt(p); if (L) toss(L); }
+    if (down && Math.hypot(p.x - down.x, p.y - down.y) < 10 && performance.now() - down.t < 450) {
+      const [wx, wy] = [(p.x * k - ctx.pw / 2) * 2 / ctx.ph, (ctx.ph / 2 - p.y * k) * 2 / ctx.ph];
+      const hit = balls.slice().reverse().find((b) => Math.hypot(wx - b.x, wy - b.y) < b.r * 1.1);
+      if (hit) { const dx = hit.x - wx, dy = hit.y - wy, d = Math.hypot(dx, dy) || 1; hit.vx += dx / d * P.toss * 1.2; hit.vy += dy / d * P.toss * 1.2; hit.wz += (rand() - 0.5) * 8; }   // knock a ball
+      else { const L = letterAt(p); if (L) toss(L); }
+    }
     down = null;
   }));
 
@@ -354,13 +410,15 @@ export async function mount(ctx) {
     groups: [
       { name: 'Folds', items: [R('relief', 'Relief (how deep the folds are)', 0, 4, 0.05), R('restFrame', 'Fold depth (frame)', 13, 30, 0.25), R('extra', 'Extra creases', 0, 2, 0.05), R('creases', 'Extra: count', 0, 24, 1), R('reach', 'Crease length', 0.3, 2.2, 0.05), R('width', 'Crease width', 0.3, 2.2, 0.05), R('softness', 'Crease softness', 0.004, 0.06, 0.002), R('align', 'Fold scatter', 0, 1, 0.05), R('edge', 'Edge lift', 0, 1.5, 0.05)] },
       { name: 'Letters', items: [R('typeSize', 'Type size', 0.5, 1.2, 0.02), R('margin', 'Margin', 0.02, 0.2, 0.005), R('density', 'Points (thousands)', 40, 400, 10)] },
-      { name: 'Look', items: [{ key: 'shadows', label: 'Shadows and shading', type: 'toggle' }, R('bgL', 'Background (0 black, 1 white)', 0, 1, 0.05), R('paperL', 'Paper', 0, 1, 0.05), R('shading', 'Shading', 0, 2, 0.05), R('ao', 'Crease shadow', 0, 1.5, 0.05)] },
+      { name: 'Look', items: [{ key: 'shadows', label: 'Shadows and shading', type: 'toggle' }, R('bgL', 'Background (0 black, 1 white)', 0, 1, 0.05), R('paperL', 'Paper', 0, 1, 0.05), R('shading', 'Shading', 0, 2, 0.05), R('ao', 'Crease shadow', 0, 1.5, 0.05), R('shadowSoft', 'Shadow edge (0 hard, 1 soft)', 0, 1, 0.01), R('shadowLevels', 'Shadow tones', 1, 6, 1), R('shadowCut', 'Shadow starts at (darkness)', 0.01, 0.5, 0.01), R('shadowDepth', 'Shadow depth', 0.1, 0.9, 0.01)] },
       { name: 'View', items: [R('yaw', 'Tilt sideways', 0, 1.2, 0.02), R('pitch', 'Tilt up and down', 0, 1, 0.02), R('damping', 'Follow speed', 3, 30, 1), R('sway', 'Opening sway', 0, 1, 0.02)] },
-      { name: 'Crumple', items: [R('crumpleTime', 'Crumple time (s)', 0.2, 2, 0.05), R('exitTime', 'Throw time (s)', 0.2, 2, 0.05), R('unfoldTime', 'Unfold time (s)', 0.2, 2.5, 0.05)] },
+      { name: 'Crumple', items: [R('crumpleTime', 'Crumple time (s)', 0.2, 2, 0.05), R('unfoldTime', 'Unfold time (s)', 0.2, 2.5, 0.05)] },
+      { name: 'Balls', items: [R('ballSize', 'Ball size', 0.15, 0.9, 0.01), R('toss', 'Toss speed', 0, 6, 0.1), R('bounce', 'Bounce', 0, 1, 0.01), R('drag', 'Drag (how soon they stop)', 0.1, 4, 0.05), R('maxBalls', 'Most balls kept', 4, 60, 1)] },
     ],
     actions: {
       'New folds': () => { for (const L of letters) { L.cur.seed = (rand() * 4294967296) >>> 0; fillHeights(L, L.cur); } },
       'Crumple all': () => { letters.forEach((L, i) => { L.delay = i * 0.09; }); },
+      'Sweep up': () => { for (const b of balls) freePaper(b.s); balls = []; },
     },
     set(key, value) {
       P[key] = value;
@@ -382,7 +440,7 @@ export async function mount(ctx) {
     gl.uniform1f(u.uRestFrame, rf);
     gl.uniform1f(u.uFrame, rf + s.crumple * (FRAMES - 1 - rf));
     gl.uniform2f(u.uFlip, s.flipX, s.flipY);
-    gl.uniformMatrix3fv(u.uSpin, false, spinMat(s.axis, s.angle, spin));
+    gl.uniformMatrix3fv(u.uSpin, false, s.R || spinMat(s.axis, s.angle, spin));
     gl.uniform2f(u.uGrid, L.nx, L.ny);
     gl.uniform2f(u.uSheetHalf, L.half[0], L.half[1]);
     gl.uniform2f(u.uCenter, L.center[0], L.center[1]);
@@ -397,6 +455,7 @@ export async function mount(ctx) {
       if (L.delay >= 0 && (L.delay -= dt) < 0) { L.delay = -1; toss(L); }
       if (L.anim) stepAnim(L, dt);
     }
+    stepBalls(Math.min(dt, 0.05));
 
     const nudge = ctx.reduced ? 0 : P.sway * Math.sin(t * 2.7) * Math.exp(-t * 1.5);
     const tx = ctx.look.x * P.yaw + nudge, ty = -ctx.look.y * P.pitch + nudge * 0.4;
@@ -423,18 +482,21 @@ export async function mount(ctx) {
     gl.uniform2f(u.uCos, Math.max(0.35, Math.cos(ang.x)), Math.max(0.35, Math.cos(ang.y)));
     gl.uniform3f(u.uPaper, P.paperL, P.paperL, P.paperL);
     gl.uniform1f(u.uShadows, P.shadows ? 1 : 0);
+    gl.uniform1f(u.uSoft, P.shadowSoft); gl.uniform1f(u.uLevels, Math.max(1, Math.round(P.shadowLevels))); gl.uniform1f(u.uCut, P.shadowCut); gl.uniform1f(u.uDepth, P.shadowDepth);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, maskTex); gl.uniform1i(u.uMask, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D_ARRAY, vat.d); gl.uniform1i(u.uVatD, 2);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D_ARRAY, vat.n); gl.uniform1i(u.uVatN, 3);
     for (const L of letters) {
-      if (L.out) drawPaper(L, L.out);
-      drawPaper(L, L.anim ? L.anim.incoming : L.cur);
+      if (L.out) drawPaper(L, L.out);                                         // crumpling, before it becomes a ball
+      else if (L.anim && !L.anim.spawned) continue;
+      else drawPaper(L, L.anim ? L.anim.incoming : L.cur);
     }
+    for (const b of balls) drawPaper(b.L, b.s);                                // the balls, on top
   }));
 
   return {
     tune,
-    debug: { toss: (i) => toss(letters[i]), letters: () => letters, pointCount: () => letters.reduce((a, L) => a + L.nx * L.ny, 0) },
+    debug: { balls: () => balls, bounds: () => bounds, toss: (i) => toss(letters[i]), letters: () => letters, pointCount: () => letters.reduce((a, L) => a + L.nx * L.ny, 0) },
     destroy() { offs.forEach((off) => off()); ctx.setBackdrop(null); },
   };
 }

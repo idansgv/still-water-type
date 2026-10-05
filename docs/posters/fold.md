@@ -30,3 +30,8 @@ Flat head-on; tilted, every letter shows its own creases; tapping the "a" crumpl
 
 ## Open
 The folds are subtle at the default view angle; relief, shading and the tilt range are the levers. Whether letters should also fold on hover or on a drag. Whether to replace Sheet in the shuffle with this. Cost: about 14 texture reads per point in the vertex shader, as in Sheet.
+
+## Update: hard shadows, persistent balls
+- Shadows are hard-edged: `shadowSoft` 0 (hard) to 1 (soft), `shadowLevels` flat tones, `shadowCut` where a shadow starts, `shadowDepth` how dark.
+- Crumpled letters stay on the page as balls that roll, spin, collide and bounce (`ballSize`, `bounce`, `drag`, `toss`, `maxBalls`). Tap a ball to knock it. Actions: New folds, Crumple all, Sweep up.
+- Defaults are Idan's tuned set.
