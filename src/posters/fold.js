@@ -32,7 +32,7 @@ export async function mount(ctx) {
     shadows: 1, bgL: 0, paperL: 1, shading: 0.35, ao: 0.1, yaw: 0, pitch: 0.22, damping: 19, sway: 0.25,
     crumpleTime: 0.5, exitTime: 1.15, unfoldTime: 0.9,
     shadowSoft: 0, shadowLevels: 2, shadowCut: 0.05, shadowDepth: 0.5,                     // hard-edged shadows: the shading is cut into a few flat tones (soft = 1 is the old smooth look)
-    ballSize: 0.42, bounce: 0.55, drag: 1.1, toss: 2.6, maxBalls: 36,  };
+    ballSize: 0.55, bounce: 0.6, drag: 0.5, toss: 2.6, maxBalls: 36, gravity: 11, hop: 0.34, thud: 0.42, roll: 0.35,  };
   const P = { ...DEFAULTS };
 
   // ---------- shaders (the paper is the letter: points outside the type are discarded) ----------
@@ -146,6 +146,21 @@ export async function mount(ctx) {
   }`;
 
   const prog = compile(gl, VS, FS);
+  // a hard dark disc on the page under each ball: it grows and drifts away from the light as the ball rises
+  const SVS = `#version 300 es
+  uniform vec3 uRot3[3]; uniform mat3 uRot; uniform float uA, uPx;
+  in vec3 aP;
+  void main() {
+    vec3 Pc = transpose(uRot) * aP;
+    float dz = ${D.toFixed(2)} - Pc.z;
+    gl_Position = vec4(Pc.x * ${D.toFixed(2)} / (dz * uA), Pc.y * ${D.toFixed(2)} / dz, (dz - 0.5) / 6.0 * 2.0 - 1.0, 1.0);
+    gl_PointSize = uPx * ${D.toFixed(2)} / dz;
+  }`;
+  const SFS = `#version 300 es
+  precision highp float; uniform float uAlpha; out vec4 o;
+  void main() { vec2 q = gl_PointCoord - 0.5; if (dot(q, q) > 0.25) discard; o = vec4(0.0, 0.0, 0.0, uAlpha); }`;
+  const shadowProg = compile(gl, SVS.replace('uniform vec3 uRot3[3]; ', ''), SFS);
+  const shadowBuf = gl.createBuffer();
   gl.bindVertexArray(gl.createVertexArray());
 
   // ---------- the baked simulation (shared with Sheet; see tools/vat-extract.mjs) ----------
@@ -338,7 +353,7 @@ export async function mount(ctx) {
   function spawnBall(L, an) {
     const s = L.out, r = P.ballSize * (L.half[0] + L.half[1]) * 0.5;
     const sp = P.toss * (0.7 + rand() * 0.6);
-    const b = { L, s, x: L.center[0], y: L.center[1], vx: an.dx * sp, vy: an.dy * sp, r, m: r * r, R: identity(), wz: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 5) };
+    const b = { L, s, x: L.center[0], y: L.center[1], vx: an.dx * sp, vy: an.dy * sp, z: 0.05, vz: Math.sqrt(2 * P.gravity * P.hop * (0.8 + rand() * 0.4)), r, m: r * r, hit: 0, R: identity(), wz: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 5) };
     s.crumple = 1; s.mx = 0; s.my = 0; s.angle = 0;
     balls.push(b);
     while (balls.length > P.maxBalls) { freePaper(balls[0].s); balls.shift(); }
@@ -357,27 +372,47 @@ export async function mount(ctx) {
       if (u >= 1) { L.cur = n; L.anim = null; }
     }
   }
+  // Each ball is a little 3D body over the page: it is thrown up, falls, lands with a thud, hops again lower each time, and
+  // only then rolls. Rolling is slowed by a steady rolling resistance as well as drag, so it settles like paper rather than
+  // gliding like ice. Balls that touch while near the page trade momentum and spin, and kick each other up a little.
   function stepBalls(dt) {
     const sub = Math.max(1, Math.ceil(dt / (1 / 120))), h = dt / sub, drag = Math.exp(-P.drag * h);
     for (let it = 0; it < sub; it++) {
       for (const b of balls) {
-        b.x += b.vx * h; b.y += b.vy * h; b.vx *= drag; b.vy *= drag; b.wz *= Math.exp(-0.9 * h);
-        if (b.x < -bounds.x + b.r) { b.x = -bounds.x + b.r; b.vx = Math.abs(b.vx) * P.bounce; } else if (b.x > bounds.x - b.r) { b.x = bounds.x - b.r; b.vx = -Math.abs(b.vx) * P.bounce; }
-        if (b.y < bounds.bottom + b.r) { b.y = bounds.bottom + b.r; b.vy = Math.abs(b.vy) * P.bounce; } else if (b.y > bounds.top - b.r) { b.y = bounds.top - b.r; b.vy = -Math.abs(b.vy) * P.bounce; }
-        if (Math.hypot(b.vx, b.vy) < 0.015) { b.vx = b.vy = 0; }
+        b.vz -= P.gravity * h; b.z += b.vz * h;
+        if (b.z <= 0) {                                                       // landed
+          b.z = 0;
+          if (b.vz < -0.5) {                                                   // a real hit: lose most of the fall, lose some sideways speed, start it turning
+            const f = Math.min(1, -b.vz / 3);
+            b.vx *= 1 - 0.18 * f; b.vy *= 1 - 0.18 * f; b.wz += (rand() - 0.5) * 6 * f; b.hit = Math.max(b.hit, f);
+          }
+          b.vz = b.vz < -0.35 ? -b.vz * P.thud : 0;
+        }
+        const air = b.z > 0.002, g = air ? 0.995 : drag;                      // no drag from the page while in the air
+        b.x += b.vx * h; b.y += b.vy * h; b.vx *= g; b.vy *= g; b.wz *= Math.exp(-(air ? 0.2 : 1.2) * h);
+        if (!air) { const sp = Math.hypot(b.vx, b.vy); if (sp > 0) { const nsp = Math.max(0, sp - P.roll * h); b.vx *= nsp / sp; b.vy *= nsp / sp; } }
+        const wall = (n, v, flip) => { b.vz = Math.max(b.vz, 0.4 + Math.abs(v) * 0.25); b.hit = Math.max(b.hit, 0.4); return flip * Math.abs(v) * P.bounce; };
+        if (b.x < -bounds.x + b.r) { b.x = -bounds.x + b.r; b.vx = wall(0, b.vx, 1); } else if (b.x > bounds.x - b.r) { b.x = bounds.x - b.r; b.vx = wall(0, b.vx, -1); }
+        if (b.y < bounds.bottom + b.r) { b.y = bounds.bottom + b.r; b.vy = wall(0, b.vy, 1); } else if (b.y > bounds.top - b.r) { b.y = bounds.top - b.r; b.vy = wall(0, b.vy, -1); }
+        if (!air && Math.hypot(b.vx, b.vy) < 0.02) { b.vx = b.vy = 0; }
       }
-      for (let i = 0; i < balls.length; i++) for (let j = i + 1; j < balls.length; j++) {     // balls push each other apart and bounce
-        const a = balls[i], c = balls[j], dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy) || 1e-4, min = a.r + c.r;
-        if (d >= min) continue;
+      for (let i = 0; i < balls.length; i++) for (let j = i + 1; j < balls.length; j++) {
+        const a = balls[i], c = balls[j], dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy) || 1e-4, min = (a.r + c.r) * 0.92;
+        if (d >= min || Math.abs(a.z - c.z) > Math.min(a.r, c.r) * 0.8) continue;
         const nx = dx / d, ny = dy / d, over = min - d, ma = a.m, mc = c.m;
         a.x -= nx * over * mc / (ma + mc); a.y -= ny * over * mc / (ma + mc); c.x += nx * over * ma / (ma + mc); c.y += ny * over * ma / (ma + mc);
         const rv = (c.vx - a.vx) * nx + (c.vy - a.vy) * ny;
-        if (rv < 0) { const j2 = -(1 + P.bounce) * rv / (1 / ma + 1 / mc); a.vx -= nx * j2 / ma; a.vy -= ny * j2 / ma; c.vx += nx * j2 / mc; c.vy += ny * j2 / mc; a.wz += (ny * (c.vx - a.vx) - nx * (c.vy - a.vy)) * 0.4; c.wz -= (ny * (c.vx - a.vx) - nx * (c.vy - a.vy)) * 0.4; }
+        if (rv < 0) {
+          const j2 = -(1 + P.bounce) * rv / (1 / ma + 1 / mc), tn = (ny * (c.vx - a.vx) - nx * (c.vy - a.vy)) * 0.4;
+          a.vx -= nx * j2 / ma; a.vy -= ny * j2 / ma; c.vx += nx * j2 / mc; c.vy += ny * j2 / mc; a.wz += tn; c.wz -= tn;
+          const kick = Math.min(1.6, -rv * 0.45); a.vz += kick * mc / (ma + mc); c.vz += kick * ma / (ma + mc); a.hit = c.hit = Math.max(a.hit, c.hit, Math.min(1, -rv / 2));
+        }
       }
       for (const b of balls) {                                                     // each ball rolls as it moves, and spins
         const spd = Math.hypot(b.vx, b.vy);
         if (spd > 0.01 || Math.abs(b.wz) > 0.05) b.R = matMul(rodrigues(-b.vy / b.r, b.vx / b.r, b.wz, h), b.R);
-        b.s.mx = b.x - b.L.center[0]; b.s.my = b.y - b.L.center[1];
+        b.s.mx = b.x - b.L.center[0]; b.s.my = b.y - b.L.center[1]; b.s.lift = 0.18 + b.z;
+        b.hit *= Math.exp(-6 * h);
       }
     }
   }
@@ -393,7 +428,7 @@ export async function mount(ctx) {
     if (down && Math.hypot(p.x - down.x, p.y - down.y) < 10 && performance.now() - down.t < 450) {
       const [wx, wy] = [(p.x * k - ctx.pw / 2) * 2 / ctx.ph, (ctx.ph / 2 - p.y * k) * 2 / ctx.ph];
       const hit = balls.slice().reverse().find((b) => Math.hypot(wx - b.x, wy - b.y) < b.r * 1.1);
-      if (hit) { const dx = hit.x - wx, dy = hit.y - wy, d = Math.hypot(dx, dy) || 1; hit.vx += dx / d * P.toss * 1.2; hit.vy += dy / d * P.toss * 1.2; hit.wz += (rand() - 0.5) * 8; }   // knock a ball
+      if (hit) { const dx = hit.x - wx, dy = hit.y - wy, d = Math.hypot(dx, dy) || 1; hit.vx += dx / d * P.toss * 1.2; hit.vy += dy / d * P.toss * 1.2; hit.vz += Math.sqrt(2 * P.gravity * P.hop * 0.5); hit.wz += (rand() - 0.5) * 8; }   // knock a ball
       else { const L = letterAt(p); if (L) toss(L); }
     }
     down = null;
@@ -413,7 +448,7 @@ export async function mount(ctx) {
       { name: 'Look', items: [{ key: 'shadows', label: 'Shadows and shading', type: 'toggle' }, R('bgL', 'Background (0 black, 1 white)', 0, 1, 0.05), R('paperL', 'Paper', 0, 1, 0.05), R('shading', 'Shading', 0, 2, 0.05), R('ao', 'Crease shadow', 0, 1.5, 0.05), R('shadowSoft', 'Shadow edge (0 hard, 1 soft)', 0, 1, 0.01), R('shadowLevels', 'Shadow tones', 1, 6, 1), R('shadowCut', 'Shadow starts at (darkness)', 0.01, 0.5, 0.01), R('shadowDepth', 'Shadow depth', 0.1, 0.9, 0.01)] },
       { name: 'View', items: [R('yaw', 'Tilt sideways', 0, 1.2, 0.02), R('pitch', 'Tilt up and down', 0, 1, 0.02), R('damping', 'Follow speed', 3, 30, 1), R('sway', 'Opening sway', 0, 1, 0.02)] },
       { name: 'Crumple', items: [R('crumpleTime', 'Crumple time (s)', 0.2, 2, 0.05), R('unfoldTime', 'Unfold time (s)', 0.2, 2.5, 0.05)] },
-      { name: 'Balls', items: [R('ballSize', 'Ball size', 0.15, 0.9, 0.01), R('toss', 'Toss speed', 0, 6, 0.1), R('bounce', 'Bounce', 0, 1, 0.01), R('drag', 'Drag (how soon they stop)', 0.1, 4, 0.05), R('maxBalls', 'Most balls kept', 4, 60, 1)] },
+      { name: 'Balls', items: [R('ballSize', 'Ball size', 0.15, 0.9, 0.01), R('toss', 'Toss speed', 0, 6, 0.1), R('bounce', 'Bounce', 0, 1, 0.01), R('drag', 'Drag (how soon they stop)', 0.1, 4, 0.05), R('maxBalls', 'Most balls kept', 4, 60, 1), R('hop', 'Throw height', 0.05, 0.8, 0.01), R('gravity', 'Gravity', 4, 30, 0.5), R('thud', 'Landing bounce', 0, 0.8, 0.01), R('roll', 'Rolling resistance', 0, 1.5, 0.01)] },
     ],
     actions: {
       'New folds': () => { for (const L of letters) { L.cur.seed = (rand() * 4294967296) >>> 0; fillHeights(L, L.cur); } },
@@ -435,7 +470,7 @@ export async function mount(ctx) {
   function drawPaper(L, s) {
     const u = prog.u, rf = clamp(P.restFrame + s.restJ, 12, 30);
     gl.uniform3f(u.uMove, s.mx, s.my, 0);
-    gl.uniform1f(u.uLift, 0.18 * s.crumple);
+    gl.uniform1f(u.uLift, s.lift != null ? s.lift : 0.18 * s.crumple);
     gl.uniform1f(u.uCrumple, s.crumple);
     gl.uniform1f(u.uRestFrame, rf);
     gl.uniform1f(u.uFrame, rf + s.crumple * (FRAMES - 1 - rf));
@@ -490,6 +525,21 @@ export async function mount(ctx) {
       if (L.out) drawPaper(L, L.out);                                         // crumpling, before it becomes a ball
       else if (L.anim && !L.anim.spawned) continue;
       else drawPaper(L, L.anim ? L.anim.incoming : L.cur);
+    }
+    if (balls.length) {                                                         // shadows of the balls on whatever is under them
+      const sd = new Float32Array(balls.length * 3), px = new Float32Array(balls.length);
+      balls.forEach((b, i) => { const lift = 0.04 + b.z * 0.9; sd[i * 3] = b.x + 0.03 + b.z * 0.22; sd[i * 3 + 1] = b.y - 0.025 - b.z * 0.18; sd[i * 3 + 2] = 0.035; px[i] = b.r * (0.95 + b.z * 0.5) * ctx.ph * (1 + 0 * lift); });
+      shadowProg.use(); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+      gl.uniformMatrix3fv(shadowProg.u.uRot, false, rot); gl.uniform1f(shadowProg.u.uA, A); gl.uniform1f(shadowProg.u.uAlpha, 0.8);
+      gl.bindBuffer(gl.ARRAY_BUFFER, shadowBuf);
+      for (let i = 0; i < balls.length; i++) {
+        gl.bufferData(gl.ARRAY_BUFFER, sd.subarray(i * 3, i * 3 + 3), gl.DYNAMIC_DRAW);
+        const loc = gl.getAttribLocation(shadowProg.p, 'aP');
+        gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0);
+        gl.uniform1f(shadowProg.u.uPx, px[i]); gl.drawArrays(gl.POINTS, 0, 1);
+        gl.disableVertexAttribArray(loc);
+      }
+      gl.depthMask(true); gl.disable(gl.BLEND); prog.use();
     }
     for (const b of balls) drawPaper(b.L, b.s);                                // the balls, on top
   }));

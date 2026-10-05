@@ -35,3 +35,6 @@ The folds are subtle at the default view angle; relief, shading and the tilt ran
 - Shadows are hard-edged: `shadowSoft` 0 (hard) to 1 (soft), `shadowLevels` flat tones, `shadowCut` where a shadow starts, `shadowDepth` how dark.
 - Crumpled letters stay on the page as balls that roll, spin, collide and bounce (`ballSize`, `bounce`, `drag`, `toss`, `maxBalls`). Tap a ball to knock it. Actions: New folds, Crumple all, Sweep up.
 - Defaults are Idan's tuned set.
+
+## Update: balls have weight
+Tossed letters are now thrown up in an arc, land with a thud, hop lower each time, then roll with rolling resistance. They kick each other up on contact, hit the page edges with a hop, and cast a hard dark shadow that drifts and grows with height. Params: `hop`, `gravity`, `thud`, `roll`.
