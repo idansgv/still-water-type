@@ -7,20 +7,24 @@
 //   Explode   (explode.js)   the columns are anchored. Tap one and it blows into triangular slabs. Slabs that hit
 //                            another letter hard enough set that one off too, a little weaker each time.
 //
-// The physics is cannon-es (MIT, vendored in src/vendor). The letters are the same skeletons Soft type uses,
+// The physics is Rapier (Apache-2.0, WASM, vendored in src/vendor) through the small wrapper in physics.js. The letters are the same skeletons Soft type uses,
 // thickened into overlapping boxes. World units: a letter is 2 high.
 
-import * as CANNON from '../vendor/cannon-es.js';
+import { loadRapier, Sim } from './physics.js';
 import { SKELETON, ratio } from './lettering.js';
 import { compile } from '../engine.js';
 import { shatterBox } from './shatter.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const qmul = (a, b) => ({ x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y, y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w, w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z });
+const qrot = (q, v) => {
+  const tx = 2 * (q.y * v.z - q.z * v.y), ty = 2 * (q.z * v.x - q.x * v.z), tz = 2 * (q.x * v.y - q.y * v.x);
+  return { x: v.x + q.w * tx + (q.y * tz - q.z * ty), y: v.y + q.w * ty + (q.z * tx - q.x * tz), z: v.z + q.w * tz + (q.x * ty - q.y * tx) };
+};
 const UNIT_H = 2.0;            // letter height in world units
 const COL_H = 3.4;             // column height
 const MAX_INST = 4000;
 const MAX_SHARDS = 900, MAX_SHARD_VERTS = 150000;
-const MAT = { floor: new CANNON.Material('floor'), letter: new CANNON.Material('letter') };
 
 const VS = `#version 300 es
 layout(location=0) in vec3 aPos;
@@ -92,8 +96,9 @@ function cubeMesh() {
   return { v: new Float32Array(v), i: new Uint16Array(idx) };
 }
 
-export function mountColumns(stage, mode) {
+export async function mountColumns(stage, mode) {
   const EXPLODE = mode === 'explode';
+  const R = await loadRapier();
   const canvas = stage.canvas;
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
   if (!gl) throw new Error('WebGL2 unavailable');
@@ -135,9 +140,9 @@ export function mountColumns(stage, mode) {
   const octx = overlay.getContext('2d');
 
   const P = EXPLODE ? { gravity: 40, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.4, rough: 1, gap: 0.8, crack: 2.9, passive: 1, transfer: 0.7, bounce: 0.05, friction: 0.98, lines: 0, shake: 0, bg: 1, fg: 0 } : { gravity: 12, topple: 26, bg: 0, fg: 1 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
-  const DT = EXPLODE ? 1 / 90 : 1 / 180;       // small steps: bodies hit each other fast, and cannon's contacts are soft
-  let pending = [], cmLL = null, timers = [];
-  let W = 1, H = 1, S = 100, world = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
+  const DT = EXPLODE ? 1 / 90 : 1 / 120;
+  let pending = [], timers = [];
+  let W = 1, H = 1, S = 100, sim = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
   let press = null, pid = null, lastEmptyTap = 0, acc = 0;
   stage.setBackdrop(P.bg);
 
@@ -168,24 +173,18 @@ export function mountColumns(stage, mode) {
 
   // ---------- world ----------
   function newWorld() {
-    const w = new CANNON.World({ gravity: new CANNON.Vec3(0, 0, -P.gravity) });
-    w.allowSleep = true;
-    w.broadphase = new CANNON.SAPBroadphase(w);
-    w.solver.iterations = EXPLODE ? 8 : 20;
+    const w = new Sim(R, P.gravity);
+    w.setSolver(EXPLODE ? 6 : 8);
     // the floor grips, so a push makes a column tip instead of slide; letters are slippery against each other
-    w.addContactMaterial(new CANNON.ContactMaterial(MAT.floor, MAT.letter, { friction: 1.0, restitution: 0.04 }));
-    cmLL = new CANNON.ContactMaterial(MAT.letter, MAT.letter, { friction: EXPLODE ? P.friction : 0.18, restitution: EXPLODE ? P.bounce : 0.55 });
-    w.addContactMaterial(cmLL);
-    const floor = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: MAT.floor });
-    floor.isWall = true; w.addBody(floor);
-    // low walls round the edge keep shards and sliding bodies in, but a tall column can still lean out over them
-    const wall = (x, y, hx, hy) => {
-      const b = new CANNON.Body({ mass: 0, material: MAT.floor });
-      b.addShape(new CANNON.Box(new CANNON.Vec3(hx, hy, 0.9))); b.position.set(x, y, 0.9); b.isWall = true; w.addBody(b);
-    };
+    // (friction takes the larger of two surfaces, restitution the smaller)
+    const floor = w.fixed({ x: 0, y: 0, z: -0.5 }); floor.isWall = true;
+    w.box(floor, [200, 200, 0.5], { friction: 1, restitution: 0.04 });
+    // low walls round the edge keep pieces and sliding bodies in, but a tall column can still lean out over them
+    const wall = (x, y, hx, hy) => { const b = w.fixed({ x, y, z: 0.9 }); b.isWall = true; w.box(b, [hx, hy, 0.9], { friction: 1, restitution: 0.04 }); };
     const ex = W / 2 / S, ey = H / 2 / S, floorY = -(H / 2 - (W < 720 ? 80 : 72)) / S, big = 40;
     wall(-ex - big, 0, big, big); wall(ex + big, 0, big, big);
     wall(0, ey - 0.15 + big, big, big); wall(0, floorY - big, big, big);
+    w.mat = { friction: EXPLODE ? P.friction : 0.18, restitution: EXPLODE ? P.bounce : 0.55 };
     return w;
   }
 
@@ -222,15 +221,12 @@ export function mountColumns(stage, mode) {
   function addLetter(p) {
     const fine = strokeBoxes(p, false), boxes = EXPLODE ? strokeBoxes(p, true) : fine;   // Explode: the physics uses fewer, longer boxes
     let vol = 0; for (const b of boxes) vol += 8 * b.hx * b.hy * (COL_H / 2);
-    const [wx, wy] = toWorld(p.x, p.y);
-    const body = new CANNON.Body({ material: MAT.letter, mass: EXPLODE ? 0 : 3, position: new CANNON.Vec3(wx, wy, COL_H / 2), linearDamping: 0.04, angularDamping: 0.06, allowSleep: true, sleepSpeedLimit: 0.08, sleepTimeLimit: 0.6 });
-    for (const b of boxes) {
-      const q = new CANNON.Quaternion(); q.setFromEuler(0, 0, b.a);
-      body.addShape(new CANNON.Box(new CANNON.Vec3(b.hx, b.hy, COL_H / 2)), new CANNON.Vec3(b.x, b.y, 0), q);
-    }
+    const [wx, wy] = toWorld(p.x, p.y), pos = { x: wx, y: wy, z: COL_H / 2 };
+    const body = EXPLODE ? sim.fixed(pos) : sim.dynamic(pos, { linearDamping: 0.04, angularDamping: 0.06 });
+    const colliders = boxes.map((b) => sim.box(body, [b.hx, b.hy, COL_H / 2], { offset: { x: b.x, y: b.y, z: 0 }, angle: b.a, density: EXPLODE ? undefined : 3 / vol, events: EXPLODE }));
     body.isLetter = true; body.ch = p.ch; body.vol = vol;
     if (EXPLODE) {
-      body.cells = boxes.map((b) => ({ ...b, alive: true, dmg: 0 }));
+      body.cells = boxes.map((b, i) => ({ ...b, alive: true, dmg: 0, collider: colliders[i] }));
       for (const f of fine) {                                       // each smooth box belongs to the nearest physics box
         let best = Infinity;
         for (const c of body.cells) {
@@ -241,12 +237,12 @@ export function mountColumns(stage, mode) {
       }
       body.drawn = fine;
     }
-    world.addBody(body); solids.push(body); letters.push(body);
+    solids.push(body); letters.push(body);
     if (!EXPLODE) body.sleep();
   }
 
   function build() {
-    world = newWorld(); solids = []; letters = []; pending = []; press = null; pid = null; shardCount = 0; shardVerts = 0;
+    sim = newWorld(); solids = []; letters = []; pending = []; press = null; pid = null; shardCount = 0; shardVerts = 0;
     S = 1; // placeholder so the layout can be measured in pixels
     const poses = layoutPx();
     S = poses[0].h / UNIT_H;
@@ -255,12 +251,10 @@ export function mountColumns(stage, mode) {
   }
 
   // ---------- interaction ----------
-  const wake = (b) => { try { b.wakeUp(); } catch (e) { /* ignore */ } };
+  const wake = (b) => b.wake();
   function pick(q) {
-    const [x, y] = toWorld(q.x, q.y), res = new CANNON.RaycastResult();
-    world.raycastClosest(new CANNON.Vec3(x, y, 8), new CANNON.Vec3(x, y, -1), { skipBackfaces: true }, res);
-    if (res.hasHit && res.body && !res.body.isWall) return { body: res.body, point: res.hitPointWorld.clone() };
-    return null;
+    const [x, y] = toWorld(q.x, q.y), hit = sim.castDown(x, y);
+    return hit && !hit.body.isWall ? { body: hit.body, point: hit.point } : null;
   }
 
   // A tap is a firm knock at the top, away from where you touched. Every letter weighs the same, so a falling one
@@ -270,8 +264,8 @@ export function mountColumns(stage, mode) {
     let dx = body.position.x - point.x, dy = body.position.y - point.y, d = Math.hypot(dx, dy);
     if (d < 0.08) { const a = Math.random() * Math.PI * 2; dx = Math.cos(a); dy = Math.sin(a); d = 1; }
     dx /= d; dy /= d;
-    const J = body.mass * P.topple;                                // a firm knock at the top: every letter weighs the same, so one can carry the next
-    body.applyImpulse(new CANNON.Vec3(dx * J, dy * J, 0), new CANNON.Vec3(point.x - body.position.x, point.y - body.position.y, point.z - body.position.z));
+    const J = body.mass * P.topple;
+    body.impulseAt({ x: dx * J, y: dy * J, z: 0 }, point);
   }
 
   // ---------- Explode ----------
@@ -284,28 +278,26 @@ export function mountColumns(stage, mode) {
       for (const pc of parts) {
         if (shardCount >= MAX_SHARDS || shardVerts + pc.tris.length / 6 > MAX_SHARD_VERTS) break;
         const px = letter.position.x + c.x + ca * pc.c[0] - sa * pc.c[1], py = letter.position.y + c.y + sa * pc.c[0] + ca * pc.c[1], pz = letter.position.z + pc.c[2];
-        let shape;
+        const sb = sim.dynamic({ x: px, y: py, z: pz }, { angle: c.a, linearDamping: 0.05, angularDamping: 0.1 });
+        let ok = null;
         if (size < 0.65) {                                         // small pieces collide as boxes: far cheaper, and at this size nobody can tell
           let mx = 0, my = 0, mz = 0; for (const v of pc.verts) { mx = Math.max(mx, Math.abs(v[0])); my = Math.max(my, Math.abs(v[1])); mz = Math.max(mz, Math.abs(v[2])); }
-          shape = new CANNON.Box(new CANNON.Vec3(Math.max(0.02, mx * 0.82), Math.max(0.02, my * 0.82), Math.max(0.02, mz * 0.82)));
+          ok = sim.box(sb, [Math.max(0.02, mx * 0.82), Math.max(0.02, my * 0.82), Math.max(0.02, mz * 0.82)], { density: 0.6 });
         } else {
-          try { shape = new CANNON.ConvexPolyhedron({ vertices: pc.verts.map((v) => new CANNON.Vec3(v[0], v[1], v[2])), faces: pc.faces }); } catch (e) { continue; }
+          ok = sim.hull(sb, Float32Array.from(pc.verts.flat()), { density: 0.6 });
         }
-        const sb = new CANNON.Body({ material: MAT.letter, mass: Math.max(0.03, pc.vol * 0.6), position: new CANNON.Vec3(px, py, pz), linearDamping: 0.05, angularDamping: 0.1, allowSleep: true, sleepSpeedLimit: 0.45, sleepTimeLimit: 0.3 });
-        sb.quaternion.setFromEuler(0, 0, c.a);
-        sb.addShape(shape);
+        if (!ok) { sim.remove(sb); continue; }
         if (kin) {                                                    // breaking apart: no power of its own, only what the blow hands it
           const d = Math.hypot(px - kin.x, py - kin.y), w = Math.exp(-((d / 1.2) ** 2)) * P.transfer;
-          sb.velocity.set(kin.vx * w + (Math.random() - 0.5) * 0.5, kin.vy * w + (Math.random() - 0.5) * 0.5, kin.vz * w + Math.random() * 0.4);
-          sb.angularVelocity.set((Math.random() - 0.5) * 2 * w, (Math.random() - 0.5) * 2 * w, (Math.random() - 0.5) * 2 * w);
+          sb.setVelocity(kin.vx * w + (Math.random() - 0.5) * 0.5, kin.vy * w + (Math.random() - 0.5) * 0.5, kin.vz * w + Math.random() * 0.4);
+          sb.setSpin((Math.random() - 0.5) * 2 * w, (Math.random() - 0.5) * 2 * w, (Math.random() - 0.5) * 2 * w);
         } else {
           let dx = px - cx, dy = py - cy; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
           const sp = (3.5 + Math.random() * 6) * sp0 * P.speed, spinAmt = 14 * P.spin;
-          sb.velocity.set(dx * sp + (Math.random() - 0.5) * 2, dy * sp + (Math.random() - 0.5) * 2, (2 + Math.random() * 5) * sp0 * P.lift);
-          sb.angularVelocity.set((Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt);
+          sb.setVelocity(dx * sp + (Math.random() - 0.5) * 2, dy * sp + (Math.random() - 0.5) * 2, (2 + Math.random() * 5) * sp0 * P.lift);
+          sb.setSpin((Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt);
         }
         sb.isShard = true; sb.gen = gen; sb.sidx = shardCount;
-        sb.addEventListener('collide', (e) => onShardHit(sb, e));
         // the mesh joins the shared buffer, tagged with its index
         const n = pc.tris.length / 6, buf = new Float32Array(n * 7);
         for (let k = 0; k < n; k++) { buf.set(pc.tris.subarray(k * 6, k * 6 + 6), k * 7); buf[k * 7 + 6] = shardCount; }
@@ -314,7 +306,7 @@ export function mountColumns(stage, mode) {
         made.push(sb);
       }
     }
-    for (const sb of made) { world.addBody(sb); solids.push(sb); }
+    for (const sb of made) solids.push(sb);
     return made;
   }
 
@@ -337,7 +329,7 @@ export function mountColumns(stage, mode) {
     letter.blown = true; letter.detonated = true;
     const power = P.blast * Math.pow(P.decay, gen), passive = P.passive && gen > 0 && vel;
     spawnPieces(letter, letter.cells, cx, cy, power, gen, passive ? { x: cx, y: cy, vx: vel[0], vy: vel[1], vz: vel[2] } : undefined);
-    world.removeBody(letter);
+    sim.remove(letter);
     solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1);
     if (!passive) burstLines(cx, cy, power);
     if (P.shake) shake = Math.max(shake, passive ? 0.1 : 0.3 * Math.min(1, power + 0.3));
@@ -360,22 +352,27 @@ export function mountColumns(stage, mode) {
     if (cell.dmg < 1) return;
     cell.alive = false;
     const k = letter.cells.indexOf(cell); if (k < 0) return;
-    letter.cells.splice(k, 1); letter.shapes.splice(k, 1); letter.shapeOffsets.splice(k, 1); letter.shapeOrientations.splice(k, 1);
-    letter.updateBoundingRadius(); letter.aabbNeedsUpdate = true;
+    letter.cells.splice(k, 1); sim.removeCollider(letter, cell.collider);
     spawnPieces(letter, [cell], sx, sy, 0.55, 3, P.passive && vel ? { x: sx, y: sy, vx: vel[0], vy: vel[1], vz: vel[2] } : undefined);
     if (P.shake) shake = Math.max(shake, 0.12);
-    if (!letter.cells.length) { world.removeBody(letter); solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1); letter.blown = true; }
+    if (!letter.cells.length) { sim.remove(letter); solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1); letter.blown = true; }
   }
 
   // A piece that hits another letter hard sets the whole letter off; a lesser hit only damages the box it struck.
-  function onShardHit(sb, e) {
-    const o = e.body;
-    if (!o || !o.isLetter || o.blown) return;
-    const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
-    if (v > P.chain) { if (!o.detonated) { o.detonated = true; pending.push({ letter: o, x: sb.position.x, y: sb.position.y, gen: sb.gen + 1, vel: [sb.velocity.x, sb.velocity.y, sb.velocity.z] }); } return; }
+  // (Rapier reports that two things touched, not how hard, so the speed is the piece's own, just before the step.)
+  function onHit(a, b) {
+    const sb = a.isShard ? a : b.isShard ? b : null, o = sb === a ? b : a;
+    if (!sb || !o.isLetter || o.blown) return;
+    const v = Math.hypot(sb.pv.x, sb.pv.y, sb.pv.z) * 0.85, vel = [sb.pv.x, sb.pv.y, sb.pv.z];
+    if (v > P.chain) { if (!o.detonated) { o.detonated = true; pending.push({ letter: o, x: sb.position.x, y: sb.position.y, gen: sb.gen + 1, vel }); } return; }
     if (P.crack > 0 && v > 4.5) {
-      const shape = e.contact.bi === o ? e.contact.si : e.contact.sj, k = o.shapes.indexOf(shape);
-      if (k >= 0) pending.push({ hurt: true, letter: o, cell: o.cells[k], amount: ((v - 4.5) / Math.max(1, P.chain - 4.5)) * 0.55 * P.crack, x: sb.position.x, y: sb.position.y, vel: [sb.velocity.x, sb.velocity.y, sb.velocity.z] });
+      let best = null, bd = Infinity;                               // the box nearest to where the piece landed
+      for (const c of o.cells) {
+        const cs = Math.cos(c.a), sn = Math.sin(c.a), dx = sb.position.x - o.position.x - c.x, dy = sb.position.y - o.position.y - c.y;
+        const lx = dx * cs + dy * sn, ly = -dx * sn + dy * cs, d = Math.hypot(Math.max(Math.abs(lx) - c.hx, 0), Math.max(Math.abs(ly) - c.hy, 0));
+        if (d < bd) { bd = d; best = c; }
+      }
+      if (best) pending.push({ hurt: true, letter: o, cell: best, amount: ((v - 4.5) / Math.max(1, P.chain - 4.5)) * 0.55 * P.crack, x: sb.position.x, y: sb.position.y, vel });
     }
   }
 
@@ -392,7 +389,7 @@ export function mountColumns(stage, mode) {
     }
     if (EXPLODE) { detonate(hit.body, hit.point.x, hit.point.y, 0); pid = null; return; }   // a tap sets it off at once
     wake(hit.body);
-    press = { body: hit.body, local: hit.body.pointToLocalFrame(hit.point), point: hit.point, x: q.x, y: q.y, t: 0, mode: 'pending', tx: q.x, ty: q.y };
+    press = { body: hit.body, local: hit.body.toLocal(hit.point), point: hit.point, x: q.x, y: q.y, t: 0, mode: 'pending', tx: q.x, ty: q.y };
   }));
   offs.push(stage.on('move', (q, e) => {
     if (pid !== null && e.pointerId !== pid) return;
@@ -413,16 +410,14 @@ export function mountColumns(stage, mode) {
     if (press.mode === 'pending' && press.t > 0.22) press.mode = 'hold';
     if (press.mode === 'drag') {                                    // a spring from the grabbed point to the finger
       wake(b);
-      const wp = b.pointToWorldFrame(press.local), [tx, ty] = toWorld(press.tx, press.ty);
-      const rel = new CANNON.Vec3(wp.x - b.position.x, wp.y - b.position.y, wp.z - b.position.z);
-      const v = b.velocity, k = 70 * b.mass, c = 7 * b.mass;
-      const f = new CANNON.Vec3(clamp((tx - wp.x) * k - v.x * c, -60 * b.mass, 60 * b.mass), clamp((ty - wp.y) * k - v.y * c, -60 * b.mass, 60 * b.mass), 0);
-      b.applyForce(f, rel);
+      const wp = b.toWorld(press.local), [tx, ty] = toWorld(press.tx, press.ty);
+      const v = b.velocity, m = b.mass, k = 70 * m, c = 7 * m;
+      const fx = clamp((tx - wp.x) * k - v.x * c, -60 * m, 60 * m), fy = clamp((ty - wp.y) * k - v.y * c, -60 * m, 60 * m);
+      b.impulseAt({ x: fx * dt, y: fy * dt, z: 0 }, wp);              // a force, as an impulse for this step
     }
   }
 
   // ---------- drawing ----------
-  const qa = new CANNON.Quaternion(), vv = new CANNON.Vec3();
   function draw() {
     let n = 0;
     for (const b of solids) {
@@ -441,7 +436,7 @@ export function mountColumns(stage, mode) {
       }
       for (let i = 0; i < b.shapes.length && n < MAX_INST; i++) {
         const sh = b.shapes[i];
-        b.quaternion.mult(b.shapeOrientations[i], qa); b.quaternion.vmult(b.shapeOffsets[i], vv);
+        const qa = qmul(b.quaternion, b.shapeOrientations[i]), vv = qrot(b.quaternion, b.shapeOffsets[i]);
         const o = n * 11;
         inst[o] = b.position.x + vv.x; inst[o + 1] = b.position.y + vv.y; inst[o + 2] = b.position.z + vv.z;
         inst[o + 3] = qa.x; inst[o + 4] = qa.y; inst[o + 5] = qa.z; inst[o + 6] = qa.w;
@@ -501,7 +496,7 @@ export function mountColumns(stage, mode) {
     while (acc >= DT) {
       acc -= DT;
       if (!EXPLODE) interact(DT);
-      world.step(DT);
+      sim.step(DT, EXPLODE ? onHit : null);
       if (pending.length) { const list = pending; pending = []; for (const p of list) { if (p.hurt) hurt(p.letter, p.cell, p.amount, p.x, p.y, p.vel); else detonate(p.letter, p.x, p.y, p.gen, p.vel); } }
     }
     if (timers.length) { for (const q of timers) { q.t -= dt; if (q.t <= 0 && q.l.world) { detonate(q.l, q.l.position.x, q.l.position.y, 0); q.done = true; } } timers = timers.filter((q) => !q.done); }
@@ -532,14 +527,13 @@ export function mountColumns(stage, mode) {
       actions: EXPLODE ? { 'Re-form': reform, 'Detonate all': detonateAll } : { 'Re-form': reform },
       set(k, v) {
         P[k] = v; this.values[k] = v;
-        if (k === 'gravity') world.gravity.set(0, 0, -v);
+        if (k === 'gravity') sim.setGravity(v);
         if (k === 'bg') stage.setBackdrop(v);
-        if (k === 'bounce' && cmLL) cmLL.restitution = v;
-        if (k === 'friction' && cmLL) cmLL.friction = v;
+        if (EXPLODE && (k === 'bounce' || k === 'friction')) sim.setMaterial(P.friction, P.bounce);
       },
-      reset() { Object.assign(P, this.defaults); Object.assign(this.values, this.defaults); world.gravity.set(0, 0, -P.gravity); stage.setBackdrop(P.bg); },
+      reset() { Object.assign(P, this.defaults); Object.assign(this.values, this.defaults); sim.setGravity(P.gravity); stage.setBackdrop(P.bg); },
     },
-    debug: { world: () => world, letters: () => letters, solids: () => solids, topple, detonate, S: () => S, pick, pending: () => pending },
+    debug: { world: () => sim, letters: () => letters, solids: () => solids, topple, detonate, S: () => S, pick, pending: () => pending },
     destroy() {
       offs.forEach((f) => f());
       overlay.remove(); canvas.style.transform = ''; stage.root.style.cursor = '';

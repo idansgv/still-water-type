@@ -6,10 +6,10 @@
 // one height to the next. Touch the poster and the blocks near your finger are thrown up and tumble, land on
 // each other, and the print keeps landing on whatever is in front of it, floor included.
 //
-// Under the graphic: a few dozen real rigid bodies (cannon-es, MIT, vendored) standing on a floor, drawn as one
+// Under the graphic: a few dozen real rigid bodies (Rapier, Apache-2.0, vendored) standing on a floor, drawn as one
 // instanced WebGL2 draw. The type is a mask that every surface looks up through the projector, per pixel.
 
-import * as CANNON from '../vendor/cannon-es.js';
+import { loadRapier, Sim } from './physics.js';
 import { getGL, compile, texture, uploadCanvas, typeMask, clamp } from '../engine.js';
 
 const FOV = 0.7, D = 5, TAN = Math.tan(FOV / 2);
@@ -76,7 +76,8 @@ function mul(a, b) {
   return o;
 }
 
-export function mount(ctx) {
+export async function mount(ctx) {
+  const R = await loadRapier();
   const { canvas } = ctx;
   const gl = getGL(canvas, { depth: true });
   if (!gl) throw new Error('webgl2 unavailable');
@@ -98,8 +99,7 @@ export function mount(ctx) {
   let typeTex = null;
 
   // ---------- the world ----------
-  let W = 1, H = 1, Wc = 6, Hc = 3.6, world = null, blocks = [], touch = null, acc = 0, activity = 0, camX = 0, camY = 0, reveal = 0;
-  const MAT = new CANNON.Material('block');
+  let W = 1, H = 1, Wc = 6, Hc = 3.6, sim = null, blocks = [], touch = null, acc = 0, activity = 0, camX = 0, camY = 0, reveal = 0;
 
   function hashNoise(i, j, seed) { const s = Math.sin(i * 127.1 + j * 311.7 + seed * 74.7) * 43758.5453; return s - Math.floor(s); }
   function valueNoise(x, y, seed) {                                   // smooth, so heights come in neighbourhoods, then stepped
@@ -111,15 +111,11 @@ export function mount(ctx) {
   function build() {
     W = ctx.W; H = ctx.H;
     Hc = 2 * D * TAN; Wc = Hc * W / H;
-    world = new CANNON.World({ gravity: new CANNON.Vec3(0, 0, -P.gravity) });
-    world.allowSleep = true;
-    world.broadphase = new CANNON.SAPBroadphase(world);
-    world.solver.iterations = 10;
-    world.addContactMaterial(new CANNON.ContactMaterial(MAT, MAT, { friction: 0.5, restitution: 0.18 }));
-    const floor = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: MAT }); world.addBody(floor);
+    sim = new Sim(R, P.gravity); sim.setSolver(8); sim.mat = { friction: 0.5, restitution: 0.18 };
     const Ws = Wc * 1.3, Hs = Hc * 1.3;
-    const wall = (pos, n) => { const b = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: MAT }); b.quaternion.setFromVectors(new CANNON.Vec3(0, 0, 1), new CANNON.Vec3(...n)); b.position.set(...pos); world.addBody(b); };
-    wall([-Ws / 2, 0, 0], [1, 0, 0]); wall([Ws / 2, 0, 0], [-1, 0, 0]); wall([0, -Hs / 2, 0], [0, 1, 0]); wall([0, Hs / 2, 0], [0, -1, 0]);
+    const slab = (x, y, z, hx, hy, hz) => { const b = sim.fixed({ x, y, z }); b.isWall = true; sim.box(b, [hx, hy, hz]); };
+    slab(0, 0, -0.5, 200, 200, 0.5);                                  // the floor
+    slab(-Ws / 2 - 20, 0, 5, 20, 40, 10); slab(Ws / 2 + 20, 0, 5, 20, 40, 10); slab(0, -Hs / 2 - 20, 5, 40, 20, 10); slab(0, Hs / 2 + 20, 5, 40, 20, 10);
 
     blocks = [];
     const s = P.block * clamp(Wc / 5, 0.6, 1), cols = Math.ceil(Ws / s), rows = Math.ceil(Hs / s), seed = ctx.rand() * 100;
@@ -128,10 +124,10 @@ export function mount(ctx) {
       const n = valueNoise(i * 0.55, j * 0.55, seed) * 0.7 + hashNoise(i, j, seed) * 0.3;
       const h = 0.12 + Math.round(n * 7) * 0.2;                          // stepped: heights come in whole steps
       const hx = Ws / cols / 2 - 0.012, hy = Hs / rows / 2 - 0.012;
-      const body = new CANNON.Body({ mass: hx * hy * h * 8 * 1.4, material: MAT, position: new CANNON.Vec3(x, y, h / 2), allowSleep: true, sleepSpeedLimit: 0.12, sleepTimeLimit: 0.5, linearDamping: 0.05, angularDamping: 0.1 });
-      body.addShape(new CANNON.Box(new CANNON.Vec3(hx, hy, h / 2)));
+      const body = sim.dynamic({ x, y, z: h / 2 }, { linearDamping: 0.05, angularDamping: 0.1 });
+      sim.box(body, [hx, hy, h / 2], { density: 1.4 });
       body.half = [hx, hy, h / 2];
-      world.addBody(body); blocks.push(body); body.sleep();
+      blocks.push(body); body.sleep();
     }
     // the print: the type is drawn in screen space and looked up through the projector
     if (typeTex) gl.deleteTexture(typeTex);
@@ -142,11 +138,11 @@ export function mount(ctx) {
   // ---------- touch ----------
   const toWorld = (q) => [(q.x - W / 2) / (W / 2) * (Wc / 2), -(q.y - H / 2) / (H / 2) * (Hc / 2)];
   function kick(x, y) {                                                // thrown up from below, harder the nearer the touch
-    const R = 1.5;
+    const RR = 1.5;
     for (const b of blocks) {
-      const dx = b.position.x - x, dy = b.position.y - y, d = Math.hypot(dx, dy); if (d > R) continue;
-      const f = 1 - d / R; b.wakeUp();
-      b.applyImpulse(new CANNON.Vec3(dx / (d || 1) * 2.2 * f * P.kick * b.mass, dy / (d || 1) * 2.2 * f * P.kick * b.mass, (3.2 + Math.random() * 2) * f * P.kick * b.mass), new CANNON.Vec3((Math.random() - 0.5) * b.half[0], (Math.random() - 0.5) * b.half[1], -b.half[2] * 0.6));
+      const dx = b.position.x - x, dy = b.position.y - y, d = Math.hypot(dx, dy); if (d > RR) continue;
+      const f = 1 - d / RR, m = b.mass; b.wake();
+      b.impulseRel({ x: dx / (d || 1) * 2.2 * f * P.kick * m, y: dy / (d || 1) * 2.2 * f * P.kick * m, z: (3.2 + Math.random() * 2) * f * P.kick * m }, { x: (Math.random() - 0.5) * b.half[0], y: (Math.random() - 0.5) * b.half[1], z: -b.half[2] * 0.6 });
     }
   }
   offs.push(ctx.on('down', (q) => { const [x, y] = toWorld(q); touch = { x, y, px: x, py: y }; kick(x, y); }));
@@ -156,7 +152,6 @@ export function mount(ctx) {
   offs.push(ctx.on('resize', () => build()));
   build();
 
-  const qa = new CANNON.Quaternion(), vv = new CANNON.Vec3();
   offs.push(ctx.frame((dt) => {
     acc = Math.min(acc + dt, 0.05);
     while (acc >= 1 / 90) {
@@ -165,12 +160,12 @@ export function mount(ctx) {
         const vx = touch.x - touch.px, vy = touch.y - touch.py; touch.px = touch.x; touch.py = touch.y;
         if (vx || vy) for (const b of blocks) {
           const dx = b.position.x - touch.x, dy = b.position.y - touch.y, d = Math.hypot(dx, dy); if (d > 1.1) continue;
-          b.wakeUp(); const f = (1 - d / 1.1) * b.mass * 14; b.applyImpulse(new CANNON.Vec3(vx * f, vy * f, 0.4 * f * Math.hypot(vx, vy)), new CANNON.Vec3(0, 0, b.half[2] * 0.5));
+          b.wake(); const f = (1 - d / 1.1) * b.mass * 14; b.impulseRel({ x: vx * f, y: vy * f, z: 0.4 * f * Math.hypot(vx, vy) }, { x: 0, y: 0, z: b.half[2] * 0.5 });
         }
       }
-      world.step(1 / 90);
+      sim.step(1 / 90);
     }
-    let act = 0; for (const b of blocks) if (b.sleepState !== CANNON.Body.SLEEPING) act += b.velocity.length() * 0.06 + b.angularVelocity.length() * 0.02;
+    let act = 0; for (const b of blocks) if (!b.sleeping) act += Math.hypot(b.velocity.x, b.velocity.y, b.velocity.z) * 0.08;
     activity += (clamp(act, 0, 1) - activity) * (1 - Math.exp(-dt * 6));
 
     const k = 1 - Math.exp(-dt * 9);
@@ -215,10 +210,10 @@ export function mount(ctx) {
         { name: 'Blocks', items: [{ key: 'block', label: 'Block size (re-form)', min: 0.4, max: 1.4, step: 0.05 }, { key: 'kick', label: 'Poke strength', min: 0.3, max: 3, step: 0.05 }, { key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }] },
       ],
       actions: { 'Re-form': reform },
-      set(k, val) { P[k] = val; this.values[k] = val; if (k === 'gravity') world.gravity.set(0, 0, -val); },
-      reset() { Object.assign(P, this.defaults); Object.assign(this.values, this.defaults); world.gravity.set(0, 0, -P.gravity); },
+      set(k, val) { P[k] = val; this.values[k] = val; if (k === 'gravity') sim.setGravity(val); },
+      reset() { Object.assign(P, this.defaults); Object.assign(this.values, this.defaults); sim.setGravity(P.gravity); },
     },
-    debug: { blocks: () => blocks, world: () => world, kick, activity: () => activity, reveal: () => reveal },
+    debug: { blocks: () => blocks, world: () => sim, kick, activity: () => activity, reveal: () => reveal },
     destroy() { offs.forEach((f) => f()); try { if (typeTex) gl.deleteTexture(typeTex); } catch (e) { /* ignore */ } },
   };
 }

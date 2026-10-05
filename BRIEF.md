@@ -42,8 +42,7 @@ link and the preview looks great; a recruiter finds the work in under thirty sec
 5. **One loud thing.** The posters are the boldness. Everything around them (chrome, Work, copy) stays
    disciplined and quiet.
 6. **No build, no dependencies.** Plain ES modules and hand-written shaders, deployable by copying files. It
-   stays hackable and it will not rot. One deliberate exception (5 October 2026): `src/vendor/cannon-es.js`, the MIT-licensed rigid-body physics
-   engine (minified, 140 KB), vendored as a single file with its licence beside it, for Columns only.
+   stays hackable and it will not rot. One deliberate exception (5 October 2026): `src/vendor/rapier.es.js`, the Apache-2.0 rigid-body physics engine Rapier (a WASM build, 2 MB, 0.77 MB gzipped), vendored as a single file with its licence beside it, for Collapse, Explode and Skyline only; it loads when one of those posters opens. (It replaced cannon-es, which was in for a few hours: see section 17.)
 
 ## 4. Experience map
 
@@ -439,15 +438,15 @@ October 2026): three different posters, projection, columns collapse, columns ex
 **Shared look and model.** "IDAN / SEGEV" as flat white type on black that is really tall columns, seen straight down
 through an orthographic camera, so only the tops show. The letters are the Soft type skeletons (`lettering.js`) thickened
 into overlapping boxes (mitred at joints so curves stay smooth) and extruded 3.4 units tall (a letter is 2 high). Physics
-is cannon-es. Rendering is instanced WebGL2: tops pure white, the letter-shaped face stays bright even when a column lies
+is Rapier. Rendering is instanced WebGL2: tops pure white, the letter-shaped face stays bright even when a column lies
 down, sides grey. A double tap on empty space re-forms the letters (also Re-form in the panel, T). Dark theme only for now.
 
 **Collapse.** (also has the Colour sliders) Columns are free rigid bodies, all the same mass so a falling letter can carry the next. The floor grips and
 letters are slippery against each other, so a push tips a column instead of sliding it. Tap = a firm knock at the top, away
 from where you touched (default strength 26: in 16 test taps every one toppled the letter, and a neighbour went over 1.6 times
 on average, so chains are probabilistic, like dominoes). Drag = a spring from the grabbed point to your finger: it tilts and
-rocks back, or goes over if you pull far enough. Physics at 180 Hz (impacts are hard and cannon's contacts are soft); letter
-restitution 0.55. Settings: gravity, tap push.
+rocks back, or goes over if you pull far enough. Physics at 120 Hz; letter restitution 0.55 (friction takes the larger of two surfaces, restitution the smaller, so the floor grips and
+letters are slippery against each other). Settings: gravity, tap push.
 
 **Explode.** Columns are anchored (static). Tap = it blows at once, from the point you touched, into free-form pieces
 (`src/posters/shatter.js`): each stroke box is shattered by cutting it with the bisecting planes between jittered seed points
@@ -482,7 +481,7 @@ edge when the view moves.
 lettering is sliced at every block edge and jumps from height to height; block sides appear. Shading is absent at rest and
 appears with camera movement and with disturbance (`reveal`).
 
-**Model.** About 70 rigid bodies (cannon-es) standing on a floor and tiling the sheet (a grid of blocks with a hair of gap),
+**Model.** About 70 rigid bodies (Rapier) standing on a floor and tiling the sheet (a grid of blocks with a hair of gap),
 heights from smooth noise quantised into whole steps (0.12 to 1.5 units; the camera is 5 away) so they read as a stepped
 skyline. One instanced WebGL2 draw (plus a floor slab); the type mask is looked up per pixel through the projector, so every
 surface, the floor included, carries the print. About 0.1 ms per frame on desktop when settled.
@@ -510,10 +509,12 @@ behaviour. Three new posters:
 
 **Process, unchanged:** propose, get a yes, build one, show it, iterate in short rounds. Taste rules apply (section 15).
 
-**Decisions (5 October 2026):** build the columns first; use a vendored MIT physics library (cannon-es) rather than writing
+**Decisions (5 October 2026):** build the columns first; use a vendored physics library (first cannon-es, then Rapier) rather than writing
 one; split them into two posters (Collapse and Explode); Explode is tap-to-detonate with a chain reaction and triangular slabs;
 the hidden form for the projection poster was first a cloth over hidden balls (Drape, rejected as too soft), then **hard-edged
 blocks** (Skyline); the garden is a fourth, after those. **Status:** Collapse and Explode are built as
 drafts awaiting Idan's review; Skyline (the projection poster, hard-edged blocks, after Drape was rejected as too soft) is built as a first draft and awaiting review; the garden is not started.
 
 **Explode defaults (5 October 2026).** Idan's tuned values are now the defaults: gravity 40, blast 0.4, speed 0.3, lift 0, spin 0, chain impact 20 and strength kept 0.2 (chains almost never fire), piece size 0.4, irregularity 1, fit 0.8, cracking 2.9, bounce 0.05, slipperiness 0.98 (very grippy), burst lines and shake off, white background with black type, struck letters break apart with momentum passed 0.7. Pieces under size 0.65 collide as boxes (cheaper); measured 1 to 10 ms per frame after a tap on desktop, up to about 22 ms for D with its pile of pieces, so watch phones.
+
+**Physics engine: cannon-es replaced by Rapier (5 October 2026).** cannon-es (pure JS, 140 KB) was measured against Rapier (Rust compiled to WASM, 2 MB) on the same box piles in the browser (60, 120 and 250 boxes: 0.6, 1.2, 2.7 ms against 0.28, 0.45, 1.0 ms) and, more tellingly, in the real posters: with Idan's Explode defaults a tap cost 5 ms per physics step for 250 box pieces and 16 ms with 80 convex pieces, a whole frame 20 to 27 ms. The same posters on Rapier cost 0.7 to 1.8 ms a whole frame. Collapse behaves the same (16 of 16 test taps topple the letter, 1.56 neighbours on average); Explode and Skyline were re-tested. The code talks to Rapier through `src/posters/physics.js`, a thin wrapper that presents bodies as plain objects (position, quaternion, velocity refreshed after each step, only for awake bodies), so a future swap is local. Differences to know: Rapier reports that two things touched but not how hard, so Explode takes the impact speed as the piece's own speed just before the step; Explode's blast and chain numbers were tuned on cannon-es and may feel slightly different; the 2 MB WASM loads when Collapse, Explode or Skyline opens (about 55 ms from cache).
