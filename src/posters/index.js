@@ -63,7 +63,6 @@ export const POSTERS = [
     blurb: 'Flat type that is really solid. Touch a letter and it shatters, and the pieces set off the rest.',
     hint: null,
     themes: { dark: 1, light: 0 },
-    draft: true,
     load: () => import('./explode.js'),
   },
   {
