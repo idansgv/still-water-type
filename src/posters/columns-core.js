@@ -144,9 +144,13 @@ export async function mountColumns(stage, mode) {
   const octx = overlay.getContext('2d');
   const dust = new Dust(gl);
 
-  const P = EXPLODE ? { gravity: 26, blast: 0.4, speed: 1.12, lift: 0.4, spin: 1.4, chain: 30, decay: 0.3, size: 0.1, rough: 2, gap: 0.8, crack: 0.25, crackAt: 0.46, jitter: 0.05, reach: 2.95, passive: 1, transfer: 0.2, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.4, dustLife: 1.6, dustHits: 0, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 0.85 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (third set, 5 Oct 2026)
+  const P = EXPLODE ? { gravity: 26, blast: 0.4, speed: 1.12, lift: 0.4, spin: 1.4, chain: 30, decay: 0.3, size: 0.1, rough: 2, gap: 0.8, crack: 0.25, crackAt: 0.46, jitter: 0.05, reach: 2.95, passive: 1, transfer: 0.2, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.4, dustLife: 1.6, dustHits: 0, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 0.85, adapt: 1 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (third set, 5 Oct 2026)
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   let pending = [], timers = [];
+  // Adapting to the device: the piece size is multiplied by `perf`, which starts a little coarse on a phone with few cores
+  // and grows if frames run slow while there are pieces about (see the governor in the frame loop).
+  const coarse = matchMedia('(pointer: coarse)').matches, cores = navigator.hardwareConcurrency || 8, mem = navigator.deviceMemory || 8;
+  let perf = coarse && (cores <= 4 || mem <= 3) ? 1.8 : coarse ? 1.15 : 1, slowFrames = 0, ema = 16;
   let W = 1, H = 1, S = 100, sim = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
   let press = null, pid = null, lastEmptyTap = 0, acc = 0;
   stage.setBackdrop(P.bg);
@@ -308,9 +312,9 @@ export async function mountColumns(stage, mode) {
   // Pieces: every box a letter is made of is shattered into irregular convex pieces (see shatter.js), each a rigid body
   // and a free-form mesh. `power` scales how hard they are thrown; `gen` counts how far along a chain they are.
   function spawnPieces(letter, cells, cx, cy, power, gen, kin, opt) {
-    const sp0 = Math.sqrt(power), made = [], size = P.size * (1 + shardCount / 1400);   // the more rubble already, the coarser the next pieces
+    const sp0 = Math.sqrt(power), made = [], size = P.size * perf * (1 + shardCount / 1400);   // the more rubble already, the coarser the next pieces
     for (const c of cells) {
-      const ca = Math.cos(c.a), sa = Math.sin(c.a), parts = shatterBox(c.hx, c.hy, colH / 2, size, P.rough, opt && opt.fit ? opt.fit : P.gap, 220);
+      const ca = Math.cos(c.a), sa = Math.sin(c.a), parts = shatterBox(c.hx, c.hy, colH / 2, size, P.rough, opt && opt.fit ? opt.fit : P.gap, Math.max(40, Math.round(220 / perf)));
       for (const pc of parts) {
         if (shardCount >= MAX_SHARDS || shardVerts + pc.tris.length / 6 > MAX_SHARD_VERTS) break;
         const px = letter.position.x + c.x + ca * pc.c[0] - sa * pc.c[1], py = letter.position.y + c.y + sa * pc.c[0] + ca * pc.c[1], pz = letter.position.z + pc.c[2];
@@ -572,8 +576,29 @@ export async function mountColumns(stage, mode) {
   offs.push(stage.on('resize', resize));
   resize();
 
+  // If frames run slow while pieces are about, ask for coarser pieces from now on and clear out some of the rubble that has
+  // come to rest (the oldest first). It never touches pieces still moving, so what you are looking at does not change.
+  function governor(dt) {
+    ema += (dt * 1000 - ema) * 0.1;
+    if (shardCount < 120) { slowFrames = 0; return; }
+    if (ema > 27) slowFrames++; else slowFrames = Math.max(0, slowFrames - 2);
+    if (slowFrames > 24) {
+      slowFrames = 0; ema = 20;
+      if (perf < 4) perf = Math.min(4, perf * 1.35);
+      trimRubble(ema > 40 ? 0.5 : 0.3);
+    }
+  }
+  function trimRubble(fraction) {
+    const resting = solids.filter((b) => b.isShard && b.sleeping), n = Math.floor(resting.length * fraction);
+    for (let i = 0; i < n; i++) {                                    // oldest first: they were added in order
+      const b = resting[i]; sim.remove(b); solids.splice(solids.indexOf(b), 1);
+      xf[b.sidx * 8 + 2] = -9999;                                    // and its mesh is moved out of sight
+    }
+  }
+
   offs.push(stage.frame((dt) => {
     acc = Math.min(acc + dt, 0.05); puffBudget = 14; dust.tick(dt);
+    if (EXPLODE && P.adapt) governor(dt);
     while (acc >= DT) {
       acc -= DT;
       if (!EXPLODE) interact(DT);
@@ -597,7 +622,7 @@ export async function mountColumns(stage, mode) {
        { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.02, max: 2.5, step: 0.01 }, { key: 'speed', label: 'Outward speed', min: 0.02, max: 2.5, step: 0.01 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
        { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 1, max: 30, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.02, max: 1, step: 0.01 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'reach', label: 'Crack reach', min: 0.2, max: 9, step: 0.05 }, { key: 'crackAt', label: 'Damage that starts a crack', min: 0.05, max: 1, step: 0.01 }, { key: 'jitter', label: 'Jitter (0 = boxes only break away)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.01, max: 2, step: 0.01 }] },
        { name: 'Pieces (next blast)', items: [{ key: 'size', label: 'Size (small = many)', min: 0.03, max: 1.6, step: 0.01 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.5, max: 1, step: 0.01 }] },
-       { name: 'Effects', items: [{ key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }, { key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.05, max: 3, step: 0.01 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.2, max: 5, step: 0.1 }, { key: 'dustTone', label: 'Dust tone (0 black, 1 white)', min: 0, max: 1, step: 0.01 }, { key: 'dustSoft', label: 'Dust softness (0 = hard edged)', min: 0, max: 1, step: 0.01 }, { key: 'dustAlpha', label: 'Dust opacity', min: 0.1, max: 1, step: 0.01 }, { key: 'dustHits', label: 'Dust from impacts', type: 'toggle' }] },
+       { name: 'Effects', items: [{ key: 'adapt', label: 'Adapt to slow devices', type: 'toggle' }, { key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }, { key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.05, max: 3, step: 0.01 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.2, max: 5, step: 0.1 }, { key: 'dustTone', label: 'Dust tone (0 black, 1 white)', min: 0, max: 1, step: 0.01 }, { key: 'dustSoft', label: 'Dust softness (0 = hard edged)', min: 0, max: 1, step: 0.01 }, { key: 'dustAlpha', label: 'Dust opacity', min: 0.1, max: 1, step: 0.01 }, { key: 'dustHits', label: 'Dust from impacts', type: 'toggle' }] },
        colourGroup, cameraGroup]
     : [{ name: 'World', items: [{ key: 'height', label: 'Extrusion height (re-forms)', min: 0.05, max: 8, step: 0.05 }, { key: 'gravity', label: 'Gravity', min: 2, max: 40, step: 1 }] },
        { name: 'Touch', items: [{ key: 'topple', label: 'Tap push', min: 6, max: 50, step: 1 }] },
@@ -620,7 +645,7 @@ export async function mountColumns(stage, mode) {
   };
   return {
     tune: tuneApi,
-    debug: { world: () => sim, letters: () => letters, solids: () => solids, topple, detonate, S: () => S, pick, pending: () => pending },
+    debug: { perf: () => perf, setPerf: (v) => { perf = v; }, world: () => sim, letters: () => letters, solids: () => solids, topple, detonate, S: () => S, pick, pending: () => pending },
     destroy() {
       offs.forEach((f) => f());
       overlay.remove(); canvas.style.transform = ''; stage.root.style.cursor = '';
