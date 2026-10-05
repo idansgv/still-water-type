@@ -155,9 +155,9 @@ export function mountColumns(stage, mode) {
   stage.root.appendChild(overlay);
   const octx = overlay.getContext('2d');
 
-  const P = EXPLODE ? { gravity: 12, blast: 1, chain: 10.5, decay: 0.5 } : { gravity: 12, topple: 26 };
+  const P = EXPLODE ? { gravity: 12, blast: 1, speed: 1, lift: 1, spin: 1, chain: 10.5, decay: 0.5, size: 0.75, layers: 2, gap: 0.97, bounce: 0.55, friction: 0.18, lines: 1, shake: 1 } : { gravity: 12, topple: 26 };
   const DT = EXPLODE ? 1 / 90 : 1 / 180;       // small steps: bodies hit each other fast, and cannon's contacts are soft
-  let pending = [];
+  let pending = [], cmLL = null, timers = [];
   let W = 1, H = 1, S = 100, world = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
   let press = null, pid = null, lastEmptyTap = 0, acc = 0;
 
@@ -194,7 +194,8 @@ export function mountColumns(stage, mode) {
     w.solver.iterations = EXPLODE ? 8 : 20;
     // the floor grips, so a push makes a column tip instead of slide; letters are slippery against each other
     w.addContactMaterial(new CANNON.ContactMaterial(MAT.floor, MAT.letter, { friction: 1.0, restitution: 0.04 }));
-    w.addContactMaterial(new CANNON.ContactMaterial(MAT.letter, MAT.letter, { friction: 0.18, restitution: 0.55 }));
+    cmLL = new CANNON.ContactMaterial(MAT.letter, MAT.letter, { friction: EXPLODE ? P.friction : 0.18, restitution: EXPLODE ? P.bounce : 0.55 });
+    w.addContactMaterial(cmLL);
     const floor = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: MAT.floor });
     floor.isWall = true; w.addBody(floor);
     // low walls round the edge keep shards and sliding bodies in, but a tall column can still lean out over them
@@ -285,21 +286,20 @@ export function mountColumns(stage, mode) {
   // Explode: a letter blows into triangular slabs. Each stroke piece is cut into cells, each cell into two triangles
   // along a random diagonal, and each triangle into layers. The slabs fly out from (cx, cy). `gen` counts how many
   // detonations the chain has passed through; every one is weaker.
-  const LAYERS = 2;
-  function detonate(letter, cx, cy, gen) {
+    function detonate(letter, cx, cy, gen) {
     if (letter.blown) return;
     letter.blown = true; letter.detonated = true;
     const power = P.blast * Math.pow(P.decay, gen), sp0 = Math.sqrt(power);
-    const lh = COL_H / LAYERS, hh = lh / 2 * 0.96, shards = [];
+    const LAYERS = clamp(Math.round(P.layers), 1, 4), lh = COL_H / LAYERS, hh = lh / 2 * 0.96, shards = [];
     for (const b of letter.cells) {
-      const nx = Math.max(1, Math.round(b.hx * 2 / 0.75)), ny = Math.max(1, Math.round(b.hy * 2 / 0.6));
+      const nx = Math.max(1, Math.round(b.hx * 2 / P.size)), ny = Math.max(1, Math.round(b.hy * 2 / (P.size * 0.8)));
       const ca = Math.cos(b.a), sa = Math.sin(b.a);
       for (let ix = 0; ix < nx; ix++) for (let iy = 0; iy < ny; iy++) {
         const x0 = -b.hx + ix * 2 * b.hx / nx, x1 = x0 + 2 * b.hx / nx, y0 = -b.hy + iy * 2 * b.hy / ny, y1 = y0 + 2 * b.hy / ny;
         const tris = Math.random() < 0.5 ? [[[x0, y0], [x1, y0], [x1, y1]], [[x0, y0], [x1, y1], [x0, y1]]] : [[[x0, y0], [x1, y0], [x0, y1]], [[x1, y0], [x1, y1], [x0, y1]]];
         for (const tri of tris) {
           const mx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3, my = (tri[0][1] + tri[1][1] + tri[2][1]) / 3;
-          let v = tri.map(([x, y]) => [(x - mx) * 0.97, (y - my) * 0.97]);
+          let v = tri.map(([x, y]) => [(x - mx) * P.gap, (y - my) * P.gap]);
           if ((v[1][0] - v[0][0]) * (v[2][1] - v[0][1]) - (v[2][0] - v[0][0]) * (v[1][1] - v[0][1]) < 0) v = [v[0], v[2], v[1]];   // counter-clockwise
           const area = Math.abs((v[1][0] - v[0][0]) * (v[2][1] - v[0][1]) - (v[2][0] - v[0][0]) * (v[1][1] - v[0][1])) / 2;
           const verts = [...v.map(([x, y]) => new CANNON.Vec3(x, y, hh)), ...v.map(([x, y]) => new CANNON.Vec3(x, y, -hh))];
@@ -310,9 +310,9 @@ export function mountColumns(stage, mode) {
             sb.quaternion.setFromEuler(0, 0, b.a);
             sb.addShape(new CANNON.ConvexPolyhedron({ vertices: verts, faces }));
             let dx = px - cx, dy = py - cy; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
-            const sp = (3.5 + Math.random() * 6) * sp0;
-            sb.velocity.set(dx * sp + (Math.random() - 0.5) * 2, dy * sp + (Math.random() - 0.5) * 2, (2 + Math.random() * 5) * sp0);
-            sb.angularVelocity.set((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
+            const sp = (3.5 + Math.random() * 6) * sp0 * P.speed, spinAmt = 14 * P.spin;
+            sb.velocity.set(dx * sp + (Math.random() - 0.5) * 2, dy * sp + (Math.random() - 0.5) * 2, (2 + Math.random() * 5) * sp0 * P.lift);
+            sb.angularVelocity.set((Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt);
             sb.isShard = true; sb.gen = gen;
             sb.tri = [v[0][0], v[0][1], v[1][0], v[1][1], v[2][0], v[2][1], hh];
             sb.addEventListener('collide', (e) => {            // a slab that hits another letter hard sets it off
@@ -337,8 +337,8 @@ export function mountColumns(stage, mode) {
       const s0 = size * (0.5 + Math.random() * 0.15), e0 = s0 + size * (long ? 0.7 + Math.random() * 0.6 : 0.28 + Math.random() * 0.2);
       lines.push({ a, s0, e0, bend: (Math.random() - 0.5) * 0.35, w: long ? 7 + Math.random() * 2.5 : 5 });
     }
-    bursts.push({ x: bx, y: by, t: 0, lines });
-    shake = Math.max(shake, 0.3 * Math.min(1, power + 0.3));
+    if (P.lines) bursts.push({ x: bx, y: by, t: 0, lines });
+    if (P.shake) shake = Math.max(shake, 0.3 * Math.min(1, power + 0.3));
   }
 
   const offs = [];
@@ -467,6 +467,7 @@ export function mountColumns(stage, mode) {
       world.step(DT);
       if (pending.length) { const list = pending; pending = []; for (const p of list) detonate(p.letter, p.x, p.y, p.gen); }
     }
+    if (timers.length) { for (const q of timers) { q.t -= dt; if (q.t <= 0 && q.l.world) { detonate(q.l, q.l.position.x, q.l.position.y, 0); q.done = true; } } timers = timers.filter((q) => !q.done); }
     for (const b of bursts) b.t += dt;
     bursts = bursts.filter((b) => b.t < 0.8);
     fade = Math.min(1, fade + dt * 2.2);
@@ -474,18 +475,27 @@ export function mountColumns(stage, mode) {
     draw();
   }));
 
-  const reform = () => { build(); resize2(); };
+  const reform = () => { timers = []; build(); resize2(); };
+  const detonateAll = () => { timers = letters.map((l, i) => ({ l, t: i * 0.11 })); };   // one after another, left to right
   const groups = EXPLODE
-    ? [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }] },
-       { name: 'Blast', items: [{ key: 'blast', label: 'Blast', min: 0.4, max: 2.5, step: 0.05 }, { key: 'chain', label: 'Chain: impact needed', min: 2, max: 14, step: 0.5 }, { key: 'decay', label: 'Chain: strength kept', min: 0.4, max: 1, step: 0.02 }] }]
+    ? [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }, { key: 'bounce', label: 'Bounce (contacts)', min: 0.05, max: 0.95, step: 0.05 }, { key: 'friction', label: 'Slipperiness (low = grippy)', min: 0.02, max: 1, step: 0.02 }] },
+       { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.4, max: 2.5, step: 0.05 }, { key: 'speed', label: 'Outward speed', min: 0.3, max: 2.5, step: 0.05 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
+       { name: 'Chain', items: [{ key: 'chain', label: 'Impact needed', min: 2, max: 20, step: 0.5 }, { key: 'decay', label: 'Strength kept', min: 0.2, max: 1, step: 0.02 }] },
+       { name: 'Slabs (next blast)', items: [{ key: 'size', label: 'Size', min: 0.4, max: 1.6, step: 0.05 }, { key: 'layers', label: 'Layers', min: 1, max: 4, step: 1 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.8, max: 1, step: 0.01 }] },
+       { name: 'Effects', items: [{ key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }] }]
     : [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }] },
        { name: 'Touch', items: [{ key: 'topple', label: 'Tap push', min: 6, max: 50, step: 1 }] }];
   return {
     tune: {
       title: EXPLODE ? 'Explode' : 'Collapse',
       values: { ...P }, defaults: { ...P }, groups,
-      actions: { 'Re-form': reform },
-      set(k, v) { P[k] = v; this.values[k] = v; if (k === 'gravity') world.gravity.set(0, 0, -v); },
+      actions: EXPLODE ? { 'Re-form': reform, 'Detonate all': detonateAll } : { 'Re-form': reform },
+      set(k, v) {
+        P[k] = v; this.values[k] = v;
+        if (k === 'gravity') world.gravity.set(0, 0, -v);
+        if (k === 'bounce' && cmLL) cmLL.restitution = v;
+        if (k === 'friction' && cmLL) cmLL.friction = v;
+      },
       reset() { Object.assign(P, this.defaults); Object.assign(this.values, this.defaults); world.gravity.set(0, 0, -P.gravity); },
     },
     debug: { world: () => world, letters: () => letters, solids: () => solids, topple, detonate, S: () => S, pick, pending: () => pending },

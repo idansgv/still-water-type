@@ -455,8 +455,10 @@ slabs a letter), and each slab is a real convex body (a triangular prism). Slabs
 per second set that letter off too, at half the strength each generation (so chains die out: from one tap, between 1 and 8 of
 the 9 letters went, depending on the letter). 16 hand-flicked lines and a short shake go with every detonation. Cost: about
 0.6 to 6 ms per frame on a desktop, worst case 16 ms with a big chain (180 to 210 slabs); watch it on phones. The anchored
-letters are physics-simplified (coarse boxes) but drawn smooth from the fine boxes. Settings: gravity, blast, chain threshold,
-chain strength kept.
+letters are physics-simplified (coarse boxes) but drawn smooth from the fine boxes. Settings (T, or `?tune` on a phone): World (gravity, bounce, slipperiness), Blast (power, outward
+speed, lift, spin), Chain (impact needed, strength kept), Slabs for the next blast (size, layers, fit), Effects (burst lines and
+screen shake on or off), and actions Re-form and Detonate all (left to right, 0.11 s apart; about 240 slabs at once, the heaviest
+case).
 
 **Lessons while building them.** Infinite wall planes at the screen edge stopped tall towers from falling, so use low boxes.
 Equal masses, bouncier letter contacts and a fixed generous knock beat sizing the knock from tipping energy. A first Explode
