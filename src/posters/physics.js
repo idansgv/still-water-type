@@ -65,6 +65,7 @@ export class Sim {
     if (o.linearDamping != null) d = d.setLinearDamping(o.linearDamping);
     if (o.angularDamping != null) d = d.setAngularDamping(o.angularDamping);
     if (o.ccd) d = d.setCcdEnabled(true);
+    if (o.lockTilt) d = d.enabledRotations(false, false, true).enabledTranslations(true, true, false);   // may slide and turn about the vertical, nothing else
     const b = this._make(d, false); this.dynamics.add(b); return b;
   }
   _make(desc, isStatic) { return new Body(this, this.world.createRigidBody(desc), isStatic); }

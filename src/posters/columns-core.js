@@ -140,7 +140,7 @@ export async function mountColumns(stage, mode) {
   stage.root.appendChild(overlay);
   const octx = overlay.getContext('2d');
 
-  const P = EXPLODE ? { gravity: 40, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.4, rough: 1, gap: 0.8, crack: 2.9, passive: 1, transfer: 0.7, bounce: 0.05, friction: 0.98, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
+  const P = EXPLODE ? { gravity: 40, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.4, rough: 1, gap: 0.8, crack: 2.9, crackAt: 0.25, jitter: 1, reach: 3, passive: 1, transfer: 0.7, bounce: 0.05, friction: 0.98, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   let pending = [], timers = [];
   let W = 1, H = 1, S = 100, sim = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
@@ -301,14 +301,15 @@ export async function mountColumns(stage, mode) {
   // ---------- Explode ----------
   // Pieces: every box a letter is made of is shattered into irregular convex pieces (see shatter.js), each a rigid body
   // and a free-form mesh. `power` scales how hard they are thrown; `gen` counts how far along a chain they are.
-  function spawnPieces(letter, cells, cx, cy, power, gen, kin) {
+  function spawnPieces(letter, cells, cx, cy, power, gen, kin, opt) {
     const sp0 = Math.sqrt(power), made = [], size = P.size * (1 + shardCount / 1400);   // the more rubble already, the coarser the next pieces
     for (const c of cells) {
-      const ca = Math.cos(c.a), sa = Math.sin(c.a), parts = shatterBox(c.hx, c.hy, COL_H / 2, size, P.rough, P.gap, 140);
+      const ca = Math.cos(c.a), sa = Math.sin(c.a), parts = shatterBox(c.hx, c.hy, COL_H / 2, size, P.rough, opt && opt.fit ? opt.fit : P.gap, 140);
       for (const pc of parts) {
         if (shardCount >= MAX_SHARDS || shardVerts + pc.tris.length / 6 > MAX_SHARD_VERTS) break;
         const px = letter.position.x + c.x + ca * pc.c[0] - sa * pc.c[1], py = letter.position.y + c.y + sa * pc.c[0] + ca * pc.c[1], pz = letter.position.z + pc.c[2];
-        const sb = sim.dynamic({ x: px, y: py, z: pz }, { angle: c.a, linearDamping: 0.05, angularDamping: 0.1 });
+        const jit = opt && opt.jitter;
+        const sb = sim.dynamic({ x: px, y: py, z: pz }, jit ? { angle: c.a, linearDamping: 7, angularDamping: 7, lockTilt: true } : { angle: c.a, linearDamping: 0.05, angularDamping: 0.1 });   // cracked pieces can only slide and turn a little, so the letter stays standing
         let ok = null;
         if (size < 0.2) {                                          // the tiniest pieces collide as boxes: cheaper, and nobody can tell
           let mx = 0, my = 0, mz = 0; for (const v of pc.verts) { mx = Math.max(mx, Math.abs(v[0])); my = Math.max(my, Math.abs(v[1])); mz = Math.max(mz, Math.abs(v[2])); }
@@ -317,7 +318,11 @@ export async function mountColumns(stage, mode) {
           ok = sim.hull(sb, Float32Array.from(pc.verts.flat()), { density: 0.6 });
         }
         if (!ok) { sim.remove(sb); continue; }
-        if (kin) {                                                    // breaking apart: no power of its own, only what the blow hands it
+        if (opt && opt.jitter) {                                      // cracked in place: a small shove and twist, so the pieces end up slightly out of line
+          const j = P.jitter, dd = kin ? Math.exp(-((Math.hypot(px - kin.x, py - kin.y) / 1.4) ** 2)) : 0;
+          sb.setVelocity((Math.random() - 0.5) * 0.9 * j + (kin ? kin.vx * 0.06 * dd : 0), (Math.random() - 0.5) * 0.9 * j + (kin ? kin.vy * 0.06 * dd : 0), Math.random() * 0.5 * j);
+          sb.setSpin((Math.random() - 0.5) * 1.6 * j, (Math.random() - 0.5) * 1.6 * j, (Math.random() - 0.5) * 2.2 * j);
+        } else if (kin) {                                                    // breaking apart: no power of its own, only what the blow hands it
           const d = Math.hypot(px - kin.x, py - kin.y), w = Math.exp(-((d / 1.2) ** 2)) * P.transfer;
           sb.setVelocity(kin.vx * w + (Math.random() - 0.5) * 0.5, kin.vy * w + (Math.random() - 0.5) * 0.5, kin.vz * w + Math.random() * 0.4);
           sb.setSpin((Math.random() - 0.5) * 2 * w, (Math.random() - 0.5) * 2 * w, (Math.random() - 0.5) * 2 * w);
@@ -364,28 +369,34 @@ export async function mountColumns(stage, mode) {
     if (!passive) burstLines(cx, cy, power);
     if (P.shake) shake = Math.max(shake, passive ? 0.1 : 0.3 * Math.min(1, power + 0.3));
     if (P.crack > 0) {                                              // the blast cracks the nearest columns: whole chunks of them fall away
-      const R = 3.4 * P.blast;
+      const R = P.reach;                                             // how far the shock cracks things, whatever the blast power
       for (const L of letters.slice()) {
         if (L.blown) continue;
         for (const c of L.cells.slice()) {
           const d = Math.hypot(L.position.x + c.x - cx, L.position.y + c.y - cy), f = Math.max(0, 1 - d / R) ** 1.1;
-          if (f > 0) { const px = L.position.x + c.x, py = L.position.y + c.y, dd = Math.hypot(px - cx, py - cy) || 1, sp = 4.5 * f * P.speed; hurt(L, c, f * power * 1.25 * P.crack, cx, cy, [(px - cx) / dd * sp, (py - cy) / dd * sp, 1.2 * f * P.lift]); }
+          if (f > 0) { const px = L.position.x + c.x, py = L.position.y + c.y, dd = Math.hypot(px - cx, py - cy) || 1, sp = 4.5 * f * P.speed; hurt(L, c, f ** 1.6 * (0.4 + 0.6 * Math.min(1, power)) * 1.25 * P.crack, cx, cy, [(px - cx) / dd * sp, (py - cy) / dd * sp, 1.2 * f * P.lift]); }
         }
       }
     }
   }
 
-  // Damage accumulates in a column's boxes (they darken as it does); at 1 that box breaks off and the rest stands.
+  // Damage accumulates in a column's boxes (their smooth tops darken as it does). Two thresholds:
+  //   crackAt  the box cracks in place: it turns into pieces that are shoved and twisted a little, so the letter stays
+  //            standing but with slightly offset slabs and dark seams (the "jitter" setting is how far)
+  //   1        the box breaks off: its pieces carry the momentum of what hit it and the rest of the letter stands with a hole
   function hurt(letter, cell, amount, sx, sy, vel) {
     if (!cell.alive || letter.blown) return;
     cell.dmg += amount;
-    if (cell.dmg < 1) return;
+    const away = cell.dmg >= 1;
+    if (!away && !(P.jitter > 0 && cell.dmg >= P.crackAt)) return;
     cell.alive = false;
     const k = letter.cells.indexOf(cell); if (k < 0) return;
     letter.cells.splice(k, 1); sim.removeCollider(letter, cell.collider);
-    spawnPieces(letter, [cell], sx, sy, 0.55, 3, P.passive && vel ? { x: sx, y: sy, vx: vel[0], vy: vel[1], vz: vel[2] } : undefined);
-    if (P.shake) shake = Math.max(shake, 0.12);
-    if (!letter.cells.length) { sim.remove(letter); solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1); letter.blown = true; }
+    const kin = vel ? { x: sx, y: sy, vx: vel[0], vy: vel[1], vz: vel[2] } : undefined;
+    if (away) spawnPieces(letter, [cell], sx, sy, 0.55, 3, P.passive ? kin : undefined);
+    else spawnPieces(letter, [cell], sx, sy, 0.1, 3, kin, { jitter: true, fit: Math.max(P.gap, 0.93) });
+    if (P.shake) shake = Math.max(shake, away ? 0.12 : 0.05);
+    if (!letter.cells.length && away) { sim.remove(letter); solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1); letter.blown = true; }
   }
 
   // A piece that hits another letter hard sets the whole letter off; a lesser hit only damages the box it struck.
@@ -545,7 +556,7 @@ export async function mountColumns(stage, mode) {
   const groups = EXPLODE
     ? [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }, { key: 'bounce', label: 'Bounce (contacts)', min: 0.05, max: 0.95, step: 0.05 }, { key: 'friction', label: 'Slipperiness (low = grippy)', min: 0.02, max: 1, step: 0.02 }] },
        { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.4, max: 2.5, step: 0.05 }, { key: 'speed', label: 'Outward speed', min: 0.3, max: 2.5, step: 0.05 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
-       { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 2, max: 20, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.2, max: 1, step: 0.02 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.2, max: 2, step: 0.05 }] },
+       { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 2, max: 20, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.2, max: 1, step: 0.02 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'reach', label: 'Crack reach', min: 1, max: 9, step: 0.25 }, { key: 'crackAt', label: 'Damage that starts a crack', min: 0.05, max: 1, step: 0.01 }, { key: 'jitter', label: 'Jitter (0 = boxes only break away)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.2, max: 2, step: 0.05 }] },
        { name: 'Pieces (next blast)', items: [{ key: 'size', label: 'Size (small = many)', min: 0.1, max: 1.6, step: 0.02 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.8, max: 1, step: 0.01 }] },
        { name: 'Effects', items: [{ key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }] },
        colourGroup, cameraGroup]
