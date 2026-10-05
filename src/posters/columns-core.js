@@ -11,6 +11,7 @@
 // thickened into overlapping boxes. World units: a letter is 2 high.
 
 import { loadRapier, Sim } from './physics.js';
+import { perspective, ortho, lookAt, mul, invert, transformPoint } from './lib3d.js';
 import { SKELETON, ratio } from './lettering.js';
 import { compile } from '../engine.js';
 import { shatterBox } from './shatter.js';
@@ -24,7 +25,7 @@ const qrot = (q, v) => {
 const UNIT_H = 2.0;            // letter height in world units
 const COL_H = 3.4;             // column height
 const MAX_INST = 4000;
-const MAX_SHARDS = 900, MAX_SHARD_VERTS = 150000;
+const MAX_SHARDS = 2500, MAX_SHARD_VERTS = 400000;
 
 const VS = `#version 300 es
 layout(location=0) in vec3 aPos;
@@ -33,7 +34,7 @@ layout(location=2) in vec3 iPos;
 layout(location=3) in vec4 iQuat;
 layout(location=4) in vec3 iHalf;
 layout(location=5) in float iDmg;
-uniform vec2 uView;
+uniform mat4 uVP;
 out vec3 vN;
 out float vTop;
 out float vDmg;
@@ -43,7 +44,7 @@ void main() {
   vN = rot(iQuat, aNrm);
   vTop = aNrm.z > 0.9 ? 1.0 : 0.0;     // the face the letter is cut into, whichever way the column lies
   vDmg = iDmg;
-  gl_Position = vec4(p.x / uView.x, p.y / uView.y, -p.z / 40.0, 1.0);   // orthographic, looking straight down
+  gl_Position = uVP * vec4(p, 1.0);
 }`;
 // the pieces of a shattered letter: free-form meshes, each vertex tagged with its piece, placed from a transform texture
 const VS_SHARD = `#version 300 es
@@ -51,7 +52,7 @@ layout(location=0) in vec3 aPos;
 layout(location=1) in vec3 aNrm;
 layout(location=2) in float aShard;
 uniform sampler2D uXf;
-uniform vec2 uView;
+uniform mat4 uVP;
 out vec3 vN;
 out float vTop;
 out float vDmg;
@@ -63,7 +64,7 @@ void main() {
   vN = rot(q, aNrm);
   vTop = aNrm.z > 0.99 ? 1.0 : 0.0;
   vDmg = 0.0;
-  gl_Position = vec4(p.x / uView.x, p.y / uView.y, -p.z / 40.0, 1.0);
+  gl_Position = uVP * vec4(p, 1.0);
 }`;
 const FS = `#version 300 es
 precision highp float;
@@ -139,7 +140,7 @@ export async function mountColumns(stage, mode) {
   stage.root.appendChild(overlay);
   const octx = overlay.getContext('2d');
 
-  const P = EXPLODE ? { gravity: 40, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.4, rough: 1, gap: 0.8, crack: 2.9, passive: 1, transfer: 0.7, bounce: 0.05, friction: 0.98, lines: 0, shake: 0, bg: 1, fg: 0 } : { gravity: 12, topple: 26, bg: 0, fg: 1 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
+  const P = EXPLODE ? { gravity: 40, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.4, rough: 1, gap: 0.8, crack: 2.9, passive: 1, transfer: 0.7, bounce: 0.05, friction: 0.98, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   let pending = [], timers = [];
   let W = 1, H = 1, S = 100, sim = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
@@ -169,7 +170,35 @@ export async function mountColumns(stage, mode) {
     return out;
   }
   const toWorld = (px, py) => [(px - W / 2) / S, -(py - H / 2) / S];
-  const toPx = (x, y) => [x * S + W / 2, -y * S + H / 2];
+  // ---------- camera ----------
+  // Straight down and orthographic by default, so the type reads flat. The camera settings are for setting up and
+  // previewing: tilt and turn orbit the centre of the page, zoom scales, and perspective eases from orthographic to a real lens.
+  let VP = null, invVP = null;
+  function camera() {
+    const hh = H / 2 / S / P.zoom, hw = W / 2 / S / P.zoom, pitch = P.camPitch, yaw = P.camYaw;
+    const dist = 60, eye = [dist * Math.sin(yaw) * Math.cos(pitch), dist * Math.sin(pitch), dist * Math.cos(yaw) * Math.cos(pitch)];
+    const view = lookAt(eye, [0, 0, 0], [0, 1, 0]);
+    let proj;
+    if (P.persp < 0.01) proj = ortho(hw, hh, 5, 200);
+    else {                                                            // a closer camera for more perspective, with the page the same size at the centre
+      const d = 60 - P.persp * 50;
+      const v2 = lookAt([d * Math.sin(yaw) * Math.cos(pitch), d * Math.sin(pitch), d * Math.cos(yaw) * Math.cos(pitch)], [0, 0, 0], [0, 1, 0]);
+      VP = mul(perspective(2 * Math.atan(hh / d), W / H, 1, 300), v2); invVP = invert(VP); return;
+    }
+    VP = mul(proj, view); invVP = invert(VP);
+  }
+  /** pixels -> a ray in the world: { o, d } */
+  function screenRay(px, py) {
+    const nx = (px / W) * 2 - 1, ny = 1 - (py / H) * 2;
+    const a = transformPoint(invVP, nx, ny, -1), b = transformPoint(invVP, nx, ny, 1), dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], l = Math.hypot(dx, dy, dz) || 1;
+    return { o: a, d: [dx / l, dy / l, dz / l] };
+  }
+  /** where the pixel's ray crosses the plane z = h */
+  function planePoint(px, py, h) {
+    const r = screenRay(px, py), t = Math.abs(r.d[2]) < 1e-6 ? 0 : (h - r.o[2]) / r.d[2];
+    return [r.o[0] + r.d[0] * t, r.o[1] + r.d[1] * t];
+  }
+  const toPx = (x, y, z = 0) => { const p = transformPoint(VP, x, y, z); return [(p[0] * 0.5 + 0.5) * W, (0.5 - p[1] * 0.5) * H]; };
 
   // ---------- world ----------
   function newWorld() {
@@ -246,6 +275,7 @@ export async function mountColumns(stage, mode) {
     S = 1; // placeholder so the layout can be measured in pixels
     const poses = layoutPx();
     S = poses[0].h / UNIT_H;
+    camera();
     for (const p of poses) addLetter(p);
     fade = 0;
   }
@@ -253,7 +283,7 @@ export async function mountColumns(stage, mode) {
   // ---------- interaction ----------
   const wake = (b) => b.wake();
   function pick(q) {
-    const [x, y] = toWorld(q.x, q.y), hit = sim.castDown(x, y);
+    const r = screenRay(q.x, q.y), hit = sim.cast({ x: r.o[0], y: r.o[1], z: r.o[2] }, { x: r.d[0], y: r.d[1], z: r.d[2] }, 400);
     return hit && !hit.body.isWall ? { body: hit.body, point: hit.point } : null;
   }
 
@@ -272,15 +302,15 @@ export async function mountColumns(stage, mode) {
   // Pieces: every box a letter is made of is shattered into irregular convex pieces (see shatter.js), each a rigid body
   // and a free-form mesh. `power` scales how hard they are thrown; `gen` counts how far along a chain they are.
   function spawnPieces(letter, cells, cx, cy, power, gen, kin) {
-    const sp0 = Math.sqrt(power), made = [], size = P.size * (1 + shardCount / 400);   // the more rubble already, the coarser the next pieces
+    const sp0 = Math.sqrt(power), made = [], size = P.size * (1 + shardCount / 1400);   // the more rubble already, the coarser the next pieces
     for (const c of cells) {
-      const ca = Math.cos(c.a), sa = Math.sin(c.a), parts = shatterBox(c.hx, c.hy, COL_H / 2, size, P.rough, P.gap);
+      const ca = Math.cos(c.a), sa = Math.sin(c.a), parts = shatterBox(c.hx, c.hy, COL_H / 2, size, P.rough, P.gap, 140);
       for (const pc of parts) {
         if (shardCount >= MAX_SHARDS || shardVerts + pc.tris.length / 6 > MAX_SHARD_VERTS) break;
         const px = letter.position.x + c.x + ca * pc.c[0] - sa * pc.c[1], py = letter.position.y + c.y + sa * pc.c[0] + ca * pc.c[1], pz = letter.position.z + pc.c[2];
         const sb = sim.dynamic({ x: px, y: py, z: pz }, { angle: c.a, linearDamping: 0.05, angularDamping: 0.1 });
         let ok = null;
-        if (size < 0.65) {                                         // small pieces collide as boxes: far cheaper, and at this size nobody can tell
+        if (size < 0.2) {                                          // the tiniest pieces collide as boxes: cheaper, and nobody can tell
           let mx = 0, my = 0, mz = 0; for (const v of pc.verts) { mx = Math.max(mx, Math.abs(v[0])); my = Math.max(my, Math.abs(v[1])); mz = Math.max(mz, Math.abs(v[2])); }
           ok = sim.box(sb, [Math.max(0.02, mx * 0.82), Math.max(0.02, my * 0.82), Math.max(0.02, mz * 0.82)], { density: 0.6 });
         } else {
@@ -410,7 +440,7 @@ export async function mountColumns(stage, mode) {
     if (press.mode === 'pending' && press.t > 0.22) press.mode = 'hold';
     if (press.mode === 'drag') {                                    // a spring from the grabbed point to the finger
       wake(b);
-      const wp = b.toWorld(press.local), [tx, ty] = toWorld(press.tx, press.ty);
+      const wp = b.toWorld(press.local), [tx, ty] = planePoint(press.tx, press.ty, wp.z);
       const v = b.velocity, m = b.mass, k = 70 * m, c = 7 * m;
       const fx = clamp((tx - wp.x) * k - v.x * c, -60 * m, 60 * m), fy = clamp((ty - wp.y) * k - v.y * c, -60 * m, 60 * m);
       b.impulseAt({ x: fx * dt, y: fy * dt, z: 0 }, wp);              // a force, as an impulse for this step
@@ -419,6 +449,7 @@ export async function mountColumns(stage, mode) {
 
   // ---------- drawing ----------
   function draw() {
+    camera(); const vp = VP;
     let n = 0;
     for (const b of solids) {
       if (b.isShard) continue;
@@ -455,7 +486,7 @@ export async function mountColumns(stage, mode) {
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.disable(gl.CULL_FACE);
     if (n) {
       prog.use();
-      gl.uniform2f(prog.u.uView, W / 2 / S, H / 2 / S);
+      gl.uniformMatrix4fv(prog.u.uVP, false, vp);
       gl.uniform1f(prog.u.uFade, fade); gl.uniform1f(prog.u.uFg, P.fg); gl.uniform1f(prog.u.uBg, P.bg);
       gl.bindVertexArray(vao);
       gl.bindBuffer(gl.ARRAY_BUFFER, instBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, inst, 0, n * 11);
@@ -463,7 +494,7 @@ export async function mountColumns(stage, mode) {
     }
     if (shardCount) {
       progS.use();
-      gl.uniform2f(progS.u.uView, W / 2 / S, H / 2 / S);
+      gl.uniformMatrix4fv(progS.u.uVP, false, vp);
       gl.uniform1f(progS.u.uFade, fade); gl.uniform1f(progS.u.uFg, P.fg); gl.uniform1f(progS.u.uBg, P.bg);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, xfTex); gl.uniform1i(progS.u.uXf, 0);
       gl.bindVertexArray(vaoS);
@@ -509,30 +540,34 @@ export async function mountColumns(stage, mode) {
 
   const reform = () => { timers = []; build(); resize2(); };
   const detonateAll = () => { timers = letters.map((l, i) => ({ l, t: i * 0.11 })); };   // one after another, left to right
+  const cameraGroup = { name: 'Camera (for setting up)', items: [{ key: 'camPitch', label: 'Tilt', min: 0, max: 1.3, step: 0.01 }, { key: 'camYaw', label: 'Turn', min: -1.6, max: 1.6, step: 0.01 }, { key: 'zoom', label: 'Zoom', min: 0.4, max: 2.5, step: 0.02 }, { key: 'persp', label: 'Perspective (0 = flat)', min: 0, max: 1, step: 0.01 }] };
   const colourGroup = { name: 'Colour (black and white only)', items: [{ key: 'bg', label: 'Background', min: 0, max: 1, step: 0.01 }, { key: 'fg', label: 'Foreground', min: 0, max: 1, step: 0.01 }] };
   const groups = EXPLODE
     ? [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }, { key: 'bounce', label: 'Bounce (contacts)', min: 0.05, max: 0.95, step: 0.05 }, { key: 'friction', label: 'Slipperiness (low = grippy)', min: 0.02, max: 1, step: 0.02 }] },
        { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.4, max: 2.5, step: 0.05 }, { key: 'speed', label: 'Outward speed', min: 0.3, max: 2.5, step: 0.05 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
        { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 2, max: 20, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.2, max: 1, step: 0.02 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.2, max: 2, step: 0.05 }] },
-       { name: 'Pieces (next blast)', items: [{ key: 'size', label: 'Size (small = many, heavy)', min: 0.22, max: 1.6, step: 0.02 }, { key: 'rough', label: 'Irregularity', min: 0, max: 1, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.8, max: 1, step: 0.01 }] },
+       { name: 'Pieces (next blast)', items: [{ key: 'size', label: 'Size (small = many)', min: 0.1, max: 1.6, step: 0.02 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.8, max: 1, step: 0.01 }] },
        { name: 'Effects', items: [{ key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }] },
-       colourGroup]
+       colourGroup, cameraGroup]
     : [{ name: 'World', items: [{ key: 'gravity', label: 'Gravity', min: 4, max: 40, step: 1 }] },
        { name: 'Touch', items: [{ key: 'topple', label: 'Tap push', min: 6, max: 50, step: 1 }] },
-       colourGroup];
-  return {
-    tune: {
-      title: EXPLODE ? 'Explode' : 'Collapse',
-      values: { ...P }, defaults: { ...P }, groups,
-      actions: EXPLODE ? { 'Re-form': reform, 'Detonate all': detonateAll } : { 'Re-form': reform },
-      set(k, v) {
-        P[k] = v; this.values[k] = v;
-        if (k === 'gravity') sim.setGravity(v);
-        if (k === 'bg') stage.setBackdrop(v);
-        if (EXPLODE && (k === 'bounce' || k === 'friction')) sim.setMaterial(P.friction, P.bounce);
-      },
-      reset() { Object.assign(P, this.defaults); Object.assign(this.values, this.defaults); sim.setGravity(P.gravity); stage.setBackdrop(P.bg); },
+       colourGroup, cameraGroup];
+  const tuneApi = {
+    title: EXPLODE ? 'Explode' : 'Collapse',
+    values: { ...P }, defaults: { ...P }, groups,
+    actions: Object.assign(EXPLODE ? { 'Re-form': reform, 'Detonate all': detonateAll } : { 'Re-form': reform }, {
+      'Reset camera': () => { for (const k of ['camPitch', 'camYaw', 'persp']) tuneApi.set(k, 0); tuneApi.set('zoom', 1); },
+    }),
+    set(k, v) {
+      P[k] = v; this.values[k] = v;
+      if (k === 'gravity') sim.setGravity(v);
+      if (k === 'bg') stage.setBackdrop(v);
+      if (EXPLODE && (k === 'bounce' || k === 'friction')) sim.setMaterial(P.friction, P.bounce);
     },
+    reset() { Object.assign(P, this.defaults); Object.assign(this.values, this.defaults); sim.setGravity(P.gravity); stage.setBackdrop(P.bg); },
+  };
+  return {
+    tune: tuneApi,
     debug: { world: () => sim, letters: () => letters, solids: () => solids, topple, detonate, S: () => S, pick, pending: () => pending },
     destroy() {
       offs.forEach((f) => f());

@@ -73,14 +73,15 @@ function piece(faces, shrink) {
 }
 
 /** Break a box of half extents (hx, hy, hz) into pieces of about `size`. jitter 0..1 is how irregular the cuts are. */
-export function shatterBox(hx, hy, hz, size, jitter = 0.8, shrink = 0.97, rand = Math.random) {
+export function shatterBox(hx, hy, hz, size, jitter = 0.8, shrink = 0.97, cap = 36, rand = Math.random) {
   let nx, ny, nz, s = size;
-  do {                                                                // never more than about 36 pieces from one box
+  do {                                                                // never more than `cap` pieces from one box
     nx = Math.max(1, Math.round(2 * hx / s)); ny = Math.max(1, Math.round(2 * hy / s)); nz = Math.max(1, Math.round(2 * hz / s)); s *= 1.12;
-  } while (nx * ny * nz > 36);
+  } while (nx * ny * nz > cap);
   const seeds = [];
   for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) for (let k = 0; k < nz; k++) {
-    seeds.push([-hx + (i + 0.5 + (rand() - 0.5) * jitter) * 2 * hx / nx, -hy + (j + 0.5 + (rand() - 0.5) * jitter) * 2 * hy / ny, -hz + (k + 0.5 + (rand() - 0.5) * jitter) * 2 * hz / nz]);
+    const cl = (v, h) => Math.max(-h * 0.98, Math.min(h * 0.98, v));   // jitter past 1 lets a seed wander into the next cell, so pieces differ a lot in size
+    seeds.push([cl(-hx + (i + 0.5 + (rand() - 0.5) * jitter) * 2 * hx / nx, hx), cl(-hy + (j + 0.5 + (rand() - 0.5) * jitter) * 2 * hy / ny, hy), cl(-hz + (k + 0.5 + (rand() - 0.5) * jitter) * 2 * hz / nz, hz)]);
   }
   const reach = 2.4 * Math.max(2 * hx / nx, 2 * hy / ny, 2 * hz / nz), out = [];
   for (let i = 0; i < seeds.length; i++) {

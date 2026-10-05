@@ -31,7 +31,7 @@ export function createPanel(tune, { toast = () => {}, onClose = () => {} } = {})
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = label; b.addEventListener('click', fn); actions.appendChild(b);
   };
-  Object.entries(tune.actions || {}).forEach(([label, fn]) => mk(label, fn));
+  Object.entries(tune.actions || {}).forEach(([label, fn]) => mk(label, () => { fn(); sync(); }));
   mk('Copy settings', async () => {
     const json = JSON.stringify(tune.values, null, 2);
     try { await navigator.clipboard.writeText(json); toast('Settings copied'); }

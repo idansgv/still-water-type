@@ -117,6 +117,15 @@ export class Sim {
     return { body, point: { x, y, z: top - hit.timeOfImpact }, collider: hit.collider };
   }
 
+  /** the first thing hit by a ray in any direction: { body, point } or null */
+  cast(origin, dir, maxToi = 100) {
+    const hit = this.world.castRay(new this.R.Ray(origin, dir), maxToi, true);
+    if (!hit) return null;
+    const body = this.owner.get(hit.collider.handle); if (!body) return null;
+    const t = hit.timeOfImpact;
+    return { body, point: { x: origin.x + dir.x * t, y: origin.y + dir.y * t, z: origin.z + dir.z * t }, collider: hit.collider };
+  }
+
   step(dt, onHit) {
     this.world.timestep = dt;
     for (const b of this.dynamics) { b.pv.x = b.velocity.x; b.pv.y = b.velocity.y; b.pv.z = b.velocity.z; }
