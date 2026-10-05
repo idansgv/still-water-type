@@ -134,7 +134,7 @@ export function mountColumns(stage, mode) {
   stage.root.appendChild(overlay);
   const octx = overlay.getContext('2d');
 
-  const P = EXPLODE ? { gravity: 12, blast: 1, speed: 1, lift: 1, spin: 1, chain: 12, decay: 0.5, size: 1.1, rough: 0.8, gap: 0.97, crack: 1, passive: 1, transfer: 0.7, bounce: 0.55, friction: 0.18, lines: 1, shake: 1, bg: 0, fg: 1 } : { gravity: 12, topple: 26, bg: 0, fg: 1 };
+  const P = EXPLODE ? { gravity: 40, blast: 0.4, speed: 0.3, lift: 0, spin: 0, chain: 20, decay: 0.2, size: 0.4, rough: 1, gap: 0.8, crack: 2.9, passive: 1, transfer: 0.7, bounce: 0.05, friction: 0.98, lines: 0, shake: 0, bg: 1, fg: 0 } : { gravity: 12, topple: 26, bg: 0, fg: 1 };   // Explode's defaults are Idan's tuned values (5 Oct 2026)
   const DT = EXPLODE ? 1 / 90 : 1 / 180;       // small steps: bodies hit each other fast, and cannon's contacts are soft
   let pending = [], cmLL = null, timers = [];
   let W = 1, H = 1, S = 100, world = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
@@ -285,8 +285,13 @@ export function mountColumns(stage, mode) {
         if (shardCount >= MAX_SHARDS || shardVerts + pc.tris.length / 6 > MAX_SHARD_VERTS) break;
         const px = letter.position.x + c.x + ca * pc.c[0] - sa * pc.c[1], py = letter.position.y + c.y + sa * pc.c[0] + ca * pc.c[1], pz = letter.position.z + pc.c[2];
         let shape;
-        try { shape = new CANNON.ConvexPolyhedron({ vertices: pc.verts.map((v) => new CANNON.Vec3(v[0], v[1], v[2])), faces: pc.faces }); } catch (e) { continue; }
-        const sb = new CANNON.Body({ material: MAT.letter, mass: Math.max(0.03, pc.vol * 0.6), position: new CANNON.Vec3(px, py, pz), linearDamping: 0.05, angularDamping: 0.1, allowSleep: true, sleepSpeedLimit: 0.2, sleepTimeLimit: 0.5 });
+        if (size < 0.65) {                                         // small pieces collide as boxes: far cheaper, and at this size nobody can tell
+          let mx = 0, my = 0, mz = 0; for (const v of pc.verts) { mx = Math.max(mx, Math.abs(v[0])); my = Math.max(my, Math.abs(v[1])); mz = Math.max(mz, Math.abs(v[2])); }
+          shape = new CANNON.Box(new CANNON.Vec3(Math.max(0.02, mx * 0.82), Math.max(0.02, my * 0.82), Math.max(0.02, mz * 0.82)));
+        } else {
+          try { shape = new CANNON.ConvexPolyhedron({ vertices: pc.verts.map((v) => new CANNON.Vec3(v[0], v[1], v[2])), faces: pc.faces }); } catch (e) { continue; }
+        }
+        const sb = new CANNON.Body({ material: MAT.letter, mass: Math.max(0.03, pc.vol * 0.6), position: new CANNON.Vec3(px, py, pz), linearDamping: 0.05, angularDamping: 0.1, allowSleep: true, sleepSpeedLimit: 0.45, sleepTimeLimit: 0.3 });
         sb.quaternion.setFromEuler(0, 0, c.a);
         sb.addShape(shape);
         if (kin) {                                                    // breaking apart: no power of its own, only what the blow hands it

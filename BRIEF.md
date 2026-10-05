@@ -515,3 +515,5 @@ one; split them into two posters (Collapse and Explode); Explode is tap-to-deton
 the hidden form for the projection poster was first a cloth over hidden balls (Drape, rejected as too soft), then **hard-edged
 blocks** (Skyline); the garden is a fourth, after those. **Status:** Collapse and Explode are built as
 drafts awaiting Idan's review; Skyline (the projection poster, hard-edged blocks, after Drape was rejected as too soft) is built as a first draft and awaiting review; the garden is not started.
+
+**Explode defaults (5 October 2026).** Idan's tuned values are now the defaults: gravity 40, blast 0.4, speed 0.3, lift 0, spin 0, chain impact 20 and strength kept 0.2 (chains almost never fire), piece size 0.4, irregularity 1, fit 0.8, cracking 2.9, bounce 0.05, slipperiness 0.98 (very grippy), burst lines and shake off, white background with black type, struck letters break apart with momentum passed 0.7. Pieces under size 0.65 collide as boxes (cheaper); measured 1 to 10 ms per frame after a tap on desktop, up to about 22 ms for D with its pile of pieces, so watch phones.
