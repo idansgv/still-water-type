@@ -75,6 +75,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./skyline.js'),
   },
+  {
+    slug: 'fold',
+    title: 'Fold',
+    words: ['Idan', 'Segev'],
+    blurb: 'Every letter is folded paper. Tilt to see the creases; tap a letter to crumple it.',
+    hint: null,
+    themes: { dark: 1, light: 0 },
+    draft: true,
+    load: () => import('./fold.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

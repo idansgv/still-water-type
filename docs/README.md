@@ -10,6 +10,7 @@ Written 5 October 2026. `BRIEF.md` in the repository root is the running record 
   - [Explode](posters/explode.md): live, in the shuffle
   - [Collapse](posters/collapse.md): draft (`?p=collapse`)
   - [Skyline](posters/skyline.md): draft (`?p=skyline`)
+  - [Fold](posters/fold.md): draft (`?p=fold`), the per-letter folded-paper rethink of Sheet
   - [Emboss](posters/emboss.md): draft, rejected (`?p=emboss`)
 - Archive (removed or never built; the code is in git history):
   - [Breath](posters/archive/breath.md), [Meltdown](posters/archive/meltdown.md), [Puff up and away](posters/archive/puff.md), [Point of view](posters/archive/point-of-view.md), [Drape](posters/archive/drape.md), [Flat](posters/archive/flat.md)
