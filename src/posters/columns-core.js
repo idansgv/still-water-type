@@ -128,12 +128,13 @@ export async function mountColumns(stage, mode) {
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
   gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
   gl.bindVertexArray(null);
-  const xfTex = gl.createTexture(), xf = new Float32Array(MAX_SHARDS * 8);
+  const XF_ROWS = Math.ceil(MAX_SHARDS * 2 / XF_W), xfTex = gl.createTexture(), xf = new Float32Array(XF_W * XF_ROWS * 4);   // exactly the texture's size, or the upload is refused
   gl.bindTexture(gl.TEXTURE_2D, xfTex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, XF_W, Math.ceil(MAX_SHARDS * 2 / XF_W), 0, gl.RGBA, gl.FLOAT, xf);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, XF_W, XF_ROWS, 0, gl.RGBA, gl.FLOAT, xf);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   let shardCount = 0, shardVerts = 0;
+  if (gl.getError() !== gl.NO_ERROR) console.error('[columns] the piece transform texture was refused: pieces would all draw at the centre');
 
   // a 2D layer on top for the burst lines
   const overlay = document.createElement('canvas');
@@ -526,7 +527,7 @@ export async function mountColumns(stage, mode) {
     if (shardCount) {
       for (const b of solids) if (b.isShard) { const o = b.sidx * 8, q = b.quaternion; xf[o] = b.position.x; xf[o + 1] = b.position.y; xf[o + 2] = b.position.z; xf[o + 4] = q.x; xf[o + 5] = q.y; xf[o + 6] = q.z; xf[o + 7] = q.w; }
       gl.bindTexture(gl.TEXTURE_2D, xfTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, XF_W, Math.min(Math.ceil(MAX_SHARDS * 2 / XF_W), Math.ceil(shardCount * 2 / XF_W)), gl.RGBA, gl.FLOAT, xf);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, XF_W, Math.min(XF_ROWS, Math.ceil(shardCount * 2 / XF_W)), gl.RGBA, gl.FLOAT, xf);
     }
     gl.viewport(0, 0, stage.pw, stage.ph);
     gl.clearColor(P.bg, P.bg, P.bg, 1);
