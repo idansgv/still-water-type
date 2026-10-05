@@ -453,7 +453,10 @@ restitution 0.55. Settings: gravity, tap push.
 (`src/posters/shatter.js`): each stroke box is shattered by cutting it with the bisecting planes between jittered seed points
 (a Voronoi cell per seed, all convex, volume conserved), so no two pieces are alike. Every piece is a real convex rigid body
 and a free-form mesh (one growing vertex buffer, each piece placed each frame from a float texture). Pieces that hit another
-letter harder than 12 units per second set that whole letter off, at half the strength each generation. Lesser blows **crack**
+letter harder than 12 units per second set that whole letter off, at half the strength each generation. **Struck letters break apart instead of bursting** (toggle, on by default): only the tapped letter has power of its own; a letter set
+off by an impact (or a box broken off by one) spawns pieces at rest and hands them just the momentum of what hit them, falling off
+sharply with distance from the impact point (about 1.2 units), so the near side is shoved and the rest slumps. No burst lines for
+those. Settings: the toggle, and how much momentum is passed on (default 0.7). Lesser blows **crack**
 the standing letters: each physics box has a damage value (its smooth top darkens as it grows); the blast damages the nearest
 boxes of other letters, and hard-ish piece impacts damage the box they hit; at 1 that box breaks off into pieces and the rest of
 the letter stands with a hole. 16 hand-flicked lines and a short shake go with each detonation. Cost: about 5 ms per frame with
