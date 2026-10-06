@@ -85,6 +85,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./fold.js'),
   },
+  {
+    slug: 'backlight',
+    title: 'Backlight',
+    words: ['Idan', 'Segev'],
+    blurb: 'Solid type in a black room. Nothing shows until you find the light behind it.',
+    hint: 'Find the light.',
+    themes: { dark: 1, light: 0 },
+    draft: true,
+    load: () => import('./backlight.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);
