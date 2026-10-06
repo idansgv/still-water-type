@@ -38,3 +38,6 @@ Born as "Columns" (one poster with a hold-to-burst gesture), split on 5 October 
 
 ## Known limits
 A resize rebuilds the world and resets the poster. The smallest sizes saturate the per-box and world piece caps and the size coarsens as rubble builds. Not measured on a real older phone.
+
+## Update 6 Oct 2026
+Fourth tuned set applied as defaults (size 0.03, blast 0.08, chain 23.5, crack 1.25, adapt 0, black dust). Shuffle now swaps black-on-white and white-on-black on every shuffle.

@@ -11,6 +11,7 @@ const toastEl = $('toast');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const params = new URLSearchParams(location.search);
 
+let shuffles = 0;         // counts shuffles; posters that can swap black and white do so on every odd one
 let current = null;       // { poster, stage, seed, theme }
 let busy = false;
 let hintTimer = 0;
@@ -174,6 +175,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   setChrome(poster);
 
   const stage = createStage(stageEl, { seed, theme, toast, setBackdrop });
+  stage.flip = shuffles % 2 === 1;
   current = { poster, stage, seed, theme };
   let inst = null;
   try {
@@ -200,6 +202,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
 async function shuffle() {
   if (busy || !current) return;
   const next = pickOther(current.poster.slug);
+  shuffles++;
   if (location.pathname !== '/') history.replaceState(null, '', '/');
   await show(next);
 }

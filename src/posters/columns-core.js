@@ -144,7 +144,8 @@ export async function mountColumns(stage, mode) {
   const octx = overlay.getContext('2d');
   const dust = new Dust(gl);
 
-  const P = EXPLODE ? { gravity: 26, blast: 0.4, speed: 1.12, lift: 0.4, spin: 1.4, chain: 30, decay: 0.3, size: 0.16, rough: 2, gap: 0.8, crack: 0.25, crackAt: 0.46, jitter: 0.05, reach: 2.95, hit: 0.35, passive: 1, transfer: 0.2, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.4, dustLife: 1.6, dustHits: 0, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 0.85, adapt: 1 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (third set, 5 Oct 2026)
+  const P = EXPLODE ? { gravity: 26, blast: 0.08, speed: 1.12, lift: 0.4, spin: 1.4, chain: 23.5, decay: 0.51, size: 0.03, rough: 2, gap: 0.91, crack: 1.25, crackAt: 0.46, jitter: 0.05, reach: 2.95, hit: 0.15, passive: 1, transfer: 0.15, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.31, dustLife: 0.6, dustHits: 1, dustTone: 0, dustSoft: 0, dustAlpha: 1, height: 0.75, adapt: 0 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (fourth set, 6 Oct 2026)
+  if (EXPLODE && stage.flip) { const t = P.bg; P.bg = P.fg; P.fg = t; }   // every shuffle swaps black-on-white and white-on-black
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   let pending = [], timers = [];
   // Adapting to the device: the piece size is multiplied by `perf`, which starts a little coarse on a phone with few cores
