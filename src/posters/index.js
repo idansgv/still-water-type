@@ -95,6 +95,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./backlight.js'),
   },
+  {
+    slug: 'turn',
+    title: 'Turn',
+    words: ['Idan', 'Segev'],
+    blurb: 'Thin black letters, edge-on against a light. Turn each one to read it.',
+    hint: 'Turn the letters.',
+    themes: { dark: 1, light: 0 },
+    draft: true,
+    load: () => import('./turn.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);
