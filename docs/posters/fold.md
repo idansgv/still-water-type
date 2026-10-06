@@ -38,3 +38,6 @@ The folds are subtle at the default view angle; relief, shading and the tilt ran
 
 ## Update: balls have weight
 Tossed letters are now thrown up in an arc, land with a thud, hop lower each time, then roll with rolling resistance. They kick each other up on contact, hit the page edges with a hop, and cast a hard dark shadow that drifts and grows with height. Params: `hop`, `gravity`, `thud`, `roll`.
+
+## Status
+Parked (2026-10-06). Stays a draft, not in the shuffle. Idan: the ball physics and shadows still looked bad after the second pass.
