@@ -25,7 +25,7 @@ const qrot = (q, v) => {
 };
 const UNIT_H = 2.0;            // letter height in world units
 const MAX_INST = 4000;
-const MAX_SHARDS = 9000, MAX_SHARD_VERTS = 400000, XF_W = 2048;   // the transform texture is XF_W wide and as many rows as it needs
+const MAX_SHARDS = 16000, MAX_SHARD_VERTS = 700000, XF_W = 2048;   // the transform texture is XF_W wide and as many rows as it needs
 
 const VS = `#version 300 es
 layout(location=0) in vec3 aPos;
@@ -319,11 +319,10 @@ export async function mountColumns(stage, mode) {
   // are grouped into chunks, and only chunks are rigid bodies (one convex hull each), which is what keeps the physics
   // cheap however fine the fragments are. When most of a box has gone the rest of it lets go too.
   const setXf = (i, x, y, z, d, qx, qy, qz, qw) => { const o = i * 8; xf[o] = x; xf[o + 1] = y; xf[o + 2] = z; xf[o + 3] = d; xf[o + 4] = qx; xf[o + 5] = qy; xf[o + 6] = qz; xf[o + 7] = qw; };
-  const FRAG_CAP = 9;                                                   // most fragments cut from one smooth box
 
   function fracture(letter) {
     if (letter.fr) return letter.fr;
-    const fr = letter.fr = [], size = clamp(P.size, 0.07, 1.6) * perf;
+    const fr = letter.fr = [], size = clamp(P.size, 0.03, 1.6) * perf, FRAG_CAP = size < 0.06 ? 30 : size < 0.1 ? 18 : 9;   // fragments cut from one smooth box, at most
     for (const c of letter.cells) c.nfrag = 0;
     for (const f of letter.drawn) {
       const parts = shatterBox(f.hx, f.hy, colH / 2, size, 0.8, 1.0, FRAG_CAP), ca = Math.cos(f.a), sa = Math.sin(f.a);
@@ -355,9 +354,9 @@ export async function mountColumns(stage, mode) {
   function release(letter, frags, o) {
     if (!frags.length) return;
     const bodies = solids.length - letters.length;
-    const cap = bodies > 320 ? 14 : bodies > 160 ? 28 : 48;                // the busier the world already is, the larger the chunks
+    const cap = bodies > 900 ? 24 : bodies > 600 ? 60 : bodies > 300 ? 120 : 260;   // the busier the world already is, the larger the chunks
     const bin = (cs) => { const m = new Map(); for (const g of frags) { const k = Math.floor(g.x / cs) + ',' + Math.floor(g.y / cs) + ',' + Math.floor(g.z / cs); (m.get(k) || m.set(k, []).get(k)).push(g); } return m; };
-    let cs = Math.max(0.1, P.chunk) * perf, groups = bin(cs);
+    let cs = Math.max(0.02, P.chunk) * perf, groups = bin(cs);
     while (groups.size > cap && cs < 4) { cs *= 1.25; groups = bin(cs); }
     for (const list of groups.values()) {
       if (shardCount >= MAX_SHARDS) break;
@@ -372,7 +371,7 @@ export async function mountColumns(stage, mode) {
         }
       }
       const sb = sim.dynamic({ x: bx, y: by, z: bz }, { linearDamping: 0.05, angularDamping: 0.1 });
-      let ok = sim.hull(sb, Float32Array.from(pts), { density: 0.6 });
+      let ok = mx < 0.07 && my < 0.07 && mz < 0.07 ? sim.box(sb, [Math.max(0.02, mx * 0.85), Math.max(0.02, my * 0.85), Math.max(0.02, mz * 0.85)], { density: 0.6 }) : sim.hull(sb, Float32Array.from(pts), { density: 0.6 });   // the tiniest chunks are boxes: cheaper
       if (!ok) ok = sim.box(sb, [Math.max(0.03, mx * 0.85), Math.max(0.03, my * 0.85), Math.max(0.03, mz * 0.85)], { density: 0.6 });
       const idx = shardCount++;
       sb.isShard = true; sb.gen = o.gen || 0; sb.sidx = idx;
@@ -681,7 +680,7 @@ export async function mountColumns(stage, mode) {
     ? [{ name: 'World', items: [{ key: 'height', label: 'Extrusion height (re-forms)', min: 0.05, max: 8, step: 0.05 }, { key: 'gravity', label: 'Gravity', min: 2, max: 40, step: 1 }, { key: 'bounce', label: 'Bounce (contacts)', min: 0.05, max: 0.95, step: 0.05 }, { key: 'friction', label: 'Slipperiness (low = grippy)', min: 0.02, max: 1, step: 0.02 }] },
        { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.02, max: 2.5, step: 0.01 }, { key: 'speed', label: 'Outward speed', min: 0.02, max: 2.5, step: 0.01 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
        { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 1, max: 30, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.02, max: 1, step: 0.01 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'reach', label: 'Crack reach', min: 0.2, max: 9, step: 0.05 }, { key: 'hit', label: 'Damage from flying pieces', min: 0, max: 3, step: 0.01 }, { key: 'crackAt', label: 'Damage that starts a crack', min: 0.05, max: 1, step: 0.01 }, { key: 'jitter', label: 'Jitter (0 = boxes only break away)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.01, max: 2, step: 0.01 }] },
-       { name: 'Pieces', items: [{ key: 'size', label: 'Fracture detail (small = finer, re-forms)', min: 0.03, max: 1.6, step: 0.01 }, { key: 'chunk', label: 'Chunk size (what flies; small = more bodies)', min: 0.1, max: 1.2, step: 0.01 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.5, max: 1, step: 0.01 }] },
+       { name: 'Pieces', items: [{ key: 'size', label: 'Fracture detail (small = finer, re-forms)', min: 0.03, max: 1.6, step: 0.01 }, { key: 'chunk', label: 'Chunk size (what flies; small = more bodies)', min: 0.02, max: 1.2, step: 0.01 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.5, max: 1, step: 0.01 }] },
        { name: 'Effects', items: [{ key: 'adapt', label: 'Adapt to slow devices', type: 'toggle' }, { key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }, { key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.05, max: 3, step: 0.01 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.2, max: 5, step: 0.1 }, { key: 'dustTone', label: 'Dust tone (0 black, 1 white)', min: 0, max: 1, step: 0.01 }, { key: 'dustSoft', label: 'Dust softness (0 = hard edged)', min: 0, max: 1, step: 0.01 }, { key: 'dustAlpha', label: 'Dust opacity', min: 0.1, max: 1, step: 0.01 }, { key: 'dustHits', label: 'Dust from impacts', type: 'toggle' }] },
        colourGroup, cameraGroup]
     : [{ name: 'World', items: [{ key: 'height', label: 'Extrusion height (re-forms)', min: 0.05, max: 8, step: 0.05 }, { key: 'gravity', label: 'Gravity', min: 2, max: 40, step: 1 }] },

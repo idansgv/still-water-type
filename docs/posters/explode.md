@@ -56,3 +56,5 @@ Fourth tuned set applied as defaults (size 0.03, blast 0.08, chain 23.5, crack 1
 **Result.** About 2 ms per physics step with 230 bodies after Detonate all, against about 140 ms before.
 
 **Trade-off.** Debris is chunks of seamed fragments, not thousands of independent crumbs, so it reads chunkier than the old tiny pieces. Lower `chunk` to taste.
+
+**Smaller chunks (7 Oct 2026).** Chunk size now goes down to 0.02 and fracture detail to 0.03 (up to 30 fragments per smooth box); the tiniest chunks are boxes. The body budget scales: up to 260 chunks per release while the world is quiet, fewer as it fills (more than 300, 600, 900 bodies). Measured at chunk 0.03: about 700 bodies and 8 ms per step in the test browser (0.16: about 230 bodies, 2 ms).
