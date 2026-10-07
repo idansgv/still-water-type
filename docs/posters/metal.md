@@ -22,3 +22,5 @@ Panel (`?p=metal&tune`, or T): **Mercury** (surface tension, how far agitation s
 Your settings (tension 400, friction 12.5, calm 1.1, forget 0.15, max speed 1000, splash 0.6, tilt 300, relief 6, main highlight 1.05) are now the defaults. On a black page the metal is inverted: white, with a few dark reflections.
 
 Black page (7 Oct 2026): the inverted white metal looked like chalk, so the default is now chrome: the reflection looks into a bright sky above and to the left and a dark room below, so strokes have a dark middle and bright, directional edges. Panel: "Black page: chrome (1) or inverted (0)". The light page is unchanged.
+
+Black page, second try (7 Oct 2026): chrome was rejected. The black page now shows the same black metal (obsidian) with a stronger rim and a slightly lifted base so the letters read against the black; the highlights are unchanged. Panel: "Black page: rim light" and "base grey". The inverted and chrome looks are removed.
