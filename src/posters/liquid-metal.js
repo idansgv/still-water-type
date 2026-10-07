@@ -63,7 +63,8 @@ precision highp float;
 uniform sampler2D uField, uBlur;
 uniform vec2 uTexel;
 uniform vec3 uInk, uPaper;
-uniform float uT, uK;
+uniform float uT, uK, uRim, uBase;
+uniform vec3 uLamp1, uLamp2;                                       // brightness, and the two edges of the highlight
 in vec2 vUv;
 out vec4 o;
 void main() {
@@ -76,10 +77,10 @@ void main() {
   float gy = texture(uBlur, vUv + vec2(0.0, e.y)).r - texture(uBlur, vUv - vec2(0.0, e.y)).r;
   vec3 n = normalize(vec3(-gx * uK, -gy * uK, 1.0));
   vec3 r = reflect(vec3(0.0, 0.0, -1.0), n);                       // the view, bounced off the surface
-  float lamp1 = smoothstep(0.90, 0.975, dot(r, normalize(vec3(-0.50, 0.62, 0.60))));        // upper left, a small round lamp
-  float lamp2 = smoothstep(0.94, 0.985, dot(r, normalize(vec3(0.58, -0.42, 0.70)))) * 0.7;  // lower right, smaller and dimmer
-  float edge = pow(1.0 - n.z, 3.0) * 0.18;                         // the rim, where the surface turns toward the horizon
-  float base = 0.02 + 0.03 * n.z;
+  float lamp1 = smoothstep(uLamp1.y, uLamp1.z, dot(r, normalize(vec3(-0.50, 0.62, 0.60)))) * uLamp1.x;        // upper left, a small round lamp
+  float lamp2 = smoothstep(uLamp2.y, uLamp2.z, dot(r, normalize(vec3(0.58, -0.42, 0.70)))) * uLamp2.x;  // lower right, smaller and dimmer
+  float edge = pow(1.0 - n.z, 3.0) * uRim;                         // the rim, where the surface turns toward the horizon
+  float base = uBase + 0.03 * n.z;
   float c = clamp(base + lamp1 + lamp2 + edge, 0.0, 1.0);
   o = vec4(mix(uPaper, vec3(c), mask), 1.0);
 }`;
@@ -172,7 +173,14 @@ export function mount(stage) {
   }
 
   // ---------- the liquid ----------
-  const K_HOME = 70, K_REP = 6200, K_ATT = 1500, K_VISC = 5, DAMP = 7, MAXV = 1600, TAU = 0.3, CALM = 1.9;
+  // The settings (panel: ?tune or T). Defaults are deliberately calm; raise tension and agitation for wilder mercury.
+  const DEFAULTS = {
+    tension: 900, volume: 6200, sticky: 5, friction: 7, spread: 0.92, calm: 1.2, trigger: 240, bounce: 0.45, tilt: 220,
+    home: 70, forget: 0.3, maxV: 1600,
+    splash: 0.7, splashR: 4.2, grabR: 2.6, grabK: 1500,
+    shine: 7, lamp1: 1, lamp1Size: 0.075, lamp2: 0.7, lamp2Size: 0.04, rim: 0.18, base: 0.02,
+  };
+  const P = { ...DEFAULTS };
   const tilting = matchMedia('(pointer: coarse)').matches;
   function stepOnce(h) {
     FX.fill(0); FY.fill(0);
@@ -181,16 +189,16 @@ export function mount(stage) {
     if (grab) {
       for (let k = 0; k < grab.ids.length; k++) {
         const i = grab.ids[k], w = grab.w[k];
-        FX[i] += (grab.x + grab.ox[k] - X[i]) * 1500 * w; FY[i] += (grab.y + grab.oy[k] - Y[i]) * 1500 * w; AG[i] = 1;
+        FX[i] += (grab.x + grab.ox[k] - X[i]) * P.grabK * w; FY[i] += (grab.y + grab.oy[k] - Y[i]) * P.grabK * w; AG[i] = 1;
       }
     }
     for (let i = 0; i < N; i++) {
       const dx = HX[i] - X[i], dy = HY[i] - Y[i], disp = Math.hypot(dx, dy);
       DP[i] = disp;
-      const a = AG[i], k = K_HOME * (grab ? 0.55 : 1) * (1 - a) * (1 - a);                 // an agitated drop has forgotten where it lives
+      const a = AG[i], k = P.home * (grab ? 0.55 : 1) * (1 - a) * (1 - a);                 // an agitated drop has forgotten where it lives
       FX[i] += dx * k; FY[i] += dy * k;
-      AG2[i] = a * Math.exp(-h / CALM);
-      if (tilting && a > 0.02) { FX[i] += stage.look.x * 380 * a; FY[i] -= stage.look.y * 380 * a; }   // tilt the table: loose beads roll downhill
+      AG2[i] = a * Math.exp(-h / P.calm);
+      if (tilting && a > 0.02) { FX[i] += stage.look.x * P.tilt * a; FY[i] -= stage.look.y * P.tilt * a; }   // tilt the table: loose beads roll downhill
     }
     if (ripple) {                                                         // the hint: a slow swell runs along one letter
       const u = ripple.t / 2.4;
@@ -209,32 +217,32 @@ export function mount(stage) {
           const d2 = dx * dx + dy * dy; if (d2 >= rc * rc) continue;
           const d = Math.sqrt(d2) || 0.001, nx = dx / d, ny = dy / d;
           let f = 0;
-          if (d < d0) f = K_REP * (d0 - d) / d0;                                         // keep the volume
+          if (d < d0) f = P.volume * (d0 - d) / d0;                                         // keep the volume
           const am = Math.max(AG[i], AG[j]);
           if (d >= d0) {                                                                    // surface tension, at full strength once it is agitated, absent while it rests
             const u = (d - d0) / (rc - d0), t = clamp((am - 0.05) / 0.45, 0, 1);
-            f = -K_ATT * t * t * (3 - 2 * t) * 4 * u * (1 - u);
+            f = -P.tension * t * t * (3 - 2 * t) * 4 * u * (1 - u);
           }
-          if (AG2[i] < am * 0.97) AG2[i] = am * 0.97; if (AG2[j] < am * 0.97) AG2[j] = am * 0.97;   // agitation spreads to whatever touches
-          const rvx = VX[i] - VX[j], rvy = VY[i] - VY[j], vf = -K_VISC * (1 - d / rc) * (1 - 0.75 * am);   // and agitated metal is barely sticky
+          if (AG2[i] < am * P.spread) AG2[i] = am * P.spread; if (AG2[j] < am * P.spread) AG2[j] = am * P.spread;   // agitation spreads to whatever touches
+          const rvx = VX[i] - VX[j], rvy = VY[i] - VY[j], vf = -P.sticky * (1 - d / rc) * (1 - 0.75 * am);   // and agitated metal is barely sticky
           FX[i] += nx * f + rvx * vf; FY[i] += ny * f + rvy * vf; FX[j] -= nx * f + rvx * vf; FY[j] -= ny * f + rvy * vf;
         }
       }
       const hh = (gx * 73856093 ^ gy * 19349663) & M; nextIn[i] = head[hh]; head[hh] = i;
     }
-    const floor = H - (W < 720 ? 78 : 70), follow = grab ? 0 : 1 - Math.exp(-h / TAU);   // while held the old shape is kept; after, it is forgotten
+    const floor = H - (W < 720 ? 78 : 70), follow = grab ? 0 : 1 - Math.exp(-h / P.forget);   // while held the old shape is kept; after, it is forgotten
     let e = 0;
     for (let i = 0; i < N; i++) {
-      const damp = Math.exp(-DAMP * (1 - 0.7 * AG[i]) * h);                            // mercury has almost no friction
+      const damp = Math.exp(-P.friction * (1 - 0.7 * AG[i]) * h);                            // mercury has almost no friction
       VX[i] = (VX[i] + FX[i] * h) * damp; VY[i] = (VY[i] + FY[i] * h) * damp;
-      const sp2 = Math.abs(VX[i]) + Math.abs(VY[i]); if (sp2 > 140 && AG2[i] < 1) AG2[i] = Math.min(1, AG2[i] + (sp2 - 140) / 600);   // a bead that is moving fast keeps itself agitated
+      const sp2 = Math.abs(VX[i]) + Math.abs(VY[i]); if (sp2 > P.trigger && AG2[i] < 1) AG2[i] = Math.min(1, AG2[i] + (sp2 - P.trigger) / 600);   // a bead that is moving fast keeps itself agitated
       AG[i] = AG2[i];
-      const v = Math.hypot(VX[i], VY[i]); if (v > MAXV) { VX[i] *= MAXV / v; VY[i] *= MAXV / v; }
+      const v = Math.hypot(VX[i], VY[i]); if (v > P.maxV) { VX[i] *= P.maxV / v; VY[i] *= P.maxV / v; }
       X[i] += VX[i] * h; Y[i] += VY[i] * h;
       const fl = ripple && GR[i] === ripple.g ? 0 : follow; HX[i] += (X[i] - HX[i]) * fl; HY[i] += (Y[i] - HY[i]) * fl;
       const m = R * 0.4;
-      if (X[i] < m) { X[i] = m; VX[i] = Math.abs(VX[i]) * 0.55; } else if (X[i] > W - m) { X[i] = W - m; VX[i] = -Math.abs(VX[i]) * 0.55; }
-      if (Y[i] < m) { Y[i] = m; VY[i] = Math.abs(VY[i]) * 0.55; } else if (Y[i] > floor) { Y[i] = floor; VY[i] = -Math.abs(VY[i]) * 0.55; }
+      if (X[i] < m) { X[i] = m; VX[i] = Math.abs(VX[i]) * P.bounce; } else if (X[i] > W - m) { X[i] = W - m; VX[i] = -Math.abs(VX[i]) * P.bounce; }
+      if (Y[i] < m) { Y[i] = m; VY[i] = Math.abs(VY[i]) * P.bounce; } else if (Y[i] > floor) { Y[i] = floor; VY[i] = -Math.abs(VY[i]) * P.bounce; }
       e += VX[i] * VX[i] + VY[i] * VY[i] + DP[i] * DP[i] * 0.01 + AG[i] * AG[i] * 4;
     }
     return Math.sqrt(e / Math.max(1, N));
@@ -281,7 +289,8 @@ export function mount(stage) {
     show.use();
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fieldTex); gl.uniform1i(show.u.uField, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, blurTex); gl.uniform1i(show.u.uBlur, 1); gl.activeTexture(gl.TEXTURE0);
-    gl.uniform3fv(show.u.uInk, ink); gl.uniform3fv(show.u.uPaper, paper); gl.uniform1f(show.u.uT, 0.25); gl.uniform2f(show.u.uTexel, 1 / FW, 1 / FH); gl.uniform1f(show.u.uK, 7);
+    gl.uniform3fv(show.u.uInk, ink); gl.uniform3fv(show.u.uPaper, paper); gl.uniform1f(show.u.uT, 0.25); gl.uniform2f(show.u.uTexel, 1 / FW, 1 / FH); gl.uniform1f(show.u.uK, P.shine); gl.uniform1f(show.u.uRim, P.rim); gl.uniform1f(show.u.uBase, P.base);
+    gl.uniform3f(show.u.uLamp1, P.lamp1, 1 - P.lamp1Size * 1.35, 1 - P.lamp1Size * 0.35); gl.uniform3f(show.u.uLamp2, P.lamp2, 1 - P.lamp2Size * 1.5, 1 - P.lamp2Size * 0.4);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
@@ -293,7 +302,7 @@ export function mount(stage) {
     const i = nearest(q);
     if (i < 0) { const now = performance.now(); if (now - lastEmpty < 380) reform(); lastEmpty = now; return; }
     pid = e.pointerId; touched = true; ripple = null; quiet = 0;
-    const rg = tR * 2.6, ids = [], ox = [], oy = [], w = [];
+    const rg = tR * P.grabR, ids = [], ox = [], oy = [], w = [];
     for (let k = 0; k < N; k++) {
       const d = Math.hypot(X[k] - q.x, Y[k] - q.y);
       if (d < rg) { ids.push(k); ox.push(X[k] - q.x); oy.push(Y[k] - q.y); w.push((1 - (d / rg) ** 2) ** 2); }
@@ -309,10 +318,10 @@ export function mount(stage) {
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pid) return;
     if (press && press.moved < 8 && performance.now() - press.t < 260) {                // a tap: a splash out from where it landed
-      const rs = tR * 5.0;
+      const rs = tR * P.splashR;
       for (let k = 0; k < N; k++) {
         const dx = X[k] - q.x, dy = Y[k] - q.y, d = Math.hypot(dx, dy) || 1;
-        if (d < rs) { const f = (1 - d / rs) ** 1.1 * (760 + Math.random() * 560); VX[k] += dx / d * f + (Math.random() - 0.5) * 220; VY[k] += dy / d * f + (Math.random() - 0.5) * 220; AG[k] = AG2[k] = 1; }
+        if (d < rs) { const f = (1 - d / rs) ** 1.1 * (760 + Math.random() * 560) * P.splash; VX[k] += dx / d * f + (Math.random() - 0.5) * 220 * P.splash; VY[k] += dy / d * f + (Math.random() - 0.5) * 220 * P.splash; AG[k] = AG2[k] = 1; }
       }
     }
     grab = null; press = null; pid = null; quiet = 0;
@@ -341,9 +350,21 @@ export function mount(stage) {
     else if (quiet === 30) { VX.fill(0); VY.fill(0); draw(); }
   }));
 
+  const Ctl = (key, label, min, max, step) => ({ key, label, min, max, step });
   const reform = () => { for (let i = 0; i < N; i++) { X[i] = HX[i] = H0X[i]; Y[i] = HY[i] = H0Y[i]; VX[i] = VY[i] = 0; } quiet = 0; };
   return {
-    tune: { title: 'Liquid metal', values: {}, defaults: {}, groups: [], actions: { 'Re-form': reform }, set() {}, reset() { reform(); } },
+    tune: {
+      title: 'Liquid metal', values: P, defaults: DEFAULTS,
+      groups: [
+        { name: 'Mercury', items: [Ctl('tension', 'Surface tension (beading)', 100, 3500, 50), Ctl('spread', 'How far agitation spreads', 0.5, 0.995, 0.005), Ctl('calm', 'Calm-down time (s)', 0.2, 6, 0.1), Ctl('trigger', 'Speed that agitates a bead', 60, 700, 10), Ctl('bounce', 'Bounce off the edges', 0, 0.95, 0.05), Ctl('tilt', 'Tilt (touch devices)', 0, 900, 20)] },
+        { name: 'Feel', items: [Ctl('sticky', 'Stickiness', 0, 14, 0.5), Ctl('friction', 'Friction', 1, 16, 0.5), Ctl('volume', 'Firmness (volume)', 2000, 12000, 200), Ctl('home', 'Pull to the name (while calm)', 0, 200, 5), Ctl('forget', 'Forgets its shape (s)', 0.05, 2, 0.05), Ctl('maxV', 'Top speed', 400, 3000, 100)] },
+        { name: 'Touch', items: [Ctl('splash', 'Splash power', 0, 2, 0.05), Ctl('splashR', 'Splash radius', 1, 9, 0.1), Ctl('grabR', 'Grab radius', 1, 5, 0.1), Ctl('grabK', 'Grab strength', 300, 4000, 100)] },
+        { name: 'Look', items: [Ctl('shine', 'Surface relief (highlight spread)', 1, 20, 0.5), Ctl('lamp1', 'Main highlight', 0, 1.5, 0.05), Ctl('lamp1Size', 'Main highlight size', 0.01, 0.2, 0.005), Ctl('lamp2', 'Second highlight', 0, 1.5, 0.05), Ctl('lamp2Size', 'Second highlight size', 0.01, 0.2, 0.005), Ctl('rim', 'Rim light', 0, 0.6, 0.01), Ctl('base', 'Base grey (0 = pure black)', 0, 0.2, 0.005)] },
+      ],
+      actions: { 'Re-form': reform },
+      set(key, value) { P[key] = value; quiet = 0; },
+      reset() { Object.assign(P, DEFAULTS); reform(); },
+    },
     debug: { pull: (cx, cy, r, dx, dy) => { for (let i = 0; i < N; i++) { const d = Math.hypot(X[i] - cx, Y[i] - cy); if (d < r) { const w = (1 - (d / r) ** 2) ** 2; X[i] += dx * w; Y[i] += dy * w; } } quiet = 0; }, count: () => N, step: () => stepOnce(1 / 180), draw: () => draw(), state: () => ({ sp, R, tR, Tfield, scale, grab: !!grab, far: Array.from(DP).filter((v) => v > 25).length, maxDp: Math.max(...DP), vmax: Math.max(...VX.map(Math.abs)) }) },
     destroy() { offs.forEach((f) => f()); stage.root.style.cursor = ''; stage.setBackdrop(null); },
   };
