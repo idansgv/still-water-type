@@ -63,7 +63,7 @@ precision highp float;
 uniform sampler2D uField, uBlur;
 uniform vec2 uTexel;
 uniform vec3 uInk, uPaper;
-uniform float uT, uK, uRim, uBase, uInv;
+uniform float uT, uK, uRim, uBase, uInv, uChrome;
 uniform vec3 uLamp1, uLamp2;                                       // brightness, and the two edges of the highlight
 in vec2 vUv;
 out vec4 o;
@@ -82,7 +82,10 @@ void main() {
   float edge = pow(1.0 - n.z, 3.0) * uRim;                         // the rim, where the surface turns toward the horizon
   float base = uBase + 0.03 * n.z;
   float c = clamp(base + lamp1 + lamp2 + edge, 0.0, 1.0);
-  o = vec4(mix(uPaper, vec3(mix(c, 1.0 - c, uInv)), mask), 1.0);       // on a black page the metal is inverted: white, with a few dark reflections
+  float chrome = 0.03 + 0.80 * smoothstep(0.04, 0.34, r.y) + 0.45 * smoothstep(0.30, 0.62, -r.x) * smoothstep(-0.2, 0.2, r.y + 0.1);   // a bright sky above and to the left, a dark room below
+  chrome = clamp(chrome * (0.55 + 0.45 * smoothstep(0.55, 0.95, r.z) * 0.0 + 0.45) + lamp1 + lamp2, 0.0, 1.0);
+  float v = uInv > 0.5 ? mix(1.0 - c, chrome, uChrome) : c;          // on a black page: chrome (dark middle, bright edges), or the inverted metal
+  o = vec4(mix(uPaper, vec3(v), mask), 1.0);
 }`;
 
 export function mount(stage) {
@@ -178,7 +181,7 @@ export function mount(stage) {
     tension: 400, volume: 6200, sticky: 5, friction: 12.5, spread: 0.92, calm: 1.1, trigger: 240, bounce: 0.5, tilt: 300,
     home: 70, forget: 0.15, maxV: 1000,
     splash: 0.6, splashR: 4.2, grabR: 2.6, grabK: 1500,
-    shine: 6, lamp1: 1.05, lamp1Size: 0.075, lamp2: 0.7, lamp2Size: 0.04, rim: 0.18, base: 0.02,
+    shine: 6, chrome: 1, lamp1: 1.05, lamp1Size: 0.075, lamp2: 0.7, lamp2Size: 0.04, rim: 0.18, base: 0.02,
   };
   const P = { ...DEFAULTS };
   const tilting = matchMedia('(pointer: coarse)').matches;
@@ -289,7 +292,7 @@ export function mount(stage) {
     show.use();
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fieldTex); gl.uniform1i(show.u.uField, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, blurTex); gl.uniform1i(show.u.uBlur, 1); gl.activeTexture(gl.TEXTURE0);
-    gl.uniform3fv(show.u.uInk, ink); gl.uniform3fv(show.u.uPaper, paper); gl.uniform1f(show.u.uT, 0.25); gl.uniform2f(show.u.uTexel, 1 / FW, 1 / FH); gl.uniform1f(show.u.uInv, dark ? 1 : 0); gl.uniform1f(show.u.uK, P.shine); gl.uniform1f(show.u.uRim, P.rim); gl.uniform1f(show.u.uBase, P.base);
+    gl.uniform3fv(show.u.uInk, ink); gl.uniform3fv(show.u.uPaper, paper); gl.uniform1f(show.u.uT, 0.25); gl.uniform2f(show.u.uTexel, 1 / FW, 1 / FH); gl.uniform1f(show.u.uInv, dark ? 1 : 0); gl.uniform1f(show.u.uChrome, P.chrome); gl.uniform1f(show.u.uK, P.shine); gl.uniform1f(show.u.uRim, P.rim); gl.uniform1f(show.u.uBase, P.base);
     gl.uniform3f(show.u.uLamp1, P.lamp1, 1 - P.lamp1Size * 1.35, 1 - P.lamp1Size * 0.35); gl.uniform3f(show.u.uLamp2, P.lamp2, 1 - P.lamp2Size * 1.5, 1 - P.lamp2Size * 0.4);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
@@ -359,7 +362,7 @@ export function mount(stage) {
         { name: 'Mercury', items: [Ctl('tension', 'Surface tension (beading)', 100, 3500, 50), Ctl('spread', 'How far agitation spreads', 0.5, 0.995, 0.005), Ctl('calm', 'Calm-down time (s)', 0.2, 6, 0.1), Ctl('trigger', 'Speed that agitates a bead', 60, 700, 10), Ctl('bounce', 'Bounce off the edges', 0, 0.95, 0.05), Ctl('tilt', 'Tilt (touch devices)', 0, 900, 20)] },
         { name: 'Feel', items: [Ctl('sticky', 'Stickiness', 0, 14, 0.5), Ctl('friction', 'Friction', 1, 16, 0.5), Ctl('volume', 'Firmness (volume)', 2000, 12000, 200), Ctl('home', 'Pull to the name (while calm)', 0, 200, 5), Ctl('forget', 'Forgets its shape (s)', 0.05, 2, 0.05), Ctl('maxV', 'Top speed', 400, 3000, 100)] },
         { name: 'Touch', items: [Ctl('splash', 'Splash power', 0, 2, 0.05), Ctl('splashR', 'Splash radius', 1, 9, 0.1), Ctl('grabR', 'Grab radius', 1, 5, 0.1), Ctl('grabK', 'Grab strength', 300, 4000, 100)] },
-        { name: 'Look', items: [Ctl('shine', 'Surface relief (highlight spread)', 1, 20, 0.5), Ctl('lamp1', 'Main highlight', 0, 1.5, 0.05), Ctl('lamp1Size', 'Main highlight size', 0.01, 0.2, 0.005), Ctl('lamp2', 'Second highlight', 0, 1.5, 0.05), Ctl('lamp2Size', 'Second highlight size', 0.01, 0.2, 0.005), Ctl('rim', 'Rim light', 0, 0.6, 0.01), Ctl('base', 'Base grey (0 = pure black)', 0, 0.2, 0.005)] },
+        { name: 'Look', items: [Ctl('shine', 'Surface relief (highlight spread)', 1, 20, 0.5), Ctl('lamp1', 'Main highlight', 0, 1.5, 0.05), Ctl('lamp1Size', 'Main highlight size', 0.01, 0.2, 0.005), Ctl('lamp2', 'Second highlight', 0, 1.5, 0.05), Ctl('lamp2Size', 'Second highlight size', 0.01, 0.2, 0.005), Ctl('rim', 'Rim light', 0, 0.6, 0.01), Ctl('base', 'Base grey (0 = pure black)', 0, 0.2, 0.005), Ctl('chrome', 'Black page: chrome (1) or inverted (0)', 0, 1, 1)] },
       ],
       actions: { 'Re-form': reform },
       set(key, value) { P[key] = value; quiet = 0; },
