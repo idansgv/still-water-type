@@ -63,7 +63,7 @@ precision highp float;
 uniform sampler2D uField, uBlur;
 uniform vec2 uTexel;
 uniform vec3 uInk, uPaper;
-uniform float uT, uK, uRim, uBase;
+uniform float uT, uK, uRim, uBase, uInv;
 uniform vec3 uLamp1, uLamp2;                                       // brightness, and the two edges of the highlight
 in vec2 vUv;
 out vec4 o;
@@ -82,7 +82,7 @@ void main() {
   float edge = pow(1.0 - n.z, 3.0) * uRim;                         // the rim, where the surface turns toward the horizon
   float base = uBase + 0.03 * n.z;
   float c = clamp(base + lamp1 + lamp2 + edge, 0.0, 1.0);
-  o = vec4(mix(uPaper, vec3(c), mask), 1.0);
+  o = vec4(mix(uPaper, vec3(mix(c, 1.0 - c, uInv)), mask), 1.0);       // on a black page the metal is inverted: white, with a few dark reflections
 }`;
 
 export function mount(stage) {
@@ -175,10 +175,10 @@ export function mount(stage) {
   // ---------- the liquid ----------
   // The settings (panel: ?tune or T). Defaults are deliberately calm; raise tension and agitation for wilder mercury.
   const DEFAULTS = {
-    tension: 900, volume: 6200, sticky: 5, friction: 7, spread: 0.92, calm: 1.2, trigger: 240, bounce: 0.45, tilt: 220,
-    home: 70, forget: 0.3, maxV: 1600,
-    splash: 0.7, splashR: 4.2, grabR: 2.6, grabK: 1500,
-    shine: 7, lamp1: 1, lamp1Size: 0.075, lamp2: 0.7, lamp2Size: 0.04, rim: 0.18, base: 0.02,
+    tension: 400, volume: 6200, sticky: 5, friction: 12.5, spread: 0.92, calm: 1.1, trigger: 240, bounce: 0.5, tilt: 300,
+    home: 70, forget: 0.15, maxV: 1000,
+    splash: 0.6, splashR: 4.2, grabR: 2.6, grabK: 1500,
+    shine: 6, lamp1: 1.05, lamp1Size: 0.075, lamp2: 0.7, lamp2Size: 0.04, rim: 0.18, base: 0.02,
   };
   const P = { ...DEFAULTS };
   const tilting = matchMedia('(pointer: coarse)').matches;
@@ -289,7 +289,7 @@ export function mount(stage) {
     show.use();
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fieldTex); gl.uniform1i(show.u.uField, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, blurTex); gl.uniform1i(show.u.uBlur, 1); gl.activeTexture(gl.TEXTURE0);
-    gl.uniform3fv(show.u.uInk, ink); gl.uniform3fv(show.u.uPaper, paper); gl.uniform1f(show.u.uT, 0.25); gl.uniform2f(show.u.uTexel, 1 / FW, 1 / FH); gl.uniform1f(show.u.uK, P.shine); gl.uniform1f(show.u.uRim, P.rim); gl.uniform1f(show.u.uBase, P.base);
+    gl.uniform3fv(show.u.uInk, ink); gl.uniform3fv(show.u.uPaper, paper); gl.uniform1f(show.u.uT, 0.25); gl.uniform2f(show.u.uTexel, 1 / FW, 1 / FH); gl.uniform1f(show.u.uInv, dark ? 1 : 0); gl.uniform1f(show.u.uK, P.shine); gl.uniform1f(show.u.uRim, P.rim); gl.uniform1f(show.u.uBase, P.base);
     gl.uniform3f(show.u.uLamp1, P.lamp1, 1 - P.lamp1Size * 1.35, 1 - P.lamp1Size * 0.35); gl.uniform3f(show.u.uLamp2, P.lamp2, 1 - P.lamp2Size * 1.5, 1 - P.lamp2Size * 0.4);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }

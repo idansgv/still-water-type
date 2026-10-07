@@ -18,3 +18,5 @@ Checked in the browser: a splash scattered beads, and after settling the pulled 
 
 ## Update 7 Oct 2026: settings panel, calmer defaults
 Panel (`?p=metal&tune`, or T): **Mercury** (surface tension, how far agitation spreads, calm-down time, speed that agitates a bead, edge bounce, tilt), **Feel** (stickiness, friction, firmness, pull to the name while calm, how fast it forgets, top speed), **Touch** (splash power and radius, grab radius and strength), **Look** (relief, two highlights with size and brightness, rim light, base grey). Defaults are calmer than the first mercury pass: tension 900 (was 1500), spread 0.92, calm 1.2 s, trigger 240, splash 0.7, bounce 0.45, tilt 220. "Copy settings" gives JSON to paste back as defaults.
+
+Your settings (tension 400, friction 12.5, calm 1.1, forget 0.15, max speed 1000, splash 0.6, tilt 300, relief 6, main highlight 1.05) are now the defaults. On a black page the metal is inverted: white, with a few dark reflections.
