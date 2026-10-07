@@ -54,6 +54,8 @@ Shared poster modules: `lettering.js` (the I D A N S E G V letter skeletons and 
 
 ## 4. How the front end works
 
+**Page furniture (7 Oct 2026).** The poster name (`.folio`), the social links (`nav.links`) and Share are hidden with the `hidden` attribute in `index.html` (remove it to bring them back; the S key follows the Share button). The footer shows the name, the role line, one rotating aside, and Shuffle. Shuffle also alternates colours: `main.js` counts shuffles and passes `stage.flip` to the poster, and Explode swaps its black and white on every second one.
+
 **Shell (`src/main.js`).** Picks a poster at random from `PUBLISHED` (never the one shown last, remembered in `localStorage`), mounts it, and keeps the page furniture honest: the footer with the name, a fixed role line ("Design leader. Builder of builders.") and one of eight dry asides chosen at random on each load ("Craft is the credential.", "Handle with care.", "Some cracks are intentional.", "Load-bearing.", ...), a folio ("Soft type 3/4"), LinkedIn and X links, and Shuffle and Share buttons. Keys: Space, Enter, right arrow or R shuffle; S shares; T opens a poster's settings panel. Every press on the stage throws a burst of six random ASCII glyphs (the click spark). The footer text is selectable; the poster, the buttons and the page background are not, and the long-press menu is blocked on the stage so a long press on a phone does not select the page. A poster that throws, or a browser without WebGL2, falls back to the poster's words set in big type.
 
 **Engine (`src/engine.js`).** `createStage(root, options)` returns a stage `ctx` with:
@@ -126,6 +128,7 @@ One poster at a time: propose, get a yes, build one, show it, iterate in short r
 
 ## 12. Known risks and open items
 
+- **Explode and Soft type were optimised (7 Oct 2026).** Explode: measured about 140 ms per physics step with 3,600 bodies, now about 2 ms with about 230 (letters are pre-fractured meshes with per-fragment damage; only grouped chunks are bodies; see `posters/explode.md`). Soft type: contacts on typed arrays and a hashed grid, no per-step allocation, even strokes drawn as one path (0.9 ms to 0.25 ms per step).
 - **Phones.** Sheet, Soft type and Explode have been looked at on a phone only in part. Explode adapts to slow devices (a piece-size multiplier that starts coarser on weak phones and a frame-time governor that coarsens it further and clears resting rubble), but has not been measured on an old phone.
 - **Work is held back**: asset rights, 19 MB of assets, an unlicensed font. Rebuild from the `work-moovit` branch (`tools/sync-moovit.sh`) when ready.
 - **One old commit message** (`062b520`) names the site that inspired Soft type; removing it needs a history rewrite and a force-push, which has not been done.
@@ -135,7 +138,7 @@ One poster at a time: propose, get a yes, build one, show it, iterate in short r
 
 ## 13. Roadmap
 
-Nearest: tune and check Explode, Collapse and Skyline on real phones; decide which of Collapse and Skyline join the shuffle; build the Garden (see the archive entry); return Work. Later: per-poster share images, "save this poster as an image", a second case study, privacy-friendly analytics, a short about page, poster weights tuned from what people do.
+Nearest: tune and check Explode and Liquid metal on real phones, and Collapse and Skyline (drafts; Collapse is next, Idan asked to get back to it); decide which of Collapse and Skyline join the shuffle; build the Garden (see the archive entry); return Work. Later: per-poster share images, "save this poster as an image", a second case study, privacy-friendly analytics, a short about page, poster weights tuned from what people do.
 
 ## 14. Lessons that shaped the work
 

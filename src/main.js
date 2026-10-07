@@ -230,7 +230,7 @@ addEventListener('keydown', (e) => {
   const onControl = e.target.closest && e.target.closest('button, a');
   if (e.key === ' ' || e.key === 'Enter') { if (onControl) return; e.preventDefault(); shuffle(); }
   else if (e.key === 'ArrowRight' || e.key === 'r' || e.key === 'R') { e.preventDefault(); shuffle(); }
-  else if (e.key === 's' || e.key === 'S') { share(); }
+  else if ((e.key === 's' || e.key === 'S') && !$('btn-share').hidden) { share(); }
   else if (e.key === 't' || e.key === 'T') { togglePanel(); }
 });
 

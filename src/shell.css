@@ -166,3 +166,6 @@ noscript .plain {
   position: fixed; inset: 0; z-index: 50; background: #000; color: #fff;
   padding: var(--gutter); font: 900 18vw/0.9 var(--display); text-transform: uppercase;
 }
+
+/* the `hidden` attribute must win over the display rules above */
+.chrome [hidden] { display: none !important; }
