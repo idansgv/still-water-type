@@ -1,7 +1,13 @@
-// Liquid metal. Ink's cousin: the same droplets, but the material does not remember where it came from. Pull a letter
+// Liquid metal, with mercury's temper. Ink's cousin: the same droplets, but the material does not remember where it came from. Pull a letter
 // and the metal follows your finger, thins to a thread, and beads into droplets that stay where they land. Push two
 // letters together and they fuse and stay fused. Tap and it scatters into beads. Nothing flows back; what you do is
 // what is left (double-tap empty space to pour it back into the name).
+//
+// Mercury behaviour: the metal has two moods. Left alone it holds its shape (letters stay letters). Disturbed (pulled, splashed,
+// shoved by another bead) it becomes agitated, and agitation spreads through whatever is touching: then the home is forgotten,
+// the surface tension takes over at full strength, it stops being sticky and flows freely. Strong tension and little friction
+// make it pull into round beads that roll, skitter, hit each other and merge, and trail off into smaller beads when it is
+// stretched. When the agitation dies away (a few seconds) everything stays where it ended. On a phone, tilting it rolls the beads.
 //
 // The droplets are the same particles as Ink: close pairs push apart, displaced pairs pull together (surface tension),
 // neighbours share velocity. The difference is memory: each droplet's "home" slowly follows the droplet, so a new shape
@@ -87,7 +93,7 @@ export function mount(stage) {
   const offs = [];
 
   let W = 1, H = 1, N = 0;
-  let H0X = new Float32Array(1), H0Y = H0X, X = new Float32Array(1), Y = X, VX = X, VY = X, HX = X, HY = X, FX = X, FY = X, GR = new Int16Array(1), DP = X;   // per droplet: position, velocity, home, force, glyph, distance from home
+  let H0X = new Float32Array(1), H0Y = H0X, X = new Float32Array(1), Y = X, VX = X, VY = X, HX = X, HY = X, FX = X, FY = X, GR = new Int16Array(1), DP = X, AG = X, AG2 = X;   // per droplet: position, velocity, home, force, glyph, distance from home
   let sp = 14, R = 22, tR = 12, Tfield = 0.5, scale = 1;                  // droplet spacing, kernel radius, stroke half-thickness, field threshold and gain
   let glyphBox = [];
   let head = new Int32Array(4096), nextIn = new Int32Array(1);
@@ -154,7 +160,7 @@ export function mount(stage) {
     });
     N = pts.length;
     X = new Float32Array(N); Y = new Float32Array(N); VX = new Float32Array(N); VY = new Float32Array(N); HX = new Float32Array(N); HY = new Float32Array(N);
-    FX = new Float32Array(N); FY = new Float32Array(N); H0X = new Float32Array(N); H0Y = new Float32Array(N); GR = new Int16Array(N); DP = new Float32Array(N); nextIn = new Int32Array(N);
+    FX = new Float32Array(N); FY = new Float32Array(N); H0X = new Float32Array(N); H0Y = new Float32Array(N); GR = new Int16Array(N); DP = new Float32Array(N); AG = new Float32Array(N); AG2 = new Float32Array(N); nextIn = new Int32Array(N);
     pts.forEach((q, i) => { X[i] = HX[i] = H0X[i] = q[0]; Y[i] = HY[i] = H0Y[i] = q[1]; GR[i] = q[2]; });
     glyphBox = poses.map((p) => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
     // the threshold: where an infinite stroke of this lattice should end, half a spacing past its outer row
@@ -166,7 +172,8 @@ export function mount(stage) {
   }
 
   // ---------- the liquid ----------
-  const K_HOME = 55, K_REP = 5200, K_ATT = 300, K_VISC = 5, DAMP = 7, MAXV = 1400, TAU = 0.45;
+  const K_HOME = 70, K_REP = 6200, K_ATT = 1500, K_VISC = 5, DAMP = 7, MAXV = 1600, TAU = 0.3, CALM = 1.9;
+  const tilting = matchMedia('(pointer: coarse)').matches;
   function stepOnce(h) {
     FX.fill(0); FY.fill(0);
     const d0 = sp * 0.86, rc = sp * 2.5;
@@ -174,14 +181,16 @@ export function mount(stage) {
     if (grab) {
       for (let k = 0; k < grab.ids.length; k++) {
         const i = grab.ids[k], w = grab.w[k];
-        FX[i] += (grab.x + grab.ox[k] - X[i]) * 1500 * w; FY[i] += (grab.y + grab.oy[k] - Y[i]) * 1500 * w;
+        FX[i] += (grab.x + grab.ox[k] - X[i]) * 1500 * w; FY[i] += (grab.y + grab.oy[k] - Y[i]) * 1500 * w; AG[i] = 1;
       }
     }
     for (let i = 0; i < N; i++) {
       const dx = HX[i] - X[i], dy = HY[i] - Y[i], disp = Math.hypot(dx, dy);
       DP[i] = disp;
-      const k = K_HOME * (grab ? 0.55 : 1);
+      const a = AG[i], k = K_HOME * (grab ? 0.55 : 1) * (1 - a) * (1 - a);                 // an agitated drop has forgotten where it lives
       FX[i] += dx * k; FY[i] += dy * k;
+      AG2[i] = a * Math.exp(-h / CALM);
+      if (tilting && a > 0.02) { FX[i] += stage.look.x * 380 * a; FY[i] -= stage.look.y * 380 * a; }   // tilt the table: loose beads roll downhill
     }
     if (ripple) {                                                         // the hint: a slow swell runs along one letter
       const u = ripple.t / 2.4;
@@ -201,27 +210,32 @@ export function mount(stage) {
           const d = Math.sqrt(d2) || 0.001, nx = dx / d, ny = dy / d;
           let f = 0;
           if (d < d0) f = K_REP * (d0 - d) / d0;                                         // keep the volume
-          else {                                                                           // surface tension, only once the ink has been moved off its place
-            const dm = Math.max(DP[i], DP[j]), away = clamp((dm - sp * 0.35) / (sp * 0.9), 0, 1) * (1 - 0.85 * clamp((dm - sp * 4) / (sp * 5), 0, 1)), u = (d - d0) / (rc - d0);   // a long way from home the pull to its neighbours fades, so the ink can flow back
-            f = -K_ATT * away * 4 * u * (1 - u);
+          const am = Math.max(AG[i], AG[j]);
+          if (d >= d0) {                                                                    // surface tension, at full strength once it is agitated, absent while it rests
+            const u = (d - d0) / (rc - d0), t = clamp((am - 0.05) / 0.45, 0, 1);
+            f = -K_ATT * t * t * (3 - 2 * t) * 4 * u * (1 - u);
           }
-          const rvx = VX[i] - VX[j], rvy = VY[i] - VY[j], vf = -K_VISC * (1 - d / rc);    // neighbours share velocity: the ink flows as one
+          if (AG2[i] < am * 0.97) AG2[i] = am * 0.97; if (AG2[j] < am * 0.97) AG2[j] = am * 0.97;   // agitation spreads to whatever touches
+          const rvx = VX[i] - VX[j], rvy = VY[i] - VY[j], vf = -K_VISC * (1 - d / rc) * (1 - 0.75 * am);   // and agitated metal is barely sticky
           FX[i] += nx * f + rvx * vf; FY[i] += ny * f + rvy * vf; FX[j] -= nx * f + rvx * vf; FY[j] -= ny * f + rvy * vf;
         }
       }
       const hh = (gx * 73856093 ^ gy * 19349663) & M; nextIn[i] = head[hh]; head[hh] = i;
     }
-    const floor = H - (W < 720 ? 78 : 70), damp = Math.exp(-DAMP * h), follow = grab ? 0 : 1 - Math.exp(-h / TAU);   // while held the old shape is kept; after, it is forgotten
+    const floor = H - (W < 720 ? 78 : 70), follow = grab ? 0 : 1 - Math.exp(-h / TAU);   // while held the old shape is kept; after, it is forgotten
     let e = 0;
     for (let i = 0; i < N; i++) {
+      const damp = Math.exp(-DAMP * (1 - 0.7 * AG[i]) * h);                            // mercury has almost no friction
       VX[i] = (VX[i] + FX[i] * h) * damp; VY[i] = (VY[i] + FY[i] * h) * damp;
+      const sp2 = Math.abs(VX[i]) + Math.abs(VY[i]); if (sp2 > 140 && AG2[i] < 1) AG2[i] = Math.min(1, AG2[i] + (sp2 - 140) / 600);   // a bead that is moving fast keeps itself agitated
+      AG[i] = AG2[i];
       const v = Math.hypot(VX[i], VY[i]); if (v > MAXV) { VX[i] *= MAXV / v; VY[i] *= MAXV / v; }
       X[i] += VX[i] * h; Y[i] += VY[i] * h;
-      HX[i] += (X[i] - HX[i]) * follow; HY[i] += (Y[i] - HY[i]) * follow;
+      const fl = ripple && GR[i] === ripple.g ? 0 : follow; HX[i] += (X[i] - HX[i]) * fl; HY[i] += (Y[i] - HY[i]) * fl;
       const m = R * 0.4;
-      if (X[i] < m) { X[i] = m; VX[i] = Math.abs(VX[i]) * 0.3; } else if (X[i] > W - m) { X[i] = W - m; VX[i] = -Math.abs(VX[i]) * 0.3; }
-      if (Y[i] < m) { Y[i] = m; VY[i] = Math.abs(VY[i]) * 0.3; } else if (Y[i] > floor) { Y[i] = floor; VY[i] = -Math.abs(VY[i]) * 0.3; }
-      e += VX[i] * VX[i] + VY[i] * VY[i] + DP[i] * DP[i] * 0.01;
+      if (X[i] < m) { X[i] = m; VX[i] = Math.abs(VX[i]) * 0.55; } else if (X[i] > W - m) { X[i] = W - m; VX[i] = -Math.abs(VX[i]) * 0.55; }
+      if (Y[i] < m) { Y[i] = m; VY[i] = Math.abs(VY[i]) * 0.55; } else if (Y[i] > floor) { Y[i] = floor; VY[i] = -Math.abs(VY[i]) * 0.55; }
+      e += VX[i] * VX[i] + VY[i] * VY[i] + DP[i] * DP[i] * 0.01 + AG[i] * AG[i] * 4;
     }
     return Math.sqrt(e / Math.max(1, N));
   }
@@ -295,10 +309,10 @@ export function mount(stage) {
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pid) return;
     if (press && press.moved < 8 && performance.now() - press.t < 260) {                // a tap: a splash out from where it landed
-      const rs = tR * 4.2;
+      const rs = tR * 5.0;
       for (let k = 0; k < N; k++) {
         const dx = X[k] - q.x, dy = Y[k] - q.y, d = Math.hypot(dx, dy) || 1;
-        if (d < rs) { const f = (1 - d / rs) ** 1.3 * (520 + Math.random() * 380); VX[k] += dx / d * f + (Math.random() - 0.5) * 140; VY[k] += dy / d * f + (Math.random() - 0.5) * 140; }
+        if (d < rs) { const f = (1 - d / rs) ** 1.1 * (760 + Math.random() * 560); VX[k] += dx / d * f + (Math.random() - 0.5) * 220; VY[k] += dy / d * f + (Math.random() - 0.5) * 220; AG[k] = AG2[k] = 1; }
       }
     }
     grab = null; press = null; pid = null; quiet = 0;
