@@ -59,4 +59,4 @@ Fourth tuned set applied as defaults (size 0.03, blast 0.08, chain 23.5, crack 1
 
 **Smaller chunks (7 Oct 2026).** Chunk size now goes down to 0.02 and fracture detail to 0.03 (up to 30 fragments per smooth box); the tiniest chunks are boxes. The body budget scales: up to 260 chunks per release while the world is quiet, fewer as it fills (more than 300, 600, 900 bodies). Measured at chunk 0.03: about 700 bodies and 8 ms per step in the test browser (0.16: about 230 bodies, 2 ms).
 
-Fifth tuned set applied as defaults (7 Oct 2026): chunk 0.02, blast 0.44, speed 0.43, chain 27, jitter 1.05, reach 2.25, passive off, dark by default (the shuffle still alternates).
+Fifth tuned set applied as defaults (7 Oct 2026): chunk 0.02, blast 0.44, speed 0.43, chain 27, jitter 1.05, reach 2.25, passive off, black type on white by default (the shuffle still alternates).
