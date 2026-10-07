@@ -105,6 +105,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./turn.js'),
   },
+  {
+    slug: 'ink',
+    title: 'Ink',
+    words: ['Idan', 'Segev'],
+    blurb: 'The name as a pool of ink. Pull it into threads, push letters together to fuse them, tap to splash.',
+    hint: null,
+    themes: { dark: 0.15, light: 0.85 },
+    draft: true,
+    load: () => import('./ink.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);
