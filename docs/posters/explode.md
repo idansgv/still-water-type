@@ -41,3 +41,18 @@ A resize rebuilds the world and resets the poster. The smallest sizes saturate t
 
 ## Update 6 Oct 2026
 Fourth tuned set applied as defaults (size 0.03, blast 0.08, chain 23.5, crack 1.25, adapt 0, black dust). Shuffle now swaps black-on-white and white-on-black on every shuffle.
+
+## Update 7 Oct 2026: performance and fractured letters (re-architecture)
+
+**Why.** Measured: with the tuned defaults (`size` 0.03) a blast made about 3,600 independent rigid bodies and one physics step cost about 140 ms in the test browser. Physics, not drawing, was the cost.
+
+**What changed.**
+- A letter is still a standing column drawn from smooth boxes. On its first hit it is *fractured*: each smooth box is cut into fragments (at most 9 per box) drawn as meshes where the boxes were, so nothing visibly changes. The fragments have no physics.
+- Damage is per fragment. Blows (a blast's shock, a flying chunk) add damage near the impact. A damaged fragment shrinks a little about its centre (a dark seam opens round it), and past `crackAt` it is shoved and tilted out of line, so a hit letter shows a web of cracks. Full damage breaks a fragment away, and the cracks run on to its neighbours. When most of a box has gone, the rest of it lets go and the box stops being solid.
+- Fragments that break away together are grouped into **chunks**; only chunks are rigid bodies (one convex hull each). The more bodies already exist, the larger new chunks are. Detonating a whole letter releases at most 48 chunks.
+- Physics wrapper: only awake bodies are visited per step (a settled pile costs nothing); shards no longer raise collision events (only letters, and the floor when impact dust is on).
+- New setting `chunk` (what flies; small = more bodies); `size` is now fracture detail.
+
+**Result.** About 2 ms per physics step with 230 bodies after Detonate all, against about 140 ms before.
+
+**Trade-off.** Debris is chunks of seamed fragments, not thousands of independent crumbs, so it reads chunkier than the old tiny pieces. Lower `chunk` to taste.

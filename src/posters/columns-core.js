@@ -25,7 +25,7 @@ const qrot = (q, v) => {
 };
 const UNIT_H = 2.0;            // letter height in world units
 const MAX_INST = 4000;
-const MAX_SHARDS = 4000, MAX_SHARD_VERTS = 400000, XF_W = 2048;   // the transform texture is XF_W wide and as many rows as it needs
+const MAX_SHARDS = 9000, MAX_SHARD_VERTS = 400000, XF_W = 2048;   // the transform texture is XF_W wide and as many rows as it needs
 
 const VS = `#version 300 es
 layout(location=0) in vec3 aPos;
@@ -61,10 +61,11 @@ void main() {
   int i = int(aShard + 0.5);
   int k = i * 2;
   vec4 a = texelFetch(uXf, ivec2(k % 2048, k / 2048), 0), q = texelFetch(uXf, ivec2((k + 1) % 2048, (k + 1) / 2048), 0);
-  vec3 p = rot(q, aPos) + a.xyz;
+  float crack = smoothstep(0.12, 1.0, a.w);                      // a damaged piece shrinks a little about its centre, which opens a dark seam round it
+  vec3 p = rot(q, aPos * (1.0 - 0.2 * crack)) + a.xyz;
   vN = rot(q, aNrm);
   vTop = aNrm.z > 0.99 ? 1.0 : 0.0;
-  vDmg = 0.0;
+  vDmg = a.w;
   gl_Position = uVP * vec4(p, 1.0);
 }`;
 const FS = `#version 300 es
@@ -79,7 +80,7 @@ out vec4 o;
 void main() {
   vec3 n = normalize(vN);
   float lit = clamp(dot(n.xy, vec2(-0.6, 0.8)), 0.0, 1.0);
-  float c = vTop > 0.5 ? (0.5 + 0.5 * clamp(n.z, 0.0, 1.0)) * (1.0 - 0.5 * vDmg) : 0.1 + 0.22 * clamp(n.z, 0.0, 1.0) + 0.3 * lit;
+  float c = vTop > 0.5 ? (0.5 + 0.5 * clamp(n.z, 0.0, 1.0)) * (1.0 - 0.5 * vDmg) : (0.1 + 0.22 * clamp(n.z, 0.0, 1.0) + 0.3 * lit) * (1.0 - 0.3 * vDmg);
   c = clamp(c, 0.0, 1.0);
   o = vec4(vec3(mix(uBg, mix(uBg, uFg, c), uFade)), 1.0);
 }`;
@@ -144,7 +145,7 @@ export async function mountColumns(stage, mode) {
   const octx = overlay.getContext('2d');
   const dust = new Dust(gl);
 
-  const P = EXPLODE ? { gravity: 26, blast: 0.08, speed: 1.12, lift: 0.4, spin: 1.4, chain: 23.5, decay: 0.51, size: 0.03, rough: 2, gap: 0.91, crack: 1.25, crackAt: 0.46, jitter: 0.05, reach: 2.95, hit: 0.15, passive: 1, transfer: 0.15, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.31, dustLife: 0.6, dustHits: 1, dustTone: 0, dustSoft: 0, dustAlpha: 1, height: 0.75, adapt: 0 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (fourth set, 6 Oct 2026)
+  const P = EXPLODE ? { gravity: 26, blast: 0.08, speed: 1.12, lift: 0.4, spin: 1.4, chain: 23.5, decay: 0.51, size: 0.03, chunk: 0.16, rough: 2, gap: 0.91, crack: 1.25, crackAt: 0.46, jitter: 0.05, reach: 2.95, hit: 0.15, passive: 1, transfer: 0.15, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.31, dustLife: 0.6, dustHits: 1, dustTone: 0, dustSoft: 0, dustAlpha: 1, height: 0.75, adapt: 0 } : { gravity: 12, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.4 };   // Explode's defaults are Idan's tuned values (fourth set, 6 Oct 2026)
   if (EXPLODE && stage.flip) { const t = P.bg; P.bg = P.fg; P.fg = t; }   // every shuffle swaps black-on-white and white-on-black
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   let pending = [], timers = [];
@@ -217,7 +218,7 @@ export async function mountColumns(stage, mode) {
     // the floor grips, so a push makes a column tip instead of slide; letters are slippery against each other
     // (friction takes the larger of two surfaces, restitution the smaller)
     const floor = w.fixed({ x: 0, y: 0, z: -0.5 }); floor.isWall = true;
-    w.box(floor, [200, 200, 0.5], { friction: 1, restitution: 0.04 });
+    w.box(floor, [200, 200, 0.5], { friction: 1, restitution: 0.04, events: !!(EXPLODE && P.dust > 0 && P.dustHits) });
     // low walls round the edge keep pieces and sliding bodies in, but a tall column can still lean out over them
     const wall = (x, y, hx, hy) => { const b = w.fixed({ x, y, z: 0.9 }); b.isWall = true; w.box(b, [hx, hy, 0.9], { friction: 1, restitution: 0.04 }); };
     const ex = W / 2 / S, ey = H / 2 / S, floorY = -(H / 2 - (W < 720 ? 80 : 72)) / S, big = 40;
@@ -310,51 +311,133 @@ export async function mountColumns(stage, mode) {
   }
 
   // ---------- Explode ----------
-  // Pieces: every box a letter is made of is shattered into irregular convex pieces (see shatter.js), each a rigid body
-  // and a free-form mesh. `power` scales how hard they are thrown; `gen` counts how far along a chain they are.
-  function spawnPieces(letter, cells, cx, cy, power, gen, kin, opt) {
-    const sp0 = Math.sqrt(power), made = [], size = P.size * perf * (1 + shardCount / 1400);   // the more rubble already, the coarser the next pieces
-    for (const c of cells) {
-      const ca = Math.cos(c.a), sa = Math.sin(c.a), parts = shatterBox(c.hx, c.hy, colH / 2, size, P.rough, opt && opt.fit ? opt.fit : P.gap, Math.max(40, Math.round(220 / perf)));
+  // A letter is a standing column until something hits it. Then it is *fractured*: its smooth boxes are cut into many
+  // small fragments (see shatter.js), drawn as meshes that sit exactly where the smooth boxes were, so nothing changes
+  // at first. Each fragment keeps its own damage. Blows add damage to the fragments near them; a damaged fragment
+  // shrinks a little, which opens a dark seam round it, and, past `crackAt`, it is shoved and tilted out of line, so a
+  // hit letter shows a web of cracks. A fragment with full damage breaks away. Fragments that break away together
+  // are grouped into chunks, and only chunks are rigid bodies (one convex hull each), which is what keeps the physics
+  // cheap however fine the fragments are. When most of a box has gone the rest of it lets go too.
+  const setXf = (i, x, y, z, d, qx, qy, qz, qw) => { const o = i * 8; xf[o] = x; xf[o + 1] = y; xf[o + 2] = z; xf[o + 3] = d; xf[o + 4] = qx; xf[o + 5] = qy; xf[o + 6] = qz; xf[o + 7] = qw; };
+  const FRAG_CAP = 9;                                                   // most fragments cut from one smooth box
+
+  function fracture(letter) {
+    if (letter.fr) return letter.fr;
+    const fr = letter.fr = [], size = clamp(P.size, 0.07, 1.6) * perf;
+    for (const c of letter.cells) c.nfrag = 0;
+    for (const f of letter.drawn) {
+      const parts = shatterBox(f.hx, f.hy, colH / 2, size, 0.8, 1.0, FRAG_CAP), ca = Math.cos(f.a), sa = Math.sin(f.a);
       for (const pc of parts) {
-        if (shardCount >= MAX_SHARDS || shardVerts + pc.tris.length / 6 > MAX_SHARD_VERTS) break;
-        const px = letter.position.x + c.x + ca * pc.c[0] - sa * pc.c[1], py = letter.position.y + c.y + sa * pc.c[0] + ca * pc.c[1], pz = letter.position.z + pc.c[2];
-        const jit = opt && opt.jitter;
-        const sb = sim.dynamic({ x: px, y: py, z: pz }, jit ? { angle: c.a, linearDamping: 7, angularDamping: 7, lockTilt: true } : { angle: c.a, linearDamping: 0.05, angularDamping: 0.1 });   // cracked pieces can only slide and turn a little, so the letter stays standing
-        let ok = null;
-        if (size < 0.2) {                                          // the tiniest pieces collide as boxes: cheaper, and nobody can tell
-          let mx = 0, my = 0, mz = 0; for (const v of pc.verts) { mx = Math.max(mx, Math.abs(v[0])); my = Math.max(my, Math.abs(v[1])); mz = Math.max(mz, Math.abs(v[2])); }
-          ok = sim.box(sb, [Math.max(0.02, mx * 0.82), Math.max(0.02, my * 0.82), Math.max(0.02, mz * 0.82)], { density: 0.6, events: true });
-        } else {
-          ok = sim.hull(sb, Float32Array.from(pc.verts.flat()), { density: 0.6, events: true });
-        }
-        if (!ok) { sim.remove(sb); continue; }
-        if (opt && opt.jitter) {                                      // cracked in place: a small shove and twist, so the pieces end up slightly out of line
-          const j = P.jitter, dd = kin ? Math.exp(-((Math.hypot(px - kin.x, py - kin.y) / 1.4) ** 2)) : 0;
-          sb.setVelocity((Math.random() - 0.5) * 0.9 * j + (kin ? kin.vx * 0.06 * dd : 0), (Math.random() - 0.5) * 0.9 * j + (kin ? kin.vy * 0.06 * dd : 0), Math.random() * 0.5 * j);
-          sb.setSpin((Math.random() - 0.5) * 1.6 * j, (Math.random() - 0.5) * 1.6 * j, (Math.random() - 0.5) * 2.2 * j);
-        } else if (kin) {                                                    // breaking apart: no power of its own, only what the blow hands it
-          const d = Math.hypot(px - kin.x, py - kin.y), w = Math.exp(-((d / 1.2) ** 2)) * P.transfer;
-          sb.setVelocity(kin.vx * w + (Math.random() - 0.5) * 0.5, kin.vy * w + (Math.random() - 0.5) * 0.5, kin.vz * w + Math.random() * 0.4);
-          sb.setSpin((Math.random() - 0.5) * 2 * w, (Math.random() - 0.5) * 2 * w, (Math.random() - 0.5) * 2 * w);
-        } else {
-          let dx = px - cx, dy = py - cy; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
-          const sp = (3.5 + Math.random() * 6) * sp0 * P.speed, spinAmt = 14 * P.spin;
-          sb.setVelocity(dx * sp + (Math.random() - 0.5) * 2, dy * sp + (Math.random() - 0.5) * 2, (2 + Math.random() * 5) * sp0 * P.lift);
-          sb.setSpin((Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt, (Math.random() - 0.5) * spinAmt);
-        }
-        sb.isShard = true; sb.gen = gen; sb.sidx = shardCount;
-        // the mesh joins the shared buffer, tagged with its index
-        const n = pc.tris.length / 6, buf = new Float32Array(n * 7);
-        for (let k = 0; k < n; k++) { buf.set(pc.tris.subarray(k * 6, k * 6 + 6), k * 7); buf[k * 7 + 6] = shardCount; }
+        const nv = pc.tris.length / 6;
+        if (shardCount >= MAX_SHARDS || shardVerts + nv > MAX_SHARD_VERTS) break;
+        const idx = shardCount++, buf = new Float32Array(nv * 7);
+        for (let k = 0; k < nv; k++) { buf.set(pc.tris.subarray(k * 6, k * 6 + 6), k * 7); buf[k * 7 + 6] = idx; }
         gl.bindBuffer(gl.ARRAY_BUFFER, shardBuf); gl.bufferSubData(gl.ARRAY_BUFFER, shardVerts * 28, buf);
-        shardVerts += n; shardCount++;
-        made.push(sb);
+        const x = letter.position.x + f.x + ca * pc.c[0] - sa * pc.c[1], y = letter.position.y + f.y + sa * pc.c[0] + ca * pc.c[1], z = letter.position.z + pc.c[2];
+        const ax = Math.random() - 0.5, ay = Math.random() - 0.5, az = Math.random() - 0.5, al = Math.hypot(ax, ay, az) || 1;
+        const g = { letter, cell: f.cell, x, y, z, a: f.a, tris: pc.tris, v0: shardVerts, nv, sidx: idx, dmg: 0, state: 0, weak: 0.75 + Math.random() * 0.5,
+          jx: Math.random() - 0.5, jy: Math.random() - 0.5, jz: Math.random() - 0.3, ja: Math.random() * 2 - 1, ax: ax / al, ay: ay / al, az: az / al };
+        setXf(idx, x, y, z, 0, 0, 0, Math.sin(f.a / 2), Math.cos(f.a / 2));
+        shardVerts += nv; fr.push(g); f.cell.nfrag++;
       }
     }
-    for (const sb of made) solids.push(sb);
-    return made;
+    return fr;
   }
+  // a damaged, still attached fragment: seam from its damage, and past crackAt it sits a little out of line
+  function pose(g) {
+    const k = clamp((g.dmg - P.crackAt) / Math.max(0.05, 1 - P.crackAt), 0, 1) * P.jitter * 6;
+    const h = Math.sin(g.a / 2), w0 = Math.cos(g.a / 2), ang = g.ja * 0.07 * k, sn = Math.sin(ang / 2), cs = Math.cos(ang / 2);
+    const q = qmul({ x: 0, y: 0, z: h, w: w0 }, { x: g.ax * sn, y: g.ay * sn, z: g.az * sn, w: cs });
+    setXf(g.sidx, g.x + g.jx * 0.03 * k, g.y + g.jy * 0.03 * k, g.z + g.jz * 0.02 * k, g.dmg, q.x, q.y, q.z, q.w);
+  }
+
+  // Break fragments away as chunks. `o.vel(x, y, z)` gives { vx, vy, vz, spin } for a chunk at that place.
+  function release(letter, frags, o) {
+    if (!frags.length) return;
+    const bodies = solids.length - letters.length;
+    const cap = bodies > 320 ? 14 : bodies > 160 ? 28 : 48;                // the busier the world already is, the larger the chunks
+    const bin = (cs) => { const m = new Map(); for (const g of frags) { const k = Math.floor(g.x / cs) + ',' + Math.floor(g.y / cs) + ',' + Math.floor(g.z / cs); (m.get(k) || m.set(k, []).get(k)).push(g); } return m; };
+    let cs = Math.max(0.1, P.chunk) * perf, groups = bin(cs);
+    while (groups.size > cap && cs < 4) { cs *= 1.25; groups = bin(cs); }
+    for (const list of groups.values()) {
+      if (shardCount >= MAX_SHARDS) break;
+      let bx = 0, by = 0, bz = 0; for (const g of list) { bx += g.x; by += g.y; bz += g.z; } bx /= list.length; by /= list.length; bz /= list.length;
+      const seen = new Set(), pts = []; let mx = 0, my = 0, mz = 0;
+      for (const g of list) {
+        const ca = Math.cos(g.a), sa = Math.sin(g.a);
+        for (let k = 0; k < g.nv; k++) {
+          const vx = g.tris[k * 6], vy = g.tris[k * 6 + 1], vz = g.tris[k * 6 + 2];
+          const x = g.x - bx + ca * vx - sa * vy, y = g.y - by + sa * vx + ca * vy, z = g.z - bz + vz, key = Math.round(x * 400) + ',' + Math.round(y * 400) + ',' + Math.round(z * 400);
+          if (seen.has(key)) continue; seen.add(key); pts.push(x, y, z); mx = Math.max(mx, Math.abs(x)); my = Math.max(my, Math.abs(y)); mz = Math.max(mz, Math.abs(z));
+        }
+      }
+      const sb = sim.dynamic({ x: bx, y: by, z: bz }, { linearDamping: 0.05, angularDamping: 0.1 });
+      let ok = sim.hull(sb, Float32Array.from(pts), { density: 0.6 });
+      if (!ok) ok = sim.box(sb, [Math.max(0.03, mx * 0.85), Math.max(0.03, my * 0.85), Math.max(0.03, mz * 0.85)], { density: 0.6 });
+      const idx = shardCount++;
+      sb.isShard = true; sb.gen = o.gen || 0; sb.sidx = idx;
+      setXf(idx, bx, by, bz, 0.55, 0, 0, 0, 1);
+      for (const g of list) {                                              // the fragments now belong to the chunk: their vertices are rewritten in its frame
+        const ca = Math.cos(g.a), sa = Math.sin(g.a), buf = new Float32Array(g.nv * 7);
+        for (let k = 0; k < g.nv; k++) {
+          const vx = g.tris[k * 6], vy = g.tris[k * 6 + 1], vz = g.tris[k * 6 + 2], nx = g.tris[k * 6 + 3], ny = g.tris[k * 6 + 4], nz = g.tris[k * 6 + 5];
+          buf[k * 7] = g.x - bx + ca * vx - sa * vy; buf[k * 7 + 1] = g.y - by + sa * vx + ca * vy; buf[k * 7 + 2] = g.z - bz + vz;
+          buf[k * 7 + 3] = ca * nx - sa * ny; buf[k * 7 + 4] = sa * nx + ca * ny; buf[k * 7 + 5] = nz; buf[k * 7 + 6] = idx;
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, shardBuf); gl.bufferSubData(gl.ARRAY_BUFFER, g.v0 * 28, buf);
+        g.state = 2;
+      }
+      const v = o.vel(bx, by, bz);
+      sb.setVelocity(v.vx, v.vy, v.vz);
+      const sp = v.spin; sb.setSpin((Math.random() - 0.5) * sp, (Math.random() - 0.5) * sp, (Math.random() - 0.5) * sp);
+      solids.push(sb);
+    }
+    if (!o.noSettle) settleCells(letter);
+  }
+  // A box that has lost most of its fragments lets go of the rest, and stops being solid.
+  function settleCells(letter) {
+    if (!letter.fr || letter.blown) return;
+    const left = new Map(); for (const g of letter.fr) if (!g.state) left.set(g.cell, (left.get(g.cell) || 0) + 1);
+    const drop = [];
+    for (const c of letter.cells.slice()) {
+      if ((left.get(c) || 0) >= c.nfrag * 0.5) continue;
+      c.alive = false; letter.cells.splice(letter.cells.indexOf(c), 1); sim.removeCollider(letter, c.collider);
+      for (const g of letter.fr) if (!g.state && g.cell === c) drop.push(g);
+    }
+    if (drop.length) release(letter, drop, { noSettle: true, gen: 3, vel: (x, y) => ({ vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, vz: Math.random() * 0.3, spin: 0.6 }) });
+    if (!letter.cells.length) { dropLetter(letter); letter.blown = true; }
+  }
+  function dropLetter(letter) {
+    sim.remove(letter);
+    for (const list of [solids, letters]) { const k = list.indexOf(letter); if (k >= 0) list.splice(k, 1); }
+  }
+  // damage fragments with `amount(g)`; those that reach 1 break away with velocities from `vel`; the cracks run a little further
+  function strike(letter, amount, vel, gen) {
+    if (letter.blown) return;
+    const fr = fracture(letter), gone = [];
+    for (const g of fr) {
+      if (g.state) continue;
+      const a = amount(g); if (!(a > 0)) continue;
+      g.dmg += a * g.weak;
+      if (g.dmg >= 1) gone.push(g); else pose(g);
+    }
+    if (gone.length) {
+      for (const h of fr) {                                                // what sits next to something that broke off is weakened
+        if (h.state || h.dmg >= 1) continue;
+        for (const g of gone) if (Math.hypot(h.x - g.x, h.y - g.y, h.z - g.z) < 0.3) { h.dmg += 0.2 * P.crack; if (h.dmg < 1) pose(h); break; }
+      }
+      release(letter, gone, { vel, gen: gen || 3 });
+    } else if (P.shake) shake = Math.max(shake, 0.04);
+  }
+  const burstVel = (cx, cy, power) => (x, y) => {
+    let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
+    const sp = (3.5 + Math.random() * 6) * Math.sqrt(power) * P.speed, s0 = Math.sqrt(power);
+    return { vx: dx * sp + (Math.random() - 0.5) * 2, vy: dy * sp + (Math.random() - 0.5) * 2, vz: (2 + Math.random() * 5) * s0 * P.lift, spin: 14 * P.spin };
+  };
+  const kinVel = (kin) => (x, y) => {
+    const d = Math.hypot(x - kin.x, y - kin.y), w = Math.exp(-((d / 1.2) ** 2)) * P.transfer;
+    return { vx: kin.vx * w + (Math.random() - 0.5) * 0.5, vy: kin.vy * w + (Math.random() - 0.5) * 0.5, vz: kin.vz * w + Math.random() * 0.4, spin: 2 * w };
+  };
 
   function burstLines(cx, cy, power) {
     if (!P.lines) return;
@@ -374,43 +457,24 @@ export async function mountColumns(stage, mode) {
     if (letter.blown) return;
     letter.blown = true; letter.detonated = true;
     const power = P.blast * Math.pow(P.decay, gen), passive = P.passive && gen > 0 && vel;
-    spawnPieces(letter, letter.cells, cx, cy, power, gen, passive ? { x: cx, y: cy, vx: vel[0], vy: vel[1], vz: vel[2] } : undefined);
+    const live = fracture(letter).filter((g) => !g.state);
+    release(letter, live, { noSettle: true, gen, vel: passive ? kinVel({ x: cx, y: cy, vx: vel[0], vy: vel[1], vz: vel[2] }) : burstVel(cx, cy, power) });
     letterDust(letter, letter.cells, cx, cy, power);
     if (P.dust > 0) dust.puff(cx, cy, 0.2, Math.round(30 * P.dust * (0.4 + power)), { speed: 2.4, up: 1.6, size: 0.38 * P.dustSize, life: P.dustLife });
-    sim.remove(letter);
-    solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1);
+    dropLetter(letter);
     if (!passive) burstLines(cx, cy, power);
     if (P.shake) shake = Math.max(shake, passive ? 0.1 : 0.3 * Math.min(1, power + 0.3));
-    if (P.crack > 0) {                                              // the blast cracks the nearest columns: whole chunks of them fall away
-      const R = P.reach;                                             // how far the shock cracks things, whatever the blast power
+    if (P.crack > 0) {                                              // the blast cracks the nearest letters: fragments near it break away, the rest are shaken loose
+      const reach = P.reach;                                         // how far the shock cracks things, whatever the blast power
       for (const L of letters.slice()) {
         if (L.blown) continue;
-        for (const c of L.cells.slice()) {
-          const d = Math.hypot(L.position.x + c.x - cx, L.position.y + c.y - cy), f = Math.max(0, 1 - d / R) ** 1.1;
-          if (f > 0) { const px = L.position.x + c.x, py = L.position.y + c.y, dd = Math.hypot(px - cx, py - cy) || 1, sp = 4.5 * f * P.speed; hurt(L, c, f ** 1.6 * (0.4 + 0.6 * Math.min(1, power)) * 1.25 * P.crack, cx, cy, [(px - cx) / dd * sp, (py - cy) / dd * sp, 1.2 * f * P.lift]); }
-        }
+        let near = Infinity; for (const c of L.cells) near = Math.min(near, Math.hypot(L.position.x + c.x - cx, L.position.y + c.y - cy));
+        if (near > reach + 0.8) continue;
+        const f = (g) => Math.max(0, 1 - Math.hypot(g.x - cx, g.y - cy) / reach) ** 1.1;
+        strike(L, (g) => f(g) ** 1.6 * (0.4 + 0.6 * Math.min(1, power)) * 1.25 * P.crack * 1.6,
+          (x, y) => { const d = Math.hypot(x - cx, y - cy) || 1, k = Math.max(0, 1 - d / reach) ** 1.1, sp = 4.5 * k * P.speed; return { vx: (x - cx) / d * sp, vy: (y - cy) / d * sp, vz: 1.2 * k * P.lift, spin: 1.5 * k }; });
       }
     }
-  }
-
-  // Damage accumulates in a column's boxes (their smooth tops darken as it does). Two thresholds:
-  //   crackAt  the box cracks in place: it turns into pieces that are shoved and twisted a little, so the letter stays
-  //            standing but with slightly offset slabs and dark seams (the "jitter" setting is how far)
-  //   1        the box breaks off: its pieces carry the momentum of what hit it and the rest of the letter stands with a hole
-  function hurt(letter, cell, amount, sx, sy, vel) {
-    if (!cell.alive || letter.blown) return;
-    cell.dmg += amount;
-    const away = cell.dmg >= 1;
-    if (!away && !(P.jitter > 0 && cell.dmg >= P.crackAt)) return;
-    cell.alive = false;
-    const k = letter.cells.indexOf(cell); if (k < 0) return;
-    letter.cells.splice(k, 1); sim.removeCollider(letter, cell.collider);
-    const kin = vel ? { x: sx, y: sy, vx: vel[0], vy: vel[1], vz: vel[2] } : undefined;
-    if (P.dust > 0) dust.puff(letter.position.x + cell.x, letter.position.y + cell.y, 0.3 + Math.random(), Math.round((away ? 22 : 8) * P.dust), { speed: away ? 1.4 : 0.6, up: 0.9, size: 0.3 * P.dustSize, life: P.dustLife, spread: 0.5 });
-    if (away) spawnPieces(letter, [cell], sx, sy, 0.55, 3, P.passive ? kin : undefined);
-    else spawnPieces(letter, [cell], sx, sy, 0.1, 3, kin, { jitter: true, fit: Math.max(P.gap, 0.93) });
-    if (P.shake) shake = Math.max(shake, away ? 0.12 : 0.05);
-    if (!letter.cells.length && away) { sim.remove(letter); solids.splice(solids.indexOf(letter), 1); letters.splice(letters.indexOf(letter), 1); letter.blown = true; }
   }
 
   // ---------- dust ----------
@@ -450,13 +514,7 @@ export async function mountColumns(stage, mode) {
     const v = Math.hypot(sb.pv.x, sb.pv.y, sb.pv.z) * 0.85, vel = [sb.pv.x, sb.pv.y, sb.pv.z];
     if (v > P.chain) { if (!o.detonated) { o.detonated = true; pending.push({ letter: o, x: sb.position.x, y: sb.position.y, gen: sb.gen + 1, vel }); } return; }
     if (P.crack > 0 && P.hit > 0 && v > 5.5) {
-      let best = null, bd = Infinity;                               // the box nearest to where the piece landed
-      for (const c of o.cells) {
-        const cs = Math.cos(c.a), sn = Math.sin(c.a), dx = sb.position.x - o.position.x - c.x, dy = sb.position.y - o.position.y - c.y;
-        const lx = dx * cs + dy * sn, ly = -dx * sn + dy * cs, d = Math.hypot(Math.max(Math.abs(lx) - c.hx, 0), Math.max(Math.abs(ly) - c.hy, 0));
-        if (d < bd) { bd = d; best = c; }
-      }
-      if (best) pending.push({ hurt: true, letter: o, cell: best, amount: ((v - 5.5) / Math.max(1, P.chain - 5.5)) * 0.55 * P.crack * P.hit, x: sb.position.x, y: sb.position.y, vel });
+      pending.push({ hit: true, letter: o, x: sb.position.x, y: sb.position.y, z: sb.position.z, amount: ((v - 5.5) / Math.max(1, P.chain - 5.5)) * 0.55 * P.crack * P.hit * 4, vel });
     }
   }
 
@@ -507,7 +565,8 @@ export async function mountColumns(stage, mode) {
     let n = 0;
     for (const b of solids) {
       if (b.isShard) continue;
-      if (b.drawn) {                                                  // an anchored letter is drawn smooth, from its fine boxes
+      if (b.drawn) {                                                  // an anchored letter is drawn smooth, from its fine boxes, until it is fractured
+        if (b.fr) continue;
         for (const f of b.drawn) {
           if (n >= MAX_INST) break;
           if (!f.cell.alive) continue;                               // that part has broken off
@@ -581,7 +640,7 @@ export async function mountColumns(stage, mode) {
   // come to rest (the oldest first). It never touches pieces still moving, so what you are looking at does not change.
   function governor(dt) {
     ema += (dt * 1000 - ema) * 0.1;
-    if (shardCount < 120) { slowFrames = 0; return; }
+    if (solids.length - letters.length < 60) { slowFrames = 0; return; }
     if (ema > 27) slowFrames++; else slowFrames = Math.max(0, slowFrames - 2);
     if (slowFrames > 24) {
       slowFrames = 0; ema = 20;
@@ -604,7 +663,7 @@ export async function mountColumns(stage, mode) {
       acc -= DT;
       if (!EXPLODE) interact(DT);
       sim.step(DT, onHit);
-      if (pending.length) { const list = pending; pending = []; for (const p of list) { if (p.hurt) hurt(p.letter, p.cell, p.amount, p.x, p.y, p.vel); else detonate(p.letter, p.x, p.y, p.gen, p.vel); } }
+      if (pending.length) { const list = pending; pending = []; for (const p of list) { if (p.hit) strike(p.letter, (g) => p.amount * Math.exp(-((Math.hypot(g.x - p.x, g.y - p.y, (g.z - p.z) * 0.5) / 0.55) ** 2)), kinVel({ x: p.x, y: p.y, vx: p.vel[0], vy: p.vel[1], vz: p.vel[2] }), 3); else detonate(p.letter, p.x, p.y, p.gen, p.vel); } }
     }
     if (timers.length) { for (const q of timers) { q.t -= dt; if (q.t <= 0 && q.l.world) { detonate(q.l, q.l.position.x, q.l.position.y, 0); q.done = true; } } timers = timers.filter((q) => !q.done); }
     for (const b of bursts) b.t += dt;
@@ -622,7 +681,7 @@ export async function mountColumns(stage, mode) {
     ? [{ name: 'World', items: [{ key: 'height', label: 'Extrusion height (re-forms)', min: 0.05, max: 8, step: 0.05 }, { key: 'gravity', label: 'Gravity', min: 2, max: 40, step: 1 }, { key: 'bounce', label: 'Bounce (contacts)', min: 0.05, max: 0.95, step: 0.05 }, { key: 'friction', label: 'Slipperiness (low = grippy)', min: 0.02, max: 1, step: 0.02 }] },
        { name: 'Blast', items: [{ key: 'blast', label: 'Power', min: 0.02, max: 2.5, step: 0.01 }, { key: 'speed', label: 'Outward speed', min: 0.02, max: 2.5, step: 0.01 }, { key: 'lift', label: 'Lift', min: 0, max: 3, step: 0.1 }, { key: 'spin', label: 'Spin', min: 0, max: 3, step: 0.1 }] },
        { name: 'Chain and cracks', items: [{ key: 'chain', label: 'Impact that sets a letter off', min: 1, max: 30, step: 0.5 }, { key: 'decay', label: 'Strength kept per step', min: 0.02, max: 1, step: 0.01 }, { key: 'crack', label: 'Cracking (0 = a letter is whole or gone)', min: 0, max: 3, step: 0.05 }, { key: 'reach', label: 'Crack reach', min: 0.2, max: 9, step: 0.05 }, { key: 'hit', label: 'Damage from flying pieces', min: 0, max: 3, step: 0.01 }, { key: 'crackAt', label: 'Damage that starts a crack', min: 0.05, max: 1, step: 0.01 }, { key: 'jitter', label: 'Jitter (0 = boxes only break away)', min: 0, max: 3, step: 0.05 }, { key: 'passive', label: 'Struck letters break apart (no burst of their own)', type: 'toggle' }, { key: 'transfer', label: 'Momentum passed to them', min: 0.01, max: 2, step: 0.01 }] },
-       { name: 'Pieces (next blast)', items: [{ key: 'size', label: 'Size (small = many)', min: 0.03, max: 1.6, step: 0.01 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.5, max: 1, step: 0.01 }] },
+       { name: 'Pieces', items: [{ key: 'size', label: 'Fracture detail (small = finer, re-forms)', min: 0.03, max: 1.6, step: 0.01 }, { key: 'chunk', label: 'Chunk size (what flies; small = more bodies)', min: 0.1, max: 1.2, step: 0.01 }, { key: 'rough', label: 'Irregularity', min: 0, max: 2, step: 0.05 }, { key: 'gap', label: 'Fit (1 = no gaps)', min: 0.5, max: 1, step: 0.01 }] },
        { name: 'Effects', items: [{ key: 'adapt', label: 'Adapt to slow devices', type: 'toggle' }, { key: 'lines', label: 'Burst lines', type: 'toggle' }, { key: 'shake', label: 'Screen shake', type: 'toggle' }, { key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.05, max: 3, step: 0.01 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.2, max: 5, step: 0.1 }, { key: 'dustTone', label: 'Dust tone (0 black, 1 white)', min: 0, max: 1, step: 0.01 }, { key: 'dustSoft', label: 'Dust softness (0 = hard edged)', min: 0, max: 1, step: 0.01 }, { key: 'dustAlpha', label: 'Dust opacity', min: 0.1, max: 1, step: 0.01 }, { key: 'dustHits', label: 'Dust from impacts', type: 'toggle' }] },
        colourGroup, cameraGroup]
     : [{ name: 'World', items: [{ key: 'height', label: 'Extrusion height (re-forms)', min: 0.05, max: 8, step: 0.05 }, { key: 'gravity', label: 'Gravity', min: 2, max: 40, step: 1 }] },
@@ -646,7 +705,7 @@ export async function mountColumns(stage, mode) {
   };
   return {
     tune: tuneApi,
-    debug: { perf: () => perf, setPerf: (v) => { perf = v; }, world: () => sim, letters: () => letters, solids: () => solids, topple, detonate, S: () => S, pick, pending: () => pending },
+    debug: { strike, kinVel, fracture, perf: () => perf, setPerf: (v) => { perf = v; }, world: () => sim, letters: () => letters, solids: () => solids, topple, detonate, S: () => S, pick, pending: () => pending },
     destroy() {
       offs.forEach((f) => f());
       overlay.remove(); canvas.style.transform = ''; stage.root.style.cursor = '';

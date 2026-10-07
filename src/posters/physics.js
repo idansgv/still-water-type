@@ -53,6 +53,7 @@ export class Sim {
     this.queue = new R.EventQueue(true);
     this.owner = new Map();                                          // collider handle -> Body
     this.dynamics = new Set();
+    this.byHandle = new Map();                                       // rigid-body handle -> Body, so only the awake bodies need visiting
     this.mat = { friction: 0.5, restitution: 0.1 };
   }
   setGravity(g) { this.world.gravity = { x: 0, y: 0, z: -g }; }
@@ -66,7 +67,7 @@ export class Sim {
     if (o.angularDamping != null) d = d.setAngularDamping(o.angularDamping);
     if (o.ccd) d = d.setCcdEnabled(true);
     if (o.lockTilt) d = d.enabledRotations(false, false, true).enabledTranslations(true, true, false);   // may slide and turn about the vertical, nothing else
-    const b = this._make(d, false); this.dynamics.add(b); return b;
+    const b = this._make(d, false); this.dynamics.add(b); this.byHandle.set(b.rb.handle, b); return b;
   }
   _make(desc, isStatic) { return new Body(this, this.world.createRigidBody(desc), isStatic); }
 
@@ -101,8 +102,9 @@ export class Sim {
     this.owner.delete(collider.handle); this.world.removeCollider(collider, true);
   }
   remove(body) {
+    if (!body.world) return;                                         // already gone
     for (const c of body.colliders) this.owner.delete(c.handle);
-    body.colliders.length = 0; body.world = null; this.dynamics.delete(body);
+    body.colliders.length = 0; body.world = null; this.dynamics.delete(body); this.byHandle.delete(body.rb.handle);
     this.world.removeRigidBody(body.rb);
   }
   setMaterial(friction, restitution) {                              // change every collider that is not a wall
@@ -138,7 +140,11 @@ export class Sim {
 
   step(dt, onHit) {
     this.world.timestep = dt;
-    for (const b of this.dynamics) { b.pv.x = b.velocity.x; b.pv.y = b.velocity.y; b.pv.z = b.velocity.z; }
+    const active = [];                                               // only awake bodies are visited: a pile of resting rubble costs nothing here
+    const collect = this.world.forEachActiveRigidBody ? (f) => this.world.forEachActiveRigidBody(f) : null;
+    if (collect) collect((rb) => { const b = this.byHandle.get(rb.handle); if (b) active.push(b); });
+    else for (const b of this.dynamics) if (!b.rb.isSleeping()) active.push(b);
+    for (const b of active) { b.pv.x = b.velocity.x; b.pv.y = b.velocity.y; b.pv.z = b.velocity.z; }
     this.world.step(this.queue);
     if (onHit) this.queue.drainCollisionEvents((h1, h2, started) => {
       if (!started) return;
@@ -146,7 +152,10 @@ export class Sim {
       if (a && b) onHit(a, b, h1, h2);
     });
     else this.queue.drainCollisionEvents(() => {});
-    for (const b of this.dynamics) if (!b.rb.isSleeping()) b.sync();
+    const after = [];
+    if (collect) collect((rb) => { const b = this.byHandle.get(rb.handle); if (b) after.push(b); });
+    else for (const b of this.dynamics) if (!b.rb.isSleeping()) after.push(b);
+    for (const b of after) b.sync();
   }
 }
 
