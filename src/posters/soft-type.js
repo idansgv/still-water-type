@@ -110,7 +110,8 @@ export function mount(stage) {
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
   stage.setBackdrop(dark ? 0 : 1);
 
-  let W = 1, H = 1, glyphs = [], nodes = [], neighbors = new Set();
+  let W = 1, H = 1, glyphs = [], nodes = [], adj = new Uint8Array(1), NN = 1;   // adj: which pairs of particles are joined (and so never push each other)
+  let head = new Int32Array(2048), nextIn = new Int32Array(1), oldX = new Float64Array(1), oldY = new Float64Array(1), moveX = new Float64Array(1), moveY = new Float64Array(1);   // the contact grid and per-step scratch, reused
   let drag = null, press = null, quiet = 0, acc = 0, settling = false, touched = false, idle = 0, nextPulse = 3, breeze = 0, windT = 0;
   const HOLD_DELAY = 0.22, FLICKER_T = 1.15;
   let bursts = [], marks = [], shake = 0;
@@ -154,10 +155,12 @@ export function mount(stage) {
     glyphs.forEach((g, i) => { g.base = Math.pow(raw[i] / ref, 0.6); g.m = g.base; });   // rest mass from ink area, compressed so an I is light but not weightless
     nodes = glyphs.flatMap((g) => g.nodes);
     nodes.forEach((n, i) => { n.id = i; });
-    neighbors = new Set();
+    NN = nodes.length; adj = new Uint8Array(NN * NN); nextIn = new Int32Array(NN);
+    oldX = new Float64Array(NN); oldY = new Float64Array(NN); moveX = new Float64Array(NN); moveY = new Float64Array(NN);
+    const join = (a, b) => { adj[a.id * NN + b.id] = 1; adj[b.id * NN + a.id] = 1; };
     for (const g of glyphs) {
-      for (const a of g.nodes) for (const b of g.nodes) if (a.id < b.id && Math.hypot(a.ox - b.ox, a.oy - b.oy) < g.r0 * 2.1) neighbors.add(a.id + ':' + b.id);
-      for (const l of g.links) neighbors.add(Math.min(l.a.id, l.b.id) + ':' + Math.max(l.a.id, l.b.id));
+      for (const a of g.nodes) for (const b of g.nodes) if (a.id < b.id && Math.hypot(a.ox - b.ox, a.oy - b.oy) < g.r0 * 2.1) join(a, b);
+      for (const l of g.links) join(l.a, l.b);
     }
     drag = null; press = null;
     for (let i = 0; i < 25; i++) solve();
@@ -188,23 +191,26 @@ export function mount(stage) {
         }
       }
     }
-    // contacts through a spatial hash: strokes squash against each other and never interlock
+    // contacts through a spatial hash (chained, in typed arrays, reused every pass): strokes squash against each other and never interlock
     let rmax = 8; for (const n of nodes) rmax = Math.max(rmax, n.rad);
-    const cell = rmax * 2 + 3, grid = new Map();
-    for (const a of nodes) {
-      const gx = Math.floor(a.x / cell), gy = Math.floor(a.y / cell);
+    const cell = rmax * 2 + 3, M = head.length - 1;
+    head.fill(-1);
+    for (let ia = 0; ia < NN; ia++) {
+      const a = nodes[ia], gx = Math.floor(a.x / cell), gy = Math.floor(a.y / cell);
       for (let x = gx - 1; x <= gx + 1; x++) for (let y = gy - 1; y <= gy + 1; y++) {
-        const bucket = grid.get(x * 4099 + y); if (!bucket) continue;
-        for (const b of bucket) {
-          if (a.g === b.g && neighbors.has(b.id + ':' + a.id)) continue;
-          const dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy) || 0.001, over = a.rad + b.rad + 1.8 - d;
+        for (let ib = head[(x * 73856093 ^ y * 19349663) & M]; ib >= 0; ib = nextIn[ib]) {
+          const b = nodes[ib];
+          if (a.g === b.g && adj[ia * NN + ib]) continue;
+          const dx = a.x - b.x, dy = a.y - b.y, rr = a.rad + b.rad + 1.8;
+          if (dx > rr || dx < -rr || dy > rr || dy < -rr) continue;
+          const d = Math.hypot(dx, dy) || 0.001, over = rr - d;
           if (over > 0) {                                  // the heavier body gives way less
             const wa = 1 / a.g.m, wb = 1 / b.g.m, ta = wa / (wa + wb) * over / d, tb = wb / (wa + wb) * over / d;
             a.x += dx * ta; a.y += dy * ta; b.x -= dx * tb; b.y -= dy * tb;
           }
         }
       }
-      const key = gx * 4099 + gy; if (!grid.has(key)) grid.set(key, []); grid.get(key).push(a);
+      const h = (gx * 73856093 ^ gy * 19349663) & M; nextIn[ia] = head[h]; head[h] = ia;
     }
     for (const n of nodes) confine(n);
   }
@@ -321,7 +327,7 @@ export function mount(stage) {
 
   function step() {
     forces();
-    const old = nodes.map((n) => [n.x, n.y]);
+    for (let i = 0; i < NN; i++) { oldX[i] = nodes[i].x; oldY[i] = nodes[i].y; }
     for (const g of glyphs) {                                // shape memory: pulled toward its own rest shape, free to rotate
       g.center();
       let mx = 0, my = 0; for (const n of g.nodes) { mx += n.ox; my += n.oy; } mx /= g.nodes.length; my /= g.nodes.length;
@@ -334,19 +340,20 @@ export function mount(stage) {
         n.vx += (g.cx + ox * c - oy * sn - n.x) * 0.024; n.vy += (g.cy + ox * sn + oy * c - n.y) * 0.024;
       }
     }
-    const move = nodes.map((n) => [n.vx, n.vy]); let held = null;
+    for (let i = 0; i < NN; i++) { moveX[i] = nodes[i].vx; moveY[i] = nodes[i].vy; }
+    let held = null;
     if (drag) {                                              // the held point tracks the pointer; the rest is carried partway
       const n = drag.node, mx = clamp(drag.x + drag.dx - n.x, -60, 60), my = clamp(drag.y + drag.dy - n.y, -60, 60);
-      for (const m of drag.g.nodes) { move[m.id][0] += mx * 0.2; move[m.id][1] += my * 0.2; }
+      for (const m of drag.g.nodes) { moveX[m.id] += mx * 0.2; moveY[m.id] += my * 0.2; }
       held = { n, x0: n.x, y0: n.y, x: n.x + mx, y: n.y + my };
     }
     let far = 0, thin = Infinity;
     for (const n of nodes) thin = Math.min(thin, n.rad);
-    for (const [x, y] of move) far = Math.max(far, Math.hypot(x, y));
+    for (let i = 0; i < NN; i++) far = Math.max(far, Math.hypot(moveX[i], moveY[i]));
     if (held) far = Math.max(far, Math.hypot(held.x - held.x0, held.y - held.y0));
     const steps = clamp(Math.ceil(far / (thin * 0.5)), 1, 8), passes = Math.ceil(6 / steps);
     for (let s = 1; s <= steps; s++) {
-      nodes.forEach((n, i) => { n.x += move[i][0] / steps; n.y += move[i][1] / steps; });
+      for (let i = 0; i < NN; i++) { nodes[i].x += moveX[i] / steps; nodes[i].y += moveY[i] / steps; }
       for (let i = 0; i < passes; i++) {
         solve();
         if (held) { const t = s / steps; held.n.x = held.x0 + (held.x - held.x0) * t; held.n.y = held.y0 + (held.y - held.y0) * t; confine(held.n); }
@@ -356,7 +363,7 @@ export function mount(stage) {
     nodes.forEach((n, i) => {
       const g = n.g, k = g.state === 'spent' ? 0.8 : g.state === 'flying' ? 1 - 0.035 / clamp(g.m, 0.5, 3) : 0.94;   // heavy letters coast; a spent one has no motion left
       const cap = g.state === 'flying' ? 70 : 36;
-      n.vx = clamp((n.x - old[i][0]) * k, -cap, cap); n.vy = clamp((n.y - old[i][1]) * k, -cap, cap);
+      n.vx = clamp((n.x - oldX[i]) * k, -cap, cap); n.vy = clamp((n.y - oldY[i]) * k, -cap, cap);
       e += n.vx * n.vx + n.vy * n.vy;
     });
     for (const g of glyphs) { let vx = 0, vy = 0; for (const n of g.nodes) { vx += n.vx; vy += n.vy; } g.vx = vx / g.nodes.length; g.vy = vy / g.nodes.length; }
@@ -370,6 +377,15 @@ export function mount(stage) {
     const ns = p.nodes, c = ns.length;
     if (c < 2) return;
     const mid = (a, b) => [(a.x + b.x) / 2, (a.y + b.y) / 2];
+    let lo = Infinity, hi = 0; for (const n of ns) { lo = Math.min(lo, n.rad); hi = Math.max(hi, n.rad); }
+    if (hi - lo < 0.35) {                                      // an even stroke (rest, drag, squash) is one path and one stroke call
+      ctx.lineWidth = (lo + hi);
+      ctx.beginPath();
+      if (p.closed) { const m0 = mid(ns[c - 1], ns[0]); ctx.moveTo(m0[0], m0[1]); for (let i = 0; i < c; i++) { const b = mid(ns[i], ns[(i + 1) % c]); ctx.quadraticCurveTo(ns[i].x, ns[i].y, b[0], b[1]); } ctx.closePath(); }
+      else { ctx.moveTo(ns[0].x, ns[0].y); for (let i = 1; i < c - 1; i++) { const m = mid(ns[i], ns[i + 1]); ctx.quadraticCurveTo(ns[i].x, ns[i].y, m[0], m[1]); } ctx.lineTo(ns[c - 1].x, ns[c - 1].y); }
+      ctx.stroke();
+      return;
+    }
     for (let i = 0; i < c; i++) {
       const n = ns[i];
       let a, b;
@@ -491,7 +507,7 @@ export function mount(stage) {
       actions: { 'Re-form': reform },
       set() {}, reset() { reform(); },
     },
-    debug: { glyphs: () => glyphs, marks: () => marks, step: () => step() },
+    debug: { glyphs: () => glyphs, marks: () => marks, step: () => step(), draw: () => draw() },
     destroy() {
       offs.forEach((f) => f());
       stage.root.style.cursor = '';
