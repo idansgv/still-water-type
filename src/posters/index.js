@@ -35,6 +35,7 @@ export const POSTERS = [
     blurb: 'A flat poster. Tilt it.',
     hint: null,
     themes: { dark: 1, light: 0 },
+    draft: true,
     load: () => import('./sheet.js'),
   },
   {
@@ -122,7 +123,6 @@ export const POSTERS = [
     blurb: 'The name as liquid metal: black, with a few bright highlights. Pull it, scatter it, fuse it.',
     hint: null,
     themes: { dark: 0.15, light: 0.85 },
-    draft: true,
     load: () => import('./liquid-metal.js'),
   },
 ];

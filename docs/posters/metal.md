@@ -1,6 +1,6 @@
 # Liquid metal (draft)
 
-**Status:** first draft, 7 Oct 2026. Not in the shuffle. Test at `/?p=metal`. File: `src/posters/liquid-metal.js` (a sibling of `ink.js`).
+**Status:** in the shuffle since 7 Oct 2026 (added with Explode). Test at `/?p=metal`. File: `src/posters/liquid-metal.js` (a sibling of `ink.js`).
 
 **Brief (Idan).** Ink flowing back to its original spot felt odd. Try liquid metal instead: about 95% black, a few shiny highlights.
 

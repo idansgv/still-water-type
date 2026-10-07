@@ -29,3 +29,5 @@ About 14 texture reads per point in the vertex shader. The frame-time governor l
 
 ## History
 Built after Idan's brief ("type projected on a lightly wrinkled piece of paper, only clear on camera tilt"). A first procedural version (point cloud) was liked; it gained a tuning panel and the crumple interaction; it was then rebuilt around the baked cloth simulation from the Codrops VAT article for realistic wrinkles. Not adopted from the article: its physics engine (grab, push, roll, throw) and SSAO pass. Apple's ml-sharp was not used (research-only licence, 2.8 GB).
+
+**Status:** removed from the shuffle on 7 Oct 2026 (now a draft; `?p=sheet` and the old share link still open it).
