@@ -115,6 +115,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./ink.js'),
   },
+  {
+    slug: 'metal',
+    title: 'Liquid metal',
+    words: ['Idan', 'Segev'],
+    blurb: 'The name as liquid metal: black, with a few bright highlights. Pull it, scatter it, fuse it.',
+    hint: null,
+    themes: { dark: 0.15, light: 0.85 },
+    draft: true,
+    load: () => import('./liquid-metal.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);
