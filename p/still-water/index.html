@@ -41,23 +41,24 @@
 <div id="hint" class="hint" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
+<!-- Parked (7 Oct 2026): the poster name (.folio), the social links (nav.links) and Share are hidden with the `hidden` attribute. Remove it to bring them back. -->
 <footer class="chrome">
   <div class="id">
-    <span class="who"><b>Idan Segev</b> <span class="role">Design leader. Builder of builders.</span> <span id="tagline">Craft is the credential.</span></span>
-    <span class="folio"><span id="folio-title"></span><span class="count" id="folio-count"></span></span>
+    <span class="who"><b>Idan Segev</b> <span class="role">Design leader. Builder.</span></span>
+    <span class="folio" hidden><span id="folio-title"></span><span class="count" id="folio-count"></span></span>
   </div>
-  <nav class="links" aria-label="Elsewhere">
+  <nav class="links" aria-label="Elsewhere" hidden>
     <a href="https://www.linkedin.com/in/idansegev" target="_blank" rel="noopener">LinkedIn</a>
     <a href="https://x.com/idan_sgv" target="_blank" rel="noopener">X</a>
   </nav>
   <div class="actions">
     <button id="btn-shuffle" type="button">Shuffle</button>
-    <button id="btn-share" type="button">Share</button>
+    <button id="btn-share" type="button" hidden>Share</button>
   </div>
 </footer>
 
 <noscript>
-  <div class="plain">Idan<br>Segev<br><small style="font:400 14px/1.5 monospace;text-transform:none;display:block;margin-top:24px">Design leader. Builder of builders. This page is a set of interactive posters and needs JavaScript.</small></div>
+  <div class="plain">Idan<br>Segev<br><small style="font:400 14px/1.5 monospace;text-transform:none;display:block;margin-top:24px">Design leader. Builder. This page is a set of interactive posters and needs JavaScript.</small></div>
 </noscript>
 </body>
 </html>

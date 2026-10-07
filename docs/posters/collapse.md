@@ -27,3 +27,5 @@ Infinite wall planes at the screen edge stopped tall towers from falling: use lo
 Split from the original "Columns" poster on 5 October 2026. Built on cannon-es first (a push into a tight row mostly leaned and rocked back), moved to Rapier with identical results (16 of 16 taps, 1.56 neighbours). Open: whether to join the shuffle, a light theme, a hint, a real-phone check.
 
 Idan's tuned set applied as defaults (7 Oct 2026): gravity 21, extrusion height 5.2 (everything else as before). Collapse remains a draft.
+
+**Status:** in the shuffle since 7 Oct 2026 (a share page exists at `/p/collapse/`).

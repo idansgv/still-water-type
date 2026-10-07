@@ -54,7 +54,6 @@ export const POSTERS = [
     blurb: 'Flat type that is really standing columns. Knock one over and watch them fall on each other.',
     hint: null,
     themes: { dark: 1, light: 0 },
-    draft: true,
     load: () => import('./collapse.js'),
   },
   {

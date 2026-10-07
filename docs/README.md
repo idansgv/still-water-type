@@ -7,9 +7,9 @@ Written 5 October 2026, updated 7 October 2026. `BRIEF.md` in the repository roo
   - [Still Water](posters/still-water.md): live, in the shuffle
   - [Soft type](posters/soft-type.md): live, in the shuffle (balloon behaviour: inflate, rocket, burst)
   - [Explode](posters/explode.md): live, in the shuffle (pre-fractured letters, chunked debris)
+  - [Collapse](posters/collapse.md): live, in the shuffle since 7 Oct 2026 (tuned defaults)
   - [Liquid metal](posters/metal.md): live, in the shuffle (mercury behaviour, `?p=metal`)
   - [Sheet](posters/sheet.md): removed from the shuffle 7 Oct 2026, draft (`?p=sheet`)
-  - [Collapse](posters/collapse.md): draft (`?p=collapse`)
   - [Skyline](posters/skyline.md): draft (`?p=skyline`)
   - [Fold](posters/fold.md): draft, parked (`?p=fold`), the per-letter folded-paper rethink of Sheet
   - [Backlight](posters/backlight.md): draft (`?p=backlight`), solid 3D type in a black room revealed by a rectangular light

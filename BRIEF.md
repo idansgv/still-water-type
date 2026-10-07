@@ -556,3 +556,5 @@ drafts awaiting Idan's review; Skyline (the projection poster, hard-edged blocks
 - **Liquid metal** (live): ink that keeps its new shape, lit as black mirror metal; mercury behaviour (agitation, beading, low friction, merge); a 23-control settings panel; Idan's tuned defaults; black page: inverted white and chrome were both rejected, so the page shows the same black metal (obsidian) with a stronger rim.
 - **Shuffle and furniture**: the shuffle is now Still Water, Soft type, Explode and Liquid metal; Sheet moved to drafts; the poster name, social links and Share are hidden (parked, to return later).
 - **Next**: Idan wants to get back to the columns posters (Collapse is next).
+
+**Collapse joined the shuffle; footer text (7 October 2026).** Collapse took Idan's tuned defaults (gravity 21, height 5.2) and joined the shuffle, which is now Still Water, Soft type, Collapse, Explode and Liquid metal. The footer role line is now "Design leader. Builder." with no rotating aside, "for now"; both, plus the hidden furniture and the old descriptions, are listed under "To reconsider" in `docs/PROJECT.md` section 12.

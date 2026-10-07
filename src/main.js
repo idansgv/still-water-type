@@ -222,7 +222,8 @@ async function share() {
 // ---------- wiring ----------
 $('btn-shuffle').addEventListener('click', shuffle);
 $('btn-share').addEventListener('click', share);
-$('tagline').textContent = ASIDES[Math.floor(Math.random() * ASIDES.length)];
+// Parked (7 Oct 2026): the rotating aside after the role line is off for now (see docs/PROJECT.md, "To reconsider"). To bring it back, restore <span id="tagline"> in index.html and uncomment:
+// $('tagline').textContent = ASIDES[Math.floor(Math.random() * ASIDES.length)];
 
 addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
