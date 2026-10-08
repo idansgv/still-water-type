@@ -28,7 +28,7 @@ export function mountPhys(stage) {
   const P = { ...DEFAULTS };
 
   let W = 1, H = 1, R = 60, N = 20, L = 120, rw = 4, g = 1500, stepW = 450, Hs = 70;
-  let px = [], py = [], vx = [], vy = [], cam = { x: 0, y: 0 }, grab = null, pid = null, acc = 0, tapT = 0;
+  let orbit = null, px = [], py = [], vx = [], vy = [], cam = { x: 0, y: 0 }, grab = null, pid = null, acc = 0, tapT = 0;
 
   const top = (k) => -k * Hs;                                   // the top of step k (step 0 is the upper one, x from -inf to 0; step k covers x in [(k-1) stepW, k stepW])
   const stepX = (k) => [(k - 1) * stepW, k * stepW];
@@ -128,16 +128,31 @@ export function mountPhys(stage) {
   }
 
   // ---------- the view ----------
-  const rot = () => { const y = P.yaw * Math.PI / 180, x = -P.pitch * Math.PI / 180; return { cy: Math.cos(y), sy: Math.sin(y), cx: Math.cos(x), sx: Math.sin(x) }; };
-  const project = (v, r, ox, oy) => { const x1 = r.cy * v[0] + r.sy * v[2], z1 = -r.sy * v[0] + r.cy * v[2], y2 = r.cx * v[1] - r.sx * z1; return [ox + x1, oy - y2, r.sx * v[1] + r.cx * z1]; };
-  function origin(r) { const o = project([cam.x, cam.y, 0], r, 0, 0); return [W / 2 - o[0], H / 2 + o[1]]; }
+  // Camera views: the camera eases between a few named views, and you can also orbit by dragging empty space. Keys 1 to 6 pick a view.
+  const VIEWS = {
+    iso: { label: 'Isometric', key: '1', yaw: () => P.yaw, pitch: () => P.pitch, zoom: 1 },
+    side: { label: 'Side', key: '2', yaw: () => 0, pitch: () => 0, zoom: 1 },
+    front: { label: 'Front', key: '3', yaw: () => 90, pitch: () => 0, zoom: 1 },
+    top: { label: 'Top', key: '4', yaw: () => 0, pitch: () => 89, zoom: 1 },
+    close: { label: 'Close', key: '5', yaw: () => 35, pitch: () => 18, zoom: 1.9, focus: 'front' },
+    wide: { label: 'Wide', key: '6', yaw: () => 40, pitch: () => 25, zoom: 0.55 },
+  };
+  const view = { yaw: P.yaw, pitch: P.pitch, zoom: 1 }, vt = { yaw: P.yaw, pitch: P.pitch, zoom: 1 };
+  let viewName = 'iso', focus = 'centroid';                                  // the camera follows the middle of the slinky, or (Close) its leading coil
+  function setView(name) { const v = VIEWS[name]; if (!v) return; viewName = name; focus = v.focus || 'centroid'; vt.yaw = v.yaw(); vt.pitch = v.pitch(); vt.zoom = v.zoom; }
+  const rot = () => { const y = view.yaw * Math.PI / 180, x = -view.pitch * Math.PI / 180; return { cy: Math.cos(y), sy: Math.sin(y), cx: Math.cos(x), sx: Math.sin(x), z: view.zoom }; };
+  const project = (v, r, ox, oy) => { const x1 = r.cy * v[0] + r.sy * v[2], z1 = -r.sy * v[0] + r.cy * v[2], y2 = r.cx * v[1] - r.sx * z1; return [ox + x1 * r.z, oy - y2 * r.z, r.sx * v[1] + r.cx * z1]; };
+  function origin(r) { const o = project([cam.x, cam.y, 0], r, 0, 0); return [W / 2 - o[0], H / 2 - o[1]]; }                       // put the camera's point at the middle of the screen
 
   function draw() {
+    view.yaw += (vt.yaw - view.yaw) * 0.14; view.pitch += (vt.pitch - view.pitch) * 0.14; view.zoom += (vt.zoom - view.zoom) * 0.14;
     ctx.setTransform(stage.pw / W, 0, 0, stage.ph / H, 0, 0);
     ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
     // the camera follows the slinky
     let mx = 0, my = 0; for (let i = 0; i < 2 * N; i++) { mx += px[i]; my += py[i]; } mx /= 2 * N; my /= 2 * N;
-    cam.x += (mx - cam.x) * 0.06; cam.y += (my - cam.y) * 0.06;
+    if (focus === 'front') { mx = (px[0] + px[1]) / 2; my = (py[0] + py[1]) / 2; }
+    const far = Math.hypot(mx - cam.x, my - cam.y) > R * 10;                 // if it has run far ahead (or a view was just chosen) catch up at once
+    const kf = far ? 1 : 0.1; cam.x += (mx - cam.x) * kf; cam.y += (my - cam.y) * kf;
     const r = rot(), [ox, oy] = origin(r), depth = R * 1.6;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = ink; ctx.fillStyle = paper; ctx.lineWidth = Math.max(2, R * 0.05);
     for (let k = 6; k >= -1; k--) {                                        // steps, far to near
@@ -171,18 +186,26 @@ export function mountPhys(stage) {
     return best;
   };
   // the pointer's position on the plane of the slinky (z = 0), inverting the view
-  function onPlane(q) { const r = rot(), [ox, oy] = origin(r), x = (q.x - ox) / r.cy, y = ((oy - q.y) - r.sx * r.sy * x) / r.cx; return [x, y]; }
+  function onPlane(q) { const r = rot(); if (Math.abs(r.cy) < 0.2 || r.cx < 0.2) return null; const [ox, oy] = origin(r), x = (q.x - ox) / (r.cy * r.z), y = ((oy - q.y) / r.z - r.sx * r.sy * x) / r.cx; return [x, y]; }
   offs.push(stage.on('down', (q, e) => {
     if (pid !== null) return;
     pid = e.pointerId; const i = endPoint(q); tapT = performance.now();
-    if (i !== null) { const [wx, wy] = onPlane(q); grab = { i, x: wx, y: wy, t: performance.now() }; }
+    const w = i !== null ? onPlane(q) : null;
+    if (w) grab = { i, x: w[0], y: w[1], t: performance.now() };
+    else orbit = { x: q.x, y: q.y, yaw: vt.yaw, pitch: vt.pitch };                       // empty space: drag to turn the view
   }));
-  offs.push(stage.on('move', (q, e) => { if (grab && e.pointerId === pid) { const [wx, wy] = onPlane(q); grab.x = wx; grab.y = wy; } }));
+  offs.push(stage.on('move', (q, e) => {
+    if (e.pointerId !== pid) return;
+    if (grab) { const w = onPlane(q); if (w) { grab.x = w[0]; grab.y = w[1]; } }
+    else if (orbit) { vt.yaw = orbit.yaw + (q.x - orbit.x) * 0.35; vt.pitch = clamp(orbit.pitch + (q.y - orbit.y) * 0.3, 0, 89); viewName = 'custom'; }
+  }));
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pid) return;
     if (grab && performance.now() - grab.t < 250) { const i = grab.i; vx[i] += R * 18 * P.push; vy[i] += R * 6 * P.push; }   // a tap: nudge that end forward
-    grab = null; pid = null;
+    grab = null; orbit = null; pid = null;
   }));
+  const onKey = (e) => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; const name = Object.keys(VIEWS).find((k) => VIEWS[k].key === e.key); if (name) setView(name); };
+  addEventListener('keydown', onKey); offs.push(() => removeEventListener('keydown', onKey));
   offs.push(stage.on('resize', build));
   build();
 
@@ -199,11 +222,11 @@ export function mountPhys(stage) {
         { name: 'Touch', items: [Ctl('push', 'Tap push', 0, 3, 0.05)] },
         { name: 'View', items: [Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005), Ctl('yaw', 'Turn (degrees)', 0, 90, 1), Ctl('pitch', 'Tilt (degrees)', 0, 70, 1)] },
       ],
-      actions: { 'Nudge it': () => { const i = 0; vx[i] += R * 18 * P.push; vy[i] += R * 6 * P.push; }, 'Re-form': build },
-      set(key, value) { P[key] = value; if (['coils', 'size', 'gap', 'arch', 'pack', 'archW', 'archH', 'stepW', 'drop'].includes(key)) build(); else { g = P.gravity * R; } },
+      actions: { ...Object.fromEntries(Object.keys(VIEWS).map((k) => [`${VIEWS[k].key}  ${VIEWS[k].label}`, () => setView(k)])), 'Nudge it': () => { const i = 0; vx[i] += R * 18 * P.push; vy[i] += R * 6 * P.push; }, 'Re-form': build },
+      set(key, value) { P[key] = value; if (key === 'yaw' || key === 'pitch') setView('iso'); if (['coils', 'size', 'gap', 'arch', 'pack', 'archW', 'archH', 'stepW', 'drop'].includes(key)) build(); else { g = P.gravity * R; } },
       reset() { Object.assign(P, DEFAULTS); build(); },
     },
-    debug: { kick: (i, ax, ay) => { vx[i] += R * ax; vy[i] += R * ay; }, run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, state: () => ({ N, R, px: Array.from(px), py: Array.from(py), stepW, Hs }), nudge: (f = 1) => { vx[0] += R * 18 * f; vy[0] += R * 6 * f; } },
+    debug: { cam: () => ({ ...cam }), setView, view: () => ({ ...view, name: viewName }), kick: (i, ax, ay) => { vx[i] += R * ax; vy[i] += R * ay; }, run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, state: () => ({ N, R, px: Array.from(px), py: Array.from(py), stepW, Hs }), nudge: (f = 1) => { vx[0] += R * 18 * f; vy[0] += R * 6 * f; } },
     destroy() { offs.forEach((f) => f()); stage.setBackdrop(null); },
   };
 }
