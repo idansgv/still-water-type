@@ -9,7 +9,14 @@
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+import { mountWalk } from './slinky-walk.js';
+
+// ?mode=spring shows the first stage (the hanging spring); the default is the stair walk
 export function mount(stage) {
+  return new URLSearchParams(location.search).get('mode') === 'spring' ? mountSpring(stage) : mountWalk(stage);
+}
+
+function mountSpring(stage) {
   const ctx = stage.canvas.getContext('2d');
   const dark = !!stage.flip;
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
