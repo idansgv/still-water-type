@@ -17,6 +17,7 @@ export function mount(ctx) {
   const AMP = ctx.reduced ? 0.45 : 1;
   const inkBg = ctx.flip ? 0 : 1, inkFg = 1 - inkBg;                // black on white, and white on black on every second shuffle
   ctx.setBackdrop(inkBg);
+  let weight = 350;                                              // Leida Book: light and calm (the panel can change it)
   let song = { ...DEFAULT };
   let lineIdx = 0, lineTimer = 0;
   const offs = [];
@@ -49,14 +50,14 @@ export function mount(ctx) {
     const rows = W / H < 0.85 ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
     const padX = Math.max(14 * dpr, W * 0.045), top = Math.max(18 * dpr, H * 0.04), bottom = 96 * dpr;
     const availW = W - 2 * padX, availH = H - top - bottom, rowGap = 0.1, n = rows.length;
-    tx.font = `900 100px ${FONT}`;
+    tx.font = `${weight} 100px ${FONT}`;
     const cap100 = tx.measureText('H').actualBoundingBoxAscent || 72;
     let fs = Infinity;
     for (const row of rows) fs = Math.min(fs, availW / (tx.measureText(row).width || 1) * 100);
     fs = Math.min(fs, availH / (n * 1.02 + (n - 1) * rowGap) / (cap100 / 100));
     const cap = cap100 * fs / 100, total = n * cap * 1.02 + (n - 1) * cap * rowGap;
     let base = top + (availH - total) / 2 + cap;
-    tx.font = `900 ${fs}px ${FONT}`; tx.fillStyle = 'rgb(255,0,0)';
+    tx.font = `${weight} ${fs}px ${FONT}`; tx.fillStyle = 'rgb(255,0,0)';
     for (const row of rows) {
       const m = tx.measureText(row);
       tx.fillText(row, (W - (m.actualBoundingBoxRight + m.actualBoundingBoxLeft)) / 2 + m.actualBoundingBoxLeft, base);
@@ -308,7 +309,16 @@ export function mount(ctx) {
   // an opening splash, so the poster says "touch me"
   splash([1, 0.6, 0], -1.2);
 
+  const DEFAULTS = { weight: 350 };
+  const tune = {
+    title: 'Still Water', values: { weight }, defaults: DEFAULTS,
+    groups: [{ name: 'Type', items: [{ key: 'weight', label: 'Weight (200 thin to 900 black)', min: 200, max: 900, step: 50 }] }],
+    set(key, value) { if (key === 'weight') { weight = value; this.values.weight = value; uploadType(); } },
+    reset() { this.set('weight', DEFAULTS.weight); },
+  };
+
   return {
+    tune,
     destroy() {
       offs.forEach((off) => off());
       removeEventListener('keydown', onKey);
