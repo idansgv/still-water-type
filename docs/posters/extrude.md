@@ -11,3 +11,5 @@
 **Material.** Black dough: dark body, tight highlight (two lobes), a faint light rim where the surface turns away (the "thin edge" glow of the jelly reference), darker where it leaves the page. White dough on the black page: shaded down from white by form and edge.
 
 **Open.** First pass. Checked in the browser: the dough extrudes in the right letter shape, sags, is cut, falls and lands; the cap shows the right letter. Not tuned by feel and not yet checked with a real press. The final retuning (stiffer while feeding, darker body) was not looked at after the change. Not tested on a phone. Pieces do not collide with each other, only with the page behind and the ledge. No translucency yet beyond the rim; no shadow of the dough on the page.
+
+**Status:** parked on 8 Oct 2026 ("it's a start"). Stays a draft, not in the shuffle.
