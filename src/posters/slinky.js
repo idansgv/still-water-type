@@ -10,10 +10,12 @@
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 import { mountWalk } from './slinky-walk.js';
+import { mountPhys } from './slinky-phys.js';
 
-// ?mode=spring shows the first stage (the hanging spring); the default is the stair walk
+// the default is the physical slinky (rods and springs on stairs); ?mode=spring is the first stage (a hanging spring), ?mode=css the scripted stair walk
 export function mount(stage) {
-  return new URLSearchParams(location.search).get('mode') === 'spring' ? mountSpring(stage) : mountWalk(stage);
+  const mode = new URLSearchParams(location.search).get('mode');
+  return mode === 'spring' ? mountSpring(stage) : mode === 'css' ? mountWalk(stage) : mountPhys(stage);
 }
 
 function mountSpring(stage) {
