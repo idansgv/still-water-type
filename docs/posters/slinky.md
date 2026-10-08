@@ -85,3 +85,7 @@ A rod forced across its neighbours showed as an X in a stack and made flips look
 | 150 | reaches the floor | not measurable at this height |
 
 So the old default (1330) is too stiff for the effect; around 300 shows it. Open problem: at low stiffness a long piece landing from the shelf and stairs breaks up into a spinning heap (coils flung and tumbling). `keepOrder` was added to the factory's rods (the stairs already had it) and it does not stop that; likely needs more constraint passes/substeps or friction on the rods at low stiffness.
+
+## Slinky feel: new factory defaults
+
+Wire stiffness 450 (was 1330), wire damping 8 (new: damps the relative speed along each spring, which calms the flung, spinning coils), 8 constraint passes and 6 substeps a frame, floor grip halved per pass to match. Result at the defaults: the wave test shows the bottom hovering about 0.35 s (frame 21) while the top falls, and streams of 25 to 80 coils land and drape coherently. A rod-against-rod crossing resolver exists (`cross`, off by default): it made the stream explode at the spout in some runs. Below about 400 a long piece still tends to land as a heap.

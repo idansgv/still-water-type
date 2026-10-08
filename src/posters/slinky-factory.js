@@ -17,7 +17,7 @@ export function createFactory(stage, V) {
     feed: 560, gravity: 1400, spring: 200,           // how fast coils leave the spout (px/s), gravity (px/s^2), spring stiffness
     gap: 0.02, size: 0.07, tilt: 0.34,               // closest two neighbouring coils get (of the screen height), coil radius (of the shorter side), how round the rings look
     damping: 6.5, loose: 0.12, air: 0.06, grip: 0.5, bounce: 0.55,              // damping along the springs, air drag, how much the floor grips
-    rodSpring: 1330, rodGap: 0.19, hold: 0.85, rebound: 0.35,   // once cut the piece is a row of rods (as on the stairs): wire stiffness, closest coils (of the radius), grip, how much of a landing comes back
+    rodSpring: 450, wireDamp: 8, cross: 0, rodGap: 0.19, hold: 0.85, rebound: 0.35,   // once cut the piece is a row of rods (as on the stairs): wire stiffness, closest coils (of the radius), grip, how much of a landing comes back
     bend: 0.9, steps: 5, run: 0.12, start: 0.45,        // how much a bent stretch of the slinky resists folding (an arch holds), and the stairs beyond the spout: how many, how high, how wide
     keep: 3, longest: 150,                           // pieces kept on the floor, most coils in one piece
     wire: 0.075,                                     // drawn wire thickness (of the coil radius)
@@ -122,7 +122,7 @@ export function createFactory(stage, V) {
     const n = p.n, M = 2 * n, px = p.px, py = p.py, vx = p.pvx, vy = p.pvy, L = 2 * R, rw = Math.max(2, R * P.wire * 0.5), dmin = R * P.rodGap + rw, k = P.rodSpring, bx = boxesNow();
     const x0 = Float32Array.from(px), y0 = Float32Array.from(py), vyPre = Float32Array.from(vy), landed = new Uint8Array(M);
     for (let i = 0; i < M; i++) vy[i] += P.gravity * h;
-    for (let i = 0; i < n - 1; i++) for (const e of [0, 1]) { const a = 2 * i + e, b = 2 * (i + 1) + e, dx = px[b] - px[a], dy = py[b] - py[a]; vx[a] += k * dx * h; vy[a] += k * dy * h; vx[b] -= k * dx * h; vy[b] -= k * dy * h; }
+    for (let i = 0; i < n - 1; i++) for (const e of [0, 1]) { const a = 2 * i + e, b = 2 * (i + 1) + e, dx = px[b] - px[a], dy = py[b] - py[a]; const rvx = vx[b] - vx[a], rvy = vy[b] - vy[a], f = P.wireDamp * h; vx[a] += k * dx * h + rvx * f; vy[a] += k * dy * h + rvy * f; vx[b] -= k * dx * h + rvx * f; vy[b] -= k * dy * h + rvy * f; }
     if (grab && grab.p === p) { const i = 2 * grab.i; vx[i] += (grab.x - px[i]) * 900 * h - vx[i] * 12 * h; vy[i] += (grab.y - py[i]) * 900 * h - vy[i] * 12 * h; }
     const streaming = p === live && pressed, damp = Math.exp(-(streaming ? P.damping : P.loose) * h), inB = (i) => streaming && p.x[i >> 1] < nozzle.x + barrel && p.y[i >> 1] < nozzle.y + R * 1.5;
     for (let i = 0; i < M; i++) { if (inB(i)) { vx[i] = P.feed; vy[i] = 0; px[i] += P.feed * h; py[i] = nozzle.y + (i & 1 ? R : -R); continue; } vx[i] *= damp; vy[i] *= damp; px[i] += vx[i] * h; py[i] += vy[i] * h; }
@@ -131,9 +131,19 @@ export function createFactory(stage, V) {
       const cx = px[a] + sx * t, cy = py[a] + sy * t, dx = px[q] - cx, dy = py[q] - cy, d = Math.hypot(dx, dy) || 1e-6;
       if (d < r) { const c = (r - d) / d; px[q] += dx * c * 0.5; py[q] += dy * c * 0.5; px[a] -= dx * c * 0.5 * (1 - t); py[a] -= dy * c * 0.5 * (1 - t); px[b] -= dx * c * 0.5 * t; py[b] -= dy * c * 0.5 * t; }
     };
-    for (let it = 0; it < 6; it++) {
+    for (let it = 0; it < 8; it++) {
       for (let i = 0; i < n; i++) { const t = 2 * i, b = t + 1, dx = px[t] - px[b], dy = py[t] - py[b], d = Math.hypot(dx, dy) || 1e-6, c = (d - L) / d * 0.5; px[t] -= dx * c; py[t] -= dy * c; px[b] += dx * c; py[b] += dy * c; }
       keepOrder(p);
+      // rods may not pass through one another (a pile of crossed rods is what a soft piece turned into): two that cross are pushed apart, centre from centre
+      if (P.cross) for (let i = 0; i < n; i++) for (let j = i + 1; j < Math.min(n, i + 7); j++) {
+        const ax = px[2 * i], ay = py[2 * i], bx = px[2 * i + 1], by = py[2 * i + 1], cx = px[2 * j], cy = py[2 * j], dx2 = px[2 * j + 1], dy2 = py[2 * j + 1];
+        if (Math.max(ax, bx) < Math.min(cx, dx2) || Math.max(cx, dx2) < Math.min(ax, bx) || Math.max(ay, by) < Math.min(cy, dy2) || Math.max(cy, dy2) < Math.min(ay, by)) continue;
+        const o1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax), o2 = (bx - ax) * (dy2 - ay) - (by - ay) * (dx2 - ax), o3 = (dx2 - cx) * (ay - cy) - (dy2 - cy) * (ax - cx), o4 = (dx2 - cx) * (by - cy) - (dy2 - cy) * (bx - cx);
+        if (o1 * o2 >= 0 || o3 * o4 >= 0) continue;
+        let nx = (cx + dx2 - ax - bx) / 2, ny = (cy + dy2 - ay - by) / 2; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        const m = Math.min(dmin, R * 0.25) * 0.5;
+        px[2 * i] -= nx * m; py[2 * i] -= ny * m; px[2 * i + 1] -= nx * m; py[2 * i + 1] -= ny * m; px[2 * j] += nx * m; py[2 * j] += ny * m; px[2 * j + 1] += nx * m; py[2 * j + 1] += ny * m;
+      }
       for (let i = 0; i < n - 1; i++) {
         for (const e of [0, 1]) { const a = 2 * i + e, b = 2 * (i + 1) + e, dx = px[b] - px[a], dy = py[b] - py[a], d = Math.hypot(dx, dy) || 1e-6; if (d < dmin) { const c = (dmin - d) / d * 0.5; px[a] -= dx * c; py[a] -= dy * c; px[b] += dx * c; py[b] += dy * c; } }
         for (const [sa, sb, q] of [[2 * i, 2 * i + 1, 2 * (i + 1)], [2 * i, 2 * i + 1, 2 * (i + 1) + 1], [2 * (i + 1), 2 * (i + 1) + 1, 2 * i], [2 * (i + 1), 2 * (i + 1) + 1, 2 * i + 1]]) pushPoint(q, sa, sb, dmin * 0.9);
@@ -141,7 +151,7 @@ export function createFactory(stage, V) {
       for (let i = 0; i < M; i++) for (const [xa, xb, tp] of bx) {                  // the floor and the steps
         if (px[i] > xa - rw && px[i] < xb + rw && py[i] > tp - rw) {
           const up = py[i] - (tp - rw), left = px[i] - (xa - rw), right = (xb + rw) - px[i];
-          if (up <= left && up <= right) { py[i] -= up; landed[i] = 1; if (vy[i] > 0) vy[i] = 0; vx[i] *= 1 - P.hold * 0.05; }
+          if (up <= left && up <= right) { py[i] -= up; landed[i] = 1; if (vy[i] > 0) vy[i] = 0; vx[i] *= 1 - P.hold * 0.025; }   // (per pass: 8 passes and 6 substeps a frame)
           else if (left < right) { px[i] -= left; if (vx[i] > 0) vx[i] = 0; } else { px[i] += right; if (vx[i] < 0) vx[i] = 0; }
         }
       }
@@ -174,7 +184,7 @@ export function createFactory(stage, V) {
       if (live.n >= P.longest) release();
     }
     const sub = 6, h = dt / sub;
-    for (const p of pieces) { if (p.rod) { for (let s = 0; s < 4; s++) rodSub(p, dt / 4); } else for (let s = 0; s < sub; s++) stepPiece(p, h); }
+    for (const p of pieces) { if (p.rod) { for (let s = 0; s < 6; s++) rodSub(p, dt / 6); } else for (let s = 0; s < sub; s++) stepPiece(p, h); }
     for (let i = pieces.length - 1; i >= 0; i--) { const p = pieces[i]; if (p.dying) { p.fade -= dt * 1.6; if (p.fade <= 0) pieces.splice(i, 1); } }
     const finished = pieces.filter((p) => p !== live && !p.dying);
     if (finished.length > P.keep) finished[0].dying = true;
@@ -280,7 +290,7 @@ export function createFactory(stage, V) {
       title: 'Slinky factory', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Stream', items: [Ctl('feed', 'Feed speed (px/s)', 100, 1400, 10), Ctl('longest', 'Longest piece (coils)', 20, 300, 5), Ctl('keep', 'Pieces kept on the floor', 1, 6, 1)] },
-        { name: 'Spring', items: [Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Air damping once cut', 0, 4, 0.01), Ctl('rodSpring', 'Wire stiffness', 2, 4000, 2), Ctl('rodGap', 'Closest coils', 0.05, 0.5, 0.01), Ctl('hold', 'Grip of the floor', 0, 1, 0.05), Ctl('rebound', 'Rebound off the floor', 0, 0.95, 0.01), Ctl('gravity', 'Gravity', 200, 4000, 50), ] },
+        { name: 'Spring', items: [Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Air damping once cut', 0, 4, 0.01), Ctl('rodSpring', 'Wire stiffness', 2, 4000, 2), Ctl('wireDamp', 'Wire damping (calms the heap)', 0, 30, 0.5), Ctl('rodGap', 'Closest coils', 0.05, 0.5, 0.01), Ctl('hold', 'Grip of the floor', 0, 1, 0.05), Ctl('rebound', 'Rebound off the floor', 0, 0.95, 0.01), Ctl('gravity', 'Gravity', 200, 4000, 50), ] },
         { name: 'Stairs', items: [Ctl('steps', 'Steps (0 = flat floor)', 0, 8, 1), Ctl('run', 'Step depth', 0.08, 0.4, 0.01), Ctl('start', 'Where the shelf ends', 0.3, 0.8, 0.01)] },
         { name: 'Look', items: [Ctl('size', 'Coil radius (re-forms)', 0.03, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
       ],
