@@ -144,6 +144,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./extrude.js'),
   },
+  {
+    slug: 'slinky',
+    title: 'Slinky',
+    words: ['Idan', 'Segev'],
+    blurb: 'A Slinky. Hang it, pull it, let go.',
+    hint: null,
+    themes: { dark: 0, light: 1 },
+    draft: true,
+    load: () => import('./slinky.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);
