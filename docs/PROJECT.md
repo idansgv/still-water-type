@@ -1,6 +1,6 @@
 # idansegev.com: the project
 
-Status on 5 October 2026. Live at https://idansegev.com (the `main` branch). Repository: `idansgv/still-water-type` (public). Local checkout: `~/Documents/Coding/lyric-ripple`.
+Status on 5 October 2026. Live at https://idansegev.com (the `main` branch). Repository: `idansgv/still-water-type` (public). Local checkout: `~/Documents/Coding/type-posters`.
 
 ## 1. What it is
 

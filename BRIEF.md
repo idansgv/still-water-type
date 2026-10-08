@@ -558,3 +558,5 @@ drafts awaiting Idan's review; Skyline (the projection poster, hard-edged blocks
 - **Next**: Idan wants to get back to the columns posters (Collapse is next).
 
 **Collapse joined the shuffle; footer text (7 October 2026).** Collapse took Idan's tuned defaults (gravity 21, height 5.2) and joined the shuffle, which is now Still Water, Soft type, Collapse, Explode and Liquid metal. The footer role line is now "Design leader. Builder." with no rotating aside, "for now"; both, plus the hidden furniture and the old descriptions, are listed under "To reconsider" in `docs/PROJECT.md` section 12.
+
+The local folder was renamed from `lyric-ripple` to `type-posters` on 8 Oct 2026 (the GitHub repository is still `idansgv/still-water-type`).
