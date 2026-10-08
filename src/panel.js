@@ -21,8 +21,14 @@ export function createPanel(tune, { toast = () => {}, onClose = () => {} } = {})
 
   const head = document.createElement('div');
   head.className = 'tune-head';
-  head.innerHTML = `<b>${tune.title}</b><button type="button" class="tune-x" aria-label="Close settings">Close</button>`;
+  head.innerHTML = `<b>${tune.title}</b><span><button type="button" class="tune-hide" aria-expanded="true">Hide</button><button type="button" class="tune-x" aria-label="Close settings">Close</button></span>`;
   head.querySelector('.tune-x').addEventListener('click', () => { destroy(); onClose(); });
+  // Hide folds the panel down to its title bar (so the poster can be seen and touched); Show opens it again. Remembered for the session.
+  const hideBtn = head.querySelector('.tune-hide');
+  const fold = (on) => { el.classList.toggle('folded', on); hideBtn.textContent = on ? 'Show' : 'Hide'; hideBtn.setAttribute('aria-expanded', on ? 'false' : 'true'); try { sessionStorage.setItem('tune-folded', on ? '1' : '0'); } catch (e) {} };
+  hideBtn.addEventListener('click', () => fold(!el.classList.contains('folded')));
+  let startFolded = false; try { startFolded = sessionStorage.getItem('tune-folded') === '1'; } catch (e) {}
+  if (startFolded) fold(true);
   el.appendChild(head);
 
   const actions = document.createElement('div');

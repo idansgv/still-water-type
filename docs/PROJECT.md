@@ -148,3 +148,6 @@ Nearest: tune and check Explode and Liquid metal on real phones, and Collapse an
 - What did not work: effects applied to type rather than a material the type lives in; simulated lighting on a surface (Emboss); soft geometry for a projection (Drape); building several posters in one pass without Idan in the loop.
 - What is landing: physical, familiar materials behind the type (glass, paper, cloth, stone, balloons), where the response has memory; real simulation data beats procedural noise; hand-drawn cartoon marks (curved, round-capped strokes that travel out and thin away) beat schematic lines.
 - Engineering: measure before choosing an engine (the cannon-es to Rapier switch); create anything placed from a screen scale after the scale is known (an invisible wall bug on phones); size a texture's data from the texture itself.
+
+### Settings panel on a phone
+`?tune` (or T) opens the panel. On a phone or any coarse pointer it is a bottom sheet (up to 46% of the height) with larger tap targets and a horizontally scrolling action row; **Hide** folds it to its title bar and **Show** opens it again (remembered for the session), **Close** removes it. Slinky link with the panel: `/?p=slinky&tune`.

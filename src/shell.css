@@ -131,6 +131,9 @@ body {
 .tune button:hover { border-color: #888; color: #fff; }
 .tune button:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 .tune-actions { margin-bottom: 6px; }
+.tune.folded > :not(.tune-head) { display: none; }
+.tune.folded .tune-head { margin-bottom: 0; }
+.tune.folded { overflow: hidden; }
 .tune details { border-top: 1px solid #262626; padding: 6px 0 2px; }
 .tune summary { cursor: pointer; color: #9a9a9a; padding: 2px 0 6px; }
 .tune-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: baseline; margin-bottom: 8px; }
@@ -169,3 +172,19 @@ noscript .plain {
 
 /* the `hidden` attribute must win over the display rules above */
 .chrome [hidden] { display: none !important; }
+
+/* The panel on a phone: a sheet along the bottom (the poster stays above it), roomy tap targets, Hide folds it to its title bar. */
+@media (max-width: 720px), (pointer: coarse) {
+  .tune { top: auto; right: 0; bottom: 0; left: 0; width: 100%; max-height: 46dvh; padding: 8px 14px calc(12px + env(safe-area-inset-bottom)); font-size: 13px; border-width: 1px 0 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  .tune-head { position: sticky; top: -8px; z-index: 1; margin: -8px -14px 8px; padding: 8px 14px; background: rgba(8, 8, 8, 0.96); }
+  .tune.folded .tune-head { position: static; margin: -8px -14px 0; }
+  .tune button { padding: 9px 12px; margin: 0 6px 6px 0; min-height: 40px; }
+  .tune-head button { margin: 0 0 0 6px; }
+  .tune-actions { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 0; margin: 0 -14px 8px; padding: 0 14px; scrollbar-width: none; }
+  .tune-actions::-webkit-scrollbar { display: none; }
+  .tune-actions button { flex: none; white-space: nowrap; }
+  .tune summary { padding: 8px 0; min-height: 36px; }
+  .tune-row { margin-bottom: 12px; }
+  .tune-row input[type="range"] { height: 30px; }
+  .tune-toggle input[type="checkbox"] { width: 26px; height: 26px; }
+}
