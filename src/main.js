@@ -175,6 +175,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   setChrome(poster);
 
   const stage = createStage(stageEl, { seed, theme, toast, setBackdrop });
+  stage.refreshPanel = syncPanel;                                   // a poster whose settings change (a mode switch) asks for the panel to be rebuilt
   stage.flip = shuffles % 2 === 1;
   current = { poster, stage, seed, theme };
   let inst = null;

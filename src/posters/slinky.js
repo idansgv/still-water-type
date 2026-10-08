@@ -10,13 +10,54 @@
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 import { mountWalk } from './slinky-walk.js';
-import { mountPhys } from './slinky-phys.js';
-import { mountFactory } from './slinky-factory.js';
+import { createPhys } from './slinky-phys.js';
+import { createFactory } from './slinky-factory.js';
+import { createView } from './slinky-view.js';
 
-// the default is the factory (a spout streams coils; real springs); ?mode=spring is the first stage (a hanging spring), ?mode=phys the rod model on stairs, ?mode=css the scripted stair walk
+// The default is one poster with two scenes and a switch between them: the factory (a spout streams coils, real springs) and the stairs
+// (a slinky going down steps, rods and springs), both seen through the same camera (six views, orbit, zoom). The panel has the switch
+// (and the key M), the views (keys 1 to 6), and the settings of whichever scene is showing.
+// ?mode=stairs or ?mode=factory chooses the one to start in; ?mode=spring is the first stage (a hanging spring), ?mode=css the scripted walk.
 export function mount(stage) {
   const mode = new URLSearchParams(location.search).get('mode');
-  return mode === 'spring' ? mountSpring(stage) : mode === 'css' ? mountWalk(stage) : mode === 'phys' ? mountPhys(stage) : mountFactory(stage);
+  if (mode === 'spring') return mountSpring(stage);
+  if (mode === 'css') return mountWalk(stage);
+  return mountBoth(stage, mode === 'stairs' ? 'stairs' : 'factory');
+}
+
+function mountBoth(stage, start) {
+  const dark = !!stage.flip;
+  stage.setBackdrop(dark ? 0 : 1);
+  const V = createView(stage, { yaw: 50, pitch: 32 });
+  V.mode = start; V.zoomMul = start === 'factory' ? 0.72 : 1;                     // the factory scene is wider than the stairs, so it is framed a little further back
+  const scenes = { factory: createFactory(stage, V), stairs: createPhys(stage, V) };
+  const cur = () => scenes[V.mode];
+  const refresh = () => { if (stage.refreshPanel) stage.refreshPanel(); };
+  V.onChange = refresh;
+  const setMode = (m) => { if (V.mode === m) return; V.mode = m; V.zoomMul = m === 'factory' ? 0.72 : 1; refresh(); };
+  const onKey = (e) => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; if (e.key === 'm' || e.key === 'M') setMode(V.mode === 'factory' ? 'stairs' : 'factory'); };
+  addEventListener('keydown', onKey);
+  const mark = (on) => (on ? '\u25CF ' : '\u25CB ');
+  const tune = {
+    title: 'Slinky',
+    get values() { return cur().tune.values; },
+    get defaults() { return cur().tune.defaults; },
+    get groups() { return cur().tune.groups; },
+    get actions() {
+      const out = { [mark(V.mode === 'factory') + 'M  Factory']: () => setMode('factory'), [mark(V.mode === 'stairs') + 'M  Stairs']: () => setMode('stairs') };
+      for (const k of Object.keys(V.VIEWS)) out[`${mark(V.name === k)}${V.VIEWS[k].key}  ${V.VIEWS[k].label}`] = () => V.setView(k);
+      return { ...out, ...cur().tune.actions };
+    },
+    set(key, value) { cur().tune.set(key, value); },
+    reset() { cur().tune.reset(); },
+  };
+  return {
+    tune,
+    debug: { mode: () => V.mode, setMode, V, ...Object.fromEntries(['factory', 'stairs'].map((k) => [k, scenes[k].debug])), setView: (n) => V.setView(n), view: () => ({ ...V.view, name: V.name }), cam: () => (scenes[V.mode].debug.cam ? scenes[V.mode].debug.cam() : null),
+      // the active scene's own helpers, at the top level, for tests
+      ...Object.fromEntries(['run', 'kick', 'state', 'press', 'release', 'pieces'].map((n) => [n, (...a) => { const f = cur().debug[n]; return f ? f(...a) : undefined; }])) },
+    destroy() { removeEventListener('keydown', onKey); scenes.factory.destroy(); scenes.stairs.destroy(); V.destroy(); stage.setBackdrop(null); stage.root.style.cursor = ''; },
+  };
 }
 
 function mountSpring(stage) {

@@ -11,24 +11,23 @@
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-export function mountPhys(stage) {
+export function createPhys(stage, V) {
   const ctx = stage.canvas.getContext('2d');
   const dark = !!stage.flip;
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
-  stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
 
   const DEFAULTS = {                                 // Idan's set (9 Oct 2026)
     coils: 20, size: 0.085, wire: 0.065,               // number of coils, coil radius (of the shorter screen side), wire thickness drawn (of the radius)
     spring: 1330, gap: 0.19, arch: 10, pack: 0.27, archW: 2.3, archH: 1,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
-    gravity: 36, grip: 0.85, damping: 0.4,             // gravity (radii per s^2), how much the stairs grip (0 slides), air damping (per s)
+    gravity: 36, grip: 0.85, damping: 0.4, bounce: 0.35,             // gravity (radii per s^2), how much the stairs grip (0 slides), air damping (per s)
     stepW: 8.9, drop: 2.3, push: 0.6,                  // width and drop of a step (radii), the strength of the tap
     yaw: 50, pitch: 32,                                // the view (degrees)
   };
   const P = { ...DEFAULTS };
 
   let W = 1, H = 1, R = 60, N = 20, L = 120, rw = 4, g = 1500, stepW = 450, Hs = 70;
-  let orbit = null, px = [], py = [], vx = [], vy = [], cam = { x: 0, y: 0 }, grab = null, pid = null, acc = 0, tapT = 0;
+  let px = [], py = [], vx = [], vy = [], cam = { x: 0, y: 0 }, grab = null, pid = null, acc = 0, tapT = 0;
 
   const top = (k) => -k * Hs;                                   // the top of step k (step 0 is the upper one, x from -inf to 0; step k covers x in [(k-1) stepW, k stepW])
   const stepX = (k) => [(k - 1) * stepW, k * stepW];
@@ -110,47 +109,38 @@ export function mountPhys(stage) {
     const qx = px[a] + sx * t, qy = py[a] + sy * t, dx = qx - cx0, dy = qy - cy0, d = Math.hypot(dx, dy) || 1e-6;
     if (d < rw) { const c = (rw - d) / d; px[a] += dx * c * (1 - t); py[a] += dy * c * (1 - t); px[b] += dx * c * t; py[b] += dy * c * t; }
   }
+  const landed = [];
   function collideStairs(i) {
     for (let k = -1; k <= 5; k++) {
       const xa = k === 0 ? -1e5 : (k - 1) * stepW, xb = k === 0 ? 0 : k * stepW, tp = top(k), bt = tp - 4 * R;
       if (px[i] > xa - rw && px[i] < xb + rw && py[i] < tp + rw && py[i] > bt) {
         const up = tp + rw - py[i], left = px[i] - (xa - rw), right = (xb + rw) - px[i];
-        if (up <= left && up <= right) { py[i] += up; if (vy[i] < 0) vy[i] = 0; vx[i] *= 1 - P.grip * 0.05; }
+        if (up <= left && up <= right) { py[i] += up; landed[i] = 1; if (vy[i] < 0) vy[i] = 0; vx[i] *= 1 - P.grip * 0.05; }
         else if (left < right) { px[i] -= left; if (vx[i] > 0) vx[i] = 0; } else { px[i] += right; if (vx[i] < 0) vx[i] = 0; }
       }
     }
   }
   // the substep: velocities come from the positions the constraints settled on
   function substep(h) {
-    const M = 2 * N, x0 = new Float32Array(px), y0 = new Float32Array(py);
+    const M = 2 * N, x0 = new Float32Array(px), y0 = new Float32Array(py), vyPre = Float32Array.from(vy);
+    landed.length = M; landed.fill(0);
     step(h);
-    for (let i = 0; i < M; i++) { vx[i] = (px[i] - x0[i]) / h; vy[i] = (py[i] - y0[i]) / h; const sp = Math.hypot(vx[i], vy[i]); if (sp > 40 * R) { vx[i] *= 40 * R / sp; vy[i] *= 40 * R / sp; } }
+    // landing on a step: some of the fall comes back
+    for (let i = 0; i < M; i++) { vx[i] = (px[i] - x0[i]) / h; vy[i] = (py[i] - y0[i]) / h; if (landed[i] && vyPre[i] < -R * 2) vy[i] = -vyPre[i] * P.bounce; const sp = Math.hypot(vx[i], vy[i]); if (sp > 40 * R) { vx[i] *= 40 * R / sp; vy[i] *= 40 * R / sp; } }
   }
 
   // ---------- the view ----------
-  // Camera views: the camera eases between a few named views, and you can also orbit by dragging empty space. Keys 1 to 6 pick a view.
-  const VIEWS = {
-    iso: { label: 'Isometric', key: '1', yaw: () => P.yaw, pitch: () => P.pitch, zoom: 1 },
-    side: { label: 'Side', key: '2', yaw: () => 0, pitch: () => 0, zoom: 1 },
-    front: { label: 'Front', key: '3', yaw: () => 90, pitch: () => 0, zoom: 1 },
-    top: { label: 'Top', key: '4', yaw: () => 0, pitch: () => 89, zoom: 1 },
-    close: { label: 'Close', key: '5', yaw: () => 35, pitch: () => 18, zoom: 1.9, focus: 'front' },
-    wide: { label: 'Wide', key: '6', yaw: () => 40, pitch: () => 25, zoom: 0.55 },
-  };
-  const view = { yaw: P.yaw, pitch: P.pitch, zoom: 1 }, vt = { yaw: P.yaw, pitch: P.pitch, zoom: 1 };
-  let viewName = 'iso', focus = 'centroid';                                  // the camera follows the middle of the slinky, or (Close) its leading coil
-  function setView(name) { const v = VIEWS[name]; if (!v) return; viewName = name; focus = v.focus || 'centroid'; vt.yaw = v.yaw(); vt.pitch = v.pitch(); vt.zoom = v.zoom; }
-  const rot = () => { const y = view.yaw * Math.PI / 180, x = -view.pitch * Math.PI / 180; return { cy: Math.cos(y), sy: Math.sin(y), cx: Math.cos(x), sx: Math.sin(x), z: view.zoom }; };
-  const project = (v, r, ox, oy) => { const x1 = r.cy * v[0] + r.sy * v[2], z1 = -r.sy * v[0] + r.cy * v[2], y2 = r.cx * v[1] - r.sx * z1; return [ox + x1 * r.z, oy - y2 * r.z, r.sx * v[1] + r.cx * z1]; };
-  function origin(r) { const o = project([cam.x, cam.y, 0], r, 0, 0); return [W / 2 - o[0], H / 2 - o[1]]; }                       // put the camera's point at the middle of the screen
+  // the camera is shared with the factory (slinky-view.js)
+  const rot = () => V.rot(), project = (v, r, ox, oy) => V.project(v, r, ox, oy);
+  function origin(r) { return V.origin(r, cam, W, H); }
 
   function draw() {
-    view.yaw += (vt.yaw - view.yaw) * 0.14; view.pitch += (vt.pitch - view.pitch) * 0.14; view.zoom += (vt.zoom - view.zoom) * 0.14;
+    V.ease();
     ctx.setTransform(stage.pw / W, 0, 0, stage.ph / H, 0, 0);
     ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
     // the camera follows the slinky
     let mx = 0, my = 0; for (let i = 0; i < 2 * N; i++) { mx += px[i]; my += py[i]; } mx /= 2 * N; my /= 2 * N;
-    if (focus === 'front') { mx = (px[0] + px[1]) / 2; my = (py[0] + py[1]) / 2; }
+    if (V.focus === 'front') { mx = (px[0] + px[1]) / 2; my = (py[0] + py[1]) / 2; }
     const far = Math.hypot(mx - cam.x, my - cam.y) > R * 10;                 // if it has run far ahead (or a view was just chosen) catch up at once
     const kf = far ? 1 : 0.1; cam.x += (mx - cam.x) * kf; cam.y += (my - cam.y) * kf;
     const r = rot(), [ox, oy] = origin(r), depth = R * 1.6;
@@ -185,32 +175,32 @@ export function mountPhys(stage) {
     for (const i of [0, 1, 2 * (N - 1), 2 * (N - 1) + 1]) { const s2 = project([px[i], py[i], 0], r, ox, oy), d = (s2[0] - q.x) ** 2 + (s2[1] - q.y) ** 2; if (d < bd) { bd = d; best = i; } }
     return best;
   };
-  // the pointer's position on the plane of the slinky (z = 0), inverting the view
-  function onPlane(q) { const r = rot(); if (Math.abs(r.cy) < 0.2 || r.cx < 0.2) return null; const [ox, oy] = origin(r), x = (q.x - ox) / (r.cy * r.z), y = ((oy - q.y) / r.z - r.sx * r.sy * x) / r.cx; return [x, y]; }
+  const onPlane = (q) => V.onPlane(q, cam, W, H);
   offs.push(stage.on('down', (q, e) => {
+    if (V.mode !== 'stairs') return;
     if (pid !== null) return;
     pid = e.pointerId; const i = endPoint(q); tapT = performance.now();
     const w = i !== null ? onPlane(q) : null;
     if (w) grab = { i, x: w[0], y: w[1], t: performance.now() };
-    else orbit = { x: q.x, y: q.y, yaw: vt.yaw, pitch: vt.pitch };                       // empty space: drag to turn the view
+    else V.orbit.start(q);                                                              // empty space: drag to turn the view
   }));
   offs.push(stage.on('move', (q, e) => {
+    if (V.mode !== 'stairs') return;
     if (e.pointerId !== pid) return;
     if (grab) { const w = onPlane(q); if (w) { grab.x = w[0]; grab.y = w[1]; } }
-    else if (orbit) { vt.yaw = orbit.yaw + (q.x - orbit.x) * 0.35; vt.pitch = clamp(orbit.pitch + (q.y - orbit.y) * 0.3, 0, 89); viewName = 'custom'; }
+    else if (V.orbit.s) V.orbit.move(q);
   }));
   offs.push(stage.on('up', (q, e) => {
+    if (V.mode !== 'stairs') return;
     if (e.pointerId !== pid) return;
     if (grab && performance.now() - grab.t < 250) { const i = grab.i; vx[i] += R * 18 * P.push; vy[i] += R * 6 * P.push; }   // a tap: nudge that end forward
-    grab = null; orbit = null; pid = null;
+    grab = null; V.orbit.end(); pid = null;
   }));
-  const onKey = (e) => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; const name = Object.keys(VIEWS).find((k) => VIEWS[k].key === e.key); if (name) setView(name); };
-  addEventListener('keydown', onKey); offs.push(() => removeEventListener('keydown', onKey));
   offs.push(stage.on('resize', build));
   build();
 
   function stepAll() { for (let s = 0; s < 4; s++) substep(1 / 240); }
-  offs.push(stage.frame((dt) => { acc = Math.min(acc + dt, 0.05); while (acc >= 1 / 60) { acc -= 1 / 60; stepAll(); } draw(); }));
+  offs.push(stage.frame((dt) => { if (V.mode !== 'stairs') return; acc = Math.min(acc + dt, 0.05); while (acc >= 1 / 60) { acc -= 1 / 60; stepAll(); } draw(); }));
 
   const Ctl = (key, label, min, max, step) => ({ key, label, min, max, step });
   return {
@@ -218,15 +208,15 @@ export function mountPhys(stage) {
       title: 'Slinky (physical)', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Wire', items: [Ctl('spring', 'Spring stiffness (low = soft)', 20, 2000, 10), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('arch', 'Coils on the arch at the start (re-forms)', 3, 14, 1), Ctl('pack', 'Spacing in the stack (re-forms)', 0.1, 0.6, 0.01), Ctl('archW', 'Arch width (re-forms)', 1, 4, 0.1), Ctl('archH', 'Arch height (re-forms)', 0.5, 3, 0.1), Ctl('coils', 'Coils (re-forms)', 8, 40, 1), Ctl('size', 'Coil radius (re-forms)', 0.05, 0.14, 0.005)] },
-        { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Grip of the stairs', 0, 1, 0.05), Ctl('damping', 'Air damping', 0, 4, 0.1), Ctl('stepW', 'Step width (re-forms)', 3, 14, 0.1), Ctl('drop', 'Step drop (re-forms)', 0.4, 2.5, 0.05)] },
+        { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Grip of the stairs', 0, 1, 0.05), Ctl('bounce', 'Bounce off the steps', 0, 0.95, 0.01), Ctl('damping', 'Air damping', 0, 4, 0.1), Ctl('stepW', 'Step width (re-forms)', 3, 14, 0.1), Ctl('drop', 'Step drop (re-forms)', 0.4, 2.5, 0.05)] },
         { name: 'Touch', items: [Ctl('push', 'Tap push', 0, 3, 0.05)] },
         { name: 'View', items: [Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005), Ctl('yaw', 'Turn (degrees)', 0, 90, 1), Ctl('pitch', 'Tilt (degrees)', 0, 70, 1)] },
       ],
-      actions: { ...Object.fromEntries(Object.keys(VIEWS).map((k) => [`${VIEWS[k].key}  ${VIEWS[k].label}`, () => setView(k)])), 'Nudge it': () => { const i = 0; vx[i] += R * 18 * P.push; vy[i] += R * 6 * P.push; }, 'Re-form': build },
-      set(key, value) { P[key] = value; if (key === 'yaw' || key === 'pitch') setView('iso'); if (['coils', 'size', 'gap', 'arch', 'pack', 'archW', 'archH', 'stepW', 'drop'].includes(key)) build(); else { g = P.gravity * R; } },
+      actions: { 'Nudge it': () => { const i = 0; vx[i] += R * 18 * P.push; vy[i] += R * 6 * P.push; }, 'Re-form': build },
+      set(key, value) { P[key] = value; if (key === 'yaw' || key === 'pitch') { V.iso.yaw = P.yaw; V.iso.pitch = P.pitch; V.setView('iso'); } if (['coils', 'size', 'gap', 'arch', 'pack', 'archW', 'archH', 'stepW', 'drop'].includes(key)) build(); else { g = P.gravity * R; } },
       reset() { Object.assign(P, DEFAULTS); build(); },
     },
-    debug: { cam: () => ({ ...cam }), setView, view: () => ({ ...view, name: viewName }), kick: (i, ax, ay) => { vx[i] += R * ax; vy[i] += R * ay; }, run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, state: () => ({ N, R, px: Array.from(px), py: Array.from(py), stepW, Hs }), nudge: (f = 1) => { vx[0] += R * 18 * f; vy[0] += R * 6 * f; } },
-    destroy() { offs.forEach((f) => f()); stage.setBackdrop(null); },
+    debug: { cam: () => ({ ...cam }), kick: (i, ax, ay) => { vx[i] += R * ax; vy[i] += R * ay; }, run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, state: () => ({ N, R, px: Array.from(px), py: Array.from(py), stepW, Hs }), nudge: (f = 1) => { vx[0] += R * 18 * f; vy[0] += R * 6 * f; } },
+    destroy() { offs.forEach((f) => f()); },
   };
 }
