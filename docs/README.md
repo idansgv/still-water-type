@@ -12,6 +12,7 @@ Written 5 October 2026, updated 7 October 2026. `BRIEF.md` in the repository roo
   - [Sheet](posters/sheet.md): removed from the shuffle 7 Oct 2026, draft (`?p=sheet`)
   - [Skyline](posters/skyline.md): draft (`?p=skyline`)
   - [Fold](posters/fold.md): draft, parked (`?p=fold`), the per-letter folded-paper rethink of Sheet
+  - [Soft type (Maru)](posters/soft-maru.md): draft test (`?p=soft-maru`), Soft type with GT Maru letters
   - [Backlight](posters/backlight.md): draft (`?p=backlight`), solid 3D type in a black room revealed by a rectangular light
   - [Turn](posters/turn.md): draft (`?p=turn`), glossy letters you turn one by one to catch a fixed light
   - [Ink](posters/ink.md): draft (`?p=ink`), liquid ink with cohesion; flows back to its place

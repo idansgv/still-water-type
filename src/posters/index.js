@@ -124,6 +124,16 @@ export const POSTERS = [
     themes: { dark: 0.15, light: 0.85 },
     load: () => import('./liquid-metal.js'),
   },
+  {
+    slug: 'soft-maru',
+    title: 'Soft type (Maru)',
+    words: ['Idan', 'Segev'],
+    blurb: 'Soft type, drawn with real letters from GT Maru.',
+    hint: null,
+    themes: { dark: 0.15, light: 0.85 },
+    draft: true,
+    load: () => import('./soft-maru.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);
