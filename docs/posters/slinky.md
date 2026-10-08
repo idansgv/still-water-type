@@ -68,3 +68,7 @@ feed 560, gravity 1400, spring 200, gap 0.02, size 0.07, tilt 0.34, damping 6.5,
 - While streaming the air damping is `damping` (6.5); once cut it is `loose` (0.12). Cut-piece controls: wire stiffness, closest coils, grip, rebound.
 - Seen: a 40-coil stream drapes down five steps and settles on the floor; on a flat floor it lies as a tight stack (no arch without a drop).
 - Not yet: a clean end-over-end walk after the cut (the draped piece settles); the old chain model is kept only for the `debug.drop` test.
+
+## Stairs: coils may not cross (the X in the middle)
+
+A rod forced across its neighbours showed as an X in a stack and made flips look wrong. `keepOrder` in `slinky-phys.js` now enforces one invariant every constraint pass: seen from the path, the top of each rod stays on the same side. A rod that has crossed is turned back by the shortest way to the nearest allowed lean (at least about 13 degrees from the path). Checked over 900 frames with a kick: 0 crossed rods apart from one transient frame.
