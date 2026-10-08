@@ -103,6 +103,21 @@ export function createFactory(stage, V) {
     p.rod = true;
   }
   const clampSeg = (v) => Math.max(0, Math.min(1, v));
+  // A coil can lean either way but never turn through its neighbours: seen along the path, the top of every rod stays on the same side. A rod forced across
+  // (the heap of crossed rings) is turned back, the short way, to the nearest lean it may have. (y runs down here, so the allowed side is the positive one.)
+  function keepOrder(p) {
+    const n = p.n, px = p.px, py = p.py, am = Math.asin(0.22);
+    for (let i = 0; i < n; i++) {
+      const a0 = Math.max(0, i - 1), b0 = Math.min(n - 1, i + 1);
+      const dx = (px[2 * b0] + px[2 * b0 + 1] - px[2 * a0] - px[2 * a0 + 1]) / 2, dy = (py[2 * b0] + py[2 * b0 + 1] - py[2 * a0] - py[2 * a0 + 1]) / 2;
+      const rx = px[2 * i] - px[2 * i + 1], ry = py[2 * i] - py[2 * i + 1];
+      const al = Math.atan2(rx * dy - ry * dx, rx * dx + ry * dy);
+      if (al >= am && al <= Math.PI - am) continue;
+      const target = al < -Math.PI / 2 || al > Math.PI - am ? Math.PI - am : am, del = al - target, cs = Math.cos(del), sn = Math.sin(del);
+      const mx = (px[2 * i] + px[2 * i + 1]) / 2, my = (py[2 * i] + py[2 * i + 1]) / 2, hx = rx / 2, hy = ry / 2, nx = hx * cs - hy * sn, ny = hx * sn + hy * cs;
+      px[2 * i] = mx + nx; py[2 * i] = my + ny; px[2 * i + 1] = mx - nx; py[2 * i + 1] = my - ny;
+    }
+  }
   function rodSub(p, h) {
     const n = p.n, M = 2 * n, px = p.px, py = p.py, vx = p.pvx, vy = p.pvy, L = 2 * R, rw = Math.max(2, R * P.wire * 0.5), dmin = R * P.rodGap + rw, k = P.rodSpring, bx = boxesNow();
     const x0 = Float32Array.from(px), y0 = Float32Array.from(py), vyPre = Float32Array.from(vy), landed = new Uint8Array(M);
@@ -118,6 +133,7 @@ export function createFactory(stage, V) {
     };
     for (let it = 0; it < 6; it++) {
       for (let i = 0; i < n; i++) { const t = 2 * i, b = t + 1, dx = px[t] - px[b], dy = py[t] - py[b], d = Math.hypot(dx, dy) || 1e-6, c = (d - L) / d * 0.5; px[t] -= dx * c; py[t] -= dy * c; px[b] += dx * c; py[b] += dy * c; }
+      keepOrder(p);
       for (let i = 0; i < n - 1; i++) {
         for (const e of [0, 1]) { const a = 2 * i + e, b = 2 * (i + 1) + e, dx = px[b] - px[a], dy = py[b] - py[a], d = Math.hypot(dx, dy) || 1e-6; if (d < dmin) { const c = (dmin - d) / d * 0.5; px[a] -= dx * c; py[a] -= dy * c; px[b] += dx * c; py[b] += dy * c; } }
         for (const [sa, sb, q] of [[2 * i, 2 * i + 1, 2 * (i + 1)], [2 * i, 2 * i + 1, 2 * (i + 1) + 1], [2 * (i + 1), 2 * (i + 1) + 1, 2 * i], [2 * (i + 1), 2 * (i + 1) + 1, 2 * i + 1]]) pushPoint(q, sa, sb, dmin * 0.9);
@@ -136,6 +152,7 @@ export function createFactory(stage, V) {
       }
     }
     for (let i = 0; i < M; i++) { const lo = R * 0.5, hi = W - R * 0.5; if (px[i] < lo) px[i] = lo; else if (px[i] > hi) px[i] = hi; }   // the edges of the page are walls
+    if (p.hold0) for (let i = 0; i < 2; i++) { px[i] = p.hold0[i][0]; py[i] = p.hold0[i][1]; }                     // (a test: the first coil held)
     for (let i = 0; i < M; i++) if (inB(i)) { py[i] = nozzle.y + (i & 1 ? R : -R); }                      // (the barrel is not pushed out of shape)
     for (let i = 0; i < M; i++) {                                                  // velocities come from where the constraints left the points; a landing gives some back
       vx[i] = (px[i] - x0[i]) / h; vy[i] = (py[i] - y0[i]) / h;
@@ -271,7 +288,7 @@ export function createFactory(stage, V) {
       set(key, value) { P[key] = value; if (['gap', 'size'].includes(key)) { const keepPieces = pieces.slice(); build(); } },
       reset() { Object.assign(P, DEFAULTS); build(); },
     },
-    debug: { drop: (n = 24, hang = 240) => { pieces.length = 0; live = null; pressed = false; const p = newPiece(); p.rod = false; const x0 = W * 0.72; for (let i = 0; i < n; i++) { p.x.push(x0); p.y.push(H * 0.12 + i * gap * 1.4); p.vx.push(0); p.vy.push(0); p.n++; } p.pin = true; pieces.push(p); for (let i = 0; i < hang; i++) stepAll(1 / 60); return p; }, press, release, run: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) stepAll(dt); draw(); }, pieces: () => pieces, P },
+    debug: { hang: (n = 30, settle = 360) => { pieces.length = 0; live = null; pressed = false; const p = newPiece(); const x0 = W * 0.7, s = gap; for (let i = 0; i < n; i++) { const y = H * 0.1 + i * s; p.x.push(x0); p.y.push(y); p.vx.push(0); p.vy.push(0); p.px.push(x0 - R, x0 + R); p.py.push(y, y); p.pvx.push(0, 0); p.pvy.push(0, 0); p.rx.push(1); p.ry.push(0); p.n++; } p.hold0 = [[x0 - R, H * 0.1], [x0 + R, H * 0.1]]; pieces.push(p); for (let i = 0; i < settle; i++) stepAll(1 / 60); return p; }, drop: (n = 24, hang = 240) => { pieces.length = 0; live = null; pressed = false; const p = newPiece(); p.rod = false; const x0 = W * 0.72; for (let i = 0; i < n; i++) { p.x.push(x0); p.y.push(H * 0.12 + i * gap * 1.4); p.vx.push(0); p.vy.push(0); p.n++; } p.pin = true; pieces.push(p); for (let i = 0; i < hang; i++) stepAll(1 / 60); return p; }, press, release, run: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) stepAll(dt); draw(); }, pieces: () => pieces, P },
     destroy() { offs.forEach((f) => f()); },
   };
 }

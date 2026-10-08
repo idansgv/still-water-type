@@ -72,3 +72,16 @@ feed 560, gravity 1400, spring 200, gap 0.02, size 0.07, tilt 0.34, damping 6.5,
 ## Stairs: coils may not cross (the X in the middle)
 
 A rod forced across its neighbours showed as an X in a stack and made flips look wrong. `keepOrder` in `slinky-phys.js` now enforces one invariant every constraint pass: seen from the path, the top of each rod stays on the same side. A rod that has crossed is turned back by the shortest way to the nearest allowed lean (at least about 13 degrees from the path). Checked over 900 frames with a kick: 0 crossed rods apart from one transient frame.
+
+## The wave test (what makes it feel like a Slinky)
+
+`debug.factory.hang(n)` hangs n rod-coils by the first coil, settles them with heavy damping, and `delete p.hold0` lets go. Measured (14 coils, frames at 60 Hz): the bottom coil should hover while the top falls until the compression wave arrives.
+
+| wire stiffness | hang height (top to bottom) | bottom starts to move |
+|---|---|---|
+| 1330 | 166 px | frame 4 (about 0.07 s): almost rigid, no visible wave |
+| 600 | 241 px | frame 11 |
+| 300 | 436 px | frame 21 (0.35 s): the Slinky-drop look |
+| 150 | reaches the floor | not measurable at this height |
+
+So the old default (1330) is too stiff for the effect; around 300 shows it. Open problem: at low stiffness a long piece landing from the shelf and stairs breaks up into a spinning heap (coils flung and tumbling). `keepOrder` was added to the factory's rods (the stairs already had it) and it does not stop that; likely needs more constraint passes/substeps or friction on the rods at low stiffness.
