@@ -89,3 +89,14 @@ So the old default (1330) is too stiff for the effect; around 300 shows it. Open
 ## Slinky feel: new factory defaults
 
 Wire stiffness 450 (was 1330), wire damping 8 (new: damps the relative speed along each spring, which calms the flung, spinning coils), 8 constraint passes and 6 substeps a frame, floor grip halved per pass to match. Result at the defaults: the wave test shows the bottom hovering about 0.35 s (frame 21) while the top falls, and streams of 25 to 80 coils land and drape coherently. A rod-against-rod crossing resolver exists (`cross`, off by default): it made the stream explode at the spout in some runs. Below about 400 a long piece still tends to land as a heap.
+
+## Bench loop (9 Oct 2026): stairs walk and classic tricks
+
+`tools/slinky-bench.js` (run in the page console on `/?p=slinky&debug`): `walk`, `dropTest`, `robust` (a 3x3 grid of step widths and drops), `start`/`round` (a hill-climb: tweak, test on the grid, keep what is better).
+
+Lock: walks down all five steps on at least 7 of 9 stair geometries (step width 5.5/6.9/8.9, drop 2.3/2.8/3.3 radii), at most 2 taps, no crossed rods; Slinky drop: the bottom hovers 15 to 45 frames, the top recoils at least 15% of its fall, the hanging top is stretched at least 1.6x its bottom.
+
+- Iterations 1 to 5 (random tweaks of the stairs settings, old grid with 1.8 drops): 3/9 walked at the start (Idan's set), 6/9 at best. Iteration 6/7: stalled at 5 to 6/9 with a tap allowed (the failures are all the 1.8-radius drop: the slinky bunches on the first step and does not tip; below about 2 radii it is out of scope). Iteration 8: grid changed to drops 2.3 to 3.3, 7/9, but the bench was blind to crossed rods (about 16 pairs crossed on average). Iteration 9: a crossing resolver in the stairs model (`cross`), 9/9 walk, 0 crossed pairs: locked.
+- Last step is now the floor (it ended after step 5 and the slinky fell through).
+- Slinky drop at the factory defaults: hover 21 frames, recoil 0.19, stretch 6.4: locked.
+- Not covered (no test yet): hand-to-hand arch (passing the arch between two hands), climbing, walking down a slope, walking on the Factory flat floor.

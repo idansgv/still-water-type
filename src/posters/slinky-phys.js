@@ -17,11 +17,12 @@ export function createPhys(stage, V) {
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
   const offs = [];
 
-  const DEFAULTS = {                                 // Idan's set (9 Oct 2026)
-    coils: 20, size: 0.085, wire: 0.065,               // number of coils, coil radius (of the shorter screen side), wire thickness drawn (of the radius)
-    spring: 1330, gap: 0.19, arch: 10, pack: 0.27, archW: 2.3, archH: 1,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
-    gravity: 36, grip: 0.85, damping: 0.4, bounce: 0.35,             // gravity (radii per s^2), how much the stairs grip (0 slides), air damping (per s)
-    stepW: 8.9, drop: 2.3, push: 0.6,                  // width and drop of a step (radii), the strength of the tap
+  const DEFAULTS = {                                 // locked by the bench loop (tools/slinky-bench.js), 9 Oct 2026; Idan's set before: spring 1330, gap 0.19, pack 0.27, archW 2.3, archH 1, gravity 36, grip 0.85, damping 0.4, bounce 0.35, push 0.6
+    coils: 25, size: 0.085, wire: 0.065,               // number of coils, coil radius (of the shorter screen side), wire thickness drawn (of the radius)
+    spring: 1453, gap: 0.231, arch: 10, pack: 0.25, archW: 2.935, archH: 1.204,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
+    gravity: 39.9, grip: 0.877, damping: 0.415, bounce: 0.239,             // gravity (radii per s^2), how much the stairs grip (0 slides), air damping (per s)
+    stepW: 6.9, drop: 2.3, push: 0.965,                // width and drop of a step (radii), the strength of the tap
+    cross: 1,                                          // 1: rods that cross are pushed apart
     yaw: 50, pitch: 32,                                // the view (degrees)
   };
   const P = { ...DEFAULTS };
@@ -81,6 +82,7 @@ export function createPhys(stage, V) {
         px[t] -= dx * c; py[t] -= dy * c; px[b] += dx * c; py[b] += dy * c;
       }
       keepOrder(M);
+      if (P.cross) separateCrossed();
       for (let i = 0; i < N - 1; i++) {                                     // the wire is in the way: neighbouring coils cannot get closer than its thickness
         for (const e of [0, 1]) {
           const a = 2 * i + e, b = 2 * (i + 1) + e, dx = px[b] - px[a], dy = py[b] - py[a], d = Math.hypot(dx, dy) || 1e-6;
@@ -91,7 +93,7 @@ export function createPhys(stage, V) {
         for (const [sa, sb, q] of pairs) pushPointOffSegment(q, sa, sb, dmin * 0.9);
       }
       for (let i = 0; i < M; i++) collideStairs(i);                          // the stairs
-      for (let i = 0; i < N; i++) for (let k2 = -1; k2 <= 4; k2++) pushSegmentOffCorner(2 * i, 2 * i + 1, stepX(k2 + 1)[1], top(k2));   // the edges of the steps
+      for (let i = 0; i < N; i++) for (let k2 = -1; k2 <= 3; k2++) pushSegmentOffCorner(2 * i, 2 * i + 1, stepX(k2 + 1)[1], top(k2));   // the edges of the steps
     }
   }
   // A coil can lean either way, but it can never turn through its neighbours: seen from the path, the top of every rod stays on the same side. A rod that
@@ -108,6 +110,17 @@ export function createPhys(stage, V) {
       const cs = Math.cos(del), sn = Math.sin(del), mx = (px[2 * i] + px[2 * i + 1]) / 2, my = (py[2 * i] + py[2 * i + 1]) / 2, hx = rx / 2, hy = ry / 2;
       const nx = hx * cs - hy * sn, ny = hx * sn + hy * cs;
       px[2 * i] = mx + nx; py[2 * i] = my + ny; px[2 * i + 1] = mx - nx; py[2 * i + 1] = my - ny;
+    }
+  }
+  // two rods that cross are pushed apart, centre from centre (neighbours and the next few)
+  function separateCrossed() {
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < Math.min(N, i + 5); j++) {
+      const ax = px[2 * i], ay = py[2 * i], bx = px[2 * i + 1], by = py[2 * i + 1], cx = px[2 * j], cy = py[2 * j], dx = px[2 * j + 1], dy = py[2 * j + 1];
+      const o1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax), o2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax), o3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx), o4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx);
+      if (o1 * o2 >= 0 || o3 * o4 >= 0) continue;
+      let nx = (cx + dx - ax - bx) / 2, ny = (cy + dy - ay - by) / 2; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+      const m = Math.min(R * P.gap + rw, R * 0.25) * 0.5;
+      px[2 * i] -= nx * m; py[2 * i] -= ny * m; px[2 * i + 1] -= nx * m; py[2 * i + 1] -= ny * m; px[2 * j] += nx * m; py[2 * j] += ny * m; px[2 * j + 1] += nx * m; py[2 * j + 1] += ny * m;
     }
   }
   function pushPointOffSegment(q, a, b, r) {
@@ -129,7 +142,7 @@ export function createPhys(stage, V) {
   const landed = [];
   function collideStairs(i) {
     for (let k = -1; k <= 5; k++) {
-      const xa = k === 0 ? -1e5 : (k - 1) * stepW, xb = k === 0 ? 0 : k * stepW, tp = top(k), bt = tp - 4 * R;
+      const xa = k === 0 ? -1e5 : (k - 1) * stepW, xb = k === 0 ? 0 : k === 5 ? 1e5 : k * stepW, tp = top(k), bt = tp - 4 * R;
       if (px[i] > xa - rw && px[i] < xb + rw && py[i] < tp + rw && py[i] > bt) {
         const up = tp + rw - py[i], left = px[i] - (xa - rw), right = (xb + rw) - px[i];
         if (up <= left && up <= right) { py[i] += up; landed[i] = 1; if (vy[i] < 0) vy[i] = 0; vx[i] *= 1 - P.grip * 0.05; }
