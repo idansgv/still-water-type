@@ -16,7 +16,7 @@ export function createFactory(stage, V) {
   const DEFAULTS = {                                 // Idan's set (9 Oct 2026)
     feed: 560, gravity: 1400, spring: 200,           // how fast coils leave the spout (px/s), gravity (px/s^2), spring stiffness
     gap: 0.02, size: 0.07, tilt: 0.34,               // closest two neighbouring coils get (of the screen height), coil radius (of the shorter side), how round the rings look
-    damping: 6.5, air: 0.06, grip: 0.5, bounce: 0.55,              // damping along the springs, air drag, how much the floor grips
+    damping: 6.5, loose: 0.8, air: 0.06, grip: 0.5, bounce: 0.55,              // damping along the springs, air drag, how much the floor grips
     keep: 3, longest: 150,                           // pieces kept on the floor, most coils in one piece
     wire: 0.075,                                     // drawn wire thickness (of the coil radius)
   };
@@ -38,7 +38,7 @@ export function createFactory(stage, V) {
 
   function stepPiece(p, h) {
     const n = p.n; if (!n) return;
-    const k = P.spring, kc = k * 30, c = P.damping;
+    const k = P.spring, kc = k * 30, c = p === live && pressed ? P.damping : P.loose;   // a stream coming out of the spout is damped like a hose; a loose slinky hardly at all
     const fx = new Float32Array(n), fy = new Float32Array(n);
     for (let i = 0; i < n - 1; i++) {                         // a zero-length spring between neighbours, and the wire in the way when they touch
       const dx = p.x[i + 1] - p.x[i], dy = p.y[i + 1] - p.y[i], d = Math.hypot(dx, dy) || 1e-4, nx = dx / d, ny = dy / d;
@@ -56,11 +56,16 @@ export function createFactory(stage, V) {
     if (grab && grab.p === p) { const i = grab.i; fx[i] += (grab.x - p.x[i]) * 900 - p.vx[i] * 30; fy[i] += (grab.y - p.y[i]) * 900 - p.vy[i] * 30; }
     const drag = Math.exp(-P.air * h * 10);
     for (let i = 0; i < n; i++) {
+      if (p.pin && i === 0) continue;                                     // (a test: hold the top coil)
       const inBarrel = p === live && pressed && p.x[i] < nozzle.x + barrel && p.y[i] < nozzle.y + R * 0.5;   // the first stretch is the spout: coils are pushed straight out
       if (inBarrel) { p.vx[i] = P.feed; p.vy[i] = 0; p.y[i] = nozzle.y; p.x[i] += P.feed * h; continue; }
       p.vx[i] = (p.vx[i] + fx[i] * h) * drag; p.vy[i] = (p.vy[i] + (fy[i] + P.gravity) * h) * drag;
       p.x[i] += p.vx[i] * h; p.y[i] += p.vy[i] * h;
-      if (p.y[i] > floorY) { p.y[i] = floorY; if (p.vy[i] > 0) p.vy[i] *= -P.bounce; p.vx[i] *= 1 - P.grip * 0.08; }
+      // The floor. A coil is a ring, so it lands on its rim: it rests on its middle when the chain runs straight down, and on the edge of
+      // the ring (a whole radius above the floor) when the chain runs sideways. The hit sends the bounce back up the chain, and that is
+      // what starts the wave of the next coil, and the next.
+      { const a0 = Math.max(0, i - 1), b0 = Math.min(n - 1, i + 1), tx = p.x[b0] - p.x[a0], ty = p.y[b0] - p.y[a0], tl = Math.hypot(tx, ty) || 1, off = R * Math.abs(tx) / tl;
+        if (p.y[i] + off > floorY) { p.y[i] = floorY - off; if (p.vy[i] > 0) p.vy[i] *= -P.bounce; p.vx[i] *= 1 - P.grip * 0.08; } }
       p.x[i] = clamp(p.x[i], R * 0.5, W - R * 0.5);
     }
   }
@@ -107,7 +112,7 @@ export function createFactory(stage, V) {
     const r = V.rot(), [ox, oy] = V.origin(r, cam, W, H), d = R * 1.5;
     ctx.strokeStyle = ink; ctx.fillStyle = paper; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.lineWidth = Math.max(2.4, R * 0.06);
-    const fy = wy(floorY + R * 0.34);                                       // the floor: a slab
+    const fy = wy(floorY);                                                  // the floor: a slab
     box(r, ox, oy, -W * 1.2, fy - R * 0.6, -d * 1.6, W * 1.2, fy, d * 1.6);
     // the factory: a body, and a spout turned sideways
     const nx = wx(nozzle.x), ny = wy(nozzle.y), bx = nx - R * 3.2, bw = R * 2.6, bh = R * 3.2;
@@ -175,14 +180,14 @@ export function createFactory(stage, V) {
       title: 'Slinky factory', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Stream', items: [Ctl('feed', 'Feed speed (px/s)', 100, 1400, 10), Ctl('longest', 'Longest piece (coils)', 20, 300, 5), Ctl('keep', 'Pieces kept on the floor', 1, 6, 1)] },
-        { name: 'Spring', items: [Ctl('spring', 'Stiffness', 200, 5000, 50), Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping', 0, 8, 0.1), Ctl('gravity', 'Gravity', 200, 4000, 50), Ctl('air', 'Air drag', 0, 1, 0.01), Ctl('grip', 'Grip of the floor', 0, 1, 0.05), Ctl('bounce', 'Bounce off the floor', 0, 0.95, 0.01)] },
+        { name: 'Spring', items: [Ctl('spring', 'Stiffness', 200, 5000, 50), Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Damping once cut (low = lively)', 0, 8, 0.05), Ctl('gravity', 'Gravity', 200, 4000, 50), Ctl('air', 'Air drag', 0, 1, 0.01), Ctl('grip', 'Grip of the floor', 0, 1, 0.05), Ctl('bounce', 'Bounce off the floor', 0, 0.95, 0.01)] },
         { name: 'Look', items: [Ctl('size', 'Coil radius (re-forms)', 0.03, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
       ],
       actions: { 'Sweep up': () => { pieces.length = 0; live = null; pressed = false; } },
       set(key, value) { P[key] = value; if (['gap', 'size'].includes(key)) { const keepPieces = pieces.slice(); build(); } },
       reset() { Object.assign(P, DEFAULTS); build(); },
     },
-    debug: { press, release, run: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) stepAll(dt); draw(); }, pieces: () => pieces, P },
+    debug: { drop: (n = 24, hang = 240) => { pieces.length = 0; live = null; pressed = false; const p = newPiece(); const x0 = W * 0.72; for (let i = 0; i < n; i++) { p.x.push(x0); p.y.push(H * 0.12 + i * gap * 1.4); p.vx.push(0); p.vy.push(0); p.n++; } p.pin = true; pieces.push(p); for (let i = 0; i < hang; i++) stepAll(1 / 60); return p; }, press, release, run: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) stepAll(dt); draw(); }, pieces: () => pieces, P },
     destroy() { offs.forEach((f) => f()); },
   };
 }
