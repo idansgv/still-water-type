@@ -134,6 +134,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./soft-maru.js'),
   },
+  {
+    slug: 'extrude',
+    title: 'Extrude',
+    words: ['Idan', 'Segev'],
+    blurb: 'The letters are cut-outs. Press one and dough squeezes through.',
+    hint: null,
+    themes: { dark: 0, light: 1 },
+    draft: true,
+    load: () => import('./extrude.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);
