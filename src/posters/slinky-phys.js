@@ -18,12 +18,12 @@ export function mountPhys(stage) {
   stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
 
-  const DEFAULTS = {
-    coils: 20, size: 0.085, wire: 0.05,               // number of coils, coil radius (of the shorter screen side), wire thickness drawn (of the radius)
-    spring: 900, gap: 0.075, arch: 7, pack: 0.3, archW: 2.4, archH: 1.6,                // stiffness of the wire between coils, closest approach between coils (of the radius), starting lean of the stack (degrees from upright)
-    gravity: 26, grip: 0.55, damping: 0.6,             // gravity (radii per s^2), how much the stairs grip (0 slides), air damping (per s)
-    stepW: 7.5, drop: 1.15, push: 1.0,                 // width and drop of a step (radii), the strength of the tap
-    yaw: 32, pitch: 24,                                // the view (degrees)
+  const DEFAULTS = {                                 // Idan's set (9 Oct 2026)
+    coils: 20, size: 0.085, wire: 0.065,               // number of coils, coil radius (of the shorter screen side), wire thickness drawn (of the radius)
+    spring: 1330, gap: 0.19, arch: 10, pack: 0.27, archW: 2.3, archH: 1,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
+    gravity: 36, grip: 0.85, damping: 0.4,             // gravity (radii per s^2), how much the stairs grip (0 slides), air damping (per s)
+    stepW: 8.9, drop: 2.3, push: 0.6,                  // width and drop of a step (radii), the strength of the tap
+    yaw: 50, pitch: 32,                                // the view (degrees)
   };
   const P = { ...DEFAULTS };
 
