@@ -14,12 +14,12 @@ export function mountFactory(stage) {
   stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
 
-  const DEFAULTS = {
-    feed: 560, gravity: 1700, spring: 1500,          // how fast coils leave the spout (px/s), gravity (px/s^2), spring stiffness
+  const DEFAULTS = {                                 // Idan's set (9 Oct 2026)
+    feed: 560, gravity: 1400, spring: 200,           // how fast coils leave the spout (px/s), gravity (px/s^2), spring stiffness
     gap: 0.02, size: 0.07, tilt: 0.34,               // closest two neighbouring coils get (of the screen height), coil radius (of the shorter side), how round the rings look
-    damping: 1.2, air: 0.06, grip: 0.5,              // damping along the springs, air drag, how much the floor grips
+    damping: 6.5, air: 0.06, grip: 0.5,              // damping along the springs, air drag, how much the floor grips
     keep: 3, longest: 150,                           // pieces kept on the floor, most coils in one piece
-    wire: 0.06,                                      // drawn wire thickness (of the coil radius)
+    wire: 0.075,                                     // drawn wire thickness (of the coil radius)
   };
   const P = { ...DEFAULTS };
 
