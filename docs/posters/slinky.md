@@ -60,3 +60,11 @@ feed 560, gravity 1400, spring 200, gap 0.02, size 0.07, tilt 0.34, damping 6.5,
 - A coil is a ring, so the floor touches its rim: the contact height is `R * |tangent.x|` below the coil centre, taken from its neighbours. A coil standing upright rests on its middle; one lying down rests on its edge. The floor slab's top is now the floor.
 - Damping is split: `damping` applies to the piece being streamed (hose-like), `loose` (default 0.8) to a cut piece, so it can recoil. Before, 6.5 applied everywhere and nothing could bounce.
 - Check (`debug.factory.drop`): a vertical piece held at the top, released. The bottom coil stays on the floor while the top falls about 360 px, the compression wave arrives, and the piece recoils and oscillates (the "slinky drop").
+
+## Factory: rods, shelf and stairs (walk and arch)
+
+- The factory now uses the stairs' rod model from the spout onward: each coil is a rigid rod with two end masses, zero-length springs top-to-top and bottom-to-bottom, PBD constraints, step corners, rebound on landing (`rebound`). The old point chain made a tangled heap and could not arch or flip.
+- Coils leave the spout standing up, drop onto a shelf level with the foot of the spout, are pushed to its edge, drape over it as an arch and go down the stairs. Panel group Stairs: steps (0 = flat floor), step depth, where the shelf ends. Step height is derived (shelf to floor).
+- While streaming the air damping is `damping` (6.5); once cut it is `loose` (0.12). Cut-piece controls: wire stiffness, closest coils, grip, rebound.
+- Seen: a 40-coil stream drapes down five steps and settles on the floor; on a flat floor it lies as a tight stack (no arch without a drop).
+- Not yet: a clean end-over-end walk after the cut (the draped piece settles); the old chain model is kept only for the `debug.drop` test.
