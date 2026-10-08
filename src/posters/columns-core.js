@@ -145,7 +145,7 @@ export async function mountColumns(stage, mode) {
   const octx = overlay.getContext('2d');
   const dust = new Dust(gl);
 
-  const P = EXPLODE ? { gravity: 26, blast: 0.44, speed: 0.43, lift: 0.4, spin: 1.4, chain: 27, decay: 0.44, size: 0.03, chunk: 0.02, rough: 2, gap: 0.91, crack: 1.25, crackAt: 0.46, jitter: 1.05, reach: 2.25, hit: 0.3, passive: 0, transfer: 0.15, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.05, dustLife: 0.2, dustHits: 0, dustTone: 0, dustSoft: 0, dustAlpha: 1, height: 0.75, adapt: 0 } : { gravity: 21, topple: 26, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 1, dustSize: 1, dustLife: 1.6, dustHits: 1, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 5.2 };   // Explode's defaults are Idan's tuned values (fifth set, 7 Oct 2026)
+  const P = EXPLODE ? { gravity: 26, blast: 0.44, speed: 0.43, lift: 0.4, spin: 1.4, chain: 27, decay: 0.44, size: 0.03, chunk: 0.02, rough: 2, gap: 0.91, crack: 1.25, crackAt: 0.46, jitter: 1.05, reach: 2.25, hit: 0.3, passive: 0, transfer: 0.15, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.05, dustLife: 0.2, dustHits: 0, dustTone: 0, dustSoft: 0, dustAlpha: 1, height: 0.75, adapt: 0 } : { gravity: 13, topple: 6, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0.7, dustSize: 1, dustLife: 1.6, dustHits: 1, dustSpeed: 4, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.7 };   // Explode's defaults are Idan's tuned values (fifth set, 7 Oct 2026)
   if (EXPLODE && stage.flip) { const t = P.bg; P.bg = P.fg; P.fg = t; }   // every shuffle swaps black-on-white and white-on-black
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   let pending = [], timers = [];
@@ -217,8 +217,8 @@ export async function mountColumns(stage, mode) {
     w.setSolver(EXPLODE ? 6 : 8);
     // the floor grips, so a push makes a column tip instead of slide; letters are slippery against each other
     // (friction takes the larger of two surfaces, restitution the smaller)
-    const floor = w.fixed({ x: 0, y: 0, z: -0.5 }); floor.isWall = true;
-    w.box(floor, [200, 200, 0.5], { friction: 1, restitution: 0.04, events: !!(EXPLODE && P.dust > 0 && P.dustHits) });
+    const floor = w.fixed({ x: 0, y: 0, z: -0.5 }); floor.isWall = true; floor.isFloor = true;
+    w.box(floor, [200, 200, 0.5], { friction: 1, restitution: 0.04, events: !!(P.dust > 0 && P.dustHits) });
     // low walls round the edge keep pieces and sliding bodies in, but a tall column can still lean out over them
     const wall = (x, y, hx, hy) => { const b = w.fixed({ x, y, z: 0.9 }); b.isWall = true; w.box(b, [hx, hy, 0.9], { friction: 1, restitution: 0.04 }); };
     const ex = W / 2 / S, ey = H / 2 / S, floorY = -(H / 2 - (W < 720 ? 80 : 72)) / S, big = 40;
@@ -483,7 +483,12 @@ export async function mountColumns(stage, mode) {
     if (puffBudget <= 0) return;
     const mover = a.isWall || a.static ? b : a;                       // the one that is moving
     if (mover.isWall || mover.static) return;
-    const rel = Math.hypot(a.pv.x - b.pv.x, a.pv.y - b.pv.y, a.pv.z - b.pv.z) * 0.9;
+    let rel = Math.hypot(a.pv.x - b.pv.x, a.pv.y - b.pv.y, a.pv.z - b.pv.z) * 0.9;
+    if (!EXPLODE) {                                                    // Collapse: dust rises only where something lands on the floor, and only above a speed
+      if (!(a.isFloor || b.isFloor)) return;
+      rel = Math.abs(mover.pv.z) * 0.9;
+      if (rel < P.dustSpeed) return;
+    }
     if (rel < 2.4 || (mover.dustAt != null && dust.t - mover.dustAt < 0.3)) return;
     mover.dustAt = dust.t; puffBudget--;
     const pt = sim.contactPoint(h1, h2) || { x: mover.position.x, y: mover.position.y, z: 0.1 };
@@ -685,7 +690,7 @@ export async function mountColumns(stage, mode) {
        colourGroup, cameraGroup]
     : [{ name: 'World', items: [{ key: 'height', label: 'Extrusion height (re-forms)', min: 0.05, max: 8, step: 0.05 }, { key: 'gravity', label: 'Gravity', min: 2, max: 40, step: 1 }] },
        { name: 'Touch', items: [{ key: 'topple', label: 'Tap push', min: 6, max: 50, step: 1 }] },
-       { name: 'Effects', items: [{ key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSize', label: 'Dust puff size', min: 0.05, max: 3, step: 0.01 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.2, max: 5, step: 0.1 }, { key: 'dustTone', label: 'Dust tone (0 black, 1 white)', min: 0, max: 1, step: 0.01 }, { key: 'dustSoft', label: 'Dust softness (0 = hard edged)', min: 0, max: 1, step: 0.01 }, { key: 'dustAlpha', label: 'Dust opacity', min: 0.1, max: 1, step: 0.01 }] },
+       { name: 'Effects', items: [{ key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSpeed', label: 'Landing speed that raises dust', min: 0.5, max: 14, step: 0.25 }, { key: 'dustSize', label: 'Dust puff size', min: 0.05, max: 3, step: 0.01 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.2, max: 5, step: 0.1 }, { key: 'dustTone', label: 'Dust tone (0 black, 1 white)', min: 0, max: 1, step: 0.01 }, { key: 'dustSoft', label: 'Dust softness (0 = hard edged)', min: 0, max: 1, step: 0.01 }, { key: 'dustAlpha', label: 'Dust opacity', min: 0.1, max: 1, step: 0.01 }] },
        colourGroup, cameraGroup];
   const tuneApi = {
     title: EXPLODE ? 'Explode' : 'Collapse',

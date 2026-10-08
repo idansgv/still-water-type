@@ -29,3 +29,5 @@ Split from the original "Columns" poster on 5 October 2026. Built on cannon-es f
 Idan's tuned set applied as defaults (7 Oct 2026): gravity 21, extrusion height 5.2 (everything else as before). Collapse remains a draft.
 
 **Status:** in the shuffle since 7 Oct 2026 (a share page exists at `/p/collapse/`).
+
+**Update 8 Oct 2026.** Idan's set applied as defaults: gravity 13, tap push 6, dust 0.7, height 3.7. Dust now rises only where something lands on the floor, and only when its vertical speed is above `dustSpeed` (default 4, panel: "Landing speed that raises dust"); letters touching letters raise none. Explode keeps its own dust rules. Next: real font letter shapes (font files go in `assets/fonts/`).
