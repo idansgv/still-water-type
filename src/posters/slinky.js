@@ -76,7 +76,16 @@ export function mount(stage) {
     }
   }
 
-  const nearest = (q) => { let best = -1, bd = (R * 1.6) ** 2; for (let i = 0; i < N; i++) { const d = (X[i] - q.x) ** 2 + (Y[i] - q.y) ** 2; if (d < bd) { bd = d; best = i; } } return best; };
+  // You can only take hold of the two ends, as with the real toy: the first and last coil (the whole ring, not only its middle).
+  const nearest = (q) => {
+    let best = -1, bd = Infinity;
+    for (const i of [0, N - 1]) {
+      const dx = (q.x - X[i]) / R, dy = (q.y - Y[i]) / (R * Math.max(P.tilt, 0.25) + 14);
+      const d = dx * dx + dy * dy;
+      if (d < 1.15 && d < bd) { bd = d; best = i; }
+    }
+    return best;
+  };
   offs.push(stage.on('down', (q, e) => {
     if (pid !== null) return;
     const i = nearest(q); if (i < 0) return;
