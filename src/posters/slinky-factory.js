@@ -16,7 +16,7 @@ export function createFactory(stage, V) {
   const DEFAULTS = {                                 // Idan's set (9 Oct 2026)
     feed: 560, gravity: 1400, spring: 200,           // how fast coils leave the spout (px/s), gravity (px/s^2), spring stiffness
     gap: 0.02, size: 0.07, tilt: 0.34,               // closest two neighbouring coils get (of the screen height), coil radius (of the shorter side), how round the rings look
-    damping: 6.5, loose: 0.8, air: 0.06, grip: 0.5, bounce: 0.55,              // damping along the springs, air drag, how much the floor grips
+    damping: 6.5, loose: 0.12, air: 0.06, grip: 0.5, bounce: 0.55,              // damping along the springs, air drag, how much the floor grips
     keep: 3, longest: 150,                           // pieces kept on the floor, most coils in one piece
     wire: 0.075,                                     // drawn wire thickness (of the coil radius)
   };
@@ -180,7 +180,7 @@ export function createFactory(stage, V) {
       title: 'Slinky factory', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Stream', items: [Ctl('feed', 'Feed speed (px/s)', 100, 1400, 10), Ctl('longest', 'Longest piece (coils)', 20, 300, 5), Ctl('keep', 'Pieces kept on the floor', 1, 6, 1)] },
-        { name: 'Spring', items: [Ctl('spring', 'Stiffness', 200, 5000, 50), Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Damping once cut (low = lively)', 0, 8, 0.05), Ctl('gravity', 'Gravity', 200, 4000, 50), Ctl('air', 'Air drag', 0, 1, 0.01), Ctl('grip', 'Grip of the floor', 0, 1, 0.05), Ctl('bounce', 'Bounce off the floor', 0, 0.95, 0.01)] },
+        { name: 'Spring', items: [Ctl('spring', 'Stiffness', 10, 5000, 10), Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Damping once cut (low = lively)', 0, 4, 0.01), Ctl('gravity', 'Gravity', 200, 4000, 50), Ctl('air', 'Air drag', 0, 1, 0.01), Ctl('grip', 'Grip of the floor', 0, 1, 0.05), Ctl('bounce', 'Bounce off the floor', 0, 0.95, 0.01)] },
         { name: 'Look', items: [Ctl('size', 'Coil radius (re-forms)', 0.03, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
       ],
       actions: { 'Sweep up': () => { pieces.length = 0; live = null; pressed = false; } },
