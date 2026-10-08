@@ -16,6 +16,7 @@ import { SKELETON, ratio } from './lettering.js';
 import { compile } from '../engine.js';
 import { shatterBox } from './shatter.js';
 import { Dust } from './dust.js';
+import { glyphBoxes } from './glyph-boxes.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qmul = (a, b) => ({ x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y, y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w, w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z });
@@ -24,7 +25,7 @@ const qrot = (q, v) => {
   return { x: v.x + q.w * tx + (q.y * tz - q.z * ty), y: v.y + q.w * ty + (q.z * tx - q.x * tz), z: v.z + q.w * tz + (q.x * ty - q.y * tx) };
 };
 const UNIT_H = 2.0;            // letter height in world units
-const MAX_INST = 4000;
+const MAX_INST = 9000;
 const MAX_SHARDS = 16000, MAX_SHARD_VERTS = 700000, XF_W = 2048;   // the transform texture is XF_W wide and as many rows as it needs
 
 const VS = `#version 300 es
@@ -148,6 +149,9 @@ export async function mountColumns(stage, mode) {
   const P = EXPLODE ? { gravity: 26, blast: 0.44, speed: 0.43, lift: 0.4, spin: 1.4, chain: 27, decay: 0.44, size: 0.03, chunk: 0.02, rough: 2, gap: 0.91, crack: 1.25, crackAt: 0.46, jitter: 1.05, reach: 2.25, hit: 0.3, passive: 0, transfer: 0.15, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.05, dustLife: 0.2, dustHits: 0, dustTone: 0, dustSoft: 0, dustAlpha: 1, height: 0.75, adapt: 0 } : { gravity: 13, topple: 6, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0.7, dustSize: 1, dustLife: 1.6, dustHits: 1, dustSpeed: 4, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.7 };   // Explode's defaults are Idan's tuned values (fifth set, 7 Oct 2026)
   if (EXPLODE && stage.flip) { const t = P.bg; P.bg = P.fg; P.fg = t; }   // every shuffle swaps black-on-white and white-on-black
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
+  // Collapse draws real letters from a font when the font is here (local trial files, see src/local-fonts.js); otherwise the hand-made strokes
+  const FACE = '"GT Pantheon"', FACE_W = 900;
+  const fontMode = !EXPLODE && document.fonts.check(`${FACE_W} 20px ${FACE}`);
   let pending = [], timers = [];
   // Adapting to the device: the piece size is multiplied by `perf`, which starts a little coarse on a phone with few cores
   // and grows if frames run slow while there are pieces about (see the governor in the frame loop).
@@ -162,11 +166,11 @@ export async function mountColumns(stage, mode) {
     const portrait = W / H < 0.85;
     const rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
     const padX = Math.max(14, W * 0.045), top = Math.max(18, H * 0.04), bottom = 96;
-    const availW = W - 2 * padX, availH = H - top - bottom, gap = 0.12;
-    const advance = (c, h) => h * (0.6 * SKELETON[c].wf + 2 * ratio(c, SKELETON[c].wf * h, h) / h + gap);
+    const availW = W - 2 * padX, availH = H - top - bottom, gap = fontMode ? 0.07 : 0.12;
+    const advance = fontMode ? (c, h) => h * (glyphBoxes(c, FACE, FACE_W).adv + gap) : (c, h) => h * (0.6 * SKELETON[c].wf + 2 * ratio(c, SKELETON[c].wf * h, h) / h + gap);
     let h = Infinity;
     for (const row of rows) h = Math.min(h, availW / [...row].reduce((s, c) => s + advance(c, 1), 0));
-    const rowGap = 0.02;
+    const rowGap = fontMode ? 0.1 : 0.02;
     h = Math.min(h, availH / (rows.length * (1.02 + rowGap)));
     const total = rows.length * h * 1.02 + (rows.length - 1) * h * rowGap;
     let y = top + (availH - total) / 2 + h * 0.51;
@@ -174,7 +178,12 @@ export async function mountColumns(stage, mode) {
     for (const row of rows) {
       const rowW = [...row].reduce((s, c) => s + advance(c, h), 0);
       let x = (W - rowW) / 2;
-      for (const c of row) { const a = advance(c, h); out.push({ ch: c, x: x + a / 2, y, w: SKELETON[c].wf * h, h }); x += a; }
+      for (const c of row) {
+        const a = advance(c, h);
+        if (fontMode) { const gb = glyphBoxes(c, FACE, FACE_W); out.push({ ch: c, x: x + gb.lb * h, y, w: gb.ink * h, h }); }   // x: the middle of the ink
+        else out.push({ ch: c, x: x + a / 2, y, w: SKELETON[c].wf * h, h });
+        x += a;
+      }
       y += h * (1.02 + rowGap);
     }
     return out;
@@ -259,12 +268,18 @@ export async function mountColumns(stage, mode) {
   }
 
   function addLetter(p) {
-    const fine = strokeBoxes(p, false), boxes = EXPLODE ? strokeBoxes(p, true) : fine;   // Explode: the physics uses fewer, longer boxes
+    let fine, boxes;
+    if (fontMode) {                                                       // a real letter: the physics gets a few big boxes, the picture many thin ones
+      const gb = glyphBoxes(p.ch, FACE, FACE_W, clamp(Math.round(p.h * Math.min(2, stage.dpr || 1) * 1.1), 140, 340)), U = UNIT_H;   // about one scanline per device pixel, so curves and diagonals are smooth
+      const conv = (b) => ({ x: b.x * U, y: b.y * U, a: 0, hx: b.hx * U, hy: b.hy * U });
+      boxes = gb.coarse.map(conv); fine = gb.fine.map(conv);
+    } else { fine = strokeBoxes(p, false); boxes = EXPLODE ? strokeBoxes(p, true) : fine; }   // Explode: the physics uses fewer, longer boxes
     let vol = 0; for (const b of boxes) vol += 8 * b.hx * b.hy * (colH / 2);
     const [wx, wy] = toWorld(p.x, p.y), pos = { x: wx, y: wy, z: colH / 2 };
     const body = EXPLODE ? sim.fixed(pos) : sim.dynamic(pos, { linearDamping: 0.04, angularDamping: 0.06 });
     const colliders = boxes.map((b) => sim.box(body, [b.hx, b.hy, colH / 2], { offset: { x: b.x, y: b.y, z: 0 }, angle: b.a, density: EXPLODE ? undefined : 3 / vol, events: true }));
     body.isLetter = true; body.ch = p.ch; body.vol = vol;
+    if (fontMode) body.fine = fine;
     if (EXPLODE) {
       body.cells = boxes.map((b, i) => ({ ...b, alive: true, dmg: 0, collider: colliders[i] }));
       for (const f of fine) {                                       // each smooth box belongs to the nearest physics box
@@ -578,6 +593,18 @@ export async function mountColumns(stage, mode) {
           inst[o] = b.position.x + f.x; inst[o + 1] = b.position.y + f.y; inst[o + 2] = b.position.z;
           inst[o + 3] = 0; inst[o + 4] = 0; inst[o + 5] = Math.sin(a); inst[o + 6] = Math.cos(a);
           inst[o + 7] = f.hx; inst[o + 8] = f.hy; inst[o + 9] = colH / 2; inst[o + 10] = Math.min(0.9, f.cell.dmg);
+          n++;
+        }
+        continue;
+      }
+      if (b.fine) {                                                     // a font letter: the thin boxes it is drawn from, moved with the body
+        const q = b.quaternion;
+        for (const f of b.fine) {
+          if (n >= MAX_INST) break;
+          const v = qrot(q, { x: f.x, y: f.y, z: 0 }), o = n * 11;
+          inst[o] = b.position.x + v.x; inst[o + 1] = b.position.y + v.y; inst[o + 2] = b.position.z + v.z;
+          inst[o + 3] = q.x; inst[o + 4] = q.y; inst[o + 5] = q.z; inst[o + 6] = q.w;
+          inst[o + 7] = f.hx; inst[o + 8] = f.hy; inst[o + 9] = colH / 2; inst[o + 10] = 0;
           n++;
         }
         continue;

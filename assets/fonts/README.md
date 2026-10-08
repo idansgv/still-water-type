@@ -1,7 +1,7 @@
-# Fonts
+# Fonts (local only)
 
-Drop font files for the posters here (`.ttf`, `.otf` or `.woff2`; variable fonts are fine).
-They are served at `/assets/fonts/<file>`. Please keep the licence file next to each font.
+Font files here are **not committed** (`.gitignore`): the ones in use are trial licences (Leida, GT Pantheon, GT Maru) and the repository is public and auto-deploys. `src/local-fonts.js` loads them when they exist, so locally the posters use them and the live site falls back to Archivo.
 
-Planned use: the real letter shapes for Collapse (and later Explode), replacing the hand-defined skeletons in `src/posters/lettering.js`.
-Needed glyphs: I D A N S E G V (capitals).
+To ship one, buy the web licence, then remove its line from `.gitignore` (and keep the licence file next to it).
+
+Files in use: `leida-font-family-1761628710-0/` (Still Water), `GT-Pantheon/` (Collapse), `GT-Maru/` (the Soft type test).

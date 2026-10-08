@@ -1,3 +1,7 @@
 .vercel
 .DS_Store
 node_modules
+
+# trial fonts (public repository): keep local only
+assets/fonts/*
+!assets/fonts/README.md

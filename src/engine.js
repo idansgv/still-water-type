@@ -4,6 +4,8 @@
 // device tilt), pointer events in CSS pixels, a seeded random, the theme colours, and helpers for
 // type masks and WebGL. Posters stay small because everything fiddly lives here.
 
+import { registerLocalFonts } from './local-fonts.js';
+
 export const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 export const lerp = (a, b, t) => a + (b - a) * t;
 export const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -32,6 +34,7 @@ export const THEMES = {
 // ---------- fonts ----------
 export async function fontsReady() {
   try {
+    await registerLocalFonts();
     await Promise.race([
       Promise.all([
         document.fonts.load('900 100px Archivo', 'MELTDOWNFLATPOINTOFVIEWIdanSegev'),

@@ -6,7 +6,7 @@ import { getGL, compile, texture, uploadCanvas, VS_TRI } from '../engine.js';
 
 const DEFAULT = { title: 'Idan', artist: 'Segev', lyrics: [] };   // lyrics are parked, not removed
 const LINE_MS = 9000;
-const FONT = '"Archivo", "Arial Black", "Helvetica Neue", sans-serif';
+const FONT = '"Leida", "Archivo", "Arial Black", "Helvetica Neue", sans-serif';   // Leida (local trial files, assets/fonts) when present; Archivo on the live site
 
 export function mount(ctx) {
   const { canvas } = ctx;
