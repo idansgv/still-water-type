@@ -129,6 +129,15 @@ export function mount(stage) {
   if (!gl) throw new Error('webgl2 unavailable');
   if (!gl.getExtension('EXT_color_buffer_float') && !gl.getExtension('OES_texture_float_linear')) { /* float textures are read with texelFetch only, no filtering needed */ }
   const offs = [];
+  // Motion settings (panel: ?tune, or T). Distances are in letter heights, so they scale with the screen.
+  const DEFAULTS = {
+    feed: 0.95, reach: 1.15, tap: 0.5, ramp: 0.25,                // how fast dough comes out, how far a hold goes, a tap's length, how long it takes to build up speed (s)
+    sagFeed: 0.12, stiffFeed: 0.75, dampFeed: 0.96, lean: 0.1,      // while it comes out: how much it sags, how stiff it is, how much motion it keeps, how far it leans sideways
+    gravity: 9.5, stiffFree: 0.85, dampFree: 0.99, cutKick: 0.1,   // once cut: gravity, stiffness, motion kept, the push the cutter gives
+    ledge: 0.34, stick: 0.82, squash: 0.35, swell: 0.07,           // landing: the radius it rests on, how much sideways speed is lost, how much it squashes on impact, swell at the die
+    keep: 6,                                                       // pieces kept on the ledge
+  };
+  const P = { ...DEFAULTS };
   const mode = stage.flip ? 1 : 0;
   stage.setBackdrop(mode ? 0 : 1);
 
@@ -248,33 +257,43 @@ export function mount(stage) {
     pieces.push(p); L.noodle = p;
     return p;
   }
+  // The cutter: the piece comes away from the die and drops straight, keeping its letter facing you (it is moved clear of the page first,
+  // so the page does not fold it).
+  function detach(p) {
+    if (p.free) return;
+    const h = p.L.h; p.free = true; p.feeding = false; p.cut = true; p.L.noodle = null;
+    let zmin = Infinity; for (let i = 0; i < p.n; i++) zmin = Math.min(zmin, p.z[i]);
+    const dz = Math.max(0, h * 0.46 - zmin); for (let i = 0; i < p.n; i++) { p.z[i] += dz; p.vy[i] -= h * P.cutKick; }
+  }
   function stepPiece(p, dt) {
-    const L = p.L, h = L.h, ds = p.ds, g = h * 9.5;
+    const L = p.L, h = L.h, ds = p.ds, g = h * P.gravity;
     p.age += dt;
+    if (p.squashT > 0) p.squashT = Math.max(0, p.squashT - dt * 2.2);
+    if (p.cut && !p.feeding && !p.free) detach(p);
     if (p.dying) { p.dying += dt; p.shrink = Math.max(0, 1 - p.dying / 0.7); if (p.dying > 0.7) return false; }
     const n = p.n;
     if (p.feeding) {
-      const reach = Math.min(p.target, h * 1.15);
+      const reach = Math.min(p.target, h * P.reach);
       if ((n - 1) * ds + p.d0 < reach) {
-        p.d0 += h * 0.95 * dt * (p.pressed || p.target < Infinity ? 1 : 1);
+        p.d0 += h * P.feed * Math.min(1, p.age / Math.max(0.01, P.ramp)) * dt;                     // dough comes out slowly at first, then at full speed
         if (p.d0 >= ds && n < K - 1) {                                   // a new ring of dough comes through the die
           for (let i = n; i > 1; i--) { p.x[i] = p.x[i - 1]; p.y[i] = p.y[i - 1]; p.z[i] = p.z[i - 1]; p.vx[i] = p.vx[i - 1]; p.vy[i] = p.vy[i - 1]; p.vz[i] = p.vz[i - 1]; }
           p.x[1] = p.base[0]; p.y[1] = p.base[1]; p.z[1] = ds * 0.3; p.vx[1] = p.vy[1] = 0; p.vz[1] = 0; p.n++; p.d0 = ds * 0.3;
         }
-      } else if (!p.pressed && !p.cut) { p.cut = true; p.feeding = false; }
+      } else if (!p.pressed && !p.cut) detach(p);
     }
-    const nn = p.n, damp = p.feeding ? 0.96 : 0.985;
+    const nn = p.n, damp = p.feeding ? P.dampFeed : P.dampFree;
     // forces
     for (let i = p.feeding ? 1 : 0; i < nn; i++) {
-      p.vx[i] += g * 0.55 * p.lean[0] * dt * (p.feeding ? 0.5 : 0); p.vy[i] += -g * dt * (p.feeding ? 0.32 : 1) ; p.vz[i] += -g * 0.12 * dt * (p.feeding ? 0 : 1);
-      if (p.feeding) { p.vx[i] += p.lean[0] * g * 0.18 * dt; }
+      p.vy[i] += -g * dt * (p.feeding ? P.sagFeed : 1); 
+      if (p.feeding) { p.vx[i] += p.lean[0] * g * 0.18 * P.lean * 2.5 * dt; }
     }
     for (let i = p.feeding ? 1 : 0; i < nn; i++) {
       p.vx[i] *= damp; p.vy[i] *= damp; p.vz[i] *= damp;
       p.x[i] += p.vx[i] * dt; p.y[i] += p.vy[i] * dt; p.z[i] += p.vz[i] * dt;
     }
     // constraints
-    for (let it = 0; it < 7; it++) {
+    for (let it = 0; it < 10; it++) {
       if (p.feeding) { p.x[0] = p.base[0]; p.y[0] = p.base[1]; p.z[0] = 0; }
       for (let i = 0; i < nn - 1; i++) {                                  // fixed segment length (the first one grows while feeding)
         const rest = i === 0 && p.feeding ? p.d0 : ds;
@@ -284,17 +303,17 @@ export function mount(stage) {
       }
       for (let i = 1; i < nn - 1; i++) {                                  // bending stiffness: a prism of dough is not a rope
         const tx = p.x[i] - p.x[i - 1], ty = p.y[i] - p.y[i - 1], tz = p.z[i] - p.z[i - 1], tl = Math.hypot(tx, ty, tz) || 1e-6;
-        const kb = p.feeding ? 0.5 : 0.22, ex = p.x[i] + tx / tl * ds, ey = p.y[i] + ty / tl * ds, ez = p.z[i] + tz / tl * ds;
+        const kb = p.feeding ? P.stiffFeed : P.stiffFree, ex = p.x[i] + tx / tl * ds, ey = p.y[i] + ty / tl * ds, ez = p.z[i] + tz / tl * ds;
         p.x[i + 1] += (ex - p.x[i + 1]) * kb; p.y[i + 1] += (ey - p.y[i + 1]) * kb; p.z[i + 1] += (ez - p.z[i + 1]) * kb;
       }
       if (p.feeding) for (let i = 1; i < nn; i++) if (p.z[i] < ds * 1.6) { const w = 1 - p.z[i] / (ds * 1.6); p.x[i] += (p.base[0] - p.x[i]) * 0.5 * w; p.y[i] += (p.base[1] - p.y[i]) * 0.5 * w; }   // the barrel of the die: dough leaves straight
       for (let i = 0; i < nn; i++) {                                      // the page behind (z >= 0) and the ledge below
-        const rr = h * 0.34, minZ = p.feeding ? 0 : h * 0.46;
+        const rr = h * P.ledge, minZ = p.feeding ? 0 : h * 0.46;
         if (p.z[i] < minZ) { p.z[i] = minZ; p.vz[i] = Math.max(0, p.vz[i]); }
-        if (!p.feeding && p.y[i] < floorY + rr) { p.y[i] = floorY + rr; p.vy[i] = Math.max(0, p.vy[i]) * 0.1; p.vx[i] *= 0.82; p.vz[i] *= 0.82; }
+        if (!p.feeding && p.y[i] < floorY + rr) { if (p.vy[i] < -h * 1.5) p.squashT = 1;                         // a hard landing squashes it
+          p.y[i] = floorY + rr; p.vy[i] = Math.max(0, p.vy[i]) * 0.1; p.vx[i] *= P.stick; p.vz[i] *= P.stick; }
       }
     }
-    if (p.cut && p.feeding === false && !p.free) { p.free = true; for (let i = 0; i < nn; i++) { p.vy[i] -= h * 0.3; } }
     return true;
   }
   function writeFrames(p) {
@@ -313,7 +332,7 @@ export function mount(stage) {
     for (let i = 0; i < n; i++) {
       const t = T(i);
       if (i > 0) { X = transport(X, prevT, t); X = norm([X[0] - t[0] * dot(X, t), X[1] - t[1] * dot(X, t), X[2] - t[2] * dot(X, t)]); }
-      const Y = cross(t, X), swell = 1 + 0.07 * Math.exp(-p.z[i] / (h * 0.25)) + (p.feeding && i === n - 1 ? 0.03 : 0), o = i * 12;
+      const Y = cross(t, X), swell = 1 + P.swell * Math.exp(-p.z[i] / (h * 0.25)) + (p.feeding && i === n - 1 ? 0.03 : 0) - (p.squashT > 0 ? P.squash * p.squashT * Math.sin(i / Math.max(1, n - 1) * Math.PI) * 0.35 : 0), o = i * 12;
       frames[o] = p.x[i]; frames[o + 1] = p.y[i]; frames[o + 2] = p.z[i]; frames[o + 3] = swell;
       frames[o + 4] = X[0]; frames[o + 5] = X[1]; frames[o + 6] = X[2]; frames[o + 7] = 0;
       frames[o + 8] = Y[0]; frames[o + 9] = Y[1]; frames[o + 10] = Y[2]; frames[o + 11] = 0;
@@ -338,7 +357,7 @@ export function mount(stage) {
   const release = () => {
     if (!press) return;
     const p = press.p; p.pressed = false;
-    if (performance.now() - press.t < 260) p.target = Math.max(p.target === Infinity ? 0 : 0, p.L.h * 0.5);   // a tap: a short squirt, then cut
+    if (performance.now() - press.t < 260) p.target = p.L.h * P.tap;   // a tap: a short squirt, then cut
     else p.target = (p.n - 1) * p.ds + p.d0;                                                                   // a hold: cut where it is
     press = null;
   };
@@ -350,10 +369,8 @@ export function mount(stage) {
 
   // ---------- frame ----------
   let acc = 0;
-  offs.push(stage.frame((dt) => {
-    acc = Math.min(acc + dt, 0.05);
-    while (acc >= 1 / 120) {
-      acc -= 1 / 120;
+  function stepAll() {
+    {
       for (let i = pieces.length - 1; i >= 0; i--) {
         const p = pieces[i];
         if (!p.feeding && p.L.noodle === p) p.L.noodle = null;
@@ -361,10 +378,12 @@ export function mount(stage) {
         else if (p.cut === false && !p.pressed && !p.feeding) p.cut = true;
       }
       // a piece that has reached its length with the finger up is cut
-      for (const p of pieces) if (p.feeding && !p.pressed && (p.n - 1) * p.ds + p.d0 >= p.target - 1e-3) { p.feeding = false; p.cut = true; p.L.noodle = null; }
+      for (const p of pieces) if (p.feeding && !p.pressed && (p.n - 1) * p.ds + p.d0 >= p.target - 1e-3) detach(p);
       const resting = pieces.filter((p) => !p.feeding && !p.dying);
-      if (resting.length > 6) resting[0].dying = 0.0001;
+      if (resting.length > P.keep) resting[0].dying = 0.0001;
     }
+  }
+  function render() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, stage.pw, stage.ph);
     gl.clearColor(mode ? 0 : 1, mode ? 0 : 1, mode ? 0 : 1, 1); gl.clearDepth(1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // the page
@@ -395,11 +414,31 @@ export function mount(stage) {
       gl.uniform1i(c.uRing, p.n - 1); gl.uniform1f(c.uSign, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       if (!p.feeding) { gl.uniform1i(c.uRing, 0); gl.uniform1f(c.uSign, -1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
     }
+  }
+  offs.push(stage.frame((dt) => {
+    acc = Math.min(acc + dt, 0.05);
+    while (acc >= 1 / 120) { acc -= 1 / 120; stepAll(); }
+    render();
   }));
 
+  const Ctl = (key, label, min, max, step) => ({ key, label, min, max, step });
+  const squirt = (i, hold) => { const p = startPiece(letters[i]); if (!p) return; if (hold === 0) { p.pressed = false; p.target = p.L.h * P.tap; } else { setTimeout(() => { p.pressed = false; p.target = (p.n - 1) * p.ds + p.d0; }, hold * 1000); } };
   return {
-    tune: { title: 'Extrude', values: {}, defaults: {}, groups: [], actions: { 'Sweep up': () => { for (const p of pieces.splice(0)) p.L.noodle = null; } }, set() {}, reset() {} },
-    debug: { pieces: () => pieces, letters: () => letters, start: (i) => startPiece(letters[i]) },
+    tune: {
+      title: 'Extrude', values: P, defaults: DEFAULTS,
+      groups: [
+        { name: 'Coming out', items: [Ctl('feed', 'Feed speed (letter heights per s)', 0.2, 3, 0.05), Ctl('ramp', 'Time to reach full speed (s)', 0.01, 1.2, 0.01), Ctl('reach', 'Longest it gets (letter heights)', 0.3, 2.2, 0.05), Ctl('tap', 'Length of a tap', 0.15, 1.2, 0.05), Ctl('swell', 'Swell at the die', 0, 0.3, 0.01)] },
+        { name: 'While attached', items: [Ctl('stiffFeed', 'Stiffness', 0.05, 0.95, 0.01), Ctl('sagFeed', 'Sag', 0, 1.2, 0.02), Ctl('lean', 'Sideways lean', 0, 1.5, 0.05), Ctl('dampFeed', 'Motion kept (1 = wobbles on)', 0.85, 0.999, 0.001)] },
+        { name: 'After the cut', items: [Ctl('gravity', 'Gravity', 2, 24, 0.5), Ctl('stiffFree', 'Stiffness', 0.05, 0.95, 0.01), Ctl('dampFree', 'Motion kept (1 = wobbles on)', 0.9, 0.999, 0.001), Ctl('cutKick', 'Push from the cutter', 0, 2, 0.05)] },
+        { name: 'Landing', items: [Ctl('ledge', 'Rests on a radius of', 0.1, 0.6, 0.01), Ctl('stick', 'Stickiness (1 = slides)', 0.3, 1, 0.01), Ctl('squash', 'Squash on impact', 0, 1.5, 0.05), Ctl('keep', 'Pieces kept', 1, 9, 1)] },
+      ],
+      actions: {
+        'Tap D': () => squirt(1, 0), 'Hold E for 1 s': () => squirt(5, 1), 'Tap A': () => squirt(2, 0), 'Sweep up': () => { for (const p of pieces.splice(0)) p.L.noodle = null; },
+      },
+      set(key, value) { P[key] = value; },
+      reset() { Object.assign(P, DEFAULTS); },
+    },
+    debug: { pieces: () => pieces, letters: () => letters, start: (i) => startPiece(letters[i]), run: (n) => { for (let i = 0; i < n; i++) stepAll(); render(); }, P },
     destroy() { offs.forEach((f) => f()); stage.setBackdrop(null); },
   };
 }

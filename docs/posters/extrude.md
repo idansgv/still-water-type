@@ -13,3 +13,11 @@
 **Open.** First pass. Checked in the browser: the dough extrudes in the right letter shape, sags, is cut, falls and lands; the cap shows the right letter. Not tuned by feel and not yet checked with a real press. The final retuning (stiffer while feeding, darker body) was not looked at after the change. Not tested on a phone. Pieces do not collide with each other, only with the page behind and the ledge. No translucency yet beyond the rim; no shadow of the dough on the page.
 
 **Status:** parked on 8 Oct 2026 ("it's a start"). Stays a draft, not in the shuffle.
+
+## Motion pass, 9 Oct 2026 (committed locally, not pushed: logged out of GitHub)
+Process: layers from the bottom up (shape, physics, behaviour, material, staging), one at a time; this round is motion only.
+- **Panel** (`?p=extrude&tune`, or T) with every motion constant: Coming out (feed speed, ramp-up time, longest reach, tap length, swell), While attached (stiffness, sag, sideways lean, motion kept), After the cut (gravity, stiffness, motion kept, push from the cutter), Landing (rest radius, stickiness, squash on impact, pieces kept). Test buttons: Tap D, Hold E for 1 s, Tap A, Sweep up.
+- **Test stepping:** `window.__poster.inst.debug.run(n)` advances the simulation n steps and draws, so motion can be checked without animation frames.
+- **Bug found and fixed:** when a piece was cut, the page (z >= 0.46 of a letter height for free pieces) folded it flat in one step, which made every landed piece a pancake stack. The cut now moves the whole piece clear of the page first (`detach`), in one place, so it falls with its letter facing you.
+- **Other changes:** dough comes out slowly and speeds up (`ramp`); the feeding dough is stiffer and sags less; no sideways push while feeding except the small random lean; pieces keep their z (no pull back to the page); squash on a hard landing.
+- **Known:** pieces still tumble somewhat after the cut (they are chains, not rigid bodies) and can lie along x; no collisions between pieces; settling on the ledge is not tuned.
