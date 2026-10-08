@@ -15,6 +15,8 @@ export function mount(ctx) {
   if (!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'))) throw new Error('float targets unavailable');
 
   const AMP = ctx.reduced ? 0.45 : 1;
+  const inkBg = ctx.flip ? 0 : 1, inkFg = 1 - inkBg;                // black on white, and white on black on every second shuffle
+  ctx.setBackdrop(inkBg);
   let song = { ...DEFAULT };
   let lineIdx = 0, lineTimer = 0;
   const offs = [];
@@ -36,44 +38,30 @@ export function mount(ctx) {
     if (cur) lines.push(cur);
     return lines;
   };
+  // The same composition as the other type posters: IDAN over SEGEV (IDAN, SE, GEV on a narrow screen), set as large as the
+  // width allows, each row centred, with the same margins and the same room left for the footer. One colour only: the type is
+  // drawn into the red channel and the page colours (black on white or white on black) are chosen below.
   function drawType(W, H, dpr) {
     tc.width = W; tc.height = H;
     tx.fillStyle = '#000'; tx.fillRect(0, 0, W, H);
     tx.textBaseline = 'alphabetic';
     if ('letterSpacing' in tx) tx.letterSpacing = '0px';
-    const pad = Math.max(16 * dpr, W * 0.045);
-    const maxW = W - pad * 2;
-
-    const tSize = fitSize(song.title, 900, maxW, H * 0.2);
-    const tBase = pad + tSize * 0.78;
-    tx.font = `900 ${tSize}px ${FONT}`;
-    tx.fillStyle = 'rgb(255,0,0)';
-    tx.fillText(song.title, pad - tSize * 0.04, tBase);
-
-    const aSize = Math.max(tSize * 0.3, 18 * dpr);
-    const aBase = tBase + aSize * 1.3;
-    tx.font = `700 ${aSize}px ${FONT}`;
-    tx.fillStyle = 'rgb(0,255,0)';
-    tx.fillText(song.artist, pad, aBase);
-
-    // lyric: as big as fits, bottom-aligned above the page furniture
-    const line = song.lyrics[lineIdx % Math.max(1, song.lyrics.length)] || '';
-    const words = line.split(/\s+/).filter(Boolean);
-    const chrome = document.querySelector('.chrome');
-    const chromeH = (chrome && chrome.offsetHeight) || 48;
-    const bottom = H - Math.max(pad, (chromeH + 20) * dpr);
-    const avail = bottom - (aBase + aSize * 1.2);
-    let size = Math.min(W * 0.15, H * 0.22), lines = [];
-    for (let i = 0; i < 40; i++) {
-      tx.font = `900 ${size}px ${FONT}`;
-      lines = wrap(words, maxW);
-      const widest = Math.max(0, ...lines.map((l) => tx.measureText(l).width));
-      if (lines.length * size * 0.95 <= avail && widest <= maxW) break;
-      size *= 0.93;
+    const rows = W / H < 0.85 ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    const padX = Math.max(14 * dpr, W * 0.045), top = Math.max(18 * dpr, H * 0.04), bottom = 96 * dpr;
+    const availW = W - 2 * padX, availH = H - top - bottom, rowGap = 0.1, n = rows.length;
+    tx.font = `900 100px ${FONT}`;
+    const cap100 = tx.measureText('H').actualBoundingBoxAscent || 72;
+    let fs = Infinity;
+    for (const row of rows) fs = Math.min(fs, availW / (tx.measureText(row).width || 1) * 100);
+    fs = Math.min(fs, availH / (n * 1.02 + (n - 1) * rowGap) / (cap100 / 100));
+    const cap = cap100 * fs / 100, total = n * cap * 1.02 + (n - 1) * cap * rowGap;
+    let base = top + (availH - total) / 2 + cap;
+    tx.font = `900 ${fs}px ${FONT}`; tx.fillStyle = 'rgb(255,0,0)';
+    for (const row of rows) {
+      const m = tx.measureText(row);
+      tx.fillText(row, (W - (m.actualBoundingBoxRight + m.actualBoundingBoxLeft)) / 2 + m.actualBoundingBoxLeft, base);
+      base += cap * (1.02 + rowGap);
     }
-    tx.fillStyle = 'rgb(255,0,255)';
-    const lh = size * 0.95;
-    lines.forEach((l, i) => tx.fillText(l, pad - size * 0.04, bottom - (lines.length - 1 - i) * lh));
   }
 
   // ---------- shaders ----------
@@ -128,8 +116,7 @@ export function mount(ctx) {
     vec2 off = vec2(r - l, u - d) * uRefract / uRes + uTilt / uRes;
     vec3 t = texture(uText, uv - off).rgb;
     float bright = smoothstep(0.38, 0.62, t.r), dim = smoothstep(0.38, 0.62, t.g);
-    vec3 col = mix(uBg, uDim, dim);
-    col = mix(col, uFg, bright);
+    vec3 col = mix(uBg, uFg, bright);
 
     if (uLamp > 0.0) {
       // The lamp's light passes through the moving surface; where it curves, light gathers into bright
@@ -145,8 +132,8 @@ export function mount(ctx) {
       vec2 dp = (uv - uLampPos) * uCss;
       float pool = exp(-dot(dp, dp) / (0.09 * dot(uCss, uCss)));
       float lit = pool * (0.35 + 0.65 * shade) + pool * line * 0.9;
-      float type = max(bright, dim * 0.6);
-      vec3 night = uFg * type * clamp(0.06 + lit, 0.0, 1.0) + uFg * (1.0 - type) * pool * line * 0.22;
+      float type = bright;
+      vec3 night = vec3(type * clamp(0.06 + lit, 0.0, 1.0) + (1.0 - type) * pool * line * 0.22);   // the lamp is a night scene: light on black, whichever colours the page has
       col = mix(col, night, uLamp);
     }
     o = vec4(col, 1.0);
@@ -252,9 +239,8 @@ export function mount(ctx) {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, textTex); gl.uniform1i(u.uText, 1);
     gl.uniform2f(u.uSimRes, SW, SH); gl.uniform2f(u.uRes, ctx.pw, ctx.ph);
     gl.uniform1f(u.uRefract, 26 * dpr);
-    gl.uniform3f(u.uBg, ...ctx.colors.bg);
-    gl.uniform3f(u.uFg, ...ctx.colors.fg);
-    gl.uniform3f(u.uDim, ...ctx.colors.dim);
+    gl.uniform3f(u.uBg, inkBg, inkBg, inkBg);
+    gl.uniform3f(u.uFg, inkFg, inkFg, inkFg);
     gl.uniform1f(u.uLamp, lamp.fade);
     gl.uniform2f(u.uLampPos, lamp.x, lamp.y); gl.uniform2f(u.uCss, ctx.W, ctx.H);
     gl.uniform2f(u.uTilt, tilt.x * 6 * dpr, tilt.y * 6 * dpr);
@@ -327,6 +313,7 @@ export function mount(ctx) {
       offs.forEach((off) => off());
       removeEventListener('keydown', onKey);
       clearInterval(pollTimer);
+      ctx.setBackdrop(null);
     },
   };
 }

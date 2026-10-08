@@ -15,7 +15,7 @@ export const POSTERS = [
     words: ['Idan', 'Segev'],
     blurb: 'Type that remembers every touch. Ripples, and a lamp if you find it.',
     hint: null,
-    themes: { dark: 1, light: 0 },
+    themes: { dark: 0, light: 1 },
     load: () => import('./still-water.js'),
   },
   {
