@@ -39,7 +39,7 @@ export function mount(ctx) {
     if (cur) lines.push(cur);
     return lines;
   };
-  // The same composition as the other type posters: IDAN over SEGEV (IDAN, SE, GEV on a narrow screen), set as large as the
+  // The same composition as the other type posters: Idan over Segev, set as large as the
   // width allows, each row centred, with the same margins and the same room left for the footer. One colour only: the type is
   // drawn into the red channel and the page colours (black on white or white on black) are chosen below.
   function drawType(W, H, dpr) {
@@ -47,21 +47,22 @@ export function mount(ctx) {
     tx.fillStyle = '#000'; tx.fillRect(0, 0, W, H);
     tx.textBaseline = 'alphabetic';
     if ('letterSpacing' in tx) tx.letterSpacing = '0px';
-    const rows = W / H < 0.85 ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    const rows = ['Idan', 'Segev'];                                    // not all caps (8 Oct 2026)
     const padX = Math.max(14 * dpr, W * 0.045), top = Math.max(18 * dpr, H * 0.04), bottom = 96 * dpr;
-    const availW = W - 2 * padX, availH = H - top - bottom, rowGap = 0.1, n = rows.length;
+    const availW = W - 2 * padX, availH = H - top - bottom, step = 1.12;
     tx.font = `${weight} 100px ${FONT}`;
     const cap100 = tx.measureText('H').actualBoundingBoxAscent || 72;
+    const asc100 = tx.measureText(rows[0]).actualBoundingBoxAscent || cap100, desc100 = tx.measureText(rows[1]).actualBoundingBoxDescent || 0;
     let fs = Infinity;
     for (const row of rows) fs = Math.min(fs, availW / (tx.measureText(row).width || 1) * 100);
-    fs = Math.min(fs, availH / (n * 1.02 + (n - 1) * rowGap) / (cap100 / 100));
-    const cap = cap100 * fs / 100, total = n * cap * 1.02 + (n - 1) * cap * rowGap;
-    let base = top + (availH - total) / 2 + cap;
+    fs = Math.min(fs, availH / (asc100 + step * cap100 + desc100) * 100);       // the block runs from the top of the d to the bottom of the g
+    const k = fs / 100, cap = cap100 * k, block = asc100 * k + step * cap + desc100 * k;
+    let base = top + (availH - block) / 2 + asc100 * k;
     tx.font = `${weight} ${fs}px ${FONT}`; tx.fillStyle = 'rgb(255,0,0)';
     for (const row of rows) {
       const m = tx.measureText(row);
       tx.fillText(row, (W - (m.actualBoundingBoxRight + m.actualBoundingBoxLeft)) / 2 + m.actualBoundingBoxLeft, base);
-      base += cap * (1.02 + rowGap);
+      base += step * cap;
     }
   }
 

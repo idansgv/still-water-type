@@ -29,3 +29,5 @@
 It was the single poster of the site before the portfolio existed (tagged `still-water-v1`), ported into the poster system unchanged in spirit. Why it works: one material and one gesture, type that stays intact, a response with memory, a small asymmetric composition, still at rest, nothing instructional.
 
 **Lighter (8 Oct 2026).** The type is now Leida Book (weight 350) instead of Black, to make the poster gentler; the panel (`?p=still-water&tune`, or T) has a Weight slider from 200 to 900. On the live site, where Leida is absent, Archivo falls back to its nearest weight (700).
+
+**Not all caps (8 Oct 2026).** The type is "Idan / Segev" in mixed case again (two rows on every screen shape). The block is fitted from the top of the d to the bottom of the g, centred, with the same margins as the other posters.
