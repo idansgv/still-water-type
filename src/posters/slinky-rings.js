@@ -71,11 +71,18 @@ export function createRings(cap) {
     const k = env.k, kd = env.kd, cw = env.cw;
     for (let i = 0; i < n - 1; i++) {
       const j = i + 1;
+      // top to top and bottom to bottom. The two pulls are split into their mean (the wire's pull along the slinky: stiff) and their difference (what bends it and turns a ring against its
+      // neighbour); the difference is scaled by `bend`, so a slinky can be stiff along its length and still droop like a rope.
+      const tf = [0, 0, 0, 0];
       for (let e = 0; e < 2; e++) {
-        const si = e ? -R : R, rix = ux[i] * si, riy = uy[i] * si, rjx = ux[j] * si, rjy = uy[j] * si;                       // top to top, bottom to bottom
+        const si = e ? -R : R, rix = ux[i] * si, riy = uy[i] * si, rjx = ux[j] * si, rjy = uy[j] * si;
         const dx = (x[j] + rjx) - (x[i] + rix), dy = (y[j] + rjy) - (y[i] + riy);
         const dvx = (vx[j] - w[j] * rjy) - (vx[i] - w[i] * riy), dvy = (vy[j] + w[j] * rjx) - (vy[i] + w[i] * rix);
-        const Fx = k * dx + cw * dvx, Fy = k * dy + cw * dvy;
+        tf[2 * e] = k * dx + cw * dvx; tf[2 * e + 1] = k * dy + cw * dvy;
+      }
+      const bd = env.bend, mx = (tf[0] + tf[2]) / 2, my = (tf[1] + tf[3]) / 2, dxf = (tf[0] - tf[2]) / 2 * bd, dyf = (tf[1] - tf[3]) / 2 * bd;
+      for (let e = 0; e < 2; e++) {
+        const sg = e ? -1 : 1, si = sg * R, rix = ux[i] * si, riy = uy[i] * si, rjx = ux[j] * si, rjy = uy[j] * si, Fx = mx + sg * dxf, Fy = my + sg * dyf;
         add(i, rix, riy, Fx, Fy); add(j, rjx, rjy, -Fx, -Fy);
       }
       if (kd > 0) for (let e = 0; e < 2; e++) {                                                                               // the diagonals: top of one to bottom of the next, rest length l0
@@ -95,10 +102,10 @@ export function createRings(cap) {
       let phi = a[i] - Math.atan2(dy, dx) - Math.PI / 2; phi -= Math.PI * 2 * Math.round(phi / (Math.PI * 2));              // into (-pi, pi]
       if (phi > Math.PI / 2) phi -= Math.PI; else if (phi < -Math.PI / 2) phi += Math.PI;                                    // a ring is the same turned over, for this
       // a soft pull toward square to the path (the rings of a bend fan out across it), and past `lean` a hard one
-      const over = Math.abs(phi) - lean, sg = phi > 0 ? 1 : -1; let t = env.square > 0 ? kl * env.square * phi : 0; if (over > 0) t += kl * over * sg; if (t === 0) continue;
-      tq[i] -= t + env.kla * w[i];                                                                                          // the torque back, a little damped
-      const pxn = -dy / dl2, pyn = dx / dl2;                                                                                // the same couple on the chord's ends
-      fx[b0] += t * pxn; fy[b0] += t * pyn; fx[a0] -= t * pxn; fy[a0] -= t * pyn;
+      // The soft pull only turns the ring (a hinge: the path it follows is not straightened by it, so a stream still droops); the hard limit past `lean` also puts the equal couple on the neighbours.
+      const over = Math.abs(phi) - lean, sg = phi > 0 ? 1 : -1, ts = env.square > 0 ? kl * env.square * phi : 0, th = over > 0 ? kl * over * sg : 0; if (ts === 0 && th === 0) continue;
+      tq[i] -= ts + th + env.kla * w[i];                                                                                    // the torque back, a little damped
+      if (th !== 0) { const pxn = -dy / dl2, pyn = dx / dl2; fx[b0] += th * pxn; fy[b0] += th * pyn; fx[a0] -= th * pxn; fy[a0] -= th * pyn; }
     }
 
     // ---- the first and last ring want to lie flat: with nothing on one side to hold them up, a ring on the floor settles square to it (torque toward horizontal, firmer on the floor) ----

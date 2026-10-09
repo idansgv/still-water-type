@@ -31,7 +31,7 @@ Why this solver: the earlier one (point chain, then rods with position correctio
 
 `slinky-params.js`: one object of shared settings, bound into both scenes (`bindParams`); a slider moved in one scene is moved in the other, Reset resets both, changing `size` or `gap` re-forms the other scene when you switch to it. Each scene keeps its own few:
 
-- **Shared** (Idan's hand-tuned set): size 0.11, wire 0.03, spring 1392, gap 0.035, gravity 22.5, grip 0.42, damping 0.21, bounce 0.6, wireDamp 7, contact 21 (damping 0.02), inertia 0.45, lean 58, leanK 0.25, spin 1.7, shear 0, square 0, endFlat 1.85, capInertia 3, and the hand: turn 4, turnReach 10, turnDelay 2.
+- **Shared** (Idan's hand-tuned set): size 0.11, wire 0.03, spring 1392, gap 0.035, gravity 22.5, grip 0.42, damping 0.21, bounce 0.6, wireDamp 7, contact 21 (damping 0.02), inertia 0.45, lean 58, leanK 0.25, spin 1.7, shear 0, square 0.2, bend 1, endFlat 1.85, capInertia 3, and the hand: turn 4, turnReach 10, turnDelay 2.
 - **Stairs only:** coils 40, arch 6, pack 0.1, archW 2.8, archH 1.8, stepW 6.9, drop 2.3, push 2.4.
 - **Factory only:** feed 560, pitch 0.18, keep 3, longest 90, steps 5, run 0.17, start 0.32.
 
@@ -55,3 +55,7 @@ Earlier separate sets, for reference: the factory's soft set (spring 100, gravit
 - The factory's chain cap marker for the live (streaming) piece is a fixed forward / backward facing.
 - Stage two (letters) not started.
 - Pushing: `main` auto-deploys; the repo is `idansgv/still-water-type` (`gh auth switch -u idansgv`).
+
+## Why the stream did not bend down (10 Oct 2026)
+
+Two things: the rings were not following the path (`square` 0), and the soft pull toward square, when it was on, also put a couple on the neighbours, which straightens a chain, so turning it up made the stream stiffer (droop 108 px at 55 frames with square 0, 18 px with square 1). Now the soft pull only turns the ring (a hinge); only the hard `lean` limit still puts the couple on the neighbours. Measured at 70 frames: droop 132 px (square 0), 190 (0.2), 163 (1), 193 (2); the head ring leans with the path. Trade-off with the hand flip: the flip test scores 0.97 / 0.85 / 0.71 / 0.53 at square 0 / 0.2 / 1 / 2 (the square pull fights the hand's turning), so the shared default is 0.2. New shared `bend` (default 1): scales the part of the wire's pull that bends the slinky (the difference between the top and bottom wire), 0 makes it droop like a rope while it stays stiff along its length; it barely changed the stream (108 to 123 px), the bending stiffness was in `square`, not the wire.
