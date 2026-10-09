@@ -41,12 +41,15 @@ export function mount(stage) {
         const X = (j - (row.length - 1) / 2) * R * colK, N = Math.round(P.coils), ring = createRings(N + 2), sp = (R * P.gap + rw) * 1.3;
         for (let i = 0; i < N; i++) { const k2 = N - 1 - i; ring.x[i] = k2 * R * P.lean0 * (0.6 + Math.random() * 0.8); ring.y[i] = rw + k2 * sp; ring.a[i] = 0; ring.vx[i] = ring.vy[i] = ring.w[i] = 0; }
         ring.n = N; ring.setCaps(P.capInertia);
-        letters.push({ ch, X, Z, ring, N, shape: ringShape(ch, { top: true }), hand: null });
+        letters.push({ ch, X, Z, ring, N, shape: ringShape(ch, { top: true }), hand: null, th: 0 });
       });
     });
     cam = { x: 0, y: 0 }; grab = null;
   }
 
+  // a letter's chain lives in a vertical plane turned th about the vertical axis; lx along it, d across it
+  const wp = (L, lx, y, d) => { const c = Math.cos(L.th), s = Math.sin(L.th); return [L.X + c * lx - s * d, y, L.Z + s * lx + c * d]; };
+  const standing = (L) => { let a = 1e9, b = -1e9; for (let i = 0; i < L.N; i++) { a = Math.min(a, L.ring.x[i]); b = Math.max(b, L.ring.x[i]); } return b - a < R * 1.5 && L.ring.y[0] > L.N * R * 0.12; };
   function envNow() {
     const k = P.spring, kw = k * 60, kc = k * P.contact, e = clamp(P.bounce, 0.02, 0.98), zeta = -Math.log(e) / Math.sqrt(Math.PI * Math.PI + Math.log(e) ** 2), dmin = R * P.gap + rw, I = R * R * P.inertia, kl = k * R * R * P.leanK;
     return { R, g: P.gravity * R, k, kd: P.shear * k, l0: Math.hypot(2 * R, dmin), cw: P.wireDamp, kc, cc: 2 * Math.sqrt(kc) * P.contactDamp, dmin, rw, kw, cwall: 2 * zeta * Math.sqrt(kw), mu: P.grip, cf: 60, inertia: P.inertia, lean: P.lean * Math.PI / 180,
@@ -72,35 +75,40 @@ export function mount(stage) {
     ctx.beginPath(); for (const [x, z] of [[-W / 2, -H / 2], [W / 2, -H / 2], [W / 2, H / 2], [-W / 2, H / 2], [-W / 2, -H / 2]]) { const q = V.project([x, 0, z], r, ox, oy); ctx.lineTo(q[0], q[1]); } ctx.stroke(); ctx.globalAlpha = 1;
     ctx.lineWidth = Math.max(1.3, R * P.wire);
     const items = [];
-    for (const L of letters) for (let i = 0; i < L.ring.n; i++) items.push({ L, i, z: V.project([L.X + L.ring.x[i], L.ring.y[i], L.Z], r, 0, 0)[2] });
+    for (const L of letters) for (let i = 0; i < L.ring.n; i++) items.push({ L, i, z: V.project(wp(L, L.ring.x[i], L.ring.y[i], 0), r, 0, 0)[2] });
     items.sort((a, b) => a.z - b.z);
     for (const { L, i } of items) {
-      const a = L.ring.a[i], ux = Math.cos(a), uy = Math.sin(a), cx = L.X + L.ring.x[i], cy = L.ring.y[i];
+      const a = L.ring.a[i], ux = Math.cos(a), uy = Math.sin(a), cx = L.ring.x[i], cy = L.ring.y[i];
       ctx.beginPath();
       if (L.shape) for (const loop of L.shape) {
-        for (let k = 0; k <= loop.length; k++) { const pt = loop[k % loop.length], q = V.project([cx + ux * pt[0] * R, cy + uy * pt[0] * R, L.Z + pt[1] * R], r, ox, oy); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
-      } else for (let k = 0; k <= 36; k++) { const t = k / 36 * Math.PI * 2, q = V.project([cx + ux * Math.cos(t) * R, cy + uy * Math.cos(t) * R, L.Z + Math.sin(t) * R], r, ox, oy); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
+        for (let k = 0; k <= loop.length; k++) { const pt = loop[k % loop.length], q = V.project(wp(L, cx + ux * pt[0] * R, cy + uy * pt[0] * R, pt[1] * R), r, ox, oy); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
+      } else for (let k = 0; k <= 36; k++) { const t = k / 36 * Math.PI * 2, q = V.project(wp(L, cx + ux * Math.cos(t) * R, cy + uy * Math.cos(t) * R, Math.sin(t) * R), r, ox, oy); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
       ctx.stroke();
     }
   }
 
   // ---------- touch: a tap kicks a letter over; a drag carries its top ring; empty space turns the view ----------
-  const screenOf = (L, i) => { const r = V.rot(), [ox, oy] = V.origin(r, cam, W, H), s = V.project([L.X + L.ring.x[i], L.ring.y[i], L.Z], r, ox, oy); return [s[0], s[1]]; };
+  const screenOf = (L, i) => { const r = V.rot(), [ox, oy] = V.origin(r, cam, W, H), q = V.project(wp(L, L.ring.x[i], L.ring.y[i], 0), r, ox, oy); return [q[0], q[1]]; };
   const hit = (q) => { let best = null, bd = (R * 1.5 * V.rot().z) ** 2; for (const L of letters) { const s = screenOf(L, 0), dd = (s[0] - q.x) ** 2 + (s[1] - q.y) ** 2; if (dd < bd) { bd = dd; best = L; } } return best; };
-  const planeX = (q, L) => { const r = V.rot(), [ox, oy] = V.origin(r, cam, W, H); if (Math.abs(r.cy) < 0.2) return null; return (q.x - ox) / (r.z * r.cy) - r.sy * L.Z / r.cy - L.X; };
+  // the point of the horizontal plane at height y under the pointer, as [world x, world z]
+  const ground = (q, y) => { const r = V.rot(), [ox, oy] = V.origin(r, cam, W, H); if (Math.abs(r.sx) < 0.2) return null; const a = (q.x - ox) / r.z, z1 = (r.cx * y - (oy - q.y) / r.z) / r.sx; return [r.cy * a - r.sy * z1, r.sy * a + r.cy * z1]; };
   offs.push(stage.on('down', (q, e) => {
     if (pid !== null) return; pid = e.pointerId; down = { x: q.x, y: q.y, t: performance.now() }; orbiting = false;
-    const L = hit(q); if (L) { const px = planeX(q, L); grab = { L, x: px === null ? L.ring.x[0] : px, y: L.ring.y[0], q0: { ...q }, y0: L.ring.y[0], t: performance.now() }; }
+    const L = hit(q); if (L) grab = { L, x: L.ring.x[0], y: L.ring.y[0], q0: { ...q }, y0: L.ring.y[0], t: performance.now(), free: standing(L), set: false };
   }));
   offs.push(stage.on('move', (q, e) => {
     if (e.pointerId !== pid) return;
-    if (grab) { const px = planeX(q, grab.L); if (px !== null) grab.x = px; grab.y = grab.y0 + Math.max(0, grab.q0.y - q.y) * 1.1; return; }
+    if (grab) {
+      const L = grab.L, g = ground(q, grab.y0); if (!g) return;
+      if (grab.free && !grab.set && Math.hypot(q.x - grab.q0.x, q.y - grab.q0.y) > 8) { L.th = Math.atan2(g[1] - L.Z, g[0] - L.X); grab.set = true; }   // a standing letter falls the way it is pulled
+      const c = Math.cos(L.th), s = Math.sin(L.th); grab.x = (g[0] - L.X) * c + (g[1] - L.Z) * s; grab.y = grab.y0 + R * 0.7 * Math.sin(Math.min(1, Math.abs(grab.x - L.ring.x[0]) / (R * 2.4) * 1.3) * Math.PI); return;
+    }
     if (down && !orbiting && Math.hypot(q.x - down.x, q.y - down.y) > 10) { orbiting = true; V.orbit.start(down); }
     if (orbiting) V.orbit.move(q);
   }));
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pid) return;
-    if (grab && performance.now() - grab.t < 250 && Math.hypot(q.x - grab.q0.x, q.y - grab.q0.y) < 8) { auto = { L: grab.L, t: 0, dir: Math.random() < 0.5 ? -1 : 1, x0: grab.L.ring.x[0], y0: grab.L.ring.y[0] }; }   // a tap: the head ring is lifted and carried over by itself
+    if (grab && performance.now() - grab.t < 250 && Math.hypot(q.x - grab.q0.x, q.y - grab.q0.y) < 8) { if (standing(grab.L)) grab.L.th = Math.random() * Math.PI * 2; auto = { L: grab.L, t: 0, dir: 1, x0: grab.L.ring.x[0], y0: grab.L.ring.y[0] }; }   // a tap: the head ring is lifted and carried over by itself
     if (orbiting) V.orbit.end(); grab = null; down = null; orbiting = false; pid = null;
   }));
   const onKey = (e) => {
