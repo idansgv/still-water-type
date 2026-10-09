@@ -25,14 +25,22 @@ window.slinkyBench = (() => {
     return { descended: +maxDesc.toFixed(2), secs: tDone, crossed: cr, spread: +spread.toFixed(1), taps, xover: +(xsum / Math.max(1, xn)).toFixed(2), score: +score.toFixed(3) };
   }
   function dropTest(params) {
-    const d = D(), t = P().tune; d.setMode('factory'); t.reset(); for (const k in params) t.set(k, params[k]); t.set('steps', 0); t.set('loose', 8);
-    const p = d.factory.hang(14, 900), n = p.n; t.set('loose', params.loose !== undefined ? params.loose : 0.12);
+    const d = D(), t = P().tune; d.setMode('factory'); t.reset(); for (const k in params) t.set(k, params[k]); t.set('steps', 0);
+    const keep = { damping: t.values.damping, wireDamp: t.values.wireDamp }; t.set('damping', 6); t.set('wireDamp', 40);        // settle it hung, heavily damped, then let go with its own damping
+    const p = d.factory.hang(14, 900), n = p.n; t.set('damping', keep.damping); t.set('wireDamp', keep.wireDamp);
     const y0 = [p.y[0], p.y[n - 1]], stretch = ((p.y[6] - p.y[0]) / 6) / Math.max(1, (p.y[n - 1] - p.y[n - 6]) / 5); delete p.hold0;
     let hover = null, low = 0, rise = 0;
     for (let f = 1; f <= 170; f++) { d.run(1); if (hover === null && p.y[n - 1] - y0[1] > 2) hover = f; const dy = p.y[0] - y0[0]; if (dy > low) low = dy; else rise = Math.max(rise, low - dy); }
     const hov = hover || 0, recoil = low > 0 ? rise / low : 0;
     const score = Math.min(hov, 24) / 24 * 0.4 + Math.min(recoil / 0.2, 1) * 0.3 + Math.min(stretch / 1.6, 1) * 0.3;
     return { hover: hov, recoil: +recoil.toFixed(2), stretch: +stretch.toFixed(2), score: +score.toFixed(3) };
+  }
+  // a slinky standing on its end, dropped: does the end ring land flat, does it recoil, does it fall over into an arch?
+  function standTest(params, frames = 400) {
+    const d = D(), t = P().tune; d.setMode('factory'); t.reset(); for (const k in params) t.set(k, params[k]); t.set('steps', 0);
+    const act = t.actions['Drop one standing']; act(); const p = d.pieces()[0], n = p.n; let low = 0, minAfter = 1e9, maxSpread = 0, endFlat = 1;
+    for (let f = 1; f <= frames; f++) { d.run(1); if (p.y[0] > low) { low = p.y[0]; minAfter = 1e9; } else minAfter = Math.min(minAfter, p.y[0]); let mn = 1e9, mx = -1e9; for (let j = 0; j < n; j++) { mn = Math.min(mn, p.x[j]); mx = Math.max(mx, p.x[j]); } maxSpread = Math.max(maxSpread, mx - mn); if (f === 40) endFlat = Math.abs(p.ry[n - 1]); }
+    return { rise: Math.round(low - minAfter), spread: Math.round(maxSpread), endFlatAt40: +endFlat.toFixed(2) };
   }
   const lockedWalk = (m) => m.descended >= 4.5 && m.crossed <= 2 && m.secs !== null && m.secs <= 20 && m.spread < 12;
   const lockedDrop = (m) => m.hover >= 15 && m.hover <= 45 && m.recoil >= 0.15 && m.stretch >= 1.6;
@@ -135,6 +143,6 @@ window.slinkyBench = (() => {
     }
     return { tried: S.tried, ...S.bestR };
   }
-  return { search3, look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
+  return { standTest, search3, look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
 })();
 'ready';

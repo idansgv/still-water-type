@@ -141,3 +141,12 @@ Finding: the coil-order rule (`keepOrder`) let a ring lean up to 77 degrees off 
 Why: the old solver snapped rings (a ring on the "wrong side" was turned to 13 degrees from the path, and the build pose was on the wrong side for its own rule, so the start collapsed into the pin-cushion of rods every frame showed). The new one has no snapping and no wrong side: the draped start is a clean fan of rings (flat at the planted end, leaning toward the top of the arch), it settles at rest, and it walks when started.
 
 Result (search of 120 candidates on `walk`): down all five steps in 4.5 s without a tap; on the 3x3 grid (step width 5.5/6.9/8.9, drop 2.3/2.8/3.3) 8 of 9 walk; low steps (drop 1.2, 1.5, 1.8, which the old solver never managed) all walk; narrow steps (3.5) walk; steps wider than about 12 radii do not. The factory still uses the old solver (next).
+
+## The rigid-ring solver in the factory (10 Oct 2026)
+
+`slinky-factory.js` is rewritten on `slinky-rings.js` (the old chain, rod and position-based code is gone). The scene keeps y down for the page and feeds the solver -y. Coils leave the spout as kinematic rings (upright, pushed at `feed`) until they clear the barrel, then fly free; cutting the stream just stops the feed. The shelf and the steps are boxes.
+
+- Looks: the stream is a smooth arc of rings fanned along the path, the cut piece flows over the shelf edge and down the steps as one coherent body and settles on the floor; no pin-cushion, no heap.
+- Slinky drop (`dropTest`): hung by the first coil and let go, the bottom hovers while the top falls when the wire is soft: wire stiffness 150 gives hover 26 frames, recoil 0.35, stretch 3.2; 60 gives 31 frames and 7x; 1200 and above gives 5 frames (rigid). Action **Hang it (the Slinky drop)** sets 150, hangs 14 coils; **Let go** drops them.
+- Standing drop (`standTest`, action **Drop one standing**): at the defaults the end ring is nearly flat on the floor at 40 frames (|ry| 0.2), the stack recoils 153 px and falls over into an arch (spread 484 px); with the Bouncy preset the recoil is 137 px.
+- Defaults are the ones found on the stairs (spring 2535 ...). Presets: **Bouncy slinky** (bounce 0.6, wire damping 0.3, spring 1200), **Calm slinky**.
