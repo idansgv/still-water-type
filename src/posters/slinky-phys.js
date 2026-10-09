@@ -17,13 +17,12 @@ export function createPhys(stage, V) {
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
   const offs = [];
 
-  const DEFAULTS = {                                 // locked by the bench loop (tools/slinky-bench.js), 9 Oct 2026; Idan's set before: spring 1330, gap 0.19, pack 0.27, archW 2.3, archH 1, gravity 36, grip 0.85, damping 0.4, bounce 0.35, push 0.6
+  const DEFAULTS = {                                 // refined 10 Oct 2026 (tools/slinky-bench.js, look2); before: lean unlimited (77), spring 1453, gap 0.231, arch 10, pack 0.25, archW 2.935, archH 1.204, gravity 39.9, grip 0.877, damping 0.415, bounce 0.239, push 0.965, cross 1
     coils: 25, size: 0.085, wire: 0.065,               // number of coils, coil radius (of the shorter screen side), wire thickness drawn (of the radius)
-    spring: 1453, gap: 0.231, arch: 10, pack: 0.25, archW: 2.935, archH: 1.204,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
-    gravity: 39.9, grip: 0.877, damping: 0.415, bounce: 0.239,             // gravity (radii per s^2), how much the stairs grip (0 slides), air damping (per s)
-    stepW: 6.9, drop: 2.3, push: 0.965,                // width and drop of a step (radii), the strength of the tap
-    align: 0, cross: 1, flat: 0,   // how hard a loose coil is pulled flat onto the step
-                                            // 1: rods that cross are pushed apart
+    spring: 1238, gap: 0.236, arch: 9, pack: 0.237, archW: 2.562, archH: 1.478,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
+    gravity: 31.5, grip: 0.913, damping: 0.59, bounce: 0.36,             // gravity (radii per s^2), how much the stairs grip (0 slides), air damping (per s)
+    stepW: 6.9, drop: 2.3, push: 0.864,                // width and drop of a step (radii), the strength of the tap
+    lean: 35, settle: 0, shear: 0, align: 0, cross: 0.88, flat: 0,   // most a ring may lean off square to the path (deg), settle frames, diagonal wire, torque, crossing push-apart, lie-flat pull
     yaw: 50, pitch: 32,                                // the view (degrees)
   };
   const P = { ...DEFAULTS };
@@ -61,6 +60,8 @@ export function createPhys(stage, V) {
       px[2 * i] = cx + ux * R; py[2 * i] = cy + uy * R; px[2 * i + 1] = cx - ux * R; py[2 * i + 1] = cy - uy * R;
     }
     cam = { x: -N * s * 0.3, y: 0 }; grab = null;
+    // The pose above is only a sketch of a slinky hanging over the edge; let it settle under its own weight with heavy damping so it starts at rest, without the flung rods of an unsettled start.
+    if (P.settle) { const dsave = P.damping; P.damping = 8; for (let f = 0; f < P.settle * 4; f++) substep(1 / 240); P.damping = dsave; vx.fill(0); vy.fill(0); }
   }
   // index: top of coil i is 2i, bottom 2i+1
 
@@ -74,6 +75,9 @@ export function createPhys(stage, V) {
       const a = 2 * i + e, b = 2 * (i + 1) + e, dx = px[b] - px[a], dy = py[b] - py[a];
       vx[a] += k * dx * h; vy[a] += k * dy * h; vx[b] -= k * dx * h; vy[b] -= k * dy * h;
     }
+    // The wire of a helix pulls from the top of one ring to the bottom of the next as well (the diagonals). Their rest length is that of two rings stacked square, so a ring that tilts against its
+    // neighbours stretches one diagonal and squeezes the other, and the more the slinky is stretched the harder it is pulled back square (tension squares the rings; a sheared stack costs energy).
+    if (P.shear) { const l0 = Math.hypot(L, R * P.gap + rw), ks = P.shear * k; for (let i = 0; i < N - 1; i++) for (const [a, b] of [[2 * i, 2 * i + 3], [2 * i + 1, 2 * i + 2]]) { const dx = px[b] - px[a], dy = py[b] - py[a], d = Math.hypot(dx, dy) || 1e-6, f = ks * (d - l0) / d * h; vx[a] += f * dx; vy[a] += f * dy; vx[b] -= f * dx; vy[b] -= f * dy; } }
     if (P.align) tiltTorque(h);
     if (grab) { const i = grab.i; vx[i] += (grab.x - px[i]) * 900 * h - vx[i] * 12 * h; vy[i] += (grab.y - py[i]) * 900 * h - vy[i] * 12 * h; }
     const damp = Math.exp(-P.damping * h);
@@ -118,7 +122,7 @@ export function createPhys(stage, V) {
     }
   }
   function keepOrder() {
-    const m = 0.22, am = Math.asin(m);
+    const am = Math.PI / 2 - P.lean * Math.PI / 180;                                  // a ring may lean up to P.lean degrees off square to the path, no further
     for (let i = 0; i < N; i++) {
       const a0 = Math.max(0, i - 1), b0 = Math.min(N - 1, i + 1);
       const dx = (px[2 * b0] + px[2 * b0 + 1]) / 2 - (px[2 * a0] + px[2 * a0 + 1]) / 2, dy = (py[2 * b0] + py[2 * b0 + 1]) / 2 - (py[2 * a0] + py[2 * a0 + 1]) / 2;
@@ -138,7 +142,7 @@ export function createPhys(stage, V) {
       const o1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax), o2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax), o3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx), o4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx);
       if (o1 * o2 >= 0 || o3 * o4 >= 0) continue;
       let nx = (cx + dx - ax - bx) / 2, ny = (cy + dy - ay - by) / 2; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
-      const m = Math.min(R * P.gap + rw, R * 0.25) * 0.5;
+      const m = Math.min(R * P.gap + rw, R * 0.25) * 0.5 * P.cross;
       px[2 * i] -= nx * m; py[2 * i] -= ny * m; px[2 * i + 1] -= nx * m; py[2 * i + 1] -= ny * m; px[2 * j] += nx * m; py[2 * j] += ny * m; px[2 * j + 1] += nx * m; py[2 * j + 1] += ny * m;
     }
   }
@@ -258,12 +262,12 @@ export function createPhys(stage, V) {
       title: 'Slinky (physical)', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Wire', items: [Ctl('spring', 'Spring stiffness (low = soft)', 20, 2000, 10), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('arch', 'Coils on the arch at the start (re-forms)', 3, 14, 1), Ctl('pack', 'Spacing in the stack (re-forms)', 0.1, 0.6, 0.01), Ctl('archW', 'Arch width (re-forms)', 1, 4, 0.1), Ctl('archH', 'Arch height (re-forms)', 0.5, 3, 0.1), Ctl('coils', 'Coils (re-forms)', 8, 40, 1), Ctl('size', 'Coil radius (re-forms)', 0.05, 0.14, 0.005)] },
-        { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Grip of the stairs', 0, 1, 0.05), Ctl('bounce', 'Bounce off the steps', 0, 0.95, 0.01), Ctl('damping', 'Air damping', 0, 4, 0.1), Ctl('flat', 'Loose coils lie flat', 0, 2, 0.05), Ctl('align', 'Tension squares the rings to the axis', 0, 0.5, 0.01), Ctl('stepW', 'Step width (re-forms)', 3, 14, 0.1), Ctl('drop', 'Step drop (re-forms)', 0.4, 2.5, 0.05)] },
+        { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Grip of the stairs', 0, 1, 0.05), Ctl('bounce', 'Bounce off the steps', 0, 0.95, 0.01), Ctl('damping', 'Air damping', 0, 4, 0.1), Ctl('flat', 'Loose coils lie flat', 0, 2, 0.05), Ctl('lean', 'Most a ring may lean off the path (deg)', 20, 85, 1), Ctl('shear', 'Diagonal wire (tension squares the rings)', 0, 3, 0.05), Ctl('align', 'Tension squares the rings to the axis', 0, 0.5, 0.01), Ctl('stepW', 'Step width (re-forms)', 3, 14, 0.1), Ctl('drop', 'Step drop (re-forms)', 0.4, 2.5, 0.05)] },
         { name: 'Touch', items: [Ctl('push', 'Tap push', 0, 3, 0.05)] },
         { name: 'View', items: [Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005), Ctl('yaw', 'Turn (degrees)', 0, 90, 1), Ctl('pitch', 'Tilt (degrees)', 0, 70, 1)] },
       ],
       actions: { 'Nudge it': () => { const i = 0; vx[i] += R * 18 * P.push; vy[i] += R * 6 * P.push; }, 'Re-form': build },
-      set(key, value) { P[key] = value; if (key === 'yaw' || key === 'pitch') { V.iso.yaw = P.yaw; V.iso.pitch = P.pitch; V.setView('iso'); } if (['coils', 'size', 'gap', 'arch', 'pack', 'archW', 'archH', 'stepW', 'drop'].includes(key)) build(); else { g = P.gravity * R; } },
+      set(key, value) { P[key] = value; if (key === 'yaw' || key === 'pitch') { V.iso.yaw = P.yaw; V.iso.pitch = P.pitch; V.setView('iso'); } if (['coils', 'size', 'gap', 'arch', 'pack', 'archW', 'archH', 'stepW', 'drop', 'settle', 'shear', 'cross'].includes(key)) build(); else { g = P.gravity * R; } },
       reset() { Object.assign(P, DEFAULTS); build(); },
     },
     debug: { cam: () => ({ ...cam }), kick: (i, ax, ay) => { vx[i] += R * ax; vy[i] += R * ay; }, run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, state: () => ({ N, R, px: Array.from(px), py: Array.from(py), stepW, Hs }), nudge: (f = 1) => { vx[0] += R * 18 * f; vy[0] += R * 6 * f; } },

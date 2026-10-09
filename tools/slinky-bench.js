@@ -7,7 +7,7 @@ window.slinkyBench = (() => {
   const crossed = (s) => { const N = s.N; let v = 0; for (let i = 0; i < N; i++) { const a = Math.max(0, i - 1), b = Math.min(N - 1, i + 1); const dx = (s.px[2 * b] + s.px[2 * b + 1] - s.px[2 * a] - s.px[2 * a + 1]) / 2, dy = (s.py[2 * b] + s.py[2 * b + 1] - s.py[2 * a] - s.py[2 * a + 1]) / 2; const rx = s.px[2 * i] - s.px[2 * i + 1], ry = s.py[2 * i] - s.py[2 * i + 1]; if ((rx * dy - ry * dx) / (Math.hypot(rx, ry) * Math.hypot(dx, dy) || 1) > -0.1) v++; } return v; };
   const xcount = (s) => { let c = 0; const N = s.N; for (let i = 0; i < N; i++) for (let j = i + 1; j < Math.min(N, i + 5); j++) { const ax = s.px[2 * i], ay = s.py[2 * i], bx = s.px[2 * i + 1], by = s.py[2 * i + 1], cx = s.px[2 * j], cy = s.py[2 * j], dx = s.px[2 * j + 1], dy = s.py[2 * j + 1]; const o1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax), o2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax), o3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx), o4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx); if (o1 * o2 < 0 && o3 * o4 < 0) c++; } return c; };
   function walk(params, frames = 2400) {
-    const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size'];
+    const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size', 'settle'];
     for (const k in params) if (!rebuild.includes(k)) t.set(k, params[k]);
     for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || 25);
     const sd = d.stairs; const s0 = sd.state(); const cy = (s) => { let c = 0; for (let i = 0; i < s.N; i++) c += (s.py[2 * i] + s.py[2 * i + 1]) / 2; return c / s.N; }, cx = (s) => { let c = 0; for (let i = 0; i < s.N; i++) c += (s.px[2 * i] + s.px[2 * i + 1]) / 2; return c / s.N; };
@@ -65,7 +65,7 @@ window.slinkyBench = (() => {
   function start(base) { window.__L = { it: 0, best: { ...base }, bestG: gridScore(base), log: [] }; return { ok: window.__L.bestG.ok, score: +window.__L.bestG.score.toFixed(2) }; }
   // The look of the walk (Idan's sketch): while an arch stands, the rings along it should fan out square to the path (E near 0) and the end coil planted on the step should lie flat (F near 0).
   function look(params, frames = 1500) {
-    const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size'];
+    const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size', 'settle'];
     for (const k in params) if (!rebuild.includes(k)) t.set(k, params[k]); for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || 25);
     const sd = d.stairs, s0 = sd.state(), cy = (s) => { let c = 0; for (let i = 0; i < s.N; i++) c += (s.py[2 * i] + s.py[2 * i + 1]) / 2; return c / s.N; }, y0 = cy(s0), Hs = s0.Hs;
     let Es = 0, Fs = 0, na = 0, maxDesc = 0, cr = 0, tDone = null, taps = 0, lastGain = 0, bad = false, xo = 0, xn = 0;
@@ -88,7 +88,7 @@ window.slinkyBench = (() => {
   // Idan's sketch as numbers (stairs). While an arch stands: spacing even (CV of centre gaps), neighbouring rings fan smoothly (C: mean turn between rods, radians),
   // rings square to the path (E), and the end coil planted on the step lies flat (F). Plus it walks, and the arch lasts (archFrames).
   function look2(params, frames = 1500) {
-    const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size'];
+    const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size', 'settle'];
     for (const k in params) if (!rebuild.includes(k)) t.set(k, params[k]); for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || 25);
     const sd = d.stairs, s0 = sd.state(), cyf = (s) => { let c = 0; for (let i = 0; i < s.N; i++) c += (s.py[2 * i] + s.py[2 * i + 1]) / 2; return c / s.N; }, y0 = cyf(s0), Hs = s0.Hs;
     let sCV = 0, sC = 0, sE = 0, sF = 0, na = 0, maxDesc = 0, cr = 0, tDone = null, taps = 0, lastGain = 0, bad = false, xo = 0, xn = 0, maxArch = 0;
@@ -110,11 +110,11 @@ window.slinkyBench = (() => {
       if (f - lastGain > 240 && taps < 2 && tDone === null) { sd.nudge(params.push !== undefined ? params.push : 0.6); taps++; lastGain = f; } else if (f - lastGain > 780) break;
     }
     const m = na ? { CV: sCV / na, C: sC / na, E: sE / na, F: sF / na } : { CV: 1, C: 1, E: 1, F: 1 };
-    const walk = bad ? 0 : Math.min(maxDesc, 4.5) / 4.5 * (tDone !== null && tDone <= 22 ? 1 : 0.5), arch = Math.min(na / 8, 1);
-    const score = walk * 0.3 + arch * 0.15 + (1 - Math.min(m.CV / 0.6, 1)) * 0.15 + (1 - Math.min(m.C / 0.5, 1)) * 0.15 + (1 - Math.min(m.E / 0.6, 1)) * 0.1 + (1 - Math.min(m.F / 0.8, 1)) * 0.15 - Math.min(cr, 5) * 0.02 - Math.min(xo / Math.max(1, xn), 3) * 0.05;
+    const walk = bad ? 0 : Math.min(maxDesc, 4.5) / 4.5 * (tDone !== null && tDone <= 25 ? 1 : 0.4), arch = Math.min(na / 16, 1);       // the arch should last (16 samples = 4 s)
+    const score = walk * 0.25 + arch * 0.35 + (1 - Math.min(m.F / 0.6, 1)) * 0.15 + (1 - Math.min(m.E / 0.6, 1)) * 0.1 + (1 - Math.min(m.C / 0.5, 1)) * 0.1 + (1 - Math.min(m.CV / 0.6, 1)) * 0.05 - Math.min(cr, 5) * 0.02 - Math.min(xo / Math.max(1, xn), 3) * 0.05;
     return { score: +score.toFixed(3), descended: +maxDesc.toFixed(2), secs: tDone, taps, archFrames: na, maxArch: +maxArch.toFixed(1), CV: +m.CV.toFixed(2), C: +m.C.toFixed(2), E: +m.E.toFixed(2), F: +m.F.toFixed(2), crossed: cr, xover: +(xo / Math.max(1, xn)).toFixed(2) };
   }
-  const SPACE2 = { spring: [1000, 6000], gap: [0.12, 0.3], pack: [0.15, 0.45], grip: [0.5, 1], damping: [0, 1.2], bounce: [0, 0.6], gravity: [20, 60], push: [0.3, 1.4], archW: [1.5, 4], archH: [0.6, 2], arch: [6, 14], align: [0, 0.3] };
+  const SPACE2 = { spring: [1000, 6000], gap: [0.12, 0.3], pack: [0.15, 0.45], grip: [0.5, 1], damping: [0, 1.2], bounce: [0, 0.6], gravity: [20, 60], push: [0.3, 1.4], archW: [1.5, 4], archH: [0.6, 2], arch: [6, 14], align: [0, 0.3], lean: [25, 70], shear: [0, 1.2], cross: [0.3, 1] };
   function start2(base) { window.__M = { it: 0, best: { ...base }, bestR: look2(base), log: [] }; return window.__M.bestR; }
   function round2(cands = 5) {
     const M = window.__M; M.it++; const span = 1 / (1 + (M.it - 1) * 0.25); let tried = 0;

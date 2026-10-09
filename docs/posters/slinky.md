@@ -125,3 +125,11 @@ Sketch: an arch of rings fanned square to the path, the front ring lying flat on
 - Seen in frames: the draped start collapses into a mixed heap in the first half second, then a compact stack lying on its side; the long clean arch of the sketch does not appear. The arch in this model is a transient of the walk (about 0.25 s of real arch frames), so tuning parameters cannot hold it.
 - Not adopted: the tuned values (spring 1016, archW 3.0, archH 1.33...) were not visibly better; the defaults are unchanged.
 - Suggested next step: a hybrid. Author the arch gait (a path with the front ring flat, rings fanned along it, rear ring lifting over and landing; like `slinky-walk.js`) and let the rod physics add the landing squash, rebound and wobble.
+
+## Refining the physics (10 Oct 2026): rings may not turn edge-on to the path
+
+Finding: the coil-order rule (`keepOrder`) let a ring lean up to 77 degrees off square to the path, and when it snapped a ring back it turned it to 13 degrees from the path, i.e. lying along it. Those rods are the pin-cushion of rings seen in every messy frame (the heap, the flung start, the X). New setting `lean` (degrees a ring may lean off square; stairs and factory): at 35 the draped slinky holds a clean arch of rings fanned square to the path (the sketch), the arch lasts about 4 s instead of 0.25 s, and the rear coils lift and flip over as the front fans onto the next step.
+
+- Also added (off by default): diagonal wire springs `shear` (tension squares the rings; on a hanging slinky the mean tilt drops from 0.83 to 0.24 and the end ring lies flat at shear 1, but on the stairs it kills the arch), settle-at-start `settle` (made it worse: a pile), `cross` is now a strength (0.88).
+- New stairs defaults from the loop (rounds 3 to 6 with the arch-weighted score): spring 1238, gap 0.236, arch 9, pack 0.237, archW 2.56, archH 1.48, gravity 31.5, grip 0.91, damping 0.59, bounce 0.36, push 0.86, cross 0.88, lean 35. The walk is slower and more deliberate: 8 of 9 grid geometries get down 4.3 to 4.9 steps in 8 to 22 s (1 or 2 taps), none crossed.
+- Still open: the planted front ring is not flat on the step (F about 0.5), and the rear flip throws a few rings about. The factory keeps `lean` 77 until it is tested there.
