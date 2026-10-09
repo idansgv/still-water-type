@@ -100,3 +100,7 @@ Lock: walks down all five steps on at least 7 of 9 stair geometries (step width 
 - Last step is now the floor (it ended after step 5 and the slinky fell through).
 - Slinky drop at the factory defaults: hover 21 frames, recoil 0.19, stretch 6.4: locked.
 - Not covered (no test yet): hand-to-hand arch (passing the arch between two hands), climbing, walking down a slope, walking on the Factory flat floor.
+
+## Rim lies flat (tried, off by default)
+
+`flat` (factory and stairs sliders "Loose coils lie flat", default 0): when only one end of a coil rests on the floor or step, the raised end gets extra downward pull, more the more upright the coil. Measured in the factory at 0.6: mean coil tilt 0.80 -> 0.55 and 13 of 40 coils lying flat (none at 0), but the landing breaks up into a flung, tangled heap (0.1 to 0.3 give a partial heap too); on the stairs the walk still passes (8 to 9 of 9). So it is a slider, not a default. A stable version probably needs a position-based rotation of the coil about its floor contact (not extra force), and the crossing resolver in the factory.

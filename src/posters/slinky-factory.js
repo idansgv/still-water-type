@@ -17,7 +17,7 @@ export function createFactory(stage, V) {
     feed: 560, gravity: 1400, spring: 200,           // how fast coils leave the spout (px/s), gravity (px/s^2), spring stiffness
     gap: 0.02, size: 0.07, tilt: 0.34,               // closest two neighbouring coils get (of the screen height), coil radius (of the shorter side), how round the rings look
     damping: 6.5, loose: 0.12, air: 0.06, grip: 0.5, bounce: 0.55,              // damping along the springs, air drag, how much the floor grips
-    rodSpring: 450, wireDamp: 8, cross: 0, rodGap: 0.19, hold: 0.85, rebound: 0.35,   // once cut the piece is a row of rods (as on the stairs): wire stiffness, closest coils (of the radius), grip, how much of a landing comes back
+    rodSpring: 450, wireDamp: 8, cross: 0, flat: 0, rodGap: 0.19, hold: 0.85, rebound: 0.35,   // once cut the piece is a row of rods (as on the stairs): wire stiffness, closest coils (of the radius), grip, how much of a landing comes back
     bend: 0.9, steps: 5, run: 0.12, start: 0.45,        // how much a bent stretch of the slinky resists folding (an arch holds), and the stairs beyond the spout: how many, how high, how wide
     keep: 3, longest: 150,                           // pieces kept on the floor, most coils in one piece
     wire: 0.075,                                     // drawn wire thickness (of the coil radius)
@@ -122,6 +122,9 @@ export function createFactory(stage, V) {
     const n = p.n, M = 2 * n, px = p.px, py = p.py, vx = p.pvx, vy = p.pvy, L = 2 * R, rw = Math.max(2, R * P.wire * 0.5), dmin = R * P.rodGap + rw, k = P.rodSpring, bx = boxesNow();
     const x0 = Float32Array.from(px), y0 = Float32Array.from(py), vyPre = Float32Array.from(vy), landed = new Uint8Array(M);
     for (let i = 0; i < M; i++) vy[i] += P.gravity * h;
+    // a ring standing on its rim is not steady: with one end on the floor, the raised end is pulled down harder (more so the more upright the coil), so loose coils tip and lie flat
+    const lp = p.landedPrev || (p.landedPrev = new Uint8Array(M)); if (lp.length !== M) { p.landedPrev = new Uint8Array(M); }
+    if (P.flat) for (let i = 0; i < n; i++) { const t = 2 * i, b = t + 1; if (!!p.landedPrev[t] === !!p.landedPrev[b]) continue; const lo = p.landedPrev[t] ? t : b, hi = p.landedPrev[t] ? b : t; vy[hi] += P.gravity * h * P.flat * Math.min(1, Math.abs(py[hi] - py[lo]) / (2 * R)); }
     for (let i = 0; i < n - 1; i++) for (const e of [0, 1]) { const a = 2 * i + e, b = 2 * (i + 1) + e, dx = px[b] - px[a], dy = py[b] - py[a]; const rvx = vx[b] - vx[a], rvy = vy[b] - vy[a], f = P.wireDamp * h; vx[a] += k * dx * h + rvx * f; vy[a] += k * dy * h + rvy * f; vx[b] -= k * dx * h + rvx * f; vy[b] -= k * dy * h + rvy * f; }
     if (grab && grab.p === p) { const i = 2 * grab.i; vx[i] += (grab.x - px[i]) * 900 * h - vx[i] * 12 * h; vy[i] += (grab.y - py[i]) * 900 * h - vy[i] * 12 * h; }
     const streaming = p === live && pressed, damp = Math.exp(-(streaming ? P.damping : P.loose) * h), inB = (i) => streaming && p.x[i >> 1] < nozzle.x + barrel && p.y[i >> 1] < nozzle.y + R * 1.5;
@@ -164,6 +167,7 @@ export function createFactory(stage, V) {
     for (let i = 0; i < M; i++) { const lo = R * 0.5, hi = W - R * 0.5; if (px[i] < lo) px[i] = lo; else if (px[i] > hi) px[i] = hi; }   // the edges of the page are walls
     if (p.hold0) for (let i = 0; i < 2; i++) { px[i] = p.hold0[i][0]; py[i] = p.hold0[i][1]; }                     // (a test: the first coil held)
     for (let i = 0; i < M; i++) if (inB(i)) { py[i] = nozzle.y + (i & 1 ? R : -R); }                      // (the barrel is not pushed out of shape)
+    p.landedPrev = landed;
     for (let i = 0; i < M; i++) {                                                  // velocities come from where the constraints left the points; a landing gives some back
       vx[i] = (px[i] - x0[i]) / h; vy[i] = (py[i] - y0[i]) / h;
       if (landed[i] && vyPre[i] > R * 2) vy[i] = -vyPre[i] * P.rebound;
@@ -290,7 +294,7 @@ export function createFactory(stage, V) {
       title: 'Slinky factory', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Stream', items: [Ctl('feed', 'Feed speed (px/s)', 100, 1400, 10), Ctl('longest', 'Longest piece (coils)', 20, 300, 5), Ctl('keep', 'Pieces kept on the floor', 1, 6, 1)] },
-        { name: 'Spring', items: [Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Air damping once cut', 0, 4, 0.01), Ctl('rodSpring', 'Wire stiffness', 2, 4000, 2), Ctl('wireDamp', 'Wire damping (calms the heap)', 0, 30, 0.5), Ctl('rodGap', 'Closest coils', 0.05, 0.5, 0.01), Ctl('hold', 'Grip of the floor', 0, 1, 0.05), Ctl('rebound', 'Rebound off the floor', 0, 0.95, 0.01), Ctl('gravity', 'Gravity', 200, 4000, 50), ] },
+        { name: 'Spring', items: [Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Air damping once cut', 0, 4, 0.01), Ctl('rodSpring', 'Wire stiffness', 2, 4000, 2), Ctl('wireDamp', 'Wire damping (calms the heap)', 0, 30, 0.5), Ctl('rodGap', 'Closest coils', 0.05, 0.5, 0.01), Ctl('flat', 'Loose coils lie flat', 0, 2, 0.05), Ctl('hold', 'Grip of the floor', 0, 1, 0.05), Ctl('rebound', 'Rebound off the floor', 0, 0.95, 0.01), Ctl('gravity', 'Gravity', 200, 4000, 50), ] },
         { name: 'Stairs', items: [Ctl('steps', 'Steps (0 = flat floor)', 0, 8, 1), Ctl('run', 'Step depth', 0.08, 0.4, 0.01), Ctl('start', 'Where the shelf ends', 0.3, 0.8, 0.01)] },
         { name: 'Look', items: [Ctl('size', 'Coil radius (re-forms)', 0.03, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
       ],
