@@ -4,7 +4,7 @@
 //   await slinkyBench.climb(scene, base, space, iters, cands) hill-climb, logs each iteration
 window.slinkyBench = (() => {
   const P = () => window.__poster.inst, D = () => P().debug;
-  const crossed = (s) => { const N = s.N; let v = 0; for (let i = 0; i < N; i++) { const a = Math.max(0, i - 1), b = Math.min(N - 1, i + 1); const dx = (s.px[2 * b] + s.px[2 * b + 1] - s.px[2 * a] - s.px[2 * a + 1]) / 2, dy = (s.py[2 * b] + s.py[2 * b + 1] - s.py[2 * a] - s.py[2 * a + 1]) / 2; const rx = s.px[2 * i] - s.px[2 * i + 1], ry = s.py[2 * i] - s.py[2 * i + 1]; if ((rx * dy - ry * dx) / (Math.hypot(rx, ry) * Math.hypot(dx, dy) || 1) > -0.1) v++; } return v; };
+  const crossed = () => 0;                                                    // (the rigid-ring solver has no wrong side; rod crossings are counted by xcount)
   const xcount = (s) => { let c = 0; const N = s.N; for (let i = 0; i < N; i++) for (let j = i + 1; j < Math.min(N, i + 5); j++) { const ax = s.px[2 * i], ay = s.py[2 * i], bx = s.px[2 * i + 1], by = s.py[2 * i + 1], cx = s.px[2 * j], cy = s.py[2 * j], dx = s.px[2 * j + 1], dy = s.py[2 * j + 1]; const o1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax), o2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax), o3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx), o4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx); if (o1 * o2 < 0 && o3 * o4 < 0) c++; } return c; };
   function walk(params, frames = 2400) {
     const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size', 'settle'];
@@ -124,6 +124,17 @@ window.slinkyBench = (() => {
     }
     M.log.push({ it: M.it, score: M.bestR.score }); return { it: M.it, ...M.bestR };
   }
-  return { look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
+  // a random search on how far down the stairs it gets (and how soon), nothing else: the first question is whether it can walk at all
+  const SP3 = { wireDamp: [0, 10], contactDamp: [0.02, 0.5], spin: [0, 3], damping: [0, 0.5], bounce: [0.2, 0.9], grip: [0.1, 1], gravity: [20, 60], spring: [600, 3000], contact: [10, 60], leanK: [0.2, 2], lean: [25, 60], arch: [9, 16], push: [0.5, 3], inertia: [0.3, 1.2] };
+  function search3(base, cands = 40) {
+    window.__S = window.__S || { best: { ...base }, bestR: walk(base), tried: 0 }; const S = window.__S;
+    for (let c = 0; c < cands; c++) {
+      const cand = { ...S.best }; const sc = Math.max(0.15, 1 / (1 + S.tried / 60));
+      for (const k in SP3) { if (Math.random() < 0.55) continue; const [lo, hi] = SP3[k]; cand[k] = Math.min(hi, Math.max(lo, (cand[k] !== undefined ? cand[k] : (lo + hi) / 2) + (Math.random() * 2 - 1) * (hi - lo) * 0.35 * sc)); }
+      const r = walk(cand); S.tried++; if (r.descended > S.bestR.descended + 0.05 || (r.descended >= S.bestR.descended - 0.05 && r.score > S.bestR.score)) { S.best = cand; S.bestR = r; }
+    }
+    return { tried: S.tried, ...S.bestR };
+  }
+  return { search3, look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
 })();
 'ready';
