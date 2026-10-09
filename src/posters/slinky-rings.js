@@ -10,6 +10,17 @@
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
+// The hand: follow a grab target (y up) and keep its velocity and how fast that velocity turns, smoothed. A hand carrying the end of a slinky over an arch turns by half a circle in the
+// time the move takes (omega = pi / time); the ring in hand is driven to turn with it, so a carried cap flips over instead of only being dragged.
+export function trackHand(g, x, y, dt) {
+  if (g.px === undefined) { g.px = x; g.py = y; g.hvx = g.hvy = 0; g.hw = 0; g.psi = 0; g.hs = 0; return; }
+  const ivx = (x - g.px) / dt, ivy = (y - g.py) / dt; g.px = x; g.py = y;
+  const ovx = g.hvx, ovy = g.hvy; g.hvx += (ivx - g.hvx) * 0.15; g.hvy += (ivy - g.hvy) * 0.15;
+  const sp = Math.hypot(g.hvx, g.hvy), psi = Math.atan2(g.hvy, g.hvx);
+  if (sp > 1e-3 && Math.hypot(ovx, ovy) > 1e-3) { let d = psi - Math.atan2(ovy, ovx); d -= Math.PI * 2 * Math.round(d / (Math.PI * 2)); g.hw += (d / dt - g.hw) * 0.2; } else g.hw *= 0.8;
+  g.psi = psi; g.sp = sp;
+}
+
 export function createRings(cap) {
   const S = {
     n: 0, cap,
@@ -146,6 +157,12 @@ export function createRings(cap) {
       const g = env.grab, i = g.pt >> 1, s = g.pt & 1 ? -R : R, rx = ux[i] * s, ry = uy[i] * s, px = x[i] + rx, py = y[i] + ry;
       const pvx = vx[i] - w[i] * ry, pvy = vy[i] + w[i] * rx;
       add(i, rx, ry, (g.x - px) * 900 - pvx * 14, (g.y - py) * 900 - pvy * 14);
+      // the ring in hand turns with the move: its facing follows the direction the hand is going, at the rate that direction turns
+      if (env.turn > 0 && g.sp > 0) {
+        const sg = S.capSign[i] || 1, psi = a[i] + sg * Math.PI / 2; let e = g.psi - psi; e -= Math.PI * 2 * Math.round(e / (Math.PI * 2));
+        const gain = Math.min(1, g.sp / (0.6 * R)), kp = 150 * env.turn, kd = 2 * Math.sqrt(kp) * 0.7;
+        tq[i] += I * S.im[i] * gain * (kp * e + kd * (sg * g.hw - w[i]));
+      }
     }
 
     // ---- move ----

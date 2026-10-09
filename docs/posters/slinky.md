@@ -38,6 +38,8 @@ Why this solver: the earlier one (point chain, then rods with position correctio
 | caps | endFlat 0.6, capInertia 3 | endFlat 1.55, capInertia 8 |
 | start | arch 14.7 coils, archW 1.2, archH 1.1, push 2.4 | feed 560 px/s, longest 90, shelf ends at 0.32 W, steps 0.17 W deep |
 
+`turn` (new, both scenes, default 1): the ring in hand is driven to turn with the move: its facing follows the direction the hand is going, at the rate that direction turns (a hand carrying an end over a half-circle arc in time T turns it by pi at omega = pi / T). Without it a radial move only dragged the cap; with it the head ring flips 180 degrees in all four scripted gestures (2 of 4 without). **X** is the reform shortcut (factory: Sweep up, stairs: Re-form).
+
 `square` (new): a soft pull turning each ring square to the path through its neighbours (the hard `lean` limit only acts past 38 degrees, so without it the rings of a gentle bend stayed vertical and the streaming head ring did not lean down the arch). At 1 the head ring leans down with the arch and the flip test passes on 2 of 3 gestures with the soft set (0.53 without).
 
 The stairs set is tuned to **walk** (default stairs: 4.9 steps in 11 s, no tap; 8 of 9 stair shapes; a 1.8-radius drop too). The factory set is tuned to **flip**: momentum carries the coils over (below). Both scenes have all settings in the panel (groups Stream, Rings, World, Stairs, Look). Presets in the factory: **Bouncy slinky**, **Calm slinky**; actions **Drop one standing**, **Stand one up (drag its top over)**, **Hang it (the Slinky drop)**, **Let go**, **Sweep up**.

@@ -4,7 +4,7 @@
 // off square to the path only so far, rings push each other off, the shelf and the steps push back with friction and a bounce.
 // One colour: black on white, white on black on every second shuffle. Letters come later.
 
-import { createRings } from './slinky-rings.js';
+import { createRings, trackHand } from './slinky-rings.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -18,7 +18,7 @@ export function createFactory(stage, V) {
     feed: 560, pitch: 0.18, keep: 3, longest: 90,    // how fast coils leave the spout (px/s), their spacing as they leave (of the radius), pieces kept, most coils in one piece
     size: 0.09, wire: 0.035,                         // coil radius (of the shorter side), drawn wire thickness (of the radius)
     spring: 100, gap: 0.21, gravity: 15, grip: 0.5, damping: 0.21, bounce: 0.2,   // wire stiffness, closest coils (of the radius), gravity (radii per s^2), friction, air drag, bounce
-    wireDamp: 22.5, contact: 9, contactDamp: 0.34, inertia: 1.1, lean: 37.8, leanK: 1.09, spin: 0.42, shear: 0, square: 1, endFlat: 1.55, capInertia: 8,   // as on the stairs; square: how firmly a ring is turned square to the path
+    wireDamp: 22.5, contact: 9, contactDamp: 0.34, inertia: 1.1, lean: 37.8, leanK: 1.09, spin: 0.42, shear: 0, square: 1, turn: 1, endFlat: 1.55, capInertia: 8,   // as on the stairs; square: how firmly a ring is turned square to the path
     steps: 5, run: 0.17, start: 0.32,                // the stairs beyond the shelf: how many, how wide, where the shelf ends (of the width)
   };
   const P = { ...DEFAULTS };
@@ -58,7 +58,7 @@ export function createFactory(stage, V) {
   function envNow() {
     const k = P.spring, kw = k * 60, kc = k * P.contact, e = clamp(P.bounce, 0.02, 0.98), zeta = -Math.log(e) / Math.sqrt(Math.PI * Math.PI + Math.log(e) ** 2), dmin = R * P.gap + rw, I = R * R * P.inertia, kl = k * R * R * P.leanK;
     return { R, g: P.gravity * R, k, kd: P.shear * k, l0: Math.hypot(2 * R, dmin), cw: P.wireDamp, kc, cc: 2 * Math.sqrt(kc) * P.contactDamp, dmin, rw, kw, cwall: 2 * zeta * Math.sqrt(kw), mu: P.grip, cf: 60, inertia: P.inertia, lean: P.lean * Math.PI / 180,
-      kl, kla: 2 * Math.sqrt(kl * I) * 0.5, endFlat: kl * P.endFlat, square: P.square, wdamp: P.spin, air: P.damping, reach: 5, boxes: boxes(), grab: null };
+      kl, kla: 2 * Math.sqrt(kl * I) * 0.5, endFlat: kl * P.endFlat, square: P.square, turn: P.turn, wdamp: P.spin, air: P.damping, reach: 5, boxes: boxes(), grab: null };
   }
   function stepAll(dt) {
     // the feed: while the button is down a new coil leaves the spout every `pitch` radii of travel
@@ -75,7 +75,7 @@ export function createFactory(stage, V) {
         else if (p.hold0 && i === 0) { r.kin[i] = 1; r.vx[i] = r.vy[i] = r.w[i] = 0; }                                  // (a test: the first coil held)
         else r.kin[i] = 0;
       }
-      env.grab = grab && grab.p === p ? { pt: 0, x: grab.x, y: -grab.y } : null;
+      if (grab && grab.p === p) { const g = grab.hand || (grab.hand = { pt: 0 }); g.x = grab.x; g.y = -grab.y; trackHand(g, g.x, g.y, dt); env.grab = g; } else env.grab = null;
       for (let s = 0; s < nsub; s++) r.step(h, env);
       for (let i = 0; i < r.n; i++) {                                         // the edges of the page are walls
         const lo = R * 0.5, hi = W - R * 0.5; if (r.x[i] < lo) { r.x[i] = lo; if (r.vx[i] < 0) r.vx[i] = 0; } else if (r.x[i] > hi) { r.x[i] = hi; if (r.vx[i] > 0) r.vx[i] = 0; }
@@ -205,7 +205,7 @@ export function createFactory(stage, V) {
       title: 'Slinky factory', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Stream', items: [Ctl('feed', 'Feed speed (px/s)', 100, 1400, 10), Ctl('pitch', 'Spacing as they leave (radii)', 0.15, 1.2, 0.01), Ctl('longest', 'Longest piece (coils)', 20, 300, 5), Ctl('keep', 'Pieces kept on the floor', 1, 6, 1)] },
-        { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path (they lean down a bend)', 0, 2, 0.05), Ctl('shear', 'Diagonal wire (tension squares the rings)', 0, 3, 0.05), Ctl('spring', 'Wire stiffness', 5, 6000, 1), Ctl('gap', 'Closest coils (radii)', 0.1, 0.5, 0.01), Ctl('wireDamp', 'Wire damping', 0, 60, 0.5), Ctl('contact', 'Ring on ring stiffness', 5, 80, 1), Ctl('contactDamp', 'Ring on ring damping', 0, 1.5, 0.02), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05), Ctl('spin', 'Spin damping', 0, 10, 0.1), Ctl('endFlat', 'End rings lie flat', 0, 3, 0.05), Ctl('capInertia', 'Weight of the cap rings (to turn over)', 1, 12, 0.5)] },
+        { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path (they lean down a bend)', 0, 2, 0.05), Ctl('turn', 'The ring in hand turns with the move', 0, 3, 0.05), Ctl('shear', 'Diagonal wire (tension squares the rings)', 0, 3, 0.05), Ctl('spring', 'Wire stiffness', 5, 6000, 1), Ctl('gap', 'Closest coils (radii)', 0.1, 0.5, 0.01), Ctl('wireDamp', 'Wire damping', 0, 60, 0.5), Ctl('contact', 'Ring on ring stiffness', 5, 80, 1), Ctl('contactDamp', 'Ring on ring damping', 0, 1.5, 0.02), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05), Ctl('spin', 'Spin damping', 0, 10, 0.1), Ctl('endFlat', 'End rings lie flat', 0, 3, 0.05), Ctl('capInertia', 'Weight of the cap rings (to turn over)', 1, 12, 0.5)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction', 0, 1.5, 0.05), Ctl('bounce', 'Bounce off the floor', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05)] },
         { name: 'Stairs', items: [Ctl('steps', 'Steps (0 = flat floor)', 0, 8, 1), Ctl('run', 'Step depth', 0.08, 0.4, 0.01), Ctl('start', 'Where the shelf ends', 0.3, 0.8, 0.01)] },
         { name: 'Look', items: [Ctl('size', 'Coil radius (re-forms)', 0.03, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },

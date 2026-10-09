@@ -35,7 +35,12 @@ function mountBoth(stage, start) {
   const refresh = () => { if (stage.refreshPanel) stage.refreshPanel(); };
   V.onChange = refresh;
   const setMode = (m) => { if (V.mode === m) return; V.mode = m; V.zoomMul = m === 'factory' ? 0.72 : 1; refresh(); };
-  const onKey = (e) => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; if (e.key === 'm' || e.key === 'M') setMode(V.mode === 'factory' ? 'stairs' : 'factory'); };
+  const REFORM = ['Sweep up', 'Re-form'];                                          // X: clear the factory floor / put the stairs slinky back over the edge
+  const onKey = (e) => {
+    if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    if (e.key === 'm' || e.key === 'M') setMode(V.mode === 'factory' ? 'stairs' : 'factory');
+    else if (e.key === 'x' || e.key === 'X') { const acts = cur().tune.actions; for (const k of REFORM) if (acts[k]) { acts[k](); break; } }
+  };
   addEventListener('keydown', onKey);
   const mark = (on) => (on ? '\u25CF ' : '\u25CB ');
   const tune = {
@@ -46,7 +51,8 @@ function mountBoth(stage, start) {
     get actions() {
       const out = { [mark(V.mode === 'factory') + 'M  Factory']: () => setMode('factory'), [mark(V.mode === 'stairs') + 'M  Stairs']: () => setMode('stairs') };
       for (const k of Object.keys(V.VIEWS)) out[`${mark(V.name === k)}${V.VIEWS[k].key}  ${V.VIEWS[k].label}`] = () => V.setView(k);
-      return { ...out, ...cur().tune.actions };
+      const own = {}; for (const [k, fn] of Object.entries(cur().tune.actions)) own[REFORM.includes(k) ? `X  ${k}` : k] = fn;      // the reform action carries the X key
+      return { ...out, ...own };
     },
     set(key, value) { cur().tune.set(key, value); },
     reset() { cur().tune.reset(); },
