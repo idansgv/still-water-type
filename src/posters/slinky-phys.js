@@ -74,6 +74,7 @@ export function createPhys(stage, V) {
       const a = 2 * i + e, b = 2 * (i + 1) + e, dx = px[b] - px[a], dy = py[b] - py[a];
       vx[a] += k * dx * h; vy[a] += k * dy * h; vx[b] -= k * dx * h; vy[b] -= k * dy * h;
     }
+    if (P.align) tiltTorque(h);
     if (grab) { const i = grab.i; vx[i] += (grab.x - px[i]) * 900 * h - vx[i] * 12 * h; vy[i] += (grab.y - py[i]) * 900 * h - vy[i] * 12 * h; }
     const damp = Math.exp(-P.damping * h);
     for (let i = 0; i < M; i++) { vx[i] *= damp; vy[i] *= damp; px[i] += vx[i] * h; py[i] += vy[i] * h; }
@@ -85,7 +86,6 @@ export function createPhys(stage, V) {
         px[t] -= dx * c; py[t] -= dy * c; px[b] += dx * c; py[b] += dy * c;
       }
       keepOrder(M);
-      if (P.align) alignRods();
       if (P.cross) separateCrossed();
       for (let i = 0; i < N - 1; i++) {                                     // the wire is in the way: neighbouring coils cannot get closer than its thickness
         for (const e of [0, 1]) {
@@ -102,17 +102,19 @@ export function createPhys(stage, V) {
   }
   // A coil can lean either way, but it can never turn through its neighbours: seen from the path, the top of every rod stays on the same side. A rod that
   // has been forced across (the X in the middle of a stack) is turned back, by the shortest way, to the nearest lean it may have.
-  // Tension lines the rings up: a stretched coil is turned square to the slinky's axis (the end rim of a hanging slinky lies parallel to the floor); a squeezed coil may lean.
-  function alignRods() {
-    const dmin = R * P.gap + rw;
+  // Tension lines the rings up: the wire pulls each ring square to the slinky's axis (the rim at the end of a hanging slinky lies parallel to the floor, the rings of an arch fan out
+  // across the path). A torque on each coil, stronger the more it is stretched from its neighbours (the two end coils always); damped so it does not ring. (y up here)
+  function tiltTorque(h) {
+    const Kt = P.align * 3000, c = 2 * Math.sqrt(Kt) * 0.8, dmin = R * P.gap + rw;
     for (let i = 0; i < N; i++) {
-      const a0 = Math.max(0, i - 1), b0 = Math.min(N - 1, i + 1);
+      const t = 2 * i, b = t + 1, a0 = Math.max(0, i - 1), b0 = Math.min(N - 1, i + 1);
       const dx = (px[2 * b0] + px[2 * b0 + 1] - px[2 * a0] - px[2 * a0 + 1]) / 2, dy = (py[2 * b0] + py[2 * b0 + 1] - py[2 * a0] - py[2 * a0 + 1]) / 2, sp = Math.hypot(dx, dy) / (b0 - a0);
-      const w = Math.max(0, Math.min(1, (sp / dmin - 1.2) / 1.0)); if (w <= 0) continue;
-      const rx = px[2 * i] - px[2 * i + 1], ry = py[2 * i] - py[2 * i + 1], al = -Math.atan2(rx * dy - ry * dx, rx * dx + ry * dy);
-      if (al < 0.05 || al > Math.PI - 0.05) continue;
-      const del = (Math.PI / 2 - al) * P.align * w, cs = Math.cos(del), sn = Math.sin(del), mx = (px[2 * i] + px[2 * i + 1]) / 2, my = (py[2 * i] + py[2 * i + 1]) / 2, hx = rx / 2, hy = ry / 2, nx = hx * cs - hy * sn, ny = hx * sn + hy * cs;
-      px[2 * i] = mx + nx; py[2 * i] = my + ny; px[2 * i + 1] = mx - nx; py[2 * i + 1] = my - ny;
+      const w = i === 0 || i === N - 1 ? 1 : Math.max(0, Math.min(1, (sp / dmin - 1.2) / 1.0)); if (w <= 0) continue;
+      const hx = (px[t] - px[b]) / 2, hy = (py[t] - py[b]) / 2, hl = Math.hypot(hx, hy) || 1, rx = 2 * hx, ry = 2 * hy;
+      const al = -Math.atan2(rx * dy - ry * dx, rx * dx + ry * dy); if (al < 0.05 || al > Math.PI - 0.05) continue;     // (a rod on the wrong side is the coil order rule's job)
+      const qx = -hy / hl, qy = hx / hl, wr = ((vx[t] - vx[b]) / 2 * qx + (vy[t] - vy[b]) / 2 * qy) / hl;
+      const acc = (Kt * (Math.PI / 2 - al) * w - c * wr) * hl * h;
+      vx[t] += qx * acc; vy[t] += qy * acc; vx[b] -= qx * acc; vy[b] -= qy * acc;
     }
   }
   function keepOrder() {
@@ -256,7 +258,7 @@ export function createPhys(stage, V) {
       title: 'Slinky (physical)', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Wire', items: [Ctl('spring', 'Spring stiffness (low = soft)', 20, 2000, 10), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('arch', 'Coils on the arch at the start (re-forms)', 3, 14, 1), Ctl('pack', 'Spacing in the stack (re-forms)', 0.1, 0.6, 0.01), Ctl('archW', 'Arch width (re-forms)', 1, 4, 0.1), Ctl('archH', 'Arch height (re-forms)', 0.5, 3, 0.1), Ctl('coils', 'Coils (re-forms)', 8, 40, 1), Ctl('size', 'Coil radius (re-forms)', 0.05, 0.14, 0.005)] },
-        { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Grip of the stairs', 0, 1, 0.05), Ctl('bounce', 'Bounce off the steps', 0, 0.95, 0.01), Ctl('damping', 'Air damping', 0, 4, 0.1), Ctl('flat', 'Loose coils lie flat', 0, 2, 0.05), Ctl('align', 'Tension squares the rings to the axis', 0, 0.2, 0.005), Ctl('stepW', 'Step width (re-forms)', 3, 14, 0.1), Ctl('drop', 'Step drop (re-forms)', 0.4, 2.5, 0.05)] },
+        { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Grip of the stairs', 0, 1, 0.05), Ctl('bounce', 'Bounce off the steps', 0, 0.95, 0.01), Ctl('damping', 'Air damping', 0, 4, 0.1), Ctl('flat', 'Loose coils lie flat', 0, 2, 0.05), Ctl('align', 'Tension squares the rings to the axis', 0, 0.5, 0.01), Ctl('stepW', 'Step width (re-forms)', 3, 14, 0.1), Ctl('drop', 'Step drop (re-forms)', 0.4, 2.5, 0.05)] },
         { name: 'Touch', items: [Ctl('push', 'Tap push', 0, 3, 0.05)] },
         { name: 'View', items: [Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005), Ctl('yaw', 'Turn (degrees)', 0, 90, 1), Ctl('pitch', 'Tilt (degrees)', 0, 70, 1)] },
       ],

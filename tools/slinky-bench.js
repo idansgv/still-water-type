@@ -63,6 +63,67 @@ window.slinkyBench = (() => {
     return { it: L.it, ok: L.bestG.ok, score: +L.bestG.score.toFixed(2), locked: L.bestG.ok >= 7 && L.bestG.xover < 0.3 };
   }
   function start(base) { window.__L = { it: 0, best: { ...base }, bestG: gridScore(base), log: [] }; return { ok: window.__L.bestG.ok, score: +window.__L.bestG.score.toFixed(2) }; }
-  return { start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
+  // The look of the walk (Idan's sketch): while an arch stands, the rings along it should fan out square to the path (E near 0) and the end coil planted on the step should lie flat (F near 0).
+  function look(params, frames = 1500) {
+    const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size'];
+    for (const k in params) if (!rebuild.includes(k)) t.set(k, params[k]); for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || 25);
+    const sd = d.stairs, s0 = sd.state(), cy = (s) => { let c = 0; for (let i = 0; i < s.N; i++) c += (s.py[2 * i] + s.py[2 * i + 1]) / 2; return c / s.N; }, y0 = cy(s0), Hs = s0.Hs;
+    let Es = 0, Fs = 0, na = 0, maxDesc = 0, cr = 0, tDone = null, taps = 0, lastGain = 0, bad = false, xo = 0, xn = 0;
+    for (let f = 0; f < frames; f += 15) {
+      sd.run(15); const s = sd.state(); if (!isFinite(s.px[0])) { bad = true; break; } const N = s.N;
+      const cxs = [], cys = []; for (let i = 0; i < N; i++) { cxs.push((s.px[2 * i] + s.px[2 * i + 1]) / 2); cys.push((s.py[2 * i] + s.py[2 * i + 1]) / 2); }
+      const desc = (y0 - cy(s)) / Hs; if (desc > maxDesc + 0.3) lastGain = f; if (desc > maxDesc) maxDesc = desc; if (tDone === null && desc >= 4.2) tDone = (f + 15) / 60;
+      cr = Math.max(cr, crossed(s)); xo += xcount(s); xn++;
+      const endTop = Math.max(cys[0], cys[N - 1]); let peak = -1e9; for (let i = 1; i < N - 1; i++) peak = Math.max(peak, cys[i]);
+      if (peak - endTop > 1.2 * s.R) {                                                  // an arch stands
+        let E = 0, c = 0; for (let i = 1; i < N - 1; i++) { const dx = cxs[i + 1] - cxs[i - 1], dy = cys[i + 1] - cys[i - 1], rx = s.px[2 * i] - s.px[2 * i + 1], ry = s.py[2 * i] - s.py[2 * i + 1]; E += Math.abs((rx * dx + ry * dy) / (Math.hypot(rx, ry) * Math.hypot(dx, dy) || 1)); c++; }
+        const e = cys[0] < cys[N - 1] ? 0 : N - 1; const ry = s.py[2 * e] - s.py[2 * e + 1], rx = s.px[2 * e] - s.px[2 * e + 1], F = Math.abs(ry) / (Math.hypot(rx, ry) || 1);
+        Es += E / c; Fs += F; na++;
+      }
+      if (tDone !== null && f > tDone * 60 + 90) break;
+      if (f - lastGain > 240 && taps < 2 && tDone === null) { sd.nudge(params.push !== undefined ? params.push : 0.6); taps++; lastGain = f; } else if (f - lastGain > 780) break;
+    }
+    return { descended: +maxDesc.toFixed(2), secs: tDone, taps, crossed: cr, xover: +(xo / Math.max(1, xn)).toFixed(2), E: na ? +(Es / na).toFixed(2) : null, F: na ? +(Fs / na).toFixed(2) : null, archFrames: na, bad };
+  }
+  // Idan's sketch as numbers (stairs). While an arch stands: spacing even (CV of centre gaps), neighbouring rings fan smoothly (C: mean turn between rods, radians),
+  // rings square to the path (E), and the end coil planted on the step lies flat (F). Plus it walks, and the arch lasts (archFrames).
+  function look2(params, frames = 1500) {
+    const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size'];
+    for (const k in params) if (!rebuild.includes(k)) t.set(k, params[k]); for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || 25);
+    const sd = d.stairs, s0 = sd.state(), cyf = (s) => { let c = 0; for (let i = 0; i < s.N; i++) c += (s.py[2 * i] + s.py[2 * i + 1]) / 2; return c / s.N; }, y0 = cyf(s0), Hs = s0.Hs;
+    let sCV = 0, sC = 0, sE = 0, sF = 0, na = 0, maxDesc = 0, cr = 0, tDone = null, taps = 0, lastGain = 0, bad = false, xo = 0, xn = 0, maxArch = 0;
+    for (let f = 0; f < frames; f += 15) {
+      sd.run(15); const s = sd.state(); if (!isFinite(s.px[0])) { bad = true; break; } const N = s.N, cxs = [], cys = [], ang = [];
+      for (let i = 0; i < N; i++) { cxs.push((s.px[2 * i] + s.px[2 * i + 1]) / 2); cys.push((s.py[2 * i] + s.py[2 * i + 1]) / 2); ang.push(Math.atan2(s.py[2 * i] - s.py[2 * i + 1], s.px[2 * i] - s.px[2 * i + 1])); }
+      const desc = (y0 - cyf(s)) / Hs; if (desc > maxDesc + 0.3) lastGain = f; if (desc > maxDesc) maxDesc = desc; if (tDone === null && desc >= 4.2) tDone = (f + 15) / 60;
+      cr = Math.max(cr, crossed(s)); xo += xcount(s); xn++;
+      const endTop = Math.max(cys[0], cys[N - 1]); let peak = -1e9; for (let i = 1; i < N - 1; i++) peak = Math.max(peak, cys[i]); const archH = (peak - endTop) / s.R; maxArch = Math.max(maxArch, archH);
+      const span = Math.abs(cxs[0] - cxs[N - 1]) / s.R;
+      if (archH > 1.5 && span > 3) {                                                    // a real arch: the ends well apart, the middle well above them
+        const gaps = []; for (let i = 0; i < N - 1; i++) gaps.push(Math.hypot(cxs[i + 1] - cxs[i], cys[i + 1] - cys[i])); const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length, cv = Math.sqrt(gaps.reduce((a, b) => a + (b - mean) ** 2, 0) / gaps.length) / (mean || 1);
+        let C = 0; for (let i = 0; i < N - 1; i++) { let da = Math.abs(ang[i + 1] - ang[i]); if (da > Math.PI) da = 2 * Math.PI - da; C += Math.min(da, Math.PI - da); } C /= N - 1;
+        let E = 0, c = 0; for (let i = 1; i < N - 1; i++) { const dx = cxs[i + 1] - cxs[i - 1], dy = cys[i + 1] - cys[i - 1], rx = s.px[2 * i] - s.px[2 * i + 1], ry = s.py[2 * i] - s.py[2 * i + 1]; E += Math.abs((rx * dx + ry * dy) / (Math.hypot(rx, ry) * Math.hypot(dx, dy) || 1)); c++; }
+        const e = cys[0] < cys[N - 1] ? 0 : N - 1, ry = s.py[2 * e] - s.py[2 * e + 1], rx = s.px[2 * e] - s.px[2 * e + 1];
+        sCV += cv; sC += C; sE += E / c; sF += Math.abs(ry) / (Math.hypot(rx, ry) || 1); na++;
+      }
+      if (tDone !== null && f > tDone * 60 + 90) break;
+      if (f - lastGain > 240 && taps < 2 && tDone === null) { sd.nudge(params.push !== undefined ? params.push : 0.6); taps++; lastGain = f; } else if (f - lastGain > 780) break;
+    }
+    const m = na ? { CV: sCV / na, C: sC / na, E: sE / na, F: sF / na } : { CV: 1, C: 1, E: 1, F: 1 };
+    const walk = bad ? 0 : Math.min(maxDesc, 4.5) / 4.5 * (tDone !== null && tDone <= 22 ? 1 : 0.5), arch = Math.min(na / 8, 1);
+    const score = walk * 0.3 + arch * 0.15 + (1 - Math.min(m.CV / 0.6, 1)) * 0.15 + (1 - Math.min(m.C / 0.5, 1)) * 0.15 + (1 - Math.min(m.E / 0.6, 1)) * 0.1 + (1 - Math.min(m.F / 0.8, 1)) * 0.15 - Math.min(cr, 5) * 0.02 - Math.min(xo / Math.max(1, xn), 3) * 0.05;
+    return { score: +score.toFixed(3), descended: +maxDesc.toFixed(2), secs: tDone, taps, archFrames: na, maxArch: +maxArch.toFixed(1), CV: +m.CV.toFixed(2), C: +m.C.toFixed(2), E: +m.E.toFixed(2), F: +m.F.toFixed(2), crossed: cr, xover: +(xo / Math.max(1, xn)).toFixed(2) };
+  }
+  const SPACE2 = { spring: [1000, 6000], gap: [0.12, 0.3], pack: [0.15, 0.45], grip: [0.5, 1], damping: [0, 1.2], bounce: [0, 0.6], gravity: [20, 60], push: [0.3, 1.4], archW: [1.5, 4], archH: [0.6, 2], arch: [6, 14], align: [0, 0.3] };
+  function start2(base) { window.__M = { it: 0, best: { ...base }, bestR: look2(base), log: [] }; return window.__M.bestR; }
+  function round2(cands = 5) {
+    const M = window.__M; M.it++; const span = 1 / (1 + (M.it - 1) * 0.25); let tried = 0;
+    for (let c = 0; c < cands; c++) {
+      const cand = { ...M.best }; for (const k in SPACE2) { if (Math.random() < 0.5) continue; const [lo, hi] = SPACE2[k]; cand[k] = Math.min(hi, Math.max(lo, (cand[k] !== undefined ? cand[k] : (lo + hi) / 2) + (Math.random() * 2 - 1) * (hi - lo) * 0.3 * span)); }
+      const r = look2(cand); tried++; if (r.score > M.bestR.score) { M.best = cand; M.bestR = r; }
+    }
+    M.log.push({ it: M.it, score: M.bestR.score }); return { it: M.it, ...M.bestR };
+  }
+  return { look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
 })();
 'ready';

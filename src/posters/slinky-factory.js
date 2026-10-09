@@ -118,18 +118,19 @@ export function createFactory(stage, V) {
       px[2 * i] = mx + nx; py[2 * i] = my + ny; px[2 * i + 1] = mx - nx; py[2 * i + 1] = my - ny;
     }
   }
-  // Tension lines the rings up: the pull of the wire along the slinky's axis turns each stretched coil square to that axis, so the end rim of a hanging or falling slinky lies parallel to the floor.
-  // The more a coil is stretched from its neighbours, the more it is turned toward 'square to the path'; a squeezed coil (a stack) is left alone, it may lean.
-  function alignRods(p, dmin) {
-    const n = p.n, px = p.px, py = p.py;
+  // Tension lines the rings up: the wire pulls each ring square to the slinky's axis (the rim at the end of a hanging or falling slinky lies parallel to the floor, the rings of an arch fan
+  // out across the path). A torque on each coil, stronger the more it is stretched from its neighbours (the two end coils always), damped so it does not ring. (y down here)
+  function tiltTorque(p, h, dmin) {
+    const n = p.n, px = p.px, py = p.py, vx = p.pvx, vy = p.pvy, Kt = P.align * 3000, c = 2 * Math.sqrt(Kt) * 0.8;
     for (let i = 0; i < n; i++) {
-      const a0 = Math.max(0, i - 1), b0 = Math.min(n - 1, i + 1);
+      const t = 2 * i, b = t + 1, a0 = Math.max(0, i - 1), b0 = Math.min(n - 1, i + 1);
       const dx = (px[2 * b0] + px[2 * b0 + 1] - px[2 * a0] - px[2 * a0 + 1]) / 2, dy = (py[2 * b0] + py[2 * b0 + 1] - py[2 * a0] - py[2 * a0 + 1]) / 2, sp = Math.hypot(dx, dy) / (b0 - a0);
-      const w = Math.max(0, Math.min(1, (sp / dmin - 1.2) / 1.0)); if (w <= 0) continue;
-      const rx = px[2 * i] - px[2 * i + 1], ry = py[2 * i] - py[2 * i + 1], al = Math.atan2(rx * dy - ry * dx, rx * dx + ry * dy);
-      if (al < 0.05 || al > Math.PI - 0.05) continue;                              // (a rod on the wrong side is the coil order rule's job)
-      const del = (al - Math.PI / 2) * P.align * w, cs = Math.cos(del), sn = Math.sin(del), mx = (px[2 * i] + px[2 * i + 1]) / 2, my = (py[2 * i] + py[2 * i + 1]) / 2, hx = rx / 2, hy = ry / 2, nx = hx * cs - hy * sn, ny = hx * sn + hy * cs;
-      px[2 * i] = mx + nx; py[2 * i] = my + ny; px[2 * i + 1] = mx - nx; py[2 * i + 1] = my - ny;
+      const w = i === 0 || i === n - 1 ? 1 : Math.max(0, Math.min(1, (sp / dmin - 1.2) / 1.0)); if (w <= 0) continue;
+      const hx = (px[t] - px[b]) / 2, hy = (py[t] - py[b]) / 2, hl = Math.hypot(hx, hy) || 1, rx = 2 * hx, ry = 2 * hy;
+      const al = Math.atan2(rx * dy - ry * dx, rx * dx + ry * dy); if (al < 0.05 || al > Math.PI - 0.05) continue;
+      const qx = -hy / hl, qy = hx / hl, wr = ((vx[t] - vx[b]) / 2 * qx + (vy[t] - vy[b]) / 2 * qy) / hl;
+      const acc = (Kt * (al - Math.PI / 2) * w - c * wr) * hl * h;
+      vx[t] += qx * acc; vy[t] += qy * acc; vx[b] -= qx * acc; vy[b] -= qy * acc;
     }
   }
   function rodSub(p, h) {
@@ -142,6 +143,7 @@ export function createFactory(stage, V) {
     for (let i = 0; i < n - 1; i++) for (const e of [0, 1]) { const a = 2 * i + e, b = 2 * (i + 1) + e, dx = px[b] - px[a], dy = py[b] - py[a]; const rvx = vx[b] - vx[a], rvy = vy[b] - vy[a], f = P.wireDamp * h;
       // the wire is springy where coils touch: a stack that slams together is squeezed like a spring and pushes back (a hard stop would lose all of it)
       if (P.coilBounce) { const dd = Math.hypot(dx, dy) || 1e-6; if (dd < dmin) { const kc = P.rodSpring * P.coilBounce * 40 * (dmin - dd) / dd * h; vx[a] -= dx * kc; vy[a] -= dy * kc; vx[b] += dx * kc; vy[b] += dy * kc; } } vx[a] += k * dx * h + rvx * f; vy[a] += k * dy * h + rvy * f; vx[b] -= k * dx * h + rvx * f; vy[b] -= k * dy * h + rvy * f; }
+    if (P.align) tiltTorque(p, h, dmin);
     if (grab && grab.p === p) { const i = 2 * grab.i; vx[i] += (grab.x - px[i]) * 900 * h - vx[i] * 12 * h; vy[i] += (grab.y - py[i]) * 900 * h - vy[i] * 12 * h; }
     const streaming = p === live && pressed, damp = Math.exp(-(streaming ? P.damping : P.loose) * h), inB = (i) => streaming && p.x[i >> 1] < nozzle.x + barrel && p.y[i >> 1] < nozzle.y + R * 1.5;
     for (let i = 0; i < M; i++) { if (inB(i)) { vx[i] = P.feed; vy[i] = 0; px[i] += P.feed * h; py[i] = nozzle.y + (i & 1 ? R : -R); continue; } vx[i] *= damp; vy[i] *= damp; px[i] += vx[i] * h; py[i] += vy[i] * h; }
@@ -153,7 +155,6 @@ export function createFactory(stage, V) {
     for (let it = 0; it < 8; it++) {
       for (let i = 0; i < n; i++) { const t = 2 * i, b = t + 1, dx = px[t] - px[b], dy = py[t] - py[b], d = Math.hypot(dx, dy) || 1e-6, c = (d - L) / d * 0.5; px[t] -= dx * c; py[t] -= dy * c; px[b] += dx * c; py[b] += dy * c; }
       keepOrder(p);
-      if (P.align) alignRods(p, dmin);
       // rods may not pass through one another (a pile of crossed rods is what a soft piece turned into): two that cross are pushed apart, centre from centre
       if (P.cross) for (let i = 0; i < n; i++) for (let j = i + 1; j < Math.min(n, i + 7); j++) {
         const ax = px[2 * i], ay = py[2 * i], bx = px[2 * i + 1], by = py[2 * i + 1], cx = px[2 * j], cy = py[2 * j], dx2 = px[2 * j + 1], dy2 = py[2 * j + 1];
@@ -316,7 +317,7 @@ export function createFactory(stage, V) {
       title: 'Slinky factory', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Stream', items: [Ctl('feed', 'Feed speed (px/s)', 100, 1400, 10), Ctl('longest', 'Longest piece (coils)', 20, 300, 5), Ctl('keep', 'Pieces kept on the floor', 1, 6, 1)] },
-        { name: 'Spring', items: [Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Air damping once cut', 0, 4, 0.01), Ctl('rodSpring', 'Wire stiffness', 2, 4000, 2), Ctl('wireDamp', 'Wire damping (calms the heap)', 0, 30, 0.5), Ctl('rodGap', 'Closest coils', 0.05, 0.5, 0.01), Ctl('flat', 'Loose coils lie flat', 0, 2, 0.05), Ctl('align', 'Tension squares the rings to the axis', 0, 0.2, 0.005), Ctl('coilBounce', 'Coils spring apart when they slam', 0, 1, 0.05), Ctl('hold', 'Grip of the floor', 0, 1, 0.05), Ctl('rebound', 'Rebound off the floor', 0, 0.95, 0.01), Ctl('gravity', 'Gravity', 200, 4000, 50), ] },
+        { name: 'Spring', items: [Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Air damping once cut', 0, 4, 0.01), Ctl('rodSpring', 'Wire stiffness', 2, 4000, 2), Ctl('wireDamp', 'Wire damping (calms the heap)', 0, 30, 0.5), Ctl('rodGap', 'Closest coils', 0.05, 0.5, 0.01), Ctl('flat', 'Loose coils lie flat', 0, 2, 0.05), Ctl('align', 'Tension squares the rings to the axis', 0, 0.5, 0.01), Ctl('coilBounce', 'Coils spring apart when they slam', 0, 1, 0.05), Ctl('hold', 'Grip of the floor', 0, 1, 0.05), Ctl('rebound', 'Rebound off the floor', 0, 0.95, 0.01), Ctl('gravity', 'Gravity', 200, 4000, 50), ] },
         { name: 'Stairs', items: [Ctl('steps', 'Steps (0 = flat floor)', 0, 8, 1), Ctl('run', 'Step depth', 0.08, 0.4, 0.01), Ctl('start', 'Where the shelf ends', 0.3, 0.8, 0.01)] },
         { name: 'Look', items: [Ctl('size', 'Coil radius (re-forms)', 0.03, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
       ],
