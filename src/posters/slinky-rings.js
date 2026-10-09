@@ -14,11 +14,12 @@ export function createRings(cap) {
   const S = {
     n: 0, cap,
     x: new Float64Array(cap), y: new Float64Array(cap), a: new Float64Array(cap), vx: new Float64Array(cap), vy: new Float64Array(cap), w: new Float64Array(cap),
-    kin: new Uint8Array(cap),                    // 1: moved by hand (the spout), not by forces
+    kin: new Uint8Array(cap), im: new Float64Array(cap).fill(1), capSign: new Int8Array(cap),   // im: a ring's inertia scale (the caps are heavier); capSign: +1 or -1 on an end ring, the side of its normal that faces away from the body, fixed when the chain is made
+                    // 1: moved by hand (the spout), not by forces
     fx: new Float64Array(cap), fy: new Float64Array(cap), tq: new Float64Array(cap),
     touched: new Uint8Array(2 * cap),            // the end (2i top, 2i+1 bottom) rests on the world
     touchedPrev: new Uint8Array(2 * cap),
-    step, endsOf, setFromEnds, impulseAt, point,
+    step, endsOf, setFromEnds, impulseAt, point, setCaps,
   };
   const seg = { s: 0, t: 0, d: 0, ax: 0, ay: 0, bx: 0, by: 0 };
 
@@ -36,7 +37,12 @@ export function createRings(cap) {
   function point(i, e, R) { const s = e ? -R : R, c = Math.cos(S.a[i]), sn = Math.sin(S.a[i]); return [S.x[i] + c * s, S.y[i] + sn * s]; }
   // the two ends of every ring into arrays (top 2i, bottom 2i+1)
   function endsOf(R, px, py) { for (let i = 0; i < S.n; i++) { const c = Math.cos(S.a[i]) * R, s = Math.sin(S.a[i]) * R; px[2 * i] = S.x[i] + c; py[2 * i] = S.y[i] + s; px[2 * i + 1] = S.x[i] - c; py[2 * i + 1] = S.y[i] - s; } }
-  function setFromEnds(n, px, py) { S.n = n; for (let i = 0; i < n; i++) { S.x[i] = (px[2 * i] + px[2 * i + 1]) / 2; S.y[i] = (py[2 * i] + py[2 * i + 1]) / 2; S.a[i] = Math.atan2(py[2 * i] - py[2 * i + 1], px[2 * i] - px[2 * i + 1]); S.vx[i] = S.vy[i] = S.w[i] = 0; S.kin[i] = 0; } S.touched.fill(0); S.touchedPrev.fill(0); }
+  function setFromEnds(n, px, py) { S.n = n; for (let i = 0; i < n; i++) { S.x[i] = (px[2 * i] + px[2 * i + 1]) / 2; S.y[i] = (py[2 * i] + py[2 * i + 1]) / 2; S.a[i] = Math.atan2(py[2 * i] - py[2 * i + 1], px[2 * i] - px[2 * i + 1]); S.vx[i] = S.vy[i] = S.w[i] = 0; S.kin[i] = 0; } S.touched.fill(0); S.touchedPrev.fill(0); S.im.fill(1); S.capSign.fill(0); }
+  // The caps: the first and the last ring, each heavier by `im`, each with a fixed facing (its normal times capSign) chosen to point away from the body as the chain stands now.
+  function setCaps(im) {
+    const n = S.n; S.capSign.fill(0); S.im.fill(1); if (n < 2) return;
+    for (const [i, j] of [[0, 1], [n - 1, n - 2]]) { const nx = -Math.sin(S.a[i]), ny = Math.cos(S.a[i]); S.capSign[i] = nx * (S.x[i] - S.x[j]) + ny * (S.y[i] - S.y[j]) >= 0 ? 1 : -1; S.im[i] = im; }
+  }
   // a push at an end of a ring (a tap): linear and angular
   function impulseAt(pt, jx, jy, R, I) { const i = pt >> 1, s = pt & 1 ? -R : R, rx = Math.cos(S.a[i]) * s, ry = Math.sin(S.a[i]) * s; S.vx[i] += jx; S.vy[i] += jy; S.w[i] += (rx * jy - ry * jx) / I; }
 
@@ -146,7 +152,7 @@ export function createRings(cap) {
     const air = Math.exp(-env.air * h), wd = Math.exp(-env.wdamp * h), vmax = 70 * R, wmax = 400;
     for (let i = 0; i < n; i++) {
       if (S.kin[i]) { x[i] += vx[i] * h; y[i] += vy[i] * h; a[i] += w[i] * h; continue; }
-      vx[i] = (vx[i] + fx[i] * h) * air; vy[i] = (vy[i] + fy[i] * h) * air; w[i] = (w[i] + tq[i] / I * h) * wd;
+      vx[i] = (vx[i] + fx[i] * h) * air; vy[i] = (vy[i] + fy[i] * h) * air; w[i] = (w[i] + tq[i] / (I * S.im[i]) * h) * wd;
       const sp = Math.hypot(vx[i], vy[i]); if (sp > vmax) { vx[i] *= vmax / sp; vy[i] *= vmax / sp; } w[i] = clamp(w[i], -wmax, wmax);
       x[i] += vx[i] * h; y[i] += vy[i] * h; a[i] += w[i] * h;
     }

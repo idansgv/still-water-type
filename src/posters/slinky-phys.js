@@ -19,9 +19,9 @@ export function createPhys(stage, V) {
 
   const DEFAULTS = {                                 // wide rings, many coils, a flowing walk: found by a random search on the rigid-ring solver (tools/slinky-bench.js, search3), 10 Oct 2026
     coils: 40, size: 0.11, wire: 0.03,                 // number of coils, coil radius (of the shorter screen side), wire thickness drawn (of the radius)
-    spring: 2131, gap: 0.12, arch: 14.7, pack: 0.12, archW: 2.5, archH: 1.5,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
+    spring: 2131, gap: 0.12, arch: 14.7, pack: 0.12, archW: 1.2, archH: 1.1,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
     gravity: 22.5, grip: 0.42, damping: 0.21, bounce: 0.6,             // gravity (radii per s^2), friction of the steps, air drag (per s), bounce off the steps
-    wireDamp: 5.35, contact: 14.7, contactDamp: 0.02, inertia: 0.49, lean: 42.4, leanK: 0.66, spin: 2.07, shear: 0, endFlat: 0.6,   // damping along the wire, stiffness of a ring pressed on a ring (times the wire's) and its damping, the ring's inertia (of mass x radius^2), most a ring may lean off square (deg) and how hard it is held, spin damping, diagonal wire, how firmly the end rings lie flat
+    wireDamp: 5.35, contact: 14.7, contactDamp: 0.02, inertia: 0.49, lean: 42.4, leanK: 0.66, spin: 2.07, shear: 0, endFlat: 0.6, capInertia: 3,   // damping along the wire, stiffness of a ring pressed on a ring (times the wire's) and its damping, the ring's inertia (of mass x radius^2), most a ring may lean off square (deg) and how hard it is held, spin damping, diagonal wire, how firmly the end rings lie flat
     stepW: 6.9, drop: 2.3, push: 2.4,                 // width and drop of a step (radii), the strength of the tap
     yaw: 50, pitch: 32,                                // the view (degrees)
   };
@@ -60,7 +60,7 @@ export function createPhys(stage, V) {
       px[2 * i] = cx + ux * R; py[2 * i] = cy + uy * R; px[2 * i + 1] = cx - ux * R; py[2 * i + 1] = cy - uy * R;
     }
     cam = { x: -N * s * 0.3, y: 0 }; grab = null;
-    ring = createRings(N); ring.setFromEnds(N, px, py); ring.endsOf(R, px, py);
+    ring = createRings(N); ring.setFromEnds(N, px, py); ring.setCaps(P.capInertia); ring.endsOf(R, px, py);
   }
   // index: top of coil i is 2i, bottom 2i+1
 
@@ -104,8 +104,8 @@ export function createPhys(stage, V) {
     }
     list.sort((a, b) => a.z - b.z);
     // the two end rings (the caps) are drawn heavier and carry a marker along their axis, pointing away from the body, so you can tell which way each faces
-    const capDir = (i, j) => { const nx = -(py[2 * i] - py[2 * i + 1]) / L, ny = (px[2 * i] - px[2 * i + 1]) / L, mx = (px[2 * i] + px[2 * i + 1]) / 2 - (px[2 * j] + px[2 * j + 1]) / 2, my = (py[2 * i] + py[2 * i + 1]) / 2 - (py[2 * j] + py[2 * j + 1]) / 2, sg = nx * mx + ny * my >= 0 ? 1 : -1; return [nx * sg, ny * sg]; };
-    const caps = new Map([[0, capDir(0, 1)], [N - 1, capDir(N - 1, N - 2)]]), markers = [];
+    const capDir = (i) => { const a = ring.a[i], sg = ring.capSign[i] || 1; return [-Math.sin(a) * sg, Math.cos(a) * sg]; };      // the cap's facing turns with the ring (it has its own inertia), it does not snap
+    const caps = new Map([[0, capDir(0)], [N - 1, capDir(N - 1)]]), markers = [];
     for (const c of list) {
       const cap = caps.get(c.i);
       ctx.lineWidth = Math.max(1.6, R * P.wire) * (cap ? 2.2 : 1);
@@ -164,7 +164,7 @@ export function createPhys(stage, V) {
       title: 'Slinky (physical)', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Wire', items: [Ctl('spring', 'Spring stiffness (low = soft)', 20, 2000, 10), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('arch', 'Coils on the arch at the start (re-forms)', 3, 14, 1), Ctl('pack', 'Spacing in the stack (re-forms)', 0.1, 0.6, 0.01), Ctl('archW', 'Arch width (re-forms)', 1, 4, 0.1), Ctl('archH', 'Arch height (re-forms)', 0.5, 3, 0.1), Ctl('coils', 'Coils (re-forms)', 8, 40, 1), Ctl('size', 'Coil radius (re-forms)', 0.05, 0.14, 0.005)] },
-        { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('shear', 'Diagonal wire (tension squares the rings)', 0, 3, 0.05), Ctl('wireDamp', 'Wire damping', 0, 60, 1), Ctl('contact', 'Ring on ring stiffness', 5, 80, 1), Ctl('contactDamp', 'Ring on ring damping', 0, 1.5, 0.02), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05), Ctl('spin', 'Spin damping', 0, 10, 0.1), Ctl('endFlat', 'End rings lie flat', 0, 3, 0.05)] },
+        { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('shear', 'Diagonal wire (tension squares the rings)', 0, 3, 0.05), Ctl('wireDamp', 'Wire damping', 0, 60, 1), Ctl('contact', 'Ring on ring stiffness', 5, 80, 1), Ctl('contactDamp', 'Ring on ring damping', 0, 1.5, 0.02), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05), Ctl('spin', 'Spin damping', 0, 10, 0.1), Ctl('endFlat', 'End rings lie flat', 0, 3, 0.05), Ctl('capInertia', 'Weight of the cap rings (to turn over)', 1, 12, 0.5)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction of the steps', 0, 1.5, 0.05), Ctl('bounce', 'Bounce off the steps', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05), Ctl('stepW', 'Step width (re-forms)', 3, 14, 0.1), Ctl('drop', 'Step drop (re-forms)', 0.4, 2.5, 0.05)] },
         { name: 'Touch', items: [Ctl('push', 'Tap push', 0, 3, 0.05)] },
         { name: 'View', items: [Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005), Ctl('yaw', 'Turn (degrees)', 0, 90, 1), Ctl('pitch', 'Tilt (degrees)', 0, 70, 1)] },

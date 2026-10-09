@@ -156,6 +156,36 @@ window.slinkyBench = (() => {
     }
     return { tried: S.tried, score: +S.bestR.score.toFixed(3), ok: S.bestR.ok, det: S.bestR.det };
   }
-  return { search4, robustScore, standTest, search3, look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
+  // Idan's flip (10 Oct 2026): an upright slinky, the top ring taken by its rim and carried over in an arch to the far side. Momentum should turn the coils over (the top ring ends
+  // facing down, the body an arch or lying over to that side), not leave a stiff column leaning. Scored on how far the head ring ends turned over, and on how far it travelled.
+  function flipTest(params, g = { land: 3, apex: 3, dur: 300 }) {
+    const d = D(), t = P().tune, f = d.factory; d.setMode('factory'); t.reset(); for (const k in params) t.set(k, params[k]); t.set('steps', 0);
+    const R0 = Math.min(innerWidth, innerHeight) * t.values.size, p = f.stand(40, 0, 1.0), n = p.n; d.run(160);
+    const x0 = p.x[0], y0 = p.y[0], yb = p.y[n - 1]; f.grabFirst(p, x0, y0); let bad = false;
+    for (let k = 0; k <= g.dur; k++) {
+      const u = k / g.dur, gx = x0 + Math.pow(u, 1.2) * g.land * R0, peak = y0 - g.apex * R0;
+      f.moveGrab(gx, u < 0.55 ? y0 + (peak - y0) * Math.sin(u / 0.55 * Math.PI / 2) : peak + (yb - R0 * 0.3 - peak) * Math.sin((u - 0.55) / 0.45 * Math.PI / 2)); d.run(1);
+      if (k % 60 === 0 && !isFinite(p.x[0])) { bad = true; break; }
+    }
+    f.dropGrab(); if (!bad) d.run(420);
+    if (bad || !isFinite(p.x[0])) return { flip: 0, score: 0, bad: true };
+    const aw = Math.atan2(Math.sin(p.ring.a[0]), Math.cos(p.ring.a[0])), turned = Math.min(1, Math.abs(aw) / 2.6);               // 1 when the head ring has turned over (about 180 degrees)
+    const dx = (p.x[0] - x0) / R0, travel = Math.max(0, Math.min(1, dx / g.land));
+    let mn = 1e9, mx = -1e9; for (let j = 0; j < n; j++) { mn = Math.min(mn, p.x[j]); mx = Math.max(mx, p.x[j]); }
+    return { flip: +turned.toFixed(2), travel: +travel.toFixed(2), span: +((mx - mn) / R0).toFixed(1), headDx: +dx.toFixed(1), aEnd: +aw.toFixed(2), score: +(turned * 0.7 + travel * 0.3).toFixed(3) };
+  }
+  const FLIPS = [{ land: 3, apex: 3, dur: 300 }, { land: 2.5, apex: 4, dur: 360 }, { land: 4, apex: 3, dur: 300 }];
+  const SP5 = { spring: [100, 2500], wireDamp: [0, 10], spin: [0, 3], damping: [0, 0.5], inertia: [0.3, 2], lean: [30, 75], leanK: [0.2, 2], contact: [8, 60], contactDamp: [0, 0.5], grip: [0.1, 1], bounce: [0.2, 0.9], gravity: [10, 40], capInertia: [1, 6], endFlat: [0, 1.5] };
+  function flipScore(cand) { let tot = 0; const det = []; for (const g of FLIPS) { const r = flipTest(cand, g); tot += r.score; det.push(r.flip); } return { score: tot / FLIPS.length, det }; }
+  function search5(base, cands = 6) {
+    window.__S5 = window.__S5 || { best: { ...base }, bestR: flipScore(base), tried: 0 }; const S = window.__S5;
+    for (let c = 0; c < cands; c++) {
+      const cand = { ...S.best }; const sc = Math.max(0.12, 1 / (1 + S.tried / 40));
+      for (const k in SP5) { if (Math.random() < 0.6) continue; const [lo, hi] = SP5[k]; cand[k] = Math.min(hi, Math.max(lo, (cand[k] !== undefined ? cand[k] : (lo + hi) / 2) + (Math.random() * 2 - 1) * (hi - lo) * 0.3 * sc)); }
+      const r = flipScore(cand); S.tried++; if (r.score > S.bestR.score) { S.best = cand; S.bestR = r; }
+    }
+    return { tried: S.tried, score: +S.bestR.score.toFixed(3), det: S.bestR.det };
+  }
+  return { flipTest, flipScore, search5, search4, robustScore, standTest, search3, look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
 })();
 'ready';

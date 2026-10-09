@@ -17,8 +17,8 @@ export function createFactory(stage, V) {
   const DEFAULTS = {                                 // the wide-ring, many-coil settings found on the stairs (10 Oct 2026)
     feed: 560, pitch: 0.25, keep: 3, longest: 90,    // how fast coils leave the spout (px/s), their spacing as they leave (of the radius), pieces kept, most coils in one piece
     size: 0.11, wire: 0.03,                          // coil radius (of the shorter side), drawn wire thickness (of the radius)
-    spring: 2131, gap: 0.12, gravity: 22.5, grip: 0.42, damping: 0.21, bounce: 0.6,   // wire stiffness, closest coils (of the radius), gravity (radii per s^2), friction, air drag, bounce
-    wireDamp: 5.35, contact: 14.7, contactDamp: 0.02, inertia: 0.49, lean: 42.4, leanK: 0.66, spin: 2.07, shear: 0, endFlat: 0.6,   // as on the stairs
+    spring: 2131, gap: 0.12, gravity: 22.5, grip: 0.59, damping: 0.21, bounce: 0.35,   // wire stiffness, closest coils (of the radius), gravity (radii per s^2), friction, air drag, bounce
+    wireDamp: 2.84, contact: 24.6, contactDamp: 0.35, inertia: 1.46, lean: 37.8, leanK: 1.09, spin: 0.42, shear: 0, endFlat: 0.6, capInertia: 3.5,   // as on the stairs
     steps: 5, run: 0.12, start: 0.45,                // the stairs beyond the shelf: how many, how wide, where the shelf ends (of the width)
   };
   const P = { ...DEFAULTS };
@@ -46,7 +46,9 @@ export function createFactory(stage, V) {
   };
   function emit(p) {
     const r = p.ring, i = r.n++; p.n = r.n;
-    r.x[i] = nozzle.x - R * 0.4; r.y[i] = -nozzle.y; r.a[i] = Math.PI / 2; r.vx[i] = P.feed; r.vy[i] = 0; r.w[i] = 0; r.kin[i] = 1;      // a coil leaves the spout standing up
+    r.x[i] = nozzle.x - R * 0.4; r.y[i] = -nozzle.y; r.a[i] = Math.PI / 2; r.vx[i] = P.feed; r.vy[i] = 0; r.w[i] = 0; r.kin[i] = 1; r.im[i] = 1; r.capSign[i] = 0;      // a coil leaves the spout standing up
+    if (i === 0) { r.capSign[0] = -1; r.im[0] = P.capInertia; }                    // the first coil is the head cap: it faces forward
+    else { if (i - 1 > 0) { r.capSign[i - 1] = 0; r.im[i - 1] = 1; } r.capSign[i] = 1; r.im[i] = P.capInertia; }       // the newest is the tail cap: it faces back
   }
   const refresh = (p) => {                                                    // the page's view of a ring chain: centres (y down), speeds, and the rod's direction from top to bottom
     const r = p.ring; p.n = r.n;
@@ -92,12 +94,12 @@ export function createFactory(stage, V) {
   function release() { if (!pressed) return; pressed = false; live = null; }
   function standing(n = 16, h0 = 260, spacing = 2) {         // a slinky standing on its end, above the floor, ready to fall
     pieces.length = 0; live = null; pressed = false; const p = newPiece(Math.max(n + 4, 40)), r = p.ring, x0 = W * 0.72, s0 = Math.max(2, R * P.gap + rw) * spacing;
-    for (let i = 0; i < n; i++) { r.x[i] = x0; r.y[i] = -(floorY - h0 - (n - 1 - i) * s0); r.a[i] = 0; r.vx[i] = r.vy[i] = r.w[i] = 0; } r.n = n;
+    for (let i = 0; i < n; i++) { r.x[i] = x0; r.y[i] = -(floorY - h0 - (n - 1 - i) * s0); r.a[i] = 0; r.vx[i] = r.vy[i] = r.w[i] = 0; } r.n = n; r.setCaps(P.capInertia);
     refresh(p); pieces.push(p); return p;
   }
   function hanging(n = 30, settle = 360) {                    // hung by the first coil, settled; `delete p.hold0` lets go
     pieces.length = 0; live = null; pressed = false; const p = newPiece(Math.max(n + 4, 40)), r = p.ring, x0 = W * 0.7, s0 = R * P.gap + rw;
-    for (let i = 0; i < n; i++) { r.x[i] = x0; r.y[i] = -(H * 0.1 + i * s0); r.a[i] = 0; r.vx[i] = r.vy[i] = r.w[i] = 0; } r.n = n; p.hold0 = true; refresh(p); pieces.push(p);
+    for (let i = 0; i < n; i++) { r.x[i] = x0; r.y[i] = -(H * 0.1 + i * s0); r.a[i] = 0; r.vx[i] = r.vy[i] = r.w[i] = 0; } r.n = n; r.setCaps(P.capInertia); p.hold0 = true; refresh(p); pieces.push(p);
     for (let i = 0; i < settle; i++) stepAll(1 / 60); return p;
   }
 
@@ -135,9 +137,7 @@ export function createFactory(stage, V) {
     const list = [];
     for (const p of pieces) for (let i = 0; i < p.n; i++) {
       const a = p.ring.a[i]; let cap = null;
-      if (p.n > 1 && (i === 0 || i === p.n - 1)) {                           // the two end rings (the caps): heavier, with a marker along the axis pointing away from the body
-        const j = i === 0 ? 1 : i - 1, nx = -Math.sin(a), ny = Math.cos(a), mx = p.ring.x[i] - p.ring.x[j], my = p.ring.y[i] - p.ring.y[j], sg = nx * mx + ny * my >= 0 ? 1 : -1; cap = [nx * sg, ny * sg];
-      }
+      if (p.n > 1 && p.ring.capSign[i]) { const sg = p.ring.capSign[i]; cap = [-Math.sin(a) * sg, Math.cos(a) * sg]; }       // the two end rings (the caps): a marker along the ring's own facing, which turns with it
       list.push({ c: [wx(p.x[i]), wy(p.y[i]), 0], u: [Math.cos(a), Math.sin(a)], cap, fade: p.fade, z: V.project([wx(p.x[i]), wy(p.y[i]), 0], r, 0, 0)[2] });
     }
     list.sort((a, b) => a.z - b.z);
@@ -205,12 +205,13 @@ export function createFactory(stage, V) {
       title: 'Slinky factory', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Stream', items: [Ctl('feed', 'Feed speed (px/s)', 100, 1400, 10), Ctl('pitch', 'Spacing as they leave (radii)', 0.15, 1.2, 0.01), Ctl('longest', 'Longest piece (coils)', 20, 300, 5), Ctl('keep', 'Pieces kept on the floor', 1, 6, 1)] },
-        { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('shear', 'Diagonal wire (tension squares the rings)', 0, 3, 0.05), Ctl('spring', 'Wire stiffness', 100, 6000, 10), Ctl('gap', 'Closest coils (radii)', 0.1, 0.5, 0.01), Ctl('wireDamp', 'Wire damping', 0, 60, 0.5), Ctl('contact', 'Ring on ring stiffness', 5, 80, 1), Ctl('contactDamp', 'Ring on ring damping', 0, 1.5, 0.02), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05), Ctl('spin', 'Spin damping', 0, 10, 0.1), Ctl('endFlat', 'End rings lie flat', 0, 3, 0.05)] },
+        { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('shear', 'Diagonal wire (tension squares the rings)', 0, 3, 0.05), Ctl('spring', 'Wire stiffness', 100, 6000, 10), Ctl('gap', 'Closest coils (radii)', 0.1, 0.5, 0.01), Ctl('wireDamp', 'Wire damping', 0, 60, 0.5), Ctl('contact', 'Ring on ring stiffness', 5, 80, 1), Ctl('contactDamp', 'Ring on ring damping', 0, 1.5, 0.02), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05), Ctl('spin', 'Spin damping', 0, 10, 0.1), Ctl('endFlat', 'End rings lie flat', 0, 3, 0.05), Ctl('capInertia', 'Weight of the cap rings (to turn over)', 1, 12, 0.5)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction', 0, 1.5, 0.05), Ctl('bounce', 'Bounce off the floor', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05)] },
         { name: 'Stairs', items: [Ctl('steps', 'Steps (0 = flat floor)', 0, 8, 1), Ctl('run', 'Step depth', 0.08, 0.4, 0.01), Ctl('start', 'Where the shelf ends', 0.3, 0.8, 0.01)] },
         { name: 'Look', items: [Ctl('size', 'Coil radius (re-forms)', 0.03, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
       ],
       actions: {
+        'Stand one up (drag its top over)': () => { const p = standing(40, 0, 1); refresh(p); },     // an upright slinky on the floor: take the top ring by its rim and carry it over in an arch; the coils flip over by their momentum
         'Drop one standing': () => { const p = standing(16, 260, 2), r = p.ring, lean = R * 0.06; for (let i = 0; i < r.n; i++) r.x[i] += i * lean; refresh(p); },   // the trick: it lands on its end, recoils and falls over into an arch
         'Hang it (the Slinky drop)': () => { Object.assign(P, { spring: 150 }); hanging(14, 600); if (stage.refreshPanel) stage.refreshPanel(); },     // a soft Slinky hung by its top coil: let go and the bottom hovers while the top falls
         'Let go': () => { for (const p of pieces) delete p.hold0; },
@@ -220,7 +221,7 @@ export function createFactory(stage, V) {
       set(key, value) { P[key] = value; if (['size'].includes(key)) build(); },
       reset() { Object.assign(P, DEFAULTS); build(); },
     },
-    debug: { stand: standing, hang: hanging, press, release, run: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) stepAll(dt); draw(); }, pieces: () => pieces, P },
+    debug: { grabFirst: (p, x, y) => { grab = { p, i: 0, x, y }; }, moveGrab: (x, y) => { if (grab) { grab.x = x; grab.y = y; } }, dropGrab: () => { grab = null; }, cap: (p, i) => { const r = p.ring, a = r.a[i], sg = r.capSign[i] || 1; return [-Math.sin(a) * sg, Math.cos(a) * sg]; }, stand: standing, hang: hanging, press, release, run: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) stepAll(dt); draw(); }, pieces: () => pieces, P },
     destroy() { offs.forEach((f) => f()); },
   };
 }

@@ -158,3 +158,13 @@ Result (search of 120 candidates on `walk`): down all five steps in 4.5 s withou
 - End rings lie flat: `endFlat` (0.6): a torque on the first and last ring toward horizontal, firm when it rests on a step or the floor. In the standing drop the end ring is flat on the floor within 40 frames (|ry| 0.02).
 - The caps are marked: the two end rings are drawn heavier and carry a stick with a dot on its end, along the ring's axis, pointing away from the body, drawn on top with a halo, so you can see which way each faces (stairs and factory).
 - Bench: `walk` and the searches take their coil count from the scene (it forced 25 before).
+
+## Momentum flips the coils (10 Oct 2026)
+
+Idan: not about the caps, about momentum making coils flip side. An upright slinky, its top ring taken by the rim and carried over in an arch: the coils should be thrown over by their momentum, rings fanning from flat at the planted base to over-turned at the head (the sketch), then the slinky lands lying over to that side.
+
+- `flipTest` / `search5` in the bench: the drag is scripted (lift, arc, land 2.5 to 4 radii away, 300 to 360 frames, three variants) and scored on how far the head ring has turned over (about 180 degrees) and how far it travelled. At the old defaults the head turned over only 40 to 89% (a stiff column leans and topples); a search of 40 candidates reached 100% on all three.
+- What changed (factory defaults): spin damping 2.07 -> 0.42, ring inertia 0.49 -> 1.46, wire damping 5.35 -> 2.84, bounce 0.6 -> 0.35, friction 0.42 -> 0.59, lean 42 -> 38, leanK 0.66 -> 1.09, contact 14.7 -> 24.6 (damping 0.35). I.e. more rotational momentum, less damping of it. The cap rings are heavier still (`capInertia` 3.5) and their facing marker is a fixed side of the ring's own normal, so it turns with the ring instead of snapping.
+- Seen: during the drag the base stays planted flat (cap facing down), the stack rises, bends over into an arch to the far side and the head ring rolls over; after release the slinky lies over.
+- Action **Stand one up (drag its top over)** makes the upright slinky; take its top ring and carry it over.
+- The stairs scene keeps the walking settings; its arch at the start is now archW 1.2, archH 1.1 (Idan's set).
