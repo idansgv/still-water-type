@@ -13,6 +13,7 @@ import { mountWalk } from './slinky-walk.js';
 import { createPhys } from './slinky-phys.js';
 import { createFactory } from './slinky-factory.js';
 import { createView } from './slinky-view.js';
+import { SHARED_DEFAULTS } from './slinky-params.js';
 
 // The default is one poster with two scenes and a switch between them: the factory (a spout streams coils, real springs) and the stairs
 // (a slinky going down steps, rods and springs), both seen through the same camera (six views, orbit, zoom). The panel has the switch
@@ -30,7 +31,8 @@ function mountBoth(stage, start) {
   stage.setBackdrop(dark ? 0 : 1);
   const V = createView(stage, { yaw: 50, pitch: 32 });
   V.mode = start; V.zoomMul = start === 'factory' ? 0.72 : 1;                     // the factory scene is wider than the stairs, so it is framed a little further back
-  const scenes = { factory: createFactory(stage, V), stairs: createPhys(stage, V) };
+  const shared = { ...SHARED_DEFAULTS };                                         // one set of settings for both scenes
+  const scenes = { factory: createFactory(stage, V, shared), stairs: createPhys(stage, V, shared) };
   const cur = () => scenes[V.mode];
   const refresh = () => { if (stage.refreshPanel) stage.refreshPanel(); };
   V.onChange = refresh;

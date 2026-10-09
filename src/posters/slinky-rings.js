@@ -19,6 +19,7 @@ export function trackHand(g, x, y, dt) {
   const sp = Math.hypot(g.hvx, g.hvy), psi = Math.atan2(g.hvy, g.hvx);
   if (sp > 1e-3 && Math.hypot(ovx, ovy) > 1e-3) { let d = psi - Math.atan2(ovy, ovx); d -= Math.PI * 2 * Math.round(d / (Math.PI * 2)); g.hw += (d / dt - g.hw) * 0.2; } else g.hw *= 0.8;
   g.psi = psi; g.sp = sp;
+  (g.hist || (g.hist = [])).push([psi, g.hw]); if (g.hist.length > 240) g.hist.shift();                // what the hand did, for the rings behind it to follow a little later
 }
 
 export function createRings(cap) {
@@ -157,11 +158,15 @@ export function createRings(cap) {
       const g = env.grab, i = g.pt >> 1, s = g.pt & 1 ? -R : R, rx = ux[i] * s, ry = uy[i] * s, px = x[i] + rx, py = y[i] + ry;
       const pvx = vx[i] - w[i] * ry, pvy = vy[i] + w[i] * rx;
       add(i, rx, ry, (g.x - px) * 900 - pvx * 14, (g.y - py) * 900 - pvy * 14);
-      // the ring in hand turns with the move: its facing follows the direction the hand is going, at the rate that direction turns
-      if (env.turn > 0 && g.sp > 0) {
-        const sg = S.capSign[i] || 1, psi = a[i] + sg * Math.PI / 2; let e = g.psi - psi; e -= Math.PI * 2 * Math.round(e / (Math.PI * 2));
-        const gain = Math.min(1, g.sp / (0.6 * R)), kp = 150 * env.turn, kd = 2 * Math.sqrt(kp) * 0.7;
-        tq[i] += I * S.im[i] * gain * (kp * e + kd * (sg * g.hw - w[i]));
+      // the ring in hand turns with the move: its facing follows the direction the hand is going, at the rate that direction turns; the rings behind it follow in a wave,
+      // each a little later and a little less, so a hand that circles turns the end over and the turn runs down the slinky
+      if (env.turn > 0 && g.sp > 0 && g.hist && g.hist.length) {
+        const sg = S.capSign[i] || 1, dir = i === 0 ? 1 : i === n - 1 ? -1 : 0, gain = Math.min(1, g.sp / (0.6 * R)), kp = 400 * env.turn, kd = 2 * Math.sqrt(kp) * 0.7, reach = dir ? env.turnReach : 0;
+        for (let j = 0; j <= reach; j++) {
+          const r = i + dir * j; if (r < 0 || r >= n) break;
+          const h = g.hist[Math.max(0, g.hist.length - 1 - j * env.turnDelay)], decay = Math.pow(0.82, j), psi = a[r] + sg * Math.PI / 2; let e = h[0] - psi; e -= Math.PI * 2 * Math.round(e / (Math.PI * 2));
+          tq[r] += I * S.im[r] * gain * decay * (kp * e + kd * (sg * h[1] - w[r]));
+        }
       }
     }
 

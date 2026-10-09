@@ -27,22 +27,17 @@ Seen from the side every coil is a **rigid ring**: a rod with a centre, an angle
 
 Why this solver: the earlier one (point chain, then rods with position corrections and an order rule) snapped rings to 13 degrees off the path, which produced the pin-cushion of rods in every messy frame; and its start pose broke its own rule. Details in the log.
 
-## Settings that matter (current defaults)
+## Settings (shared by both scenes since 10 Oct)
 
-| | Stairs | Factory (Idan's soft set, 10 Oct) |
-|---|---|---|
-| look | 40 coils, radius 0.11, wire 0.03, gap 0.035 | radius 0.09, wire 0.035, gap 0.21, pitch 0.18 |
-| wire | spring 1392, wireDamp 7 | spring 100 (slider goes down to 5), wireDamp 22.5 |
-| rings | lean 58, leanK 0.25, square 0, inertia 0.45, spin 1.7 | lean 37.8, leanK 1.09, square 1, inertia 1.1, spin 0.42 |
-| world | gravity 22.5, grip 0.42, bounce 0.6, contact 21 | gravity 15, grip 0.5, bounce 0.2, contact 9 (damping 0.34) |
-| caps | endFlat 1.85, capInertia 3 | endFlat 1.55, capInertia 8 |
-| start | arch 6 coils, archW 2.8, archH 1.8, push 2.4 | feed 560 px/s, longest 90, shelf ends at 0.32 W, steps 0.17 W deep |
+`slinky-params.js`: one object of shared settings, bound into both scenes (`bindParams`); a slider moved in one scene is moved in the other, Reset resets both, changing `size` or `gap` re-forms the other scene when you switch to it. Each scene keeps its own few:
 
-`turn` (new, both scenes, default 1): the ring in hand is driven to turn with the move: its facing follows the direction the hand is going, at the rate that direction turns (a hand carrying an end over a half-circle arc in time T turns it by pi at omega = pi / T). Without it a radial move only dragged the cap; with it the head ring flips 180 degrees in all four scripted gestures (2 of 4 without). **X** is the reform shortcut (factory: Sweep up, stairs: Re-form).
+- **Shared** (Idan's hand-tuned set): size 0.11, wire 0.03, spring 1392, gap 0.035, gravity 22.5, grip 0.42, damping 0.21, bounce 0.6, wireDamp 7, contact 21 (damping 0.02), inertia 0.45, lean 58, leanK 0.25, spin 1.7, shear 0, square 0, endFlat 1.85, capInertia 3, and the hand: turn 4, turnReach 10, turnDelay 2.
+- **Stairs only:** coils 40, arch 6, pack 0.1, archW 2.8, archH 1.8, stepW 6.9, drop 2.3, push 2.4.
+- **Factory only:** feed 560, pitch 0.18, keep 3, longest 90, steps 5, run 0.17, start 0.32.
 
-`square` (new): a soft pull turning each ring square to the path through its neighbours (the hard `lean` limit only acts past 38 degrees, so without it the rings of a gentle bend stayed vertical and the streaming head ring did not lean down the arch). At 1 the head ring leans down with the arch and the flip test passes on 2 of 3 gestures with the soft set (0.53 without).
+Earlier separate sets, for reference: the factory's soft set (spring 100, gravity 15, wireDamp 22.5, contact 9, size 0.09, gap 0.21, inertia 1.1, lean 37.8, leanK 1.09, spin 0.42, square 1, endFlat 1.55, capInertia 8) and the searched stairs set (spring 2131, gap 0.12, arch 14.7, archW 1.2, archH 1.1, lean 42, leanK 0.66, wireDamp 5.35, contact 14.7, spin 2.07, inertia 0.49, endFlat 0.6), which walked 4.9 steps in 11 s without a tap (8 of 9 stair shapes); the hand-tuned set stalls at 3 steps in the bench's autopilot, so it is for driving by hand.
 
-The stairs set is now Idan's hand-tuned one (10 Oct, evening); the bench's autopilot (two taps) gets 3.1 steps with it and then stalls, so it is for driving by hand. The earlier searched set walked 4.9 steps in 11 s without a tap (8 of 9 stair shapes): spring 2131, gap 0.12, arch 14.7, archW 1.2, archH 1.1, lean 42, leanK 0.66, wireDamp 5.35, contact 14.7, spin 2.07, inertia 0.49, endFlat 0.6. The factory set is tuned to **flip**: momentum carries the coils over (below). Both scenes have all settings in the panel (groups Stream, Rings, World, Stairs, Look). Presets in the factory: **Bouncy slinky**, **Calm slinky**; actions **Drop one standing**, **Stand one up (drag its top over)**, **Hang it (the Slinky drop)**, **Let go**, **Sweep up**.
+**The ring in hand** (`turn`, default 4): the ring you hold is driven to turn with the move: its facing follows the direction the hand is going, at the rate that direction turns (a half circle in time T turns it by pi at omega = pi / T). The rings behind it follow as a wave (`turnReach` rings, each `turnDelay` frames later and 18% weaker), so a hand that circles turns the end over and the turn runs down the slinky. A scripted semicircle over a standing slinky: with the head ring only, 1.1 rad at the head and 0.2 at ring 13; with the wave at turn 1, 1.9 to 1.1 rad over the first 14 rings; at turn 3, 2.7 to 1.7 rad (up to 155 degrees). The four scripted flip gestures all flip at turn 4. **X** reforms (factory: Sweep up, stairs: Re-form). `square` turns each ring square to the path through its neighbours (the hard `lean` limit alone left the streaming head ring vertical); 0 in the shared set, 1 gave the head ring a lean down the arch.
 
 ## Behaviours checked (bench, 10 Oct 2026)
 
