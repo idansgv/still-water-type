@@ -154,6 +154,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./slinky.js'),
   },
+  {
+    slug: 'slinky-type',
+    title: 'Slinky type',
+    words: ['Idan', 'Segev'],
+    blurb: 'Every letter a slinky standing on the plane. Tap one.',
+    hint: null,
+    themes: { dark: 0, light: 1 },
+    draft: true,
+    load: () => import('./slinky-type.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

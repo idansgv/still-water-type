@@ -3,11 +3,13 @@
 import { glyphContours } from './glyph-contours.js';
 
 const cache = new Map();
-export function ringShape(text) {
+export function ringShape(text, opts) {
+  const top = !!(opts && opts.top);
   const ch = text ? [...String(text)][0] : '';
   if (!ch || ch === ' ') return null;
-  if (cache.has(ch)) return cache.get(ch);
+  const key = ch + (top ? '^' : '');
+  if (cache.has(key)) return cache.get(key);
   let loops = null;
-  try { const gc = glyphContours(ch, 'Arial Black, Helvetica Neue, Helvetica, sans-serif', 900, 120, 0.06); loops = gc.loops.map((l) => l.pts.map(([x, y]) => [y / 0.5, x / 0.5])); } catch (e) { loops = null; }   // [u, z] in radii
-  cache.set(ch, loops); return loops;
+  try { const gc = glyphContours(ch, 'Arial Black, Helvetica Neue, Helvetica, sans-serif', 900, 120, 0.06); loops = gc.loops.map((l) => l.pts.map(([x, y]) => top ? [x / 0.5, y / 0.5] : [y / 0.5, x / 0.5])); } catch (e) { loops = null; }   // [u, z] in radii
+  cache.set(key, loops); return loops;
 }
