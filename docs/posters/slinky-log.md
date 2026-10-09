@@ -168,3 +168,8 @@ Idan: not about the caps, about momentum making coils flip side. An upright slin
 - Seen: during the drag the base stays planted flat (cap facing down), the stack rises, bends over into an arch to the far side and the head ring rolls over; after release the slinky lies over.
 - Action **Stand one up (drag its top over)** makes the upright slinky; take its top ring and carry it over.
 - The stairs scene keeps the walking settings; its arch at the start is now archW 1.2, archH 1.1 (Idan's set).
+
+## Why the stream did not bend down (10 Oct 2026)
+
+Two things: the rings were not following the path (`square` 0), and the soft pull toward square, when it was on, also put a couple on the neighbours, which straightens a chain, so turning it up made the stream stiffer (droop 108 px at 55 frames with square 0, 18 px with square 1). Now the soft pull only turns the ring (a hinge); only the hard `lean` limit still puts the couple on the neighbours. Measured at 70 frames: droop 132 px (square 0), 190 (0.2), 163 (1), 193 (2); the head ring leans with the path. Trade-off with the hand flip: the flip test scores 0.97 / 0.85 / 0.71 / 0.53 at square 0 / 0.2 / 1 / 2 (the square pull fights the hand's turning), so the shared default is 0.2. New shared `bend` (default 1): scales the part of the wire's pull that bends the slinky (the difference between the top and bottom wire), 0 makes it droop like a rope while it stays stiff along its length; it barely changed the stream (108 to 123 px), the bending stiffness was in `square`, not the wire.
+
