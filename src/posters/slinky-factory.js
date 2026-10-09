@@ -17,7 +17,7 @@ export function createFactory(stage, V) {
     feed: 560, gravity: 1400, spring: 200,           // how fast coils leave the spout (px/s), gravity (px/s^2), spring stiffness
     gap: 0.02, size: 0.07, tilt: 0.34,               // closest two neighbouring coils get (of the screen height), coil radius (of the shorter side), how round the rings look
     damping: 6.5, loose: 0.12, air: 0.06, grip: 0.5, bounce: 0.55,              // damping along the springs, air drag, how much the floor grips
-    rodSpring: 450, wireDamp: 8, coilBounce: 0, cross: 0, flat: 0, rodGap: 0.19, hold: 0.85, rebound: 0.35,   // once cut the piece is a row of rods (as on the stairs): wire stiffness, closest coils (of the radius), grip, how much of a landing comes back
+    rodSpring: 450, wireDamp: 8, align: 0, coilBounce: 0, cross: 0, flat: 0, rodGap: 0.19, hold: 0.85, rebound: 0.35,   // once cut the piece is a row of rods (as on the stairs): wire stiffness, closest coils (of the radius), grip, how much of a landing comes back
     bend: 0.9, steps: 5, run: 0.12, start: 0.45,        // how much a bent stretch of the slinky resists folding (an arch holds), and the stairs beyond the spout: how many, how high, how wide
     keep: 3, longest: 150,                           // pieces kept on the floor, most coils in one piece
     wire: 0.075,                                     // drawn wire thickness (of the coil radius)
@@ -118,6 +118,20 @@ export function createFactory(stage, V) {
       px[2 * i] = mx + nx; py[2 * i] = my + ny; px[2 * i + 1] = mx - nx; py[2 * i + 1] = my - ny;
     }
   }
+  // Tension lines the rings up: the pull of the wire along the slinky's axis turns each stretched coil square to that axis, so the end rim of a hanging or falling slinky lies parallel to the floor.
+  // The more a coil is stretched from its neighbours, the more it is turned toward 'square to the path'; a squeezed coil (a stack) is left alone, it may lean.
+  function alignRods(p, dmin) {
+    const n = p.n, px = p.px, py = p.py;
+    for (let i = 0; i < n; i++) {
+      const a0 = Math.max(0, i - 1), b0 = Math.min(n - 1, i + 1);
+      const dx = (px[2 * b0] + px[2 * b0 + 1] - px[2 * a0] - px[2 * a0 + 1]) / 2, dy = (py[2 * b0] + py[2 * b0 + 1] - py[2 * a0] - py[2 * a0 + 1]) / 2, sp = Math.hypot(dx, dy) / (b0 - a0);
+      const w = Math.max(0, Math.min(1, (sp / dmin - 1.2) / 1.0)); if (w <= 0) continue;
+      const rx = px[2 * i] - px[2 * i + 1], ry = py[2 * i] - py[2 * i + 1], al = Math.atan2(rx * dy - ry * dx, rx * dx + ry * dy);
+      if (al < 0.05 || al > Math.PI - 0.05) continue;                              // (a rod on the wrong side is the coil order rule's job)
+      const del = (al - Math.PI / 2) * P.align * w, cs = Math.cos(del), sn = Math.sin(del), mx = (px[2 * i] + px[2 * i + 1]) / 2, my = (py[2 * i] + py[2 * i + 1]) / 2, hx = rx / 2, hy = ry / 2, nx = hx * cs - hy * sn, ny = hx * sn + hy * cs;
+      px[2 * i] = mx + nx; py[2 * i] = my + ny; px[2 * i + 1] = mx - nx; py[2 * i + 1] = my - ny;
+    }
+  }
   function rodSub(p, h) {
     const n = p.n, M = 2 * n, px = p.px, py = p.py, vx = p.pvx, vy = p.pvy, L = 2 * R, rw = Math.max(2, R * P.wire * 0.5), dmin = R * P.rodGap + rw, k = P.rodSpring, bx = boxesNow();
     const x0 = Float32Array.from(px), y0 = Float32Array.from(py), vyPre = Float32Array.from(vy), vxPre = Float32Array.from(vx), landed = new Uint8Array(M);
@@ -139,6 +153,7 @@ export function createFactory(stage, V) {
     for (let it = 0; it < 8; it++) {
       for (let i = 0; i < n; i++) { const t = 2 * i, b = t + 1, dx = px[t] - px[b], dy = py[t] - py[b], d = Math.hypot(dx, dy) || 1e-6, c = (d - L) / d * 0.5; px[t] -= dx * c; py[t] -= dy * c; px[b] += dx * c; py[b] += dy * c; }
       keepOrder(p);
+      if (P.align) alignRods(p, dmin);
       // rods may not pass through one another (a pile of crossed rods is what a soft piece turned into): two that cross are pushed apart, centre from centre
       if (P.cross) for (let i = 0; i < n; i++) for (let j = i + 1; j < Math.min(n, i + 7); j++) {
         const ax = px[2 * i], ay = py[2 * i], bx = px[2 * i + 1], by = py[2 * i + 1], cx = px[2 * j], cy = py[2 * j], dx2 = px[2 * j + 1], dy2 = py[2 * j + 1];
@@ -301,7 +316,7 @@ export function createFactory(stage, V) {
       title: 'Slinky factory', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Stream', items: [Ctl('feed', 'Feed speed (px/s)', 100, 1400, 10), Ctl('longest', 'Longest piece (coils)', 20, 300, 5), Ctl('keep', 'Pieces kept on the floor', 1, 6, 1)] },
-        { name: 'Spring', items: [Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Air damping once cut', 0, 4, 0.01), Ctl('rodSpring', 'Wire stiffness', 2, 4000, 2), Ctl('wireDamp', 'Wire damping (calms the heap)', 0, 30, 0.5), Ctl('rodGap', 'Closest coils', 0.05, 0.5, 0.01), Ctl('flat', 'Loose coils lie flat', 0, 2, 0.05), Ctl('coilBounce', 'Coils spring apart when they slam', 0, 1, 0.05), Ctl('hold', 'Grip of the floor', 0, 1, 0.05), Ctl('rebound', 'Rebound off the floor', 0, 0.95, 0.01), Ctl('gravity', 'Gravity', 200, 4000, 50), ] },
+        { name: 'Spring', items: [Ctl('gap', 'Coil spacing when stacked (re-forms)', 0.006, 0.05, 0.001), Ctl('damping', 'Damping while streaming', 0, 8, 0.1), Ctl('loose', 'Air damping once cut', 0, 4, 0.01), Ctl('rodSpring', 'Wire stiffness', 2, 4000, 2), Ctl('wireDamp', 'Wire damping (calms the heap)', 0, 30, 0.5), Ctl('rodGap', 'Closest coils', 0.05, 0.5, 0.01), Ctl('flat', 'Loose coils lie flat', 0, 2, 0.05), Ctl('align', 'Tension squares the rings to the axis', 0, 0.2, 0.005), Ctl('coilBounce', 'Coils spring apart when they slam', 0, 1, 0.05), Ctl('hold', 'Grip of the floor', 0, 1, 0.05), Ctl('rebound', 'Rebound off the floor', 0, 0.95, 0.01), Ctl('gravity', 'Gravity', 200, 4000, 50), ] },
         { name: 'Stairs', items: [Ctl('steps', 'Steps (0 = flat floor)', 0, 8, 1), Ctl('run', 'Step depth', 0.08, 0.4, 0.01), Ctl('start', 'Where the shelf ends', 0.3, 0.8, 0.01)] },
         { name: 'Look', items: [Ctl('size', 'Coil radius (re-forms)', 0.03, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
       ],
