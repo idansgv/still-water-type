@@ -23,7 +23,7 @@ export function mount(stage) {
   const mode = new URLSearchParams(location.search).get('mode');
   if (mode === 'spring') return mountSpring(stage);
   if (mode === 'css') return mountWalk(stage);
-  return mountBoth(stage, mode === 'stairs' ? 'stairs' : 'factory');
+  return mountBoth(stage, mode === 'stairs' ? 'stairs' : mode === 'plane' ? 'plane' : 'factory');
 }
 
 function mountBoth(stage, start) {
@@ -32,7 +32,8 @@ function mountBoth(stage, start) {
   const V = createView(stage, { yaw: 50, pitch: 32 });
   V.mode = start; V.zoomMul = start === 'factory' ? 0.72 : 1;                     // the factory scene is wider than the stairs, so it is framed a little further back
   const shared = { ...SHARED_DEFAULTS };                                         // one set of settings for both scenes
-  const scenes = { factory: createFactory(stage, V, shared), stairs: createPhys(stage, V, shared) };
+  const scenes = { factory: createFactory(stage, V, shared), stairs: createPhys(stage, V, shared), plane: createPhys(stage, V, shared, { id: 'plane', flat: true }) };
+  const ORDER = ['factory', 'stairs', 'plane'];
   const cur = () => scenes[V.mode];
   const refresh = () => { if (stage.refreshPanel) stage.refreshPanel(); };
   V.onChange = refresh;
@@ -40,7 +41,8 @@ function mountBoth(stage, start) {
   const REFORM = ['Sweep up', 'Re-form'];                                          // X: clear the factory floor / put the stairs slinky back over the edge
   const onKey = (e) => {
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
-    if (e.key === 'm' || e.key === 'M') setMode(V.mode === 'factory' ? 'stairs' : 'factory');
+    if (e.key === 'm' || e.key === 'M') setMode(ORDER[(ORDER.indexOf(V.mode) + 1) % ORDER.length]);
+    else if (e.key === 'l' || e.key === 'L') { V.lock = !V.lock; refresh(); }
     else if (e.key === 'x' || e.key === 'X') { const acts = cur().tune.actions; for (const k of REFORM) if (acts[k]) { acts[k](); break; } }
   };
   addEventListener('keydown', onKey);
@@ -51,7 +53,7 @@ function mountBoth(stage, start) {
     get defaults() { return cur().tune.defaults; },
     get groups() { return cur().tune.groups; },
     get actions() {
-      const out = { [mark(V.mode === 'factory') + 'M  Factory']: () => setMode('factory'), [mark(V.mode === 'stairs') + 'M  Stairs']: () => setMode('stairs') };
+      const out = { [mark(V.mode === 'factory') + 'M  Factory']: () => setMode('factory'), [mark(V.mode === 'stairs') + 'M  Stairs']: () => setMode('stairs'), [mark(V.mode === 'plane') + 'M  Plane']: () => setMode('plane'), [mark(V.lock) + 'L  Lock the camera']: () => { V.lock = !V.lock; refresh(); } };
       for (const k of Object.keys(V.VIEWS)) out[`${mark(V.name === k)}${V.VIEWS[k].key}  ${V.VIEWS[k].label}`] = () => V.setView(k);
       const own = {}; for (const [k, fn] of Object.entries(cur().tune.actions)) own[REFORM.includes(k) ? `X  ${k}` : k] = fn;      // the reform action carries the X key
       return { ...out, ...own };
@@ -61,10 +63,10 @@ function mountBoth(stage, start) {
   };
   return {
     tune,
-    debug: { mode: () => V.mode, setMode, V, ...Object.fromEntries(['factory', 'stairs'].map((k) => [k, scenes[k].debug])), setView: (n) => V.setView(n), view: () => ({ ...V.view, name: V.name }), cam: () => (scenes[V.mode].debug.cam ? scenes[V.mode].debug.cam() : null),
+    debug: { mode: () => V.mode, setMode, V, ...Object.fromEntries(['factory', 'stairs', 'plane'].map((k) => [k, scenes[k].debug])), setView: (n) => V.setView(n), view: () => ({ ...V.view, name: V.name }), cam: () => (scenes[V.mode].debug.cam ? scenes[V.mode].debug.cam() : null),
       // the active scene's own helpers, at the top level, for tests
       ...Object.fromEntries(['run', 'kick', 'state', 'press', 'release', 'pieces'].map((n) => [n, (...a) => { const f = cur().debug[n]; return f ? f(...a) : undefined; }])) },
-    destroy() { removeEventListener('keydown', onKey); scenes.factory.destroy(); scenes.stairs.destroy(); V.destroy(); stage.setBackdrop(null); stage.root.style.cursor = ''; },
+    destroy() { removeEventListener('keydown', onKey); scenes.factory.destroy(); scenes.stairs.destroy(); scenes.plane.destroy(); V.destroy(); stage.setBackdrop(null); stage.root.style.cursor = ''; },
   };
 }
 

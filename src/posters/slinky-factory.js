@@ -6,6 +6,7 @@
 
 import { createRings, trackHand } from './slinky-rings.js';
 import { SHARED_DEFAULTS, bindParams } from './slinky-params.js';
+import { ringShape } from './slinky-shape.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -116,7 +117,7 @@ export function createFactory(stage, V, shared = { ...SHARED_DEFAULTS }) {
     // the camera: the middle of the scene, or (the Close view) the head of the newest piece
     let tx = 0, ty = 0;
     if (V.focus === 'front') { const p = pieces.slice().reverse().find((q) => q.n && !q.dying); if (p) { tx = wx(p.x[0]); ty = wy(p.y[0]); } }
-    const kf = Math.hypot(tx - cam.x, ty - cam.y) > R * 10 ? 1 : 0.12; cam.x += (tx - cam.x) * kf; cam.y += (ty - cam.y) * kf;
+    const kf = Math.hypot(tx - cam.x, ty - cam.y) > R * 10 ? 1 : 0.12; if (!V.lock) { cam.x += (tx - cam.x) * kf; cam.y += (ty - cam.y) * kf; }
     ctx.setTransform(stage.pw / W, 0, 0, stage.ph / H, 0, 0);
     ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
     const r = V.rot(), [ox, oy] = V.origin(r, cam, W, H), d = R * 1.5;
@@ -140,12 +141,14 @@ export function createFactory(stage, V, shared = { ...SHARED_DEFAULTS }) {
       list.push({ c: [wx(p.x[i]), wy(p.y[i]), 0], u: [Math.cos(a), Math.sin(a)], cap, fade: p.fade, z: V.project([wx(p.x[i]), wy(p.y[i]), 0], r, 0, 0)[2] });
     }
     list.sort((a, b) => a.z - b.z);
-    const markers = [];
+    const markers = [], shape = ringShape(P.letter);
     for (const it of list) {
       ctx.globalAlpha = Math.max(0, it.fade);
       ctx.lineWidth = Math.max(1.6, R * P.wire) * (it.cap ? 2.2 : 1);
       ctx.beginPath();
-      for (let i = 0; i <= 36; i++) {
+      if (shape) for (const loop of shape) {                              // a letter-shaped ring: its loops (a hole is a loop too)
+        for (let i = 0; i <= loop.length; i++) { const pt = loop[i % loop.length], q = V.project([it.c[0] + it.u[0] * pt[0] * R, it.c[1] + it.u[1] * pt[0] * R, pt[1] * R], r, ox, oy); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
+      } else for (let i = 0; i <= 36; i++) {
         const t = i / 36 * Math.PI * 2, cs = Math.cos(t) * R, sn = Math.sin(t) * R, q = V.project([it.c[0] + it.u[0] * cs, it.c[1] + it.u[1] * cs, sn], r, ox, oy);
         i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
       }
@@ -209,7 +212,7 @@ export function createFactory(stage, V, shared = { ...SHARED_DEFAULTS }) {
         { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('bend', 'Stiffness against bending (1 straight, 0 rope)', 0, 1, 0.01), Ctl('square', 'Rings square to the path (they lean down a bend)', 0, 2, 0.05), Ctl('turn', 'The ring in hand turns with the move', 0, 14, 0.1), Ctl('turnReach', 'Rings it carries along', 0, 30, 1), Ctl('turnDelay', 'How late each is (frames)', 0, 8, 1), Ctl('shear', 'Diagonal wire (tension squares the rings)', 0, 3, 0.05), Ctl('spring', 'Wire stiffness', 5, 6000, 1), Ctl('gap', 'Closest coils (radii, re-forms)', 0.02, 0.5, 0.005), Ctl('wireDamp', 'Wire damping', 0, 60, 0.5), Ctl('contact', 'Ring on ring stiffness', 5, 80, 1), Ctl('contactDamp', 'Ring on ring damping', 0, 1.5, 0.02), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05), Ctl('spin', 'Spin damping', 0, 10, 0.1), Ctl('endFlat', 'End rings lie flat', 0, 3, 0.05), Ctl('capInertia', 'Weight of the cap rings (to turn over)', 1, 12, 0.5)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction', 0, 1.5, 0.05), Ctl('bounce', 'Bounce off the floor', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05)] },
         { name: 'Stairs', items: [Ctl('steps', 'Steps (0 = flat floor)', 0, 8, 1), Ctl('run', 'Step depth', 0.08, 0.4, 0.01), Ctl('start', 'Where the shelf ends', 0.3, 0.8, 0.01)] },
-        { name: 'Look', items: [Ctl('size', 'Coil radius (re-forms)', 0.03, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
+        { name: 'Look', items: [Ctl('size', 'Coil radius (re-forms)', 0.03, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005), { key: 'letter', label: 'Ring shape: type a letter (empty = round)', type: 'text', rows: 1 }] },
       ],
       actions: {
         'Stand one up (drag its top over)': () => { const p = standing(40, 0, 1); refresh(p); },     // an upright slinky on the floor: take the top ring by its rim and carry it over in an arch; the coils flip over by their momentum

@@ -14,7 +14,7 @@ export function createView(stage, iso = { yaw: 50, pitch: 32 }) {
   };
   const view = { yaw: iso.yaw, pitch: iso.pitch, zoom: 1 }, vt = { yaw: iso.yaw, pitch: iso.pitch, zoom: 1 };
   const V = {
-    VIEWS, iso, view, name: 'iso', focus: 'centroid', mode: 'factory', zoomMul: 1, onChange: () => {},
+    VIEWS, iso, view, name: 'iso', focus: 'centroid', mode: 'factory', zoomMul: 1, lock: false, onChange: () => {},
     setView(name) {
       const v = VIEWS[name]; if (!v) return;
       V.name = name; V.focus = v.focus || 'centroid'; vt.yaw = v.yaw(); vt.pitch = v.pitch(); vt.zoom = v.zoom; V.onChange();

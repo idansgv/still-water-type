@@ -6,7 +6,7 @@
 
 ## What it is now
 
-One poster, two scenes, one camera. Switch with the panel or **M**; six views (keys **1** to **6**: isometric, side, front, top, close, wide), drag empty space to orbit.
+One poster, three scenes, one camera. Switch with the panel or **M** (factory, stairs, plane); **L** locks the camera (it stops following the slinky; views and orbit still work); six views (keys **1** to **6**: isometric, side, front, top, close, wide), drag empty space to orbit.
 
 - **Factory** (`slinky-factory.js`): a spout turned sideways. Hold the mouse (or a finger) and coils stream out, falling in an arc; let go and the piece lands on a shelf under the spout, is carried to its edge and goes down five steps to the floor. Take the loose first coil of a piece on the floor and drag it.
 - **Stairs** (`slinky-phys.js`): one slinky draped over the edge of a step. Tap an end ring (or **Nudge it**) and it walks down. Drag an end ring to pull it.
@@ -59,3 +59,10 @@ Earlier separate sets, for reference: the factory's soft set (spring 100, gravit
 ## Why the stream did not bend down (10 Oct 2026)
 
 Two things: the rings were not following the path (`square` 0), and the soft pull toward square, when it was on, also put a couple on the neighbours, which straightens a chain, so turning it up made the stream stiffer (droop 108 px at 55 frames with square 0, 18 px with square 1). Now the soft pull only turns the ring (a hinge); only the hard `lean` limit still puts the couple on the neighbours. Measured at 70 frames: droop 132 px (square 0), 190 (0.2), 163 (1), 193 (2); the head ring leans with the path. Trade-off with the hand flip: the flip test scores 0.97 / 0.85 / 0.71 / 0.53 at square 0 / 0.2 / 1 / 2 (the square pull fights the hand's turning), so the shared default is 0.2. New shared `bend` (default 1): scales the part of the wire's pull that bends the slinky (the difference between the top and bottom wire), 0 makes it droop like a rope while it stays stiff along its length; it barely changed the stream (108 to 123 px), the bending stiffness was in `square`, not the wire.
+
+## Plane, lock, standing start, letter rings (10 Oct 2026)
+
+- **Plane** (`?mode=plane`, **M**): the stairs scene on a flat floor, the slinky standing in the middle, for dragging its ends over and flipping it by hand (same shared settings, its own start). `createPhys(stage, V, shared, { id, flat })` serves both.
+- **Lock the camera** (**L**, panel): `V.lock` freezes the follow in all scenes.
+- **Standing start** (stairs: own settings `stand` 1, `lean0` 0.1): the slinky starts standing on its end on the top step, its base just behind the edge, leaning a little toward it, instead of draped over the edge (`stand` 0). The bench autopilot (two taps) gets 2.4 steps from it with the shared hand-tuned set, then it lies down on a step; a search (`search6`, near the current settings) found a set that reaches 4.4 steps on 4 of 5 stairs, but it fell apart when rounded (inertia 0.3, endFlat 2.3, lean 66, grip 0.41, spin 1.3, wireDamp 4.8, contact 20.5, gravity 23.8, spring 1470, bounce 0.53, push 1.75, lean0 0.11), so it is not adopted. Walking from standing is for driving by hand for now.
+- **Letter rings** (shared setting `letter`, panel Look/View: type a letter, empty = round): each ring is drawn as the outline of the letter (`slinky-shape.js`, from `glyph-contours.js`), the cap height along the ring's rod and the width in depth; the physics still treats a ring as a rod. Seen from the front a lying slinky is a row of letters; it reads best with few coils (set Coils lower).

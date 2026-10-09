@@ -186,6 +186,18 @@ window.slinkyBench = (() => {
     }
     return { tried: S.tried, score: +S.bestR.score.toFixed(3), det: S.bestR.det };
   }
-  return { flipTest, flipScore, search5, search4, robustScore, standTest, search3, look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
+  // the stairs from a standing start: a random search near the current settings on how far it gets (robust over small changes of lean and push)
+  const SP6 = { lean0: [0.02, 0.15], push: [1, 6], grip: [0.2, 0.8], bounce: [0.3, 0.8], gravity: [15, 30], spin: [0.5, 3], damping: [0.05, 0.4], wireDamp: [3, 15], contact: [10, 30], lean: [40, 70], leanK: [0.15, 0.5], endFlat: [0.5, 2.5], inertia: [0.3, 0.8], spring: [800, 2500] };
+  const standScore = (cand) => { let tot = 0, ok = 0; const det = []; for (const v of [{}, { lean0: (cand.lean0 || 0.06) * 0.7 }, { lean0: (cand.lean0 || 0.06) * 1.3 }, { stepW: 5.5 }, { drop: 2.8 }]) { const r = walk({ stand: 1, ...cand, ...v }); tot += Math.min(r.descended, 4.6) / 4.6; if (r.descended >= 4.4) ok++; det.push(r.descended); } return { score: tot / 5 + ok * 0.12, ok, det }; };
+  function search6(base, cands = 6) {
+    window.__S6 = window.__S6 || { best: { ...base }, bestR: standScore(base), tried: 0 }; const S = window.__S6;
+    for (let c = 0; c < cands; c++) {
+      const cand = { ...S.best }; const sc = Math.max(0.12, 1 / (1 + S.tried / 40));
+      for (const k in SP6) { if (Math.random() < 0.6) continue; const [lo, hi] = SP6[k]; const cur = cand[k] !== undefined ? cand[k] : (P().tune.values[k] !== undefined ? P().tune.values[k] : (lo + hi) / 2); cand[k] = Math.min(hi, Math.max(lo, cur + (Math.random() * 2 - 1) * (hi - lo) * 0.3 * sc)); }
+      const r = standScore(cand); S.tried++; if (r.score > S.bestR.score) { S.best = cand; S.bestR = r; }
+    }
+    return { tried: S.tried, score: +S.bestR.score.toFixed(3), ok: S.bestR.ok, det: S.bestR.det };
+  }
+  return { search6, standScore, flipTest, flipScore, search5, search4, robustScore, standTest, search3, look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
 })();
 'ready';
