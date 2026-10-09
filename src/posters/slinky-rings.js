@@ -82,8 +82,8 @@ export function createRings(cap) {
       const dx = x[b0] - x[a0], dy = y[b0] - y[a0], dl2 = dx * dx + dy * dy; if (dl2 < 1e-6) continue;
       let phi = a[i] - Math.atan2(dy, dx) - Math.PI / 2; phi -= Math.PI * 2 * Math.round(phi / (Math.PI * 2));              // into (-pi, pi]
       if (phi > Math.PI / 2) phi -= Math.PI; else if (phi < -Math.PI / 2) phi += Math.PI;                                    // a ring is the same turned over, for this
-      const over = Math.abs(phi) - lean; if (over <= 0) continue;
-      const sg = phi > 0 ? 1 : -1, t = kl * over * sg;
+      // a soft pull toward square to the path (the rings of a bend fan out across it), and past `lean` a hard one
+      const over = Math.abs(phi) - lean, sg = phi > 0 ? 1 : -1; let t = env.square > 0 ? kl * env.square * phi : 0; if (over > 0) t += kl * over * sg; if (t === 0) continue;
       tq[i] -= t + env.kla * w[i];                                                                                          // the torque back, a little damped
       const pxn = -dy / dl2, pyn = dx / dl2;                                                                                // the same couple on the chord's ends
       fx[b0] += t * pxn; fy[b0] += t * pyn; fx[a0] -= t * pxn; fy[a0] -= t * pyn;

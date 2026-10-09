@@ -29,14 +29,16 @@ Why this solver: the earlier one (point chain, then rods with position correctio
 
 ## Settings that matter (current defaults)
 
-| | Stairs | Factory |
+| | Stairs | Factory (Idan's soft set, 10 Oct) |
 |---|---|---|
-| look | 40 coils, radius 0.11, thin wire 0.03, gap 0.12 | same radius and wire, gap 0.12 |
-| wire | spring 2131, wireDamp 5.35 | spring 2131, wireDamp 2.84 |
-| rings | lean 42, leanK 0.66, inertia 0.49, spin 2.07 | lean 38, leanK 1.09, inertia 1.46, spin 0.42 |
-| world | gravity 22.5, grip 0.42, bounce 0.6 | gravity 22.5, grip 0.59, bounce 0.35 |
-| caps | endFlat 0.6, capInertia 3 | endFlat 0.6, capInertia 3.5 |
-| start | arch 14.7 coils, archW 1.2, archH 1.1, push 2.4 | feed 560 px/s, pitch 0.25, longest 90 |
+| look | 40 coils, radius 0.11, wire 0.03, gap 0.12 | radius 0.09, wire 0.035, gap 0.21, pitch 0.18 |
+| wire | spring 2131, wireDamp 5.35 | spring 100 (slider goes down to 5), wireDamp 22.5 |
+| rings | lean 42, leanK 0.66, square 0, inertia 0.49, spin 2.07 | lean 37.8, leanK 1.09, square 1, inertia 1.1, spin 0.42 |
+| world | gravity 22.5, grip 0.42, bounce 0.6 | gravity 15, grip 0.5, bounce 0.2, contact 9 (damping 0.34) |
+| caps | endFlat 0.6, capInertia 3 | endFlat 1.55, capInertia 8 |
+| start | arch 14.7 coils, archW 1.2, archH 1.1, push 2.4 | feed 560 px/s, longest 90, shelf ends at 0.32 W, steps 0.17 W deep |
+
+`square` (new): a soft pull turning each ring square to the path through its neighbours (the hard `lean` limit only acts past 38 degrees, so without it the rings of a gentle bend stayed vertical and the streaming head ring did not lean down the arch). At 1 the head ring leans down with the arch and the flip test passes on 2 of 3 gestures with the soft set (0.53 without).
 
 The stairs set is tuned to **walk** (default stairs: 4.9 steps in 11 s, no tap; 8 of 9 stair shapes; a 1.8-radius drop too). The factory set is tuned to **flip**: momentum carries the coils over (below). Both scenes have all settings in the panel (groups Stream, Rings, World, Stairs, Look). Presets in the factory: **Bouncy slinky**, **Calm slinky**; actions **Drop one standing**, **Stand one up (drag its top over)**, **Hang it (the Slinky drop)**, **Let go**, **Sweep up**.
 
