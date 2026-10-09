@@ -9,7 +9,7 @@ window.slinkyBench = (() => {
   function walk(params, frames = 2400) {
     const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size', 'settle'];
     for (const k in params) if (!rebuild.includes(k)) t.set(k, params[k]);
-    for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || 25);
+    for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || t.values.coils);
     const sd = d.stairs; const s0 = sd.state(); const cy = (s) => { let c = 0; for (let i = 0; i < s.N; i++) c += (s.py[2 * i] + s.py[2 * i + 1]) / 2; return c / s.N; }, cx = (s) => { let c = 0; for (let i = 0; i < s.N; i++) c += (s.px[2 * i] + s.px[2 * i + 1]) / 2; return c / s.N; };
     const y0 = cy(s0), Hs = s0.Hs; let xsum = 0, xn = 0, taps = 0, lastGain = 0, maxDesc = 0, tDone = null, cr = 0, bad = false, last = null;
     for (let f = 0; f < frames; f += 30) {
@@ -59,7 +59,7 @@ window.slinkyBench = (() => {
     return { best, bs, log };
   }
   // one refinement round on the stairs: tweak, test on the whole grid, keep what is better. State lives on window.__L so a round can be run per call.
-  const SPACE = { spring: [500, 2600], gap: [0.1, 0.3], pack: [0.15, 0.45], grip: [0.5, 1], damping: [0, 1.5], bounce: [0, 0.6], gravity: [20, 60], push: [0.2, 1.2], cross: [0, 1], archW: [1.5, 3.5], archH: [0.6, 1.6], arch: [6, 14] };
+  const SPACE = { spring: [500, 2600], gap: [0.1, 0.3], pack: [0.15, 0.45], grip: [0.5, 1], damping: [0, 1.5], bounce: [0, 0.6], gravity: [12, 45], push: [0.2, 1.2], cross: [0, 1], archW: [1.5, 3.5], archH: [0.6, 1.6], arch: [6, 14] };
   const gridScore = (base) => { const r = robust(base); const meanD = r.detail.reduce((t, x) => t + Math.min(x[2], 4.6), 0) / r.n / 4.6; const cr = r.detail.reduce((t, x) => t + x[4], 0) / r.n, taps = r.detail.reduce((t, x) => t + x[6], 0) / r.n, xo = r.detail.reduce((t, x) => t + x[7], 0) / r.n; return { ...r, xover: +xo.toFixed(2), score: r.ok + meanD * 0.8 - cr * 0.05 - taps * 0.1 - xo * 0.5 }; };
   function round(cands = 5, rng = Math.random) {
     const L = window.__L; L.it++; const span = 1 / (1 + (L.it - 1) * 0.3); const t0 = performance.now(); let tried = 0;
@@ -74,7 +74,7 @@ window.slinkyBench = (() => {
   // The look of the walk (Idan's sketch): while an arch stands, the rings along it should fan out square to the path (E near 0) and the end coil planted on the step should lie flat (F near 0).
   function look(params, frames = 1500) {
     const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size', 'settle'];
-    for (const k in params) if (!rebuild.includes(k)) t.set(k, params[k]); for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || 25);
+    for (const k in params) if (!rebuild.includes(k)) t.set(k, params[k]); for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || t.values.coils);
     const sd = d.stairs, s0 = sd.state(), cy = (s) => { let c = 0; for (let i = 0; i < s.N; i++) c += (s.py[2 * i] + s.py[2 * i + 1]) / 2; return c / s.N; }, y0 = cy(s0), Hs = s0.Hs;
     let Es = 0, Fs = 0, na = 0, maxDesc = 0, cr = 0, tDone = null, taps = 0, lastGain = 0, bad = false, xo = 0, xn = 0;
     for (let f = 0; f < frames; f += 15) {
@@ -97,7 +97,7 @@ window.slinkyBench = (() => {
   // rings square to the path (E), and the end coil planted on the step lies flat (F). Plus it walks, and the arch lasts (archFrames).
   function look2(params, frames = 1500) {
     const d = D(), t = P().tune; d.setMode('stairs'); t.reset(); const rebuild = ['coils', 'stepW', 'drop', 'arch', 'pack', 'archW', 'archH', 'size', 'settle'];
-    for (const k in params) if (!rebuild.includes(k)) t.set(k, params[k]); for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || 25);
+    for (const k in params) if (!rebuild.includes(k)) t.set(k, params[k]); for (const k of rebuild) if (k in params) t.set(k, params[k]); t.set('coils', params.coils || t.values.coils);
     const sd = d.stairs, s0 = sd.state(), cyf = (s) => { let c = 0; for (let i = 0; i < s.N; i++) c += (s.py[2 * i] + s.py[2 * i + 1]) / 2; return c / s.N; }, y0 = cyf(s0), Hs = s0.Hs;
     let sCV = 0, sC = 0, sE = 0, sF = 0, na = 0, maxDesc = 0, cr = 0, tDone = null, taps = 0, lastGain = 0, bad = false, xo = 0, xn = 0, maxArch = 0;
     for (let f = 0; f < frames; f += 15) {
@@ -122,7 +122,7 @@ window.slinkyBench = (() => {
     const score = walk * 0.25 + arch * 0.35 + (1 - Math.min(m.F / 0.6, 1)) * 0.15 + (1 - Math.min(m.E / 0.6, 1)) * 0.1 + (1 - Math.min(m.C / 0.5, 1)) * 0.1 + (1 - Math.min(m.CV / 0.6, 1)) * 0.05 - Math.min(cr, 5) * 0.02 - Math.min(xo / Math.max(1, xn), 3) * 0.05;
     return { score: +score.toFixed(3), descended: +maxDesc.toFixed(2), secs: tDone, taps, archFrames: na, maxArch: +maxArch.toFixed(1), CV: +m.CV.toFixed(2), C: +m.C.toFixed(2), E: +m.E.toFixed(2), F: +m.F.toFixed(2), crossed: cr, xover: +(xo / Math.max(1, xn)).toFixed(2) };
   }
-  const SPACE2 = { spring: [1000, 6000], gap: [0.12, 0.3], pack: [0.15, 0.45], grip: [0.5, 1], damping: [0, 1.2], bounce: [0, 0.6], gravity: [20, 60], push: [0.3, 1.4], archW: [1.5, 4], archH: [0.6, 2], arch: [6, 14], align: [0, 0.3], lean: [25, 70], shear: [0, 1.2], cross: [0.3, 1] };
+  const SPACE2 = { spring: [1000, 6000], gap: [0.12, 0.3], pack: [0.15, 0.45], grip: [0.5, 1], damping: [0, 1.2], bounce: [0, 0.6], gravity: [12, 45], push: [0.3, 1.4], archW: [1.5, 4], archH: [0.6, 2], arch: [6, 14], align: [0, 0.3], lean: [25, 70], shear: [0, 1.2], cross: [0.3, 1] };
   function start2(base) { window.__M = { it: 0, best: { ...base }, bestR: look2(base), log: [] }; return window.__M.bestR; }
   function round2(cands = 5) {
     const M = window.__M; M.it++; const span = 1 / (1 + (M.it - 1) * 0.25); let tried = 0;
@@ -133,7 +133,7 @@ window.slinkyBench = (() => {
     M.log.push({ it: M.it, score: M.bestR.score }); return { it: M.it, ...M.bestR };
   }
   // a random search on how far down the stairs it gets (and how soon), nothing else: the first question is whether it can walk at all
-  const SP3 = { wireDamp: [0, 10], contactDamp: [0.02, 0.5], spin: [0, 3], damping: [0, 0.5], bounce: [0.2, 0.9], grip: [0.1, 1], gravity: [20, 60], spring: [600, 3000], contact: [10, 60], leanK: [0.2, 2], lean: [25, 60], arch: [9, 16], push: [0.5, 3], inertia: [0.3, 1.2] };
+  const SP3 = { wireDamp: [0, 10], contactDamp: [0.02, 0.5], spin: [0, 3], damping: [0, 0.5], bounce: [0.2, 0.9], grip: [0.1, 1], gravity: [12, 45], spring: [600, 3000], contact: [10, 60], leanK: [0.2, 2], lean: [25, 60], arch: [12, 20], push: [0.5, 3], inertia: [0.3, 1.2] };
   function search3(base, cands = 40) {
     window.__S = window.__S || { best: { ...base }, bestR: walk(base), tried: 0 }; const S = window.__S;
     for (let c = 0; c < cands; c++) {
@@ -143,6 +143,19 @@ window.slinkyBench = (() => {
     }
     return { tried: S.tried, ...S.bestR };
   }
-  return { standTest, search3, look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
+  // the same search, but a candidate has to walk on several stairs at once (a lucky point that falls over when a number is rounded is no use)
+  // the default stairs and its neighbours: a little more or less of a few settings, and two other stairs
+  const VARIANTS = [{}, { _p: (c) => ({ arch: c.arch - 0.7 }) }, { _p: (c) => ({ arch: c.arch + 0.7 }) }, { _p: (c) => ({ lean: c.lean + 3 }) }, { _p: (c) => ({ gravity: c.gravity * 1.06 }) }, { _p: (c) => ({ spring: c.spring * 0.93 }) }, { stepW: 5.5 }, { stepW: 8.9, drop: 2.8 }];
+  const robustScore = (cand) => { let tot = 0, ok = 0; const det = []; for (const v of VARIANTS) { const full = { arch: 14, lean: 42, gravity: 22.5, spring: 2131, ...cand }, extra = v._p ? v._p(full) : v; const vv = { ...v }; delete vv._p; const r = walk({ ...cand, ...vv, ...(v._p ? extra : {}) }); const d = Math.min(r.descended, 4.6); tot += d / 4.6; if (r.descended >= 4.4) ok++; det.push(r.descended); } return { score: tot / VARIANTS.length + ok * 0.12, ok, det }; };
+  function search4(base, cands = 6) {
+    window.__S4 = window.__S4 || { best: { ...base }, bestR: robustScore(base), tried: 0 }; const S = window.__S4;
+    for (let c = 0; c < cands; c++) {
+      const cand = { ...S.best }; const sc = Math.max(0.12, 1 / (1 + S.tried / 40));
+      for (const k in SP3) { if (Math.random() < 0.6) continue; const [lo, hi] = SP3[k]; cand[k] = Math.min(hi, Math.max(lo, (cand[k] !== undefined ? cand[k] : (lo + hi) / 2) + (Math.random() * 2 - 1) * (hi - lo) * 0.3 * sc)); }
+      const r = robustScore(cand); S.tried++; if (r.score > S.bestR.score) { S.best = cand; S.bestR = r; }
+    }
+    return { tried: S.tried, score: +S.bestR.score.toFixed(3), ok: S.bestR.ok, det: S.bestR.det };
+  }
+  return { search4, robustScore, standTest, search3, look, look2, start2, round2, start, round, gridScore, walk, dropTest, climb, crossed, lockedWalk, lockedDrop, robust };
 })();
 'ready';

@@ -83,6 +83,12 @@ export function createRings(cap) {
       fx[b0] += t * pxn; fy[b0] += t * pyn; fx[a0] -= t * pxn; fy[a0] -= t * pyn;
     }
 
+    // ---- the first and last ring want to lie flat: with nothing on one side to hold them up, a ring on the floor settles square to it (torque toward horizontal, firmer on the floor) ----
+    if (env.endFlat > 0 && n > 1) for (let q = 0; q < 2; q++) {
+      const i = q ? n - 1 : 0, rest = S.touchedPrev[2 * i] || S.touchedPrev[2 * i + 1] ? 1 : 0.3;
+      tq[i] -= env.endFlat * rest * Math.sin(2 * a[i]) + env.kla * 0.5 * rest * w[i];
+    }
+
     // ---- rings push each other off ----
     const dmin = env.dmin, kc = env.kc, cc = env.cc, reach = (2 * R + dmin) * (2 * R + dmin), J = env.reach;
     for (let i = 0; i < n; i++) {

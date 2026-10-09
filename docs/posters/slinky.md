@@ -150,3 +150,11 @@ Result (search of 120 candidates on `walk`): down all five steps in 4.5 s withou
 - Slinky drop (`dropTest`): hung by the first coil and let go, the bottom hovers while the top falls when the wire is soft: wire stiffness 150 gives hover 26 frames, recoil 0.35, stretch 3.2; 60 gives 31 frames and 7x; 1200 and above gives 5 frames (rigid). Action **Hang it (the Slinky drop)** sets 150, hangs 14 coils; **Let go** drops them.
 - Standing drop (`standTest`, action **Drop one standing**): at the defaults the end ring is nearly flat on the floor at 40 frames (|ry| 0.2), the stack recoils 153 px and falls over into an arch (spread 484 px); with the Bouncy preset the recoil is 137 px.
 - Defaults are the ones found on the stairs (spring 2535 ...). Presets: **Bouncy slinky** (bounce 0.6, wire damping 0.3, spring 1200), **Calm slinky**.
+
+## Wide rings, flowing motion, end rings flat, marked caps (10 Oct 2026)
+
+- Wider coils, many of them: `size` 0.11 (was 0.085 / 0.07), `gap` 0.12 (was 0.236), 40 coils (was 25), `wire` 0.03 (thin enough to read a dense coil). The same radii-based units keep the dynamics similar.
+- Lighter material, flowing: gravity 22.5 (was 35), found by a robust search (`search4`): a candidate has to walk on the default stairs, on small changes of arch, lean, gravity and stiffness, and on two other stairs. Result: the default stairs, 4.94 steps in 11 s with no tap; 8 of 9 grid stairs (the ninth gets 4.0 steps); a drop of 1.8 radii walks. An earlier "best" (a lucky point, 4.99 steps) fell over when its numbers were rounded; that is why the search became robust.
+- End rings lie flat: `endFlat` (0.6): a torque on the first and last ring toward horizontal, firm when it rests on a step or the floor. In the standing drop the end ring is flat on the floor within 40 frames (|ry| 0.02).
+- The caps are marked: the two end rings are drawn heavier and carry a stick with a dot on its end, along the ring's axis, pointing away from the body, drawn on top with a halo, so you can see which way each faces (stairs and factory).
+- Bench: `walk` and the searches take their coil count from the scene (it forced 25 before).

@@ -17,12 +17,12 @@ export function createPhys(stage, V) {
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
   const offs = [];
 
-  const DEFAULTS = {                                 // found by a random search on the rigid-ring solver (tools/slinky-bench.js, search3), 10 Oct 2026: down all five steps on 8 of 9 stair shapes, also on low steps (1.2 to 1.8 radii)
-    coils: 25, size: 0.085, wire: 0.065,               // number of coils, coil radius (of the shorter screen side), wire thickness drawn (of the radius)
-    spring: 2535, gap: 0.236, arch: 11, pack: 0.237, archW: 2.562, archH: 1.478,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
-    gravity: 35, grip: 0.51, damping: 0.26, bounce: 0.21,             // gravity (radii per s^2), friction of the steps, air drag (per s), bounce off the steps
-    wireDamp: 1.5, contact: 26, contactDamp: 0.41, inertia: 0.52, lean: 33, leanK: 1.7, spin: 2, shear: 0,   // damping along the wire, stiffness of a ring pressed on a ring (times the wire's) and its damping, the ring's inertia (of mass x radius^2), most a ring may lean off square (deg) and how hard it is held, spin damping, diagonal wire
-    stepW: 6.9, drop: 2.3, push: 2.6,                  // width and drop of a step (radii), the strength of the tap
+  const DEFAULTS = {                                 // wide rings, many coils, a flowing walk: found by a random search on the rigid-ring solver (tools/slinky-bench.js, search3), 10 Oct 2026
+    coils: 40, size: 0.11, wire: 0.03,                 // number of coils, coil radius (of the shorter screen side), wire thickness drawn (of the radius)
+    spring: 2131, gap: 0.12, arch: 14.7, pack: 0.12, archW: 2.5, archH: 1.5,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
+    gravity: 22.5, grip: 0.42, damping: 0.21, bounce: 0.6,             // gravity (radii per s^2), friction of the steps, air drag (per s), bounce off the steps
+    wireDamp: 5.35, contact: 14.7, contactDamp: 0.02, inertia: 0.49, lean: 42.4, leanK: 0.66, spin: 2.07, shear: 0, endFlat: 0.6,   // damping along the wire, stiffness of a ring pressed on a ring (times the wire's) and its damping, the ring's inertia (of mass x radius^2), most a ring may lean off square (deg) and how hard it is held, spin damping, diagonal wire, how firmly the end rings lie flat
+    stepW: 6.9, drop: 2.3, push: 2.4,                 // width and drop of a step (radii), the strength of the tap
     yaw: 50, pitch: 32,                                // the view (degrees)
   };
   const P = { ...DEFAULTS };
@@ -68,7 +68,7 @@ export function createPhys(stage, V) {
   const boxes = () => { const out = []; for (let k = 0; k <= 5; k++) out.push([k === 0 ? -1e5 : (k - 1) * stepW, k === 0 ? 0 : k === 5 ? 1e5 : k * stepW, top(k)]); return out; };
   function envNow() {
     const k = P.spring, kw = k * 60, kc = k * P.contact, e = clamp(P.bounce, 0.02, 0.98), zeta = -Math.log(e) / Math.sqrt(Math.PI * Math.PI + Math.log(e) ** 2), dmin = R * P.gap + rw, I = R * R * P.inertia, kl = k * R * R * P.leanK;
-    return { R, g: P.gravity * R, k, kd: P.shear * k, l0: Math.hypot(L, dmin), cw: P.wireDamp, kc, cc: 2 * Math.sqrt(kc) * P.contactDamp, dmin, rw, kw, cwall: 2 * zeta * Math.sqrt(kw), mu: P.grip, cf: 60, inertia: P.inertia, lean: P.lean * Math.PI / 180, kl, kla: 2 * Math.sqrt(kl * I) * 0.5, wdamp: P.spin, air: P.damping, reach: 5, boxes: boxes(),
+    return { R, g: P.gravity * R, k, kd: P.shear * k, l0: Math.hypot(L, dmin), cw: P.wireDamp, kc, cc: 2 * Math.sqrt(kc) * P.contactDamp, dmin, rw, kw, cwall: 2 * zeta * Math.sqrt(kw), mu: P.grip, cf: 60, inertia: P.inertia, lean: P.lean * Math.PI / 180, kl, kla: 2 * Math.sqrt(kl * I) * 0.5, endFlat: kl * P.endFlat, wdamp: P.spin, air: P.damping, reach: 5, boxes: boxes(),
       grab: grab ? { pt: grab.i, x: grab.x, y: grab.y } : null };
   }
   function stepAll() { const h = 1 / 960, env = envNow(); for (let s = 0; s < 16; s++) ring.step(h, env); ring.endsOf(R, px, py); }
@@ -100,18 +100,30 @@ export function createPhys(stage, V) {
     const list = [];
     for (let i = 0; i < N; i++) {
       const cx = (px[2 * i] + px[2 * i + 1]) / 2, cy = (py[2 * i] + py[2 * i + 1]) / 2, ux = (px[2 * i] - px[2 * i + 1]) / L, uy = (py[2 * i] - py[2 * i + 1]) / L;
-      list.push({ cx, cy, ux, uy, z: project([cx, cy, 0], r, 0, 0)[2] });
+      list.push({ i, cx, cy, ux, uy, z: project([cx, cy, 0], r, 0, 0)[2] });
     }
     list.sort((a, b) => a.z - b.z);
-    ctx.lineWidth = Math.max(2, R * P.wire);
+    // the two end rings (the caps) are drawn heavier and carry a marker along their axis, pointing away from the body, so you can tell which way each faces
+    const capDir = (i, j) => { const nx = -(py[2 * i] - py[2 * i + 1]) / L, ny = (px[2 * i] - px[2 * i + 1]) / L, mx = (px[2 * i] + px[2 * i + 1]) / 2 - (px[2 * j] + px[2 * j + 1]) / 2, my = (py[2 * i] + py[2 * i + 1]) / 2 - (py[2 * j] + py[2 * j + 1]) / 2, sg = nx * mx + ny * my >= 0 ? 1 : -1; return [nx * sg, ny * sg]; };
+    const caps = new Map([[0, capDir(0, 1)], [N - 1, capDir(N - 1, N - 2)]]), markers = [];
     for (const c of list) {
+      const cap = caps.get(c.i);
+      ctx.lineWidth = Math.max(1.6, R * P.wire) * (cap ? 2.2 : 1);
       ctx.beginPath();
       for (let i = 0; i <= 40; i++) {
         const a = i / 40 * Math.PI * 2, cs = Math.cos(a) * R, sn = Math.sin(a) * R, q = project([c.cx + c.ux * cs, c.cy + c.uy * cs, sn], r, ox, oy);
         i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
       }
       ctx.stroke();
+      if (cap) markers.push([project([c.cx, c.cy, 0], r, ox, oy), project([c.cx + cap[0] * R * 1.25, c.cy + cap[1] * R * 1.25, 0], r, ox, oy)]);
     }
+    for (const [a0, a1] of markers) {                                        // the markers last, on top, with a halo: a stick from the middle of the cap pointing away from the body, ending in a dot
+      for (const [col, wm, rm] of [[paper, 3.2, 1.9], [ink, 1.4, 1]]) {
+        ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(2, R * 0.04) * wm; ctx.beginPath(); ctx.moveTo(a0[0], a0[1]); ctx.lineTo(a1[0], a1[1]); ctx.stroke();
+        ctx.beginPath(); ctx.arc(a1[0], a1[1], Math.max(3.5, R * 0.1) * rm, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.strokeStyle = ink; ctx.fillStyle = paper;
   }
 
   // ---------- touch ----------
@@ -152,7 +164,7 @@ export function createPhys(stage, V) {
       title: 'Slinky (physical)', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Wire', items: [Ctl('spring', 'Spring stiffness (low = soft)', 20, 2000, 10), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('arch', 'Coils on the arch at the start (re-forms)', 3, 14, 1), Ctl('pack', 'Spacing in the stack (re-forms)', 0.1, 0.6, 0.01), Ctl('archW', 'Arch width (re-forms)', 1, 4, 0.1), Ctl('archH', 'Arch height (re-forms)', 0.5, 3, 0.1), Ctl('coils', 'Coils (re-forms)', 8, 40, 1), Ctl('size', 'Coil radius (re-forms)', 0.05, 0.14, 0.005)] },
-        { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('shear', 'Diagonal wire (tension squares the rings)', 0, 3, 0.05), Ctl('wireDamp', 'Wire damping', 0, 60, 1), Ctl('contact', 'Ring on ring stiffness', 5, 80, 1), Ctl('contactDamp', 'Ring on ring damping', 0, 1.5, 0.02), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05), Ctl('spin', 'Spin damping', 0, 10, 0.1)] },
+        { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('shear', 'Diagonal wire (tension squares the rings)', 0, 3, 0.05), Ctl('wireDamp', 'Wire damping', 0, 60, 1), Ctl('contact', 'Ring on ring stiffness', 5, 80, 1), Ctl('contactDamp', 'Ring on ring damping', 0, 1.5, 0.02), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05), Ctl('spin', 'Spin damping', 0, 10, 0.1), Ctl('endFlat', 'End rings lie flat', 0, 3, 0.05)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction of the steps', 0, 1.5, 0.05), Ctl('bounce', 'Bounce off the steps', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05), Ctl('stepW', 'Step width (re-forms)', 3, 14, 0.1), Ctl('drop', 'Step drop (re-forms)', 0.4, 2.5, 0.05)] },
         { name: 'Touch', items: [Ctl('push', 'Tap push', 0, 3, 0.05)] },
         { name: 'View', items: [Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005), Ctl('yaw', 'Turn (degrees)', 0, 90, 1), Ctl('pitch', 'Tilt (degrees)', 0, 70, 1)] },
