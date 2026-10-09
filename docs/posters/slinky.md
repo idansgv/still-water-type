@@ -31,18 +31,18 @@ Why this solver: the earlier one (point chain, then rods with position correctio
 
 | | Stairs | Factory (Idan's soft set, 10 Oct) |
 |---|---|---|
-| look | 40 coils, radius 0.11, wire 0.03, gap 0.12 | radius 0.09, wire 0.035, gap 0.21, pitch 0.18 |
-| wire | spring 2131, wireDamp 5.35 | spring 100 (slider goes down to 5), wireDamp 22.5 |
-| rings | lean 42, leanK 0.66, square 0, inertia 0.49, spin 2.07 | lean 37.8, leanK 1.09, square 1, inertia 1.1, spin 0.42 |
-| world | gravity 22.5, grip 0.42, bounce 0.6 | gravity 15, grip 0.5, bounce 0.2, contact 9 (damping 0.34) |
-| caps | endFlat 0.6, capInertia 3 | endFlat 1.55, capInertia 8 |
-| start | arch 14.7 coils, archW 1.2, archH 1.1, push 2.4 | feed 560 px/s, longest 90, shelf ends at 0.32 W, steps 0.17 W deep |
+| look | 40 coils, radius 0.11, wire 0.03, gap 0.035 | radius 0.09, wire 0.035, gap 0.21, pitch 0.18 |
+| wire | spring 1392, wireDamp 7 | spring 100 (slider goes down to 5), wireDamp 22.5 |
+| rings | lean 58, leanK 0.25, square 0, inertia 0.45, spin 1.7 | lean 37.8, leanK 1.09, square 1, inertia 1.1, spin 0.42 |
+| world | gravity 22.5, grip 0.42, bounce 0.6, contact 21 | gravity 15, grip 0.5, bounce 0.2, contact 9 (damping 0.34) |
+| caps | endFlat 1.85, capInertia 3 | endFlat 1.55, capInertia 8 |
+| start | arch 6 coils, archW 2.8, archH 1.8, push 2.4 | feed 560 px/s, longest 90, shelf ends at 0.32 W, steps 0.17 W deep |
 
 `turn` (new, both scenes, default 1): the ring in hand is driven to turn with the move: its facing follows the direction the hand is going, at the rate that direction turns (a hand carrying an end over a half-circle arc in time T turns it by pi at omega = pi / T). Without it a radial move only dragged the cap; with it the head ring flips 180 degrees in all four scripted gestures (2 of 4 without). **X** is the reform shortcut (factory: Sweep up, stairs: Re-form).
 
 `square` (new): a soft pull turning each ring square to the path through its neighbours (the hard `lean` limit only acts past 38 degrees, so without it the rings of a gentle bend stayed vertical and the streaming head ring did not lean down the arch). At 1 the head ring leans down with the arch and the flip test passes on 2 of 3 gestures with the soft set (0.53 without).
 
-The stairs set is tuned to **walk** (default stairs: 4.9 steps in 11 s, no tap; 8 of 9 stair shapes; a 1.8-radius drop too). The factory set is tuned to **flip**: momentum carries the coils over (below). Both scenes have all settings in the panel (groups Stream, Rings, World, Stairs, Look). Presets in the factory: **Bouncy slinky**, **Calm slinky**; actions **Drop one standing**, **Stand one up (drag its top over)**, **Hang it (the Slinky drop)**, **Let go**, **Sweep up**.
+The stairs set is now Idan's hand-tuned one (10 Oct, evening); the bench's autopilot (two taps) gets 3.1 steps with it and then stalls, so it is for driving by hand. The earlier searched set walked 4.9 steps in 11 s without a tap (8 of 9 stair shapes): spring 2131, gap 0.12, arch 14.7, archW 1.2, archH 1.1, lean 42, leanK 0.66, wireDamp 5.35, contact 14.7, spin 2.07, inertia 0.49, endFlat 0.6. The factory set is tuned to **flip**: momentum carries the coils over (below). Both scenes have all settings in the panel (groups Stream, Rings, World, Stairs, Look). Presets in the factory: **Bouncy slinky**, **Calm slinky**; actions **Drop one standing**, **Stand one up (drag its top over)**, **Hang it (the Slinky drop)**, **Let go**, **Sweep up**.
 
 ## Behaviours checked (bench, 10 Oct 2026)
 

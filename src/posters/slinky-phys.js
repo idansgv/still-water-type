@@ -17,12 +17,12 @@ export function createPhys(stage, V) {
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
   const offs = [];
 
-  const DEFAULTS = {                                 // wide rings, many coils, a flowing walk: found by a random search on the rigid-ring solver (tools/slinky-bench.js, search3), 10 Oct 2026
+  const DEFAULTS = {                                 // Idan's set (10 Oct 2026, tuned by hand): tight dense coils, a short wide arch at the start
     coils: 40, size: 0.11, wire: 0.03,                 // number of coils, coil radius (of the shorter screen side), wire thickness drawn (of the radius)
-    spring: 2131, gap: 0.12, arch: 14.7, pack: 0.12, archW: 1.2, archH: 1.1,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
+    spring: 1392, gap: 0.035, arch: 6, pack: 0.1, archW: 2.8, archH: 1.8,   // wire stiffness, closest approach between coils, coils on the arch at the start, stack spacing, arch width and height
     gravity: 22.5, grip: 0.42, damping: 0.21, bounce: 0.6,             // gravity (radii per s^2), friction of the steps, air drag (per s), bounce off the steps
-    wireDamp: 5.35, contact: 14.7, contactDamp: 0.02, inertia: 0.49, lean: 42.4, leanK: 0.66, spin: 2.07, shear: 0, square: 0, turn: 1, endFlat: 0.6, capInertia: 3,   // damping along the wire, stiffness of a ring pressed on a ring (times the wire's) and its damping, the ring's inertia (of mass x radius^2), most a ring may lean off square (deg) and how hard it is held, spin damping, diagonal wire, how firmly the end rings lie flat
-    stepW: 6.9, drop: 2.3, push: 2.4,                 // width and drop of a step (radii), the strength of the tap
+    wireDamp: 7, contact: 21, contactDamp: 0.02, inertia: 0.45, lean: 58, leanK: 0.25, spin: 1.7, shear: 0, square: 0, turn: 1, endFlat: 1.85, capInertia: 3,   // damping along the wire, stiffness of a ring pressed on a ring (times the wire's) and its damping, the ring's inertia, most a ring may lean off square (deg) and how hard it is held, spin damping, diagonal wire, rings square to the path, the ring in hand turns with the move, how firmly the end rings lie flat, the caps' weight
+    stepW: 6.9, drop: 2.3, push: 2.4,                  // width and drop of a step (radii), the strength of the tap
     yaw: 50, pitch: 32,                                // the view (degrees)
   };
   const P = { ...DEFAULTS };
