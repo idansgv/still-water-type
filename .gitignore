@@ -5,3 +5,6 @@ node_modules
 # trial fonts (public repository): keep local only
 assets/fonts/*
 !assets/fonts/README.md
+
+# reference images of someone else's artwork: local only, never committed
+docs/posters/shadow-refs/
