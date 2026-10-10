@@ -1,23 +1,24 @@
-// Shadow. The type is drafted first, as exact stroke shapes (bands, bars, arcs). Then each piece of the type becomes one solid: the piece
-// extruded along the light, at a height of its own, with its two ends cut at slants of their own. Under the one directional light the
-// shadow of every solid is exactly its piece, and the pieces together are exactly the type. There are about 25 solids, never more than 50.
+// Shadow. The type is drafted first, as exact letterforms. Then it is built as relief glued to the wall: thin raised fins standing on the
+// surface, lit by one directional light that grazes along the wall from the side. Each fin throws a long shadow across the wall, and the
+// shadows (with the fins themselves) are the type, exactly. There are about 30 fins, never more than 50.
 //
-// Why it is exact: the light is a far lamp with slant l. A point at height z above the wall throws its shadow to (x - z * lx, y - z * ly).
-// So the point whose shadow must land on p, at height z, sits at p + z * l; whatever height each point of the piece is given, its shadow
-// lands on p. A solid whose bottom and top faces are the piece lifted to any heights (and so slanted any way) therefore casts exactly the
-// piece. The sides of the solid are parallel to the light: it is a beam of light made solid.
+// How the type is cut into fins. The light has a direction along the wall and a low elevation (|l| = 1 / tan(elevation), large). A point at
+// height h above the wall throws its shadow a distance h * |l| away from the light, along the wall. So a letter is cut by lines parallel
+// to the light into runs. Each run has a lit end (toward the light) and a far end; a fin stands at the lit end, as high as the run is
+// long divided by |l| (less its own thickness), so the shadow of its top reaches exactly to the far end. Neighbouring runs that line up
+// are one fin: a smooth ridge, with the height changing along it as the run length does. Where the lit edge steps (an arm of the E
+// against the stem), a new fin starts: a tall post for the long run, a low ridge for the short one. Every fin is as high as its shadow is long,
+// so every fin matters, and the heights are the sculpture.
 //
-// So the heights and slants are free, and they are the sculpture: every solid hangs at its own height and its ends lean their own way. Move
-// the light and each shadow shears by the height of every point of it: the tall ends swing far, the low ends barely, and the type tears.
-// At first glance the solids are a few slanting slabs; the type is only in the shadow.
+// Move the light (any side, any height) and every shadow turns and stretches by its own fin's height: the type tears apart. At home it is exact.
 //
-// Look: shadows are solid ink on the wall; the solids are lit (faces tinted by how squarely the light meets them, hairline edges).
-// Black on white, then white on black.
+// Look: shadows are solid ink on the wall; the fins are lit solids (faces tinted by how squarely the light meets them, hairline edges).
+// Black on white, then white on black. The camera orbits (drag; keys 1 to 4); L shows the light.
 //
-// Touch: the light's slant follows the pointer (a dragging finger, or a tilt: stage.look); a small plateau around home snaps the type
-// back. A tap on a solid slides it along the light and back: the shadow, at home, does not move. Left alone, the light eases home.
-// Double tap on empty space: a new plan (new heights and slants). Three quick taps: reveal (the page inverts; the drafted type outlined,
-// a ray from each solid to its piece, the light). The hint: until the first touch, the light swings once, slowly, now and then.
+// Touch: the light follows the pointer (a dragging finger, or a tilt: stage.look); a small plateau around home snaps the type back. A tap on a
+// fin makes it grow and shrink once, and its shadow with it. Left alone, the light eases home. Double tap on empty space: a new plan.
+// Three quick taps: reveal (the page inverts; the lit edge, the far edge, and a ray along each shadow). The hint: until the first touch,
+// the light swings once, slowly, now and then.
 import { createReveal, ink as rvInk, grid, corners, titleBlock } from './reveal.js';
 import { SKELETON, radiusFor } from './lettering.js';
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
@@ -26,25 +27,40 @@ const smooth = (u) => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 *
 const area = (poly) => { let a = 0; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) a += poly[j][0] * poly[i][1] - poly[i][0] * poly[j][1]; return a / 2; };
 const inside = (poly, x, y) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
 
-// ---------- drafting the type: every stroke of every letter as exact shapes ----------
-// a band of width w around a path (a curve), with its ends squared off and lengthened by ext
-function band(pts, w, ext) {
-  const n = pts.length, P = pts.map((p) => [p.x, p.y]);
-  const tan = (i) => { const a = P[Math.max(0, i - 1)], b = P[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
-  const t0 = tan(0), t1 = tan(n - 1);
-  P[0] = [P[0][0] - t0[0] * ext, P[0][1] - t0[1] * ext]; P[n - 1] = [P[n - 1][0] + t1[0] * ext, P[n - 1][1] + t1[1] * ext];
-  const L = [], R = [];
-  for (let i = 0; i < n; i++) { const t = tan(i), nx = -t[1] * w / 2, ny = t[0] * w / 2; L.push([P[i][0] + nx, P[i][1] + ny]); R.push([P[i][0] - nx, P[i][1] - ny]); }
-  return L.concat(R.reverse());
-}
-function draft(poses, w) {
-  const pieces = [];
+// ---------- drafting the type, and cutting it into fins ----------
+// the type as a mask (half size): every stroke of every letter, drawn as a band of width w
+function draftMask(poses, w, mw, mh) {
+  const mc = document.createElement('canvas'); mc.width = mw; mc.height = mh;
+  const mx = mc.getContext('2d', { willReadFrequently: true });
+  mx.fillStyle = '#000'; mx.fillRect(0, 0, mw, mh); mx.strokeStyle = '#fff'; mx.lineWidth = w / 2; mx.lineCap = 'square'; mx.lineJoin = 'miter';
   for (const pose of poses) for (const st of SKELETON[pose.ch].s()) {
-    const pts = st.pts.map((q) => ({ x: pose.x + q.x * pose.w, y: pose.y + q.y * pose.h }));
-    if (st.sharp) { for (let i = 0; i < pts.length - 1; i++) pieces.push({ ch: pose.ch, poly: band([pts[i], pts[i + 1]], w, w * 0.3) }); }   // a straight stroke: one bar
-    else pieces.push({ ch: pose.ch, poly: band(pts.filter((_, i, A) => i % 2 === 0 || i === A.length - 1), w, w * 0.12) });                  // a curve: one bent band
+    mx.beginPath(); st.pts.forEach((q, i) => { const X = (pose.x + q.x * pose.w) / 2, Y = (pose.y + q.y * pose.h) / 2; i ? mx.lineTo(X, Y) : mx.moveTo(X, Y); }); mx.stroke();
   }
-  return pieces;
+  const px = mx.getImageData(0, 0, mw, mh).data, m = new Uint8Array(mw * mh); let total = 0;
+  for (let i = 0; i < m.length; i++) if (px[i * 4] > 128) { m[i] = 1; total++; }
+  return { m, total };
+}
+// cut the mask by lines parallel to the light (unit vector lh, toward the light) into runs, link the runs that line up into chains
+function cutRuns(mask, mw, mh, lh) {
+  const [lx, ly] = lh, nx = -ly, ny = lx, cs = [[0, 0], [mw, 0], [mw, mh], [0, mh]];
+  const ts = cs.map((c) => c[0] * nx + c[1] * ny), ss = cs.map((c) => c[0] * lx + c[1] * ly);
+  const t0 = Math.ceil(Math.min(...ts)), t1 = Math.floor(Math.max(...ts)), s0 = Math.min(...ss), s1 = Math.max(...ss), rows = [];
+  for (let t = t0; t <= t1; t++) {
+    const runs = []; let cur = null;
+    for (let s = s0; s <= s1; s += 0.5) {
+      const x = Math.round(t * nx + s * lx), y = Math.round(t * ny + s * ly), on = x >= 0 && y >= 0 && x < mw && y < mh && mask[y * mw + x];
+      if (on) { if (!cur) cur = { a: s, b: s, t, next: null, prev: null }; else cur.b = s; } else if (cur) { if (cur.b - cur.a >= 2) runs.push(cur); cur = null; }
+    }
+    if (cur && cur.b - cur.a >= 2) runs.push(cur);
+    rows.push(runs);
+  }
+  for (let k = 0; k + 1 < rows.length; k++) {
+    const cand = (a) => rows[k + 1].filter((b) => Math.min(a.b, b.b) - Math.max(a.a, b.a) > 1 && Math.abs(a.b - b.b) <= 6);   // they overlap and the lit ends line up
+    for (const a of rows[k]) { const c = cand(a); if (c.length === 1) { const back = rows[k].filter((q) => Math.min(q.b, c[0].b) - Math.max(q.a, c[0].a) > 1 && Math.abs(q.b - c[0].b) <= 6); if (back.length === 1) { a.next = c[0]; c[0].prev = a; } } }
+  }
+  const chains = [];
+  for (const r of rows) for (const a of r) if (!a.prev) { const ch = []; for (let q = a; q; q = q.next) ch.push(q); chains.push(ch); }
+  return chains;
 }
 
 export function mount(stage) {
@@ -55,11 +71,11 @@ export function mount(stage) {
   const offs = [];
   let seedBump = 0;
 
-  const DEFAULTS = { showLight: 0, glass: 0.5, angle: 20, slant: 1.8, span: 0.72, weight: 1, depth: 0.15, length: 0.06, lean: 0.35, range: 0.5, snap: 0.07, rest: 4 };
+  const DEFAULTS = { showLight: 0, glass: 0.75, angle: 0, slant: 3.2, span: 0.9, weight: 1, ridge: 0.14, range: 0.35, snap: 0.07, rest: 4 };
   const P = { ...DEFAULTS };
   const home = () => { const a = P.angle * Math.PI / 180; return [Math.cos(a) * P.slant, -Math.sin(a) * P.slant]; };   // where the light comes from: 0 is the right, 90 the top; shadows fall the other way
 
-  let W = 1, H = 1, objs = [], pieces = [], tR = 20;
+  let W = 1, H = 1, objs = [], tR = 20, cover = 0;
   let cam = { yaw: 0, pitch: 0, ty: 0, tp: 0 }, R = [1, 0, 0, 0, 1, 0, 0, 0, 1], lookS = [0, 0], held = null, drag = null, dirty = true, now = 0, lastMove = 0, calm = 1, touched = false, idleT = 0, nextDemo = 3.5, demo = null, reformT = 0, lastEmpty = 0, revealed = false, lastLook = [0, 0], lampPos = [0, 0];
   const press = pressTracker();
 
@@ -86,21 +102,28 @@ export function mount(stage) {
     return out;
   }
 
-  // ---------- the plan: one solid per piece of the type ----------
+  // ---------- the plan: cut the drafted type into fins ----------
   function build() {
-    const rand = (() => { let a = (stage.seed ^ (seedBump * 0x9e3779b1)) >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
     const poses = layout();
     tR = radiusFor(poses[0].ch, poses[0].w, poses[0].h) * 0.8;
-    pieces = draft(poses, tR * 2 * P.weight).slice(0, 50);                   // never more than 50
-    objs = pieces.map((pc) => {
-      const poly = pc.poly, n = poly.length, c = [poly.reduce((s, p) => s + p[0], 0) / n, poly.reduce((s, p) => s + p[1], 0) / n];
-      const z0 = H * P.depth * (0.35 + 0.65 * rand()), dz = H * P.length * (0.55 + 0.9 * rand());      // its own height, and its own length along the light
-      const ang = () => rand() * Math.PI * 2, mag = () => (0.3 + 0.7 * rand()) * P.lean;
-      const ab = ang(), mb = mag(), at = ang(), mt = mag();                   // how each end leans (px of height per px across)
-      const zb = poly.map((p) => Math.max(H * 0.012, z0 + mb * (Math.cos(ab) * (p[0] - c[0]) + Math.sin(ab) * (p[1] - c[1]))));
-      const zt = poly.map((p, i) => zb[i] + Math.max(H * 0.03, dz + mt * (Math.cos(at) * (p[0] - c[0]) + Math.sin(at) * (p[1] - c[1]))));
-      return { ch: pc.ch, poly, c, zb, zt, sgn: Math.sign(area(poly)) || 1, slide: null, faces: [], zmid: zb.reduce((s, v, i) => s + v + zt[i], 0) / (2 * n) };
-    }).sort((a, b) => a.zmid - b.zmid);
+    const w = tR * 2 * P.weight, [hx, hy] = home(), L = Math.hypot(hx, hy) || 1, lh = [hx / L, hy / L], mw = Math.ceil(W / 2), mh = Math.ceil(H / 2);
+    const { m, total } = draftMask(poses, w, mw, mh), nx = -lh[1], ny = lh[0], delta = Math.max(5, Math.min(14, w * P.ridge));
+    const chains = cutRuns(m, mw, mh, lh).map((c) => (c.length === 1 ? [c[0], { ...c[0], t: c[0].t + 1 }] : c));
+    let got = 0;
+    objs = chains.map((ch) => {
+      const R = [], I = [], h = [], ends = [], step = Math.max(1, Math.round(ch.length / 40)), idx = [];
+      for (let i = 0; i < ch.length; i += step) idx.push(i);
+      if (idx[idx.length - 1] !== ch.length - 1) idx.push(ch.length - 1);
+      for (const i of idx) {
+        const r = ch[i], d = (r.b - r.a) * 2 + 1, dl = Math.min(delta, d * 0.5), cx = (r.t * nx + r.b * lh[0]) * 2, cy = (r.t * ny + r.b * lh[1]) * 2;
+        R.push([cx, cy]); I.push([cx - dl * lh[0], cy - dl * lh[1]]); h.push(Math.max(2, (d - dl) / L)); ends.push([cx - d * lh[0], cy - d * lh[1]]);
+        got += d;
+      }
+      for (const [arr, at, sg] of [[R, 0, -1], [I, 0, -1], [ends, 0, -1], [R, R.length - 1, 1], [I, I.length - 1, 1], [ends, ends.length - 1, 1]]) { arr[at] = [arr[at][0] + sg * nx * 1.5, arr[at][1] + sg * ny * 1.5]; }   // a run is a row of the mask: reach half a row past the ends so neighbouring fins overlap and leave no seam
+      const c = [R.reduce((a, p) => a + p[0], 0) / R.length, R.reduce((a, p) => a + p[1], 0) / R.length];
+      return { R, I, h, ends, c, slide: null, faces: [], sc: null, depth: 0, mid: R.length >> 1, hmax: Math.max(...h) };
+    }).slice(0, 50).sort((a, b) => a.hmax - b.hmax);
+    cover = Math.min(1, got / Math.max(1, total * 4));
     dirty = true;
   }
   const reform = () => { objs = []; seedBump++; build(); };
@@ -145,50 +168,47 @@ export function mount(stage) {
     }
     const shadow = [];
     for (const o of objs) {
-      let s = 0;
-      if (o.slide) { const u = (t - o.slide.t0) / o.slide.dur; if (u >= 1) o.slide = null; else if (u > 0) s = Math.sin(Math.PI * smooth(u)) * o.slide.amp * H; }
-      const n = o.poly.length;
-      // the solid's corners: the piece, lifted to heights zb (bottom) and zt (top), each corner sitting at p + z * l(home)
-      const B = [], Tp = [];
-      for (let i = 0; i < n; i++) {
-        const zb = o.zb[i] + s, zt = o.zt[i] + s;
-        B.push([o.poly[i][0] + zb * hx, o.poly[i][1] + zb * hy, zb]); Tp.push([o.poly[i][0] + zt * hx, o.poly[i][1] + zt * hy, zt]);
+      let k = 1;
+      if (o.slide) { const u = (t - o.slide.t0) / o.slide.dur; if (u >= 1) o.slide = null; else if (u > 0) k = 1 + Math.sin(Math.PI * smooth(u)) * o.slide.amp; }   // a tap: the fin grows (or shrinks) and settles
+      const m = o.R.length, faces = [];
+      const rv = (i, z) => [o.R[i][0], o.R[i][1], z], iv = (i, z) => [o.I[i][0], o.I[i][1], z];
+      for (let i = 0; i + 1 < m; i++) {
+        const j = i + 1, hi = o.h[i] * k, hj = o.h[j] * k, mid = [(o.R[i][0] + o.R[j][0] + o.I[i][0] + o.I[j][0]) / 4, (o.R[i][1] + o.R[j][1] + o.I[i][1] + o.I[j][1]) / 4, (hi + hj) / 4];
+        faces.push({ v: [rv(i, hi), rv(j, hj), iv(j, hj), iv(i, hi)], kind: 'top', ref: mid });
+        faces.push({ v: [rv(i, 0), rv(j, 0), rv(j, hj), rv(i, hi)], kind: 'side', ref: mid });
+        faces.push({ v: [iv(i, 0), iv(j, 0), iv(j, hj), iv(i, hi)], kind: 'side', ref: mid });
       }
-      const faces = [];
-      for (let i = 0; i < n; i++) { const j = (i + 1) % n; faces.push({ v: [B[i], B[j], Tp[j], Tp[i]], kind: 'side', i }); }
-      faces.push({ v: B, kind: 'bottom' }); faces.push({ v: Tp, kind: 'top' });
+      const e = (i) => ({ v: [rv(i, 0), iv(i, 0), iv(i, o.h[i] * k), rv(i, o.h[i] * k)], kind: 'side', ref: [(o.R[i][0] + o.I[i][0]) / 2 + (i ? 0 : 0), (o.R[i][1] + o.I[i][1]) / 2, o.h[i] * k / 2] });
+      const e0 = e(0), e1 = e(m - 1);
+      e0.ref = [e0.ref[0] - (o.R[1][0] - o.R[0][0]), e0.ref[1] - (o.R[1][1] - o.R[0][1]), e0.ref[2]];                       // outward means away from the rest of the fin
+      e1.ref = [e1.ref[0] - (o.R[m - 2][0] - o.R[m - 1][0]), e1.ref[1] - (o.R[m - 2][1] - o.R[m - 1][1]), e1.ref[2]];
+      faces.push(e0, e1);
       for (const f of faces) {
         // its shadow on the wall for the light now (the corners thrown along it)
-        const sp = f.v.map((p) => [p[0] - Math.max(0, p[2]) * lx, p[1] - Math.max(0, p[2]) * ly]);
+        const sp = f.v.map((p) => [p[0] - p[2] * lx, p[1] - p[2] * ly]);
         if (area(sp) < 0) sp.reverse();
-        if (f.kind === 'top') o.sc = [sp.reduce((a, p) => a + p[0], 0) / sp.length, sp.reduce((a, p) => a + p[1], 0) / sp.length];   // where the middle of this solid's shadow falls
         shadow.push(sp.map((p) => pr(p[0], p[1], 0)));
         // its normal, outward (in the world), and whether the camera sees it
-        let nx, ny, nz;
-        if (f.kind === 'side') {
-          const i = f.i, j = (i + 1) % n, ex = o.poly[j][0] - o.poly[i][0], ey = o.poly[j][1] - o.poly[i][1], el = Math.hypot(ex, ey) || 1;
-          const ox = o.sgn * ey / el, oy = -o.sgn * ex / el;                  // outward in the plane
-          const cx = ey, cy = -ex, cz = ex * hy - ey * hx;                    // edge x beam axis (hx, hy, 1)
-          const sg = cx * ox + cy * oy < 0 ? -1 : 1, l = Math.hypot(cx, cy, cz) || 1; nx = sg * cx / l; ny = sg * cy / l; nz = sg * cz / l;
-        } else {
-          let sx = 0, sy = 0, sz = 0; const r = f.v;
-          for (let i = 0; i < r.length; i++) { const a = r[i], b = r[(i + 1) % r.length]; sx += (a[1] - b[1]) * (a[2] + b[2]); sy += (a[2] - b[2]) * (a[0] + b[0]); sz += (a[0] - b[0]) * (a[1] + b[1]); }
-          const l = Math.hypot(sx, sy, sz) || 1; nx = sx / l; ny = sy / l; nz = sz / l;
-          const along = nx * hx + ny * hy + nz;                                // along the beam toward the lamp: that is the top face's outside
-          if ((f.kind === 'top') !== (along > 0)) { nx = -nx; ny = -ny; nz = -nz; }
-        }
+        const [a0, a1, , a3] = f.v, ux = a1[0] - a0[0], uy = a1[1] - a0[1], uz = a1[2] - a0[2], vx = a3[0] - a0[0], vy = a3[1] - a0[1], vz = a3[2] - a0[2];
+        let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz);
+        if (l < 1e-6) { f.cz = -1; f.s = []; continue; }
+        nx /= l; ny /= l; nz /= l;
+        const cx = f.v.reduce((a, p) => a + p[0], 0) / f.v.length - f.ref[0], cy = f.v.reduce((a, p) => a + p[1], 0) / f.v.length - f.ref[1], cz = f.v.reduce((a, p) => a + p[2], 0) / f.v.length - f.ref[2];
+        if (nx * cx + ny * cy + nz * cz < 0) { nx = -nx; ny = -ny; nz = -nz; }
         f.n = [nx, ny, nz];
         f.s = f.v.map((p) => pr(p[0], p[1], p[2]));                            // on the screen: x, y, depth
         f.d = f.s.reduce((a, p) => a + p[2], 0) / f.s.length;
         f.cz = R[6] * nx + R[7] * ny + R[8] * nz;                              // its normal's depth: it faces the camera when positive
       }
+      const mi = o.mid, hm = o.h[mi] * k;
+      o.sc = [o.R[mi][0] - hm * lx, o.R[mi][1] - hm * ly];                      // where the shadow of the middle of the ridge falls
       o.faces = faces.filter((f) => f.cz > 0.005).sort((a, b) => a.d - b.d);
       o.depth = o.faces.length ? o.faces.reduce((a, f) => a + f.d, 0) / o.faces.length : -1e9;
     }
     c2.beginPath();
     for (const sp of shadow) { c2.moveTo(sp[0][0], sp[0][1]); for (let i = 1; i < sp.length; i++) c2.lineTo(sp[i][0], sp[i][1]); c2.closePath(); }
     c2.fillStyle = fg; c2.fill();                                             // the shadows: solid ink on the wall
-    c2.lineJoin = 'round'; c2.lineWidth = 1; c2.strokeStyle = dark ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)';
+    c2.lineJoin = 'round'; c2.lineWidth = 0.6; c2.strokeStyle = dark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)';
     for (const o of objs.slice().sort((a, b) => a.depth - b.depth)) for (const f of o.faces) {
       const lit = Math.max(0, (f.n[0] * lx + f.n[1] * ly + f.n[2]) / ll), tone = Math.round(255 * (dark ? 0.1 + 0.46 * lit : 0.4 + 0.58 * lit));
       c2.beginPath(); c2.moveTo(f.s[0][0], f.s[0][1]); for (let i = 1; i < f.s.length; i++) c2.lineTo(f.s[i][0], f.s[i][1]); c2.closePath();
@@ -220,22 +240,21 @@ export function mount(stage) {
   const rv = createReveal(stage, (c, W_, H_, k) => {
     const col = (x) => rvInk(stage, x), [lx, ly] = lampPos;
     grid(c, W_, H_, 24, col, k); corners(c, W_, H_, 16, col, k);
-    c.strokeStyle = col(0.9 * k); c.lineWidth = 1.1; c.setLineDash([5, 4]);                            // the type as drafted
-    for (const o of objs) { c.beginPath(); o.poly.forEach((p, i) => { const q = pr(p[0], p[1], 0); i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); }); c.closePath(); c.stroke(); }
+    c.strokeStyle = col(0.9 * k); c.lineWidth = 1.1; c.setLineDash([5, 4]);                            // the far end of every run: where the type's dark edge is drafted
+    for (const o of objs) { c.beginPath(); o.ends.forEach((p, i) => { const q = pr(p[0], p[1], 0); i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); }); c.stroke(); }
     c.setLineDash([3, 3]); c.lineWidth = 0.8; c.strokeStyle = col(0.55 * k);
-    for (const o of objs) {                                                                              // a ray from the middle of the solid's top face to the middle of its piece
-      const f = o.faces.find((q) => q.kind === 'top'), t = f ? f.s : null; if (!t) continue;
-      const m = [t.reduce((a, p) => a + p[0], 0) / t.length, t.reduce((a, p) => a + p[1], 0) / t.length], w = pr(o.c[0], o.c[1], 0);
-      c.beginPath(); c.moveTo(m[0], m[1]); c.lineTo(w[0], w[1]); c.stroke();
-      c.fillStyle = col(0.9 * k); c.beginPath(); c.arc(m[0], m[1], 2.4, 0, 7); c.fill();
+    for (const o of objs) {                                                                              // a ray along the shadow: from the middle of the fin's ridge to the middle of the far edge
+      const q = pr(o.R[o.mid][0], o.R[o.mid][1], 0), z = pr(o.ends[o.mid][0], o.ends[o.mid][1], 0);
+      c.beginPath(); c.moveTo(q[0], q[1]); c.lineTo(z[0], z[1]); c.stroke();
+      c.fillStyle = col(0.9 * k); c.beginPath(); c.arc(q[0], q[1], 2.4, 0, 7); c.fill();
     }
     c.setLineDash([]);
     const cx = W_ - 70, cy = 120, len = Math.hypot(lx, ly) || 1;               // the light: a sun in the corner it comes from, with the way its shadows fall
     c.strokeStyle = col(k); c.lineWidth = 1.4; c.beginPath(); c.arc(cx, cy, 14, 0, 7); c.stroke();
     for (let a = 0; a < 8; a++) { const an = a / 8 * Math.PI * 2; c.beginPath(); c.moveTo(cx + Math.cos(an) * 19, cy + Math.sin(an) * 19); c.lineTo(cx + Math.cos(an) * 26, cy + Math.sin(an) * 26); c.stroke(); }
     c.setLineDash([4, 3]); c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx - lx / len * 70, cy - ly / len * 70); c.stroke(); c.setLineDash([]);
-    const zs = objs.flatMap((o) => [...o.zb, ...o.zt]), z0 = zs.length ? Math.round(Math.min(...zs) / H * 100) : 0, z1 = zs.length ? Math.round(Math.max(...zs) / H * 100) : 0;
-    titleBlock(c, W_, H_, ['SHADOW · PLAN', '● solid  ┄ ray  ┈ the type as drafted', `${objs.length} solids · height ${z0}–${z1}% of the wall`, `light ${Math.round(Math.atan(len) * 57.3)}° from the wall`], col, k);
+    const zs = objs.flatMap((o) => o.h), z0 = zs.length ? Math.round(Math.min(...zs) / H * 100) : 0, z1 = zs.length ? Math.round(Math.max(...zs) / H * 100) : 0;
+    titleBlock(c, W_, H_, ['SHADOW · PLAN', '● fin  ┄ shadow  ┈ far edge of the type', `${objs.length} fins · height ${z0}–${z1}% of the wall`, `light ${Math.round(Math.atan(1 / len) * 57.3)}° above the wall`, `type covered ${Math.round(cover * 100)}%`], col, k);
   });
   offs.push(stage.on('reveal', (on) => { revealed = on; dirty = true; }));
 
@@ -254,7 +273,7 @@ export function mount(stage) {
     if (drag && e.pointerId === drag.id) { drag = null; held = null; }
     if (!r || !r.tap) return;
     const o = hitObj(q);
-    if (o) { o.slide = { t0: now, dur: 1.7, amp: 0.1 * (Math.random() < 0.5 ? 1 : -1) }; }              // a tap: the solid slides along the light and back; at home its shadow does not move
+    if (o) { o.slide = { t0: now, dur: 1.5, amp: Math.random() < 0.5 ? 0.7 : -0.6 }; }                       // a tap: the fin grows (or shrinks) and settles, and its shadow with it
     else {                                                                    // empty space: two quick taps make a new plan (a beat later, so a third tap can mean reveal)
       const t = performance.now();
       if (t - lastEmpty < DOUBLE_MS) { clearTimeout(reformT); reformT = setTimeout(reform, REFORM_DELAY_MS); }
@@ -301,15 +320,15 @@ export function mount(stage) {
     tune: {
       title: 'Shadow', values: P, defaults: DEFAULTS,
       groups: [
-        { name: 'Light', items: [Ctl('angle', 'Where the light comes from (0 right, 90 top, 180 left)', -90, 270, 1), Ctl('slant', 'How low the light sits', 0.4, 3.5, 0.05), Ctl('range', 'How far the light swings', 0.1, 1.2, 0.01), Ctl('snap', 'Snap-to-home plateau', 0, 0.2, 0.005), Ctl('rest', 'Light returns home after (s, 0 = never)', 0, 20, 0.5)] },
+        { name: 'Light', items: [Ctl('angle', 'Where the light comes from (0 right, 90 top, 180 left)', -90, 270, 1), Ctl('slant', 'How low the light sits (re-forms)', 0.8, 6, 0.05), Ctl('range', 'How far the light swings', 0.1, 1.2, 0.01), Ctl('snap', 'Snap-to-home plateau', 0, 0.2, 0.005), Ctl('rest', 'Light returns home after (s, 0 = never)', 0, 20, 0.5)] },
         { name: 'View', items: [Ctl('showLight', 'Show the light (L)', 0, 1, 1)] },
-        { name: 'Type and solids', items: [Ctl('span', 'How much of the page the type spans (re-forms)', 0.4, 1, 0.01), Ctl('weight', 'Letter weight (re-forms)', 0.6, 2, 0.05), Ctl('depth', 'Height of the lowest ends (re-forms)', 0.03, 0.4, 0.005), Ctl('length', 'How long each solid is along the light (re-forms)', 0.03, 0.4, 0.005), Ctl('lean', 'How much the ends lean (re-forms)', 0, 1, 0.01), Ctl('glass', 'How solid the faces are', 0.1, 1, 0.01)] },
+        { name: 'Type and solids', items: [Ctl('span', 'How much of the page the type spans (re-forms)', 0.4, 1, 0.01), Ctl('weight', 'Letter weight (re-forms)', 0.6, 2, 0.05), Ctl('ridge', 'Thickness of each fin (re-forms)', 0.05, 0.4, 0.005), Ctl('glass', 'How solid the faces are', 0.1, 1, 0.01)] },
       ],
       actions: { 'New plan': reform, 'L  Show or hide the light': () => { P.showLight = P.showLight ? 0 : 1; dirty = true; }, '1  Front': () => view('front'), '2  Side (how far each solid stands out)': () => view('side'), '3  Top': () => view('top'), '4  From the light (the solids line up as the type)': () => view('light') },
-      set(key, value) { P[key] = value; if (['weight', 'depth', 'length', 'lean', 'angle', 'slant', 'span'].includes(key)) reform(); dirty = true; },
+      set(key, value) { P[key] = value; if (['weight', 'ridge', 'angle', 'slant', 'span'].includes(key)) reform(); dirty = true; },
       reset() { Object.assign(P, DEFAULTS); reform(); },
     },
-    debug: { cam, view, pr, R: () => R, home, objs: () => objs, lamp: () => lampPos, frame: () => frame(now), count: () => objs.length },
+    debug: { cam, view, pr, R: () => R, home, cover: () => cover, objs: () => objs, lamp: () => lampPos, frame: () => frame(now), count: () => objs.length },
     destroy() { removeEventListener('keydown', onKey); clearTimeout(reformT); rv.destroy(); offs.forEach((f) => f()); stage.setBackdrop(null); },
   };
 }
