@@ -5,22 +5,26 @@
 **Brief (Idan).** The letters shown are actually the shadows of random shapes, carefully organised so that the shadows they cast make the typography. Consider user interactions.
 
 ## What it is
-A few hundred solid objects (cube, octahedron, tetrahedron, icosahedron, hexagonal / triangular / long square prisms, two pyramids) hang at different depths in front of a wall. Each one is placed so that its shadow from one lamp lands on a stroke of IDAN SEGEV (strokes from `lettering.js`, the same composition as the other type posters). From the lamp's home position the shadows join into the name; from anywhere else the same objects throw a scatter of unrelated shapes.
+A sculpture planned by the shadow it casts (Idan, 10 Oct 2026, after Kumi Yamashita's wall pieces; his references and three corrections shaped it: the light must be directional with long shadows; every part of the sculpture must matter to the shadow; at first glance the letters must not look like cast shadows). About 45 square beams hang at planned heights and tilts in front of a wall under one low light from the right; their shadows are IDAN SEGEV. At first glance it is bold type with a tangle of beams in front of it; move the light and the type is shown to be nothing but shadow.
 
-**Geometry.** Point light at height D over a wall at depth 0. An object at depth z casts its shadow magnified by `m = D / (D - z)`, to `L + (P - L) * m`. To land a shadow on target T the object is put at `L0 + (T - L0) / m` and drawn `1/m` as big, so the objects form a smaller, layered cloud in front of the full-size shadow letters. Moving the lamp slides each shadow by `(m - 1)` times the move, nearer objects further, which tears the letters apart. Depth comes from a slow field over the page plus a jitter, so the cloud reads as one hung sculpture.
+**The plan** (`build()` in `shadow.js`). Every stroke of every letter (from `lettering.js`) is cut into straight runs (curves by Douglas-Peucker). Each run becomes one beam. The light is a far lamp with slant `l`; a point at height z above the wall throws its shadow to `(x - z*lx, y - z*ly)`, so a beam end that must shade the point S at height z goes at `S + z*l`, and the beam's shadow lands exactly on the run. The beam's thickness is fitted (three passes) until its shadow is as wide as the stroke. Heights come from a plane per letter: a base by row, minus a squeeze along the light (`gam`, 0.6 to 0.9), plus a sideways lean (`gp`, plus or minus 0.45 to 0.85). The squeeze makes the beam positions bunch up along the light, the lean slants them, so each letter's frame stops looking like a letter and the frames differ from each other.
 
-**Look.** Shadows are solid ink (black on white, white on black on alternate shuffles). Objects are ghost line drawings that invert what is behind them (`globalCompositeOperation = 'difference'`), so they never hide a letter. All edges go into one path per frame, because drawing a shared edge twice with `difference` would cancel it.
+**Why it matters for the shadow.** There is no redundant piece: one beam is the only thing making its run of stroke. Moving the light slides each shadow by z times the change, so tall beams swing far and low ones barely, and the letters shear and stretch into long streaks (a snap plateau at home keeps them exact).
+
+**Look.** Shadows are solid ink (black on white, white on black on alternate shuffles). Beams are lit solids, painter's order, faces tinted by how squarely the light meets them, hairline edges. About 3 ms a frame.
+
+Earlier attempts, kept for the record: a point light in front of the wall with 300 floating polyhedra (wrong reading of the brief); 1,500 scattered blocks under an oblique light (a debris cloud, letters unreadable); a coverage solver with 120 toy blocks (bold, but the letters were fragments and it read as scatter).
 
 ## Interactions
-- **Lamp:** follows the pointer (mouse hover; a dragging finger; device tilt), via `stage.look`. A plateau around home (`snap`) holds the letters exact.
-- **Tap an object:** it and its neighbours turn a full turn (the nearest first); the shadows boil and settle.
-- **Left alone:** after `rest` seconds (4) the lamp eases home; a finger's drag offset is let go too.
-- **Double tap empty space:** new objects (a beat later, so a third tap can mean reveal).
-- **Three quick taps:** reveal. The page inverts and the plan is drawn: the lamp, a ray from the lamp through each object to its shadow, the ring where the letters are exact, depth range.
-- **Hint:** until the first touch, the lamp makes one slow swing now and then (3.5 s, then every 9 to 13 s) and returns. Off under reduced motion.
+- **Light:** its slant follows the pointer (mouse hover; a dragging finger; device tilt), via `stage.look`. A plateau around home (`snap`) holds the letters exact.
+- **Tap a beam:** it and its neighbours turn a full turn about a random axis (the nearest first); their shadows boil and settle.
+- **Left alone:** after `rest` seconds (4) the light eases home; a finger's drag offset is let go too.
+- **Double tap empty space:** a new plan, with new leans (a beat later, so a third tap can mean reveal).
+- **Three quick taps:** reveal. The page inverts and the plan is drawn: a ray from each beam to its shadow, the light and its slant, the height range.
+- **Hint:** until the first touch, the light makes one slow swing now and then (3.5 s, then every 9 to 13 s) and returns. Off under reduced motion.
 - Gestures use `src/gestures.js` (tap 250 ms / 8 px).
 
 ## Open
-- Shadow edges are polygonal blobs; more and smaller objects (`size`) sharpen them at a cost in frames.
+- Curves (S, D, G) are polygonal and a little jagged where beams meet; more, shorter runs (`simplify` epsilon) would smooth them.
 - Not measured on a phone. Letters collide visually where two strokes cross at similar depth.
-- Ideas: a real soft penumbra; objects that settle with a small drop when re-formed; two lamps.
+- Ideas: a soft penumbra; a pool of light on the wall as in the reference; round beams and arcs for the curves; beams that drop in when re-formed.

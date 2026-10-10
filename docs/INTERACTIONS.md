@@ -38,14 +38,14 @@ What each published poster does today, and the rules every poster should follow.
 
 | | Shadow |
 |---|---|
-| Hover / drag | the lamp follows the pointer, a dragging finger or a tilt; a plateau at home keeps the letters exact |
-| Tap on an object | it and its neighbours turn a full turn (under 250 ms, 8 px) |
+| Hover / drag | the light's slant follows the pointer, a dragging finger or a tilt; a plateau at home keeps the letters exact |
+| Tap on a beam | it and its neighbours turn a full turn (under 250 ms, 8 px) |
 | Tap on background | nothing |
 | Hold | nothing |
-| Double tap (empty) | new objects (a beat later) |
-| Three taps (reveal) | page inverts; plan of the lamp, rays through each object to its shadow, the exact-letters ring |
-| Self-demo | the lamp swings once at 3.5 s, then every 9 to 13 s, until the first touch; off under reduced motion |
-| Idle | lamp eases home after 4 s |
+| Double tap (empty) | a new plan (a beat later) |
+| Three taps (reveal) | page inverts; a ray from each beam to its shadow, the light and its slant |
+| Self-demo | the light swings once at 3.5 s, then every 9 to 13 s, until the first touch; off under reduced motion |
+| Idle | light eases home after 4 s |
 
 ## Known inconsistencies still to settle
 
