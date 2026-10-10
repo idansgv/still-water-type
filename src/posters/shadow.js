@@ -1,34 +1,36 @@
-// Shadow. A sculpture planned by the shadow it casts. A frame of bold rods and bars hangs at planned heights and tilts in front of a wall
-// under one low, directional light; their long shadows are the letters of IDAN SEGEV (after Kumi Yamashita's wall pieces). At first glance it
-// reads as clean type with an object hung in front of it; move the light and the type turns out to be nothing but shadow, because every
-// rod is the only thing making its stroke, so each one pulls its piece of letter away.
+// Shadow. A cloud of wooden toy blocks (cylinders, half-rounds, cubes, planks, wedges) hangs in front of a wall under one low, directional
+// light, and the shadows they cast are the letters of IDAN SEGEV (after Kumi Yamashita's wall pieces: the blocks are densest where the
+// shadow is, and thin out and scatter toward the light). Where blocks are many their shadows merge into one solid mass; at the edges and
+// among the strays, single shadows show beside their blocks. Move the light and the type is shown to be nothing but shadow.
 //
-// The light is one far lamp from the right, low, so shadows are long. A point at height z above the wall throws its shadow to
-// (x - z * lx, y - z * ly), with |l| large. Moving the light slides every shadow by z times the change: the high rods swing far, the low
-// ones barely.
+// The light is one far lamp from the upper right, low, so shadows are long. A point at height z above the wall throws its shadow to
+// (x - z * lx, y - z * ly), with |l| large. A block's shadow is the outline of all its corners thrown that way: the block moved by its
+// distance from the wall and stretched along the light by its own depth (a peg standing out of the wall casts a long streak).
 //
-// The plan: every stroke of every letter (from lettering.js) is cut into straight runs (curves become short runs). Each run becomes one
-// rod (a square beam), whose ends are at the heights the plan gives them, and whose
-// screen position follows: a rod end that must shade the point S at height z goes at S + z * l. So the rod's shadow lands exactly on the
-// run, and its radius is fitted until the shadow is as wide as the stroke. Heights follow a plane per letter: each letter has its own base
-// height (lower in the top row) and its own tilt, so every letter hangs as its own leaning frame, sheared a different way from its
-// neighbours, and none of the frames reads as a letter.
+// The plan (solved, not scattered): the letters are drawn into a mask. Blocks are added one at a time, edges of the letters first so the
+// outline comes out crisp, then the inside. For a bare spot many candidates are tried (kind of block, size, how it lies, height); each
+// candidate's real shadow is scored by the new letter it covers, minus what it spills outside the letters, minus what it covers twice
+// (a block that repeats another does nothing, so it does not stay), minus a little for crowding another block or leaving the page. The
+// best stays, and only if it brings enough that is its own. Heights are mostly low, so the blocks sit densely near their shadows and a few
+// stand far out: the cloud thins toward the light.
 //
-// Look: shadows are solid ink on the wall; the rods are lit solids (faces tinted by how squarely the light meets them, hairline edges).
+// Look: shadows are solid ink on the wall; the blocks are lit solids (faces tinted by how squarely the light meets them, hairline edges).
 // Black on white, then white on black.
 //
 // Touch: the light's slant follows the pointer (a dragging finger, or a tilt: stage.look); a small plateau around home snaps the letters
-// back. A tap on a rod turns it (and its neighbours) a full turn about a random axis. Left alone, the light eases home. Double tap on
-// empty space: a new plan (new tilts). Three quick taps: reveal (the page inverts; a ray from every rod to its shadow, and the light). The
-// hint: until the first touch, the light swings once, slowly, now and then and returns.
+// back. A tap on a block spins it (and its neighbours) a full turn. Left alone, the light eases home. Double tap on empty space: a new
+// plan. Three quick taps: reveal (the page inverts; each block's shadow outlined, a ray from every block to its shadow, and the light).
+// The hint: until the first touch, the light swings once, slowly, now and then and returns.
 import { createReveal, ink as rvInk, grid, corners, titleBlock } from './reveal.js';
 import { SKELETON, radiusFor } from './lettering.js';
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 
 const smooth = (u) => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
 
-// ---------- the rods ----------
-function build3(v, f, round) {                              // faces with outward normals (vertices in px, relative to the part's centre)
+// ---------- the blocks: a box of wooden toy blocks, each a unit mesh (circumradius 1) with faces and outward normals ----------
+function build3(v, f, round) {
+  const sc = Math.max(...v.map((p) => Math.hypot(...p)));
+  v = v.map((p) => p.map((q) => q / sc));
   const n = f.map((face) => {
     const [a, b, c] = face.map((i) => v[i]);
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], wx = c[0] - a[0], wy = c[1] - a[1], wz = c[2] - a[2];
@@ -39,60 +41,23 @@ function build3(v, f, round) {                              // faces with outwar
   });
   return { v, f, n, round };
 }
-// a rod from A to B (3D, px), radius rho, with k sides (12: a cylinder, 4: a square bar), lengthened by ext at both ends
-function rodMesh(A, B, rho, k, phase, ext) {
-  const ax = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], L = Math.hypot(...ax) || 1, u = ax.map((q) => q / L);
-  const t = Math.abs(u[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
-  let vx = u[1] * t[2] - u[2] * t[1], vy = u[2] * t[0] - u[0] * t[2], vz = u[0] * t[1] - u[1] * t[0]; const vl = Math.hypot(vx, vy, vz) || 1; vx /= vl; vy /= vl; vz /= vl;
-  const wx = u[1] * vz - u[2] * vy, wy = u[2] * vx - u[0] * vz, wz = u[0] * vy - u[1] * vx, h = L / 2 + ext, v = [];
-  const R = k === 4 ? rho * Math.SQRT2 : rho;                                // a square bar's rho is its half side
-  for (const sgn of [-1, 1]) for (let i = 0; i < k; i++) {
-    const a = phase + i / k * Math.PI * 2, c = Math.cos(a) * R, d = Math.sin(a) * R;
-    v.push([c * vx + d * wx + sgn * h * u[0], c * vy + d * wy + sgn * h * u[1], c * vz + d * wz + sgn * h * u[2]]);
-  }
-  const f = []; for (let i = 0; i < k; i++) f.push([i, (i + 1) % k, k + (i + 1) % k, k + i]);
+const box = (a, b, c) => { const v = []; for (let m = 0; m < 8; m++) v.push([m & 1 ? a : -a, m & 2 ? b : -b, m & 4 ? c : -c]); return build3(v, [[0, 1, 3, 2], [4, 5, 7, 6], [0, 1, 5, 4], [2, 3, 7, 6], [1, 3, 7, 5], [0, 2, 6, 4]], false); };
+function extrude(poly, h, round) {                         // a flat shape (list of [x, y]) pulled out along z, 2h long
+  const k = poly.length, v = [...poly.map((p) => [p[0], p[1], -h]), ...poly.map((p) => [p[0], p[1], h])], f = [];
+  for (let i = 0; i < k; i++) f.push([i, (i + 1) % k, k + (i + 1) % k, k + i]);
   f.push([...Array(k).keys()]); f.push([...Array(k).keys()].map((i) => k + i));
-  return build3(v, f, k > 4);
+  return build3(v, f, round);
 }
-// a curved tube: a round section swept along a 3D path (k sides), for the curves of the letters; segs lists the vertices of each short piece,
-// because the shadow of a bent body is the union of the shadows of its pieces
-function sweepMesh(P3, rho, k) {
-  const n = P3.length, C = [0, 1, 2].map((a) => P3.reduce((t, p) => t + p[a], 0) / n), v = [], f = [], nm = [], segs = [], dirs = [], tans = [];
-  let pv = null;
-  for (let i = 0; i < n; i++) {
-    const a = P3[Math.min(i + 1, n - 1)], b = P3[Math.max(i - 1, 0)];
-    let t = [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; const tl = Math.hypot(...t) || 1; t = t.map((q) => q / tl); tans.push(t);
-    let vv;
-    if (!pv) { const ref = Math.abs(t[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]; vv = [t[1] * ref[2] - t[2] * ref[1], t[2] * ref[0] - t[0] * ref[2], t[0] * ref[1] - t[1] * ref[0]]; }
-    else { const d = pv[0] * t[0] + pv[1] * t[1] + pv[2] * t[2]; vv = [pv[0] - d * t[0], pv[1] - d * t[1], pv[2] - d * t[2]]; }
-    const vl = Math.hypot(...vv) || 1; vv = vv.map((q) => q / vl); pv = vv;
-    const ww = [t[1] * vv[2] - t[2] * vv[1], t[2] * vv[0] - t[0] * vv[2], t[0] * vv[1] - t[1] * vv[0]], ring = [];
-    for (let j = 0; j < k; j++) {
-      const an = j / k * Math.PI * 2, d = [Math.cos(an) * vv[0] + Math.sin(an) * ww[0], Math.cos(an) * vv[1] + Math.sin(an) * ww[1], Math.cos(an) * vv[2] + Math.sin(an) * ww[2]];
-      ring.push(d); v.push([P3[i][0] - C[0] + rho * d[0], P3[i][1] - C[1] + rho * d[1], P3[i][2] - C[2] + rho * d[2]]);
-    }
-    dirs.push(ring);
-  }
-  for (let i = 0; i < n - 1; i++) {
-    segs.push([...Array(2 * k).keys()].map((q) => i * k + q));
-    for (let j = 0; j < k; j++) {
-      const j2 = (j + 1) % k, a = dirs[i][j], b = dirs[i][j2], x = a[0] + b[0], y = a[1] + b[1], z = a[2] + b[2], l = Math.hypot(x, y, z) || 1;
-      f.push([i * k + j, i * k + j2, (i + 1) * k + j2, (i + 1) * k + j]); nm.push([x / l, y / l, z / l]);
-    }
-  }
-  f.push([...Array(k).keys()]); nm.push(tans[0].map((q) => -q));
-  f.push([...Array(k).keys()].map((q) => (n - 1) * k + q)); nm.push(tans[n - 1]);
-  return { v, f, n: nm, round: true, segs, C };
-}
-const I3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
-// Douglas-Peucker: a curve as straight runs, to within eps
-function simplify(pts, eps) {
-  if (pts.length < 3) return pts;
-  const a = pts[0], b = pts[pts.length - 1], dx = b.x - a.x, dy = b.y - a.y, dl = Math.hypot(dx, dy) || 1;
-  let m = 0, mi = 0; for (let i = 1; i < pts.length - 1; i++) { const d = Math.abs((pts[i].x - a.x) * dy - (pts[i].y - a.y) * dx) / dl; if (d > m) { m = d; mi = i; } }
-  if (m <= eps) return [a, b];
-  return simplify(pts.slice(0, mi + 1), eps).slice(0, -1).concat(simplify(pts.slice(mi), eps));
-}
+const ngon = (k, rr) => Array.from({ length: k }, (_, i) => [Math.cos(i / k * Math.PI * 2) * rr, Math.sin(i / k * Math.PI * 2) * rr]);
+const half = (rr) => { const p = []; for (let i = 0; i <= 7; i++) { const a = i / 7 * Math.PI; p.push([Math.cos(a) * rr, Math.sin(a) * rr - rr * 0.45]); } return p; };
+const arch = (rr) => { const p = []; for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI; p.push([Math.cos(a) * rr, Math.sin(a) * rr - rr * 0.5]); } p.push([rr * 0.5, -rr * 0.5], [rr * 0.5, -rr * 0.5 + 0.01]); for (let i = 8; i >= 0; i--) { const a = i / 8 * Math.PI; p.push([Math.cos(a) * rr * 0.5, Math.sin(a) * rr * 0.5 - rr * 0.5]); } return p; };
+// the vocabulary: cubes, planks, bars; cylinders (a stub, a rod, a disc); a half-round; a wedge (triangular prism)
+const KINDS = [
+  box(0.62, 0.62, 0.62), box(0.7, 0.7, 0.5), box(0.8, 0.7, 0.42), box(0.55, 0.55, 0.85), box(0.75, 0.6, 0.6),   // cubes, thick slabs, a short bar: bulky, none thin
+  extrude(ngon(14, 0.65), 0.7, true), extrude(ngon(14, 0.55), 0.9, true), extrude(ngon(16, 0.8), 0.45, true),    // cylinders: a stub, a post, a fat disc
+  extrude(half(0.85), 0.7, true), extrude(half(0.7), 0.85, true),                                                  // half-rounds
+  extrude([[-0.8, -0.5], [0.8, -0.5], [0, 0.8]], 0.75, false),                                                    // wedge
+];
 
 // ---------- small 3x3 rotation helpers ----------
 const rotAxis = (ax, ay, az, a) => {
@@ -134,12 +99,12 @@ export function mount(stage) {
   const offs = [];
   let seedBump = 0;
 
-  const DEFAULTS = { slant: 2.6, depth: 0.1, size: 1, tilt: 0.6, range: 0.5, snap: 0.07, rest: 4 };
+  const DEFAULTS = { slant: 2.2, depth: 0.11, size: 1.1, range: 0.5, snap: 0.07, rest: 4 };
   const P = { ...DEFAULTS };
-  const DIR = [0.96, -0.28];                                                  // where the light comes from: the upper right, so shadows fall to the lower left
+  const DIR = [0.9, -0.43];                                                  // where the light comes from: the upper right, so shadows fall to the lower left
   const home = () => [DIR[0] * P.slant, DIR[1] * P.slant];
 
-  let W = 1, H = 1, shapes = [], tR = 20;
+  let W = 1, H = 1, shapes = [], tR = 20, cover = 0, spill = 0;
   let dirty = true, now = 0, lastMove = 0, calm = 1, touched = false, idleT = 0, nextDemo = 3.5, demo = null, reformT = 0, lastEmpty = 0, revealed = false, lastLook = [0, 0], lampPos = [0, 0];
   const press = pressTracker();
 
@@ -148,7 +113,7 @@ export function mount(stage) {
     const portrait = W / H < 0.85;
     const rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
     const padX = Math.max(14, W * 0.045), top = Math.max(18, H * 0.04), bottom = 96;
-    const availW = (W - 2 * padX) * (W / H < 0.85 ? 0.86 : 0.8), availH = H - top - bottom, gap = 0.06;
+    const availW = (W - 2 * padX) * (W / H < 0.85 ? 1 : 0.9), availH = H - top - bottom, gap = 0.06;
     const advance = (c, h) => h * (0.6 * SKELETON[c].wf + 2 * (c === 'I' ? 0.11 : Math.min(SKELETON[c].wf * 0.6 * 0.25, c === 'E' ? 0.1 : 0.118)) + gap);
     let h = Infinity;
     for (const row of rows) h = Math.min(h, availW / [...row].reduce((s, c) => s + advance(c, 1), 0));
@@ -166,55 +131,62 @@ export function mount(stage) {
     return out;
   }
 
-  // ---------- the plan ----------
+  // ---------- the solver ----------
   function build() {
     const rand = (() => { let a = (stage.seed ^ (seedBump * 0x9e3779b1)) >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
     const poses = layout(), [lx, ly] = home();
     tR = radiusFor(poses[0].ch, poses[0].w, poses[0].h) * 0.8;               // the stroke's half thickness
-    const wTarget = tR * 1.75 * P.size, zmax = P.depth * H, zmin = zmax * 0.35, rows = [...new Set(poses.map((q) => Math.round(q.y)))].sort((a, b) => a - b);
-    const list = [];
-    for (const pose of poses) {
-      // this letter's own frame: a base height by row, and a tilt in a direction of its own
-      const row = rows.indexOf(Math.round(pose.y)), base = zmax * (rows.length > 1 ? 0.55 + 0.35 * row / (rows.length - 1) : 0.7) * (0.92 + 0.16 * rand());
-      // the frame is squeezed along the light: the further a point is toward the light, the lower it hangs, so the rod positions
-      // (S + z * l) bunch up along the light's direction by (1 - gam), and a letter's frame stops looking like a letter
-      const ln = Math.hypot(lx, ly) || 1, ux = lx / ln, uy = ly / ln, gam = Math.min(0.9, (0.62 + 0.28 * rand()) * P.tilt), gp = (rand() < 0.5 ? -1 : 1) * (0.45 + 0.4 * rand()) * P.tilt;
-      const zAt = (X, Y) => { const dx = X - pose.x, dy = Y - pose.y; return Math.max(zmin, Math.min(zmax, base - gam * (dx * ux + dy * uy) / ln + gp * (dx * -uy + dy * ux) / ln)); };
-      for (const st of SKELETON[pose.ch].s()) {
-        let pts = st.pts.map((q) => ({ x: pose.x + q.x * pose.w, y: pose.y + q.y * pose.h }));
-        const curved = !st.sharp;
-        if (curved) {                                                          // a curve: one smooth tube swept along it, a point every few degrees
-          const m = Math.max(1, Math.round(st.pts.length / 16)), q = st.pts.map((p) => ({ x: pose.x + p.x * pose.w, y: pose.y + p.y * pose.h })).filter((_, i, A) => i % m === 0 || i === A.length - 1);
-          const ext = wTarget * 0.3, e0 = q[0], e1 = q[q.length - 1], d0 = Math.hypot(q[1].x - e0.x, q[1].y - e0.y) || 1, d1 = Math.hypot(e1.x - q[q.length - 2].x, e1.y - q[q.length - 2].y) || 1;
-          q.unshift({ x: e0.x - (q[1].x - e0.x) / d0 * ext, y: e0.y - (q[1].y - e0.y) / d0 * ext });
-          q.push({ x: e1.x + (e1.x - q[q.length - 2].x) / d1 * ext, y: e1.y + (e1.y - q[q.length - 2].y) / d1 * ext });
-          const P3 = q.map((S) => { const z = zAt(S.x, S.y); return [S.x + z * lx, S.y + z * ly, z]; });
-          let rho = wTarget * 0.5, m3 = sweepMesh(P3, rho, 14);
-          const mid = Math.floor(q.length / 2), dx = q[mid + 1].x - q[mid].x, dy = q[mid + 1].y - q[mid].y, dl = Math.hypot(dx, dy) || 1;
-          for (let it = 0; it < 3; it++) {                                     // fit the radius so the shadow is as wide as the stroke
-            let lo = Infinity, hi = -Infinity;
-            for (const ix of m3.segs[mid]) { const vv = m3.v[ix], Z = Math.max(0, m3.C[2] + vv[2]), X = m3.C[0] + vv[0] - Z * lx, Y = m3.C[1] + vv[1] - Z * ly, qq = (-X * dy + Y * dx) / dl; if (qq < lo) lo = qq; if (qq > hi) hi = qq; }
-            rho *= wTarget / Math.max(1, hi - lo); m3 = sweepMesh(P3, rho, 14);
-          }
-          list.push({ x: m3.C[0], y: m3.C[1], z: m3.C[2], r: 1, mesh: m3, M0: I3, spin: null, hull: null, sh: null, shs: null });
-          continue;
-        }
-        for (let i = 0; i < pts.length - 1; i++) {                             // a straight run: one square beam
-          const Sa = pts[i], Sb = pts[i + 1], len = Math.hypot(Sb.x - Sa.x, Sb.y - Sa.y); if (len < tR * 0.4) continue;
-          const za = zAt(Sa.x, Sa.y), zb = zAt(Sb.x, Sb.y);
-          const A = [Sa.x + za * lx, Sa.y + za * ly, za], B = [Sb.x + zb * lx, Sb.y + zb * ly, zb];
-          const k = 4, phase = rand() * Math.PI / 2, ext = wTarget * 0.45;
-          let rho = wTarget * 0.5, m = rodMesh(A, B, rho, k, phase, ext);
-          const dx = (Sb.x - Sa.x) / len, dy = (Sb.y - Sa.y) / len, C = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2];
-          for (let it = 0; it < 3; it++) {
-            let lo = Infinity, hi = -Infinity;
-            for (const v of m.v) { const Z = Math.max(0, C[2] + v[2]), X = C[0] + v[0] - Z * lx, Y = C[1] + v[1] - Z * ly, q = -X * dy + Y * dx; if (q < lo) lo = q; if (q > hi) hi = q; }
-            rho *= wTarget / Math.max(1, hi - lo); m = rodMesh(A, B, rho, k, phase, ext);
-          }
-          list.push({ x: C[0], y: C[1], z: C[2], r: 1, mesh: m, M0: I3, spin: null, hull: null, sh: null, shs: null });
-        }
-      }
+    // the letters as a mask, at half size
+    const mw = Math.ceil(W / 2), mh = Math.ceil(H / 2), mc = document.createElement('canvas'); mc.width = mw; mc.height = mh;
+    const mx = mc.getContext('2d', { willReadFrequently: true });
+    mx.fillStyle = '#000'; mx.fillRect(0, 0, mw, mh); mx.strokeStyle = '#fff'; mx.lineWidth = tR * 1.1; mx.lineCap = 'round'; mx.lineJoin = 'round';
+    for (const pose of poses) for (const st of SKELETON[pose.ch].s()) {
+      mx.beginPath(); st.pts.forEach((q, i) => { const X = (pose.x + q.x * pose.w) / 2, Y = (pose.y + q.y * pose.h) / 2; i ? mx.lineTo(X, Y) : mx.moveTo(X, Y); }); if (st.closed) mx.closePath(); mx.stroke();
     }
+    const px = mx.getImageData(0, 0, mw, mh).data, mask = new Uint8Array(mw * mh); let total = 0;
+    for (let i = 0; i < mask.length; i++) if (px[i * 4] > 128) { mask[i] = 1; total++; }
+    const cov = new Uint8Array(mw * mh), edge = [], inner = [], E = 4;
+    const at = (x, y) => (x < 0 || y < 0 || x >= mw || y >= mh ? 0 : mask[y * mw + x]);
+    for (let y = 0; y < mh; y += 2) for (let x = 0; x < mw; x += 2) if (mask[y * mw + x]) (!at(x - E, y) || !at(x + E, y) || !at(x, y - E) || !at(x, y + E) ? edge : inner).push([x, y]);
+    const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const seeds = shuffle(edge).concat(shuffle(inner));                       // the outline first, so it comes out crisp, then the inside
+
+    const list = [], zmax = P.depth * H, STEP = 2, minOwn = Math.max(12, tR * tR * 0.018);
+    let covered = 0, spilled = 0;
+    for (const [sx, sy] of seeds) {
+      if (covered > total * 0.975 || list.length > 230) break;
+      if (cov[sy * mw + sx]) continue;
+      let best = null;
+      for (let c = 0; c < 90; c++) {
+        const mesh = KINDS[Math.floor(rand() * KINDS.length)];
+        const r = tR * P.size * (0.62 + 0.7 * rand()), z = zmax * (0.25 + 0.75 * Math.pow(rand(), 1.2));
+        const mode = rand(), tilt = (rand() - 0.5) * 0.6;                      // how it lies: flat on its side, standing out of the wall like a peg, or any angle
+        const M0 = mul3(rotAxis(0, 0, 1, rand() * 6.283), mode < 0.84 ? rotAxis(1, 0, 0, Math.PI / 2 + tilt) : mode < 0.91 ? rotAxis(1, 0, 0, tilt * 0.8) : rotAxis(rand() - 0.5, rand() - 0.5, rand() - 0.5 + 0.01, rand() * 3.2));
+        const tx = sx * 2 + (rand() - 0.5) * r * 0.5, ty = sy * 2 + (rand() - 0.5) * r * 0.5;
+        const a = project(mesh, M0, 0, 0, z, r, lx, ly), sh = hull(a.SH);
+        let cxs = 0, cys = 0; for (const p of sh) { cxs += p[0]; cys += p[1]; } cxs /= sh.length; cys /= sh.length;
+        const x = tx - cxs, y = ty - cys;                                      // the block goes where its shadow's centre lands on the target
+        const poly = sh.map((p) => [p[0] + x, p[1] + y]);
+        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const p of poly) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+        let nw = 0, out = 0, twice = 0, inn = 0;
+        for (let yy = Math.max(0, Math.floor(y0 / 2)); yy <= Math.min(mh - 1, Math.ceil(y1 / 2)); yy += STEP) for (let xx = Math.max(0, Math.floor(x0 / 2)); xx <= Math.min(mw - 1, Math.ceil(x1 / 2)); xx += STEP) {
+          if (!inside(poly, xx * 2, yy * 2)) continue; inn++;
+          if (!mask[yy * mw + xx]) out++; else if (cov[yy * mw + xx]) twice++; else nw++;
+        }
+        if (inn < 3) continue;
+        let crowd = 0; for (const o of list) { const d = Math.hypot(o.x - x, o.y - y), lim = (o.r + r) * 0.7; if (d < lim) crowd += (lim - d) / lim; }
+        const off = (x < -r ? 1 : 0) + (x > W + r ? 1 : 0) + (y < -r ? 1 : 0) + (y > H + r ? 1 : 0);
+        const score = nw - 8 * out - 1.2 * twice - crowd * inn * 0.35 - off * inn * 2;
+        if (!best || score > best.score) best = { score, mesh, r, z, M0, x, y, poly, x0, x1, y0, y1, nw, out };
+      }
+      if (!best || best.nw < minOwn || best.out > best.nw * 0.15) continue;   // it must bring a piece of letter that is its own, with little spill
+      for (let yy = Math.max(0, Math.floor(best.y0 / 2)); yy <= Math.min(mh - 1, Math.ceil(best.y1 / 2)); yy++) for (let xx = Math.max(0, Math.floor(best.x0 / 2)); xx <= Math.min(mw - 1, Math.ceil(best.x1 / 2)); xx++) {
+        if (!inside(best.poly, xx * 2, yy * 2)) continue;
+        if (mask[yy * mw + xx]) { if (!cov[yy * mw + xx]) { cov[yy * mw + xx] = 1; covered++; } } else spilled++;
+      }
+      list.push({ x: best.x, y: best.y, z: best.z, r: best.r, mesh: best.mesh, M0: best.M0, spin: null, hull: null, sh: null, shs: null });
+    }
+    cover = covered / Math.max(1, total); spill = spilled / Math.max(1, covered + spilled);
     shapes = list.sort((a, b) => a.z - b.z);                                  // low to high, for drawing
     dirty = true;
   }
@@ -283,7 +255,7 @@ export function mount(stage) {
     for (let a = 0; a < 8; a++) { const an = a / 8 * Math.PI * 2; c.beginPath(); c.moveTo(cx + Math.cos(an) * 19, cy + Math.sin(an) * 19); c.lineTo(cx + Math.cos(an) * 26, cy + Math.sin(an) * 26); c.stroke(); }
     c.setLineDash([4, 3]); c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx - lx / len * 70, cy - ly / len * 70); c.stroke(); c.setLineDash([]);
     const z0 = shapes.length ? Math.round(Math.min(...shapes.map((s) => s.z)) / H * 100) : 0, z1 = shapes.length ? Math.round(Math.max(...shapes.map((s) => s.z)) / H * 100) : 0;
-    titleBlock(c, W_, H_, ['SHADOW · PLAN', '● piece  ┄ ray  + shadow', `${shapes.length} pieces · height ${z0}–${z1}% of the wall`, `light ${Math.round(Math.atan(len) * 57.3)}° from the wall`], col, k);
+    titleBlock(c, W_, H_, ['SHADOW · PLAN', '● block  ┄ ray  + shadow', `${shapes.length} blocks · height ${z0}–${z1}% of the wall`, `light ${Math.round(Math.atan(len) * 57.3)}° from the wall`, `letters covered ${Math.round(cover * 100)}% · spill ${Math.round(spill * 100)}%`], col, k);
   });
   offs.push(stage.on('reveal', (on) => { revealed = on; dirty = true; }));
 
@@ -295,9 +267,9 @@ export function mount(stage) {
     const r = press.up(q, e.pointerId); lastMove = now; dirty = true;
     if (!r || !r.tap) return;
     const s = hitShape(q);
-    if (s) {                                                                  // a tap on a rod: it and its neighbours turn a full turn, the nearest first
+    if (s) {                                                                  // a tap on a block: it and its neighbours turn a full turn, the nearest first
       const ax = Math.random() - 0.5, ay = Math.random() - 0.5, az = Math.random() - 0.5;
-      for (const o of shapes) { const d = Math.hypot(o.x - s.x, o.y - s.y); if (d < tR * 6) o.spin = { t0: now + d / (tR * 14), dur: 1.1, ax, ay, az }; }
+      for (const o of shapes) { const d = Math.hypot(o.x - s.x, o.y - s.y); if (d < s.r * 3 + tR) o.spin = { t0: now + d / (tR * 14), dur: 1.1, ax, ay, az }; }
     } else {                                                                  // empty space: two quick taps make a new plan (a beat later, so a third tap can mean reveal)
       const t = performance.now();
       if (t - lastEmpty < DOUBLE_MS) { clearTimeout(reformT); reformT = setTimeout(reform, REFORM_DELAY_MS); }
@@ -334,13 +306,13 @@ export function mount(stage) {
       title: 'Shadow', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Light', items: [Ctl('slant', 'How low the light sits (longer shadows, re-forms)', 0.5, 4, 0.05), Ctl('range', 'How far the light swings', 0.1, 1.2, 0.01), Ctl('snap', 'Snap-to-home plateau', 0, 0.2, 0.005), Ctl('rest', 'Light returns home after (s, 0 = never)', 0, 20, 0.5)] },
-        { name: 'Blocks', items: [Ctl('size', 'Rod thickness (re-forms)', 0.5, 1.6, 0.05), Ctl('depth', 'How far rods stand from the wall (re-forms)', 0.08, 0.6, 0.01), Ctl('tilt', 'How much each letter leans (re-forms)', 0, 3, 0.05)] },
+        { name: 'Blocks', items: [Ctl('size', 'Block size (re-forms)', 0.5, 2.2, 0.05), Ctl('depth', 'How far blocks stand from the wall (re-forms)', 0.08, 0.8, 0.01)] },
       ],
       actions: { 'New plan': reform },
-      set(key, value) { P[key] = value; if (key === 'size' || key === 'depth' || key === 'slant' || key === 'tilt') reform(); dirty = true; },
+      set(key, value) { P[key] = value; if (key === 'size' || key === 'depth' || key === 'slant') reform(); dirty = true; },
       reset() { Object.assign(P, DEFAULTS); reform(); },
     },
-    debug: { shapes: () => shapes, lamp: () => lampPos, frame: () => frame(now), count: () => shapes.length },
+    debug: { shapes: () => shapes, lamp: () => lampPos, frame: () => frame(now), count: () => shapes.length, cover: () => [cover, spill] },
     destroy() { clearTimeout(reformT); rv.destroy(); offs.forEach((f) => f()); stage.setBackdrop(null); },
   };
 }

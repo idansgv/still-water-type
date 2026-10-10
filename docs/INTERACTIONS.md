@@ -39,11 +39,11 @@ What each published poster does today, and the rules every poster should follow.
 | | Shadow |
 |---|---|
 | Hover / drag | the light's slant follows the pointer, a dragging finger or a tilt; a plateau at home keeps the letters exact |
-| Tap on a beam | it and its neighbours turn a full turn (under 250 ms, 8 px) |
+| Tap on a block | it and its neighbours turn a full turn (under 250 ms, 8 px) |
 | Tap on background | nothing |
 | Hold | nothing |
 | Double tap (empty) | a new plan (a beat later) |
-| Three taps (reveal) | page inverts; a ray from each beam to its shadow, the light and its slant |
+| Three taps (reveal) | page inverts; each block's shadow outlined and a ray from each block to it, the light and its slant |
 | Self-demo | the light swings once at 3.5 s, then every 9 to 13 s, until the first touch; off under reduced motion |
 | Idle | light eases home after 4 s |
 
