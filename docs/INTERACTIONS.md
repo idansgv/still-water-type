@@ -17,7 +17,7 @@ What each published poster does today, and the rules every poster should follow.
 
 ## Published posters today
 
-| | Still Water | Soft type | Collapse | Explode | Metal |
+| | Still Water | Soft type | Collapse | Explode | Liquid metal |
 |---|---|---|---|---|---|
 | Hover (mouse) | wakes ripples, moves the lamp | cursor only | cursor `grab` | cursor `pointer` | cursor only |
 | Tap on a letter | stone ripple (under 8 px, no time cap) | letter inflates then rockets (under 0.22 s) | knocks the column over (under 0.22 s, 8 px) | detonates on the press itself | splash (under 8 px, 260 ms) |
@@ -33,6 +33,19 @@ What each published poster does today, and the rules every poster should follow.
 | Registry hint (6.5 s, only if untouched) | none | none | none | none | none |
 | Self-demo | opening splash; lamp wanders after 2.5 s still | breeze at 3 s, a letter breathes every 4.5 to 7.5 s, until a letter is pressed | none | none | ripple along a letter at 3.5 s then every 5 to 8 s, until a droplet is grabbed |
 | Reduced motion | amplitudes 45%, no drip | demo off | not read | not read | demo off |
+
+## In the pipeline (draft)
+
+| | Shadow |
+|---|---|
+| Hover / drag | the lamp follows the pointer, a dragging finger or a tilt; a plateau at home keeps the letters exact |
+| Tap on an object | it and its neighbours turn a full turn (under 250 ms, 8 px) |
+| Tap on background | nothing |
+| Hold | nothing |
+| Double tap (empty) | new objects (a beat later) |
+| Three taps (reveal) | page inverts; plan of the lamp, rays through each object to its shadow, the exact-letters ring |
+| Self-demo | the lamp swings once at 3.5 s, then every 9 to 13 s, until the first touch; off under reduced motion |
+| Idle | lamp eases home after 4 s |
 
 ## Known inconsistencies still to settle
 

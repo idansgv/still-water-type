@@ -4,6 +4,7 @@
 // device tilt), pointer events in CSS pixels, a seeded random, the theme colours, and helpers for
 // type masks and WebGL. Posters stay small because everything fiddly lives here.
 
+import { TAP } from './gestures.js';
 import { registerLocalFonts } from './local-fonts.js';
 
 export const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -166,7 +167,7 @@ export function createStage(root, { seed = 1, theme = THEMES.dark, toast = () =>
     const q = setPtr(e); q.down = false; drag.on = false;
     handlers.up.forEach((fn) => fn(q, e));
     const now = performance.now();                                    // a tap: short and still; three in a row, close together, toggle reveal
-    if (tapDown && tapDown.id === e.pointerId && e.type === 'pointerup' && now - tapDown.t < 400 && Math.hypot(q.x - tapDown.x, q.y - tapDown.y) < 10) {
+    if (tapDown && tapDown.id === e.pointerId && e.type === 'pointerup' && now - tapDown.t < TAP.ms && Math.hypot(q.x - tapDown.x, q.y - tapDown.y) < TAP.px) {
       taps = taps.filter((t) => now - t.t < 650 && Math.hypot(t.x - q.x, t.y - q.y) < 50);
       taps.push({ t: now, x: q.x, y: q.y });
       if (taps.length >= 3) { taps = []; ctx.setReveal(!ctx.revealed); }

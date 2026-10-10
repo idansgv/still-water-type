@@ -164,6 +164,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./slinky-type.js'),
   },
+  {
+    slug: 'shadow',
+    title: 'Shadow',
+    words: ['Idan', 'Segev'],
+    blurb: 'The letters are shadows of scattered objects. Move the lamp.',
+    hint: null,
+    themes: { dark: 0.5, light: 0.5 },
+    draft: true,
+    load: () => import('./shadow.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

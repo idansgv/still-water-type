@@ -5,6 +5,8 @@
   "description": "Idan Segev: interactive typographic posters and a quiet index of work. Static, no build step.",
   "scripts": {
     "stubs": "node tools/build.mjs",
-    "moovit": "bash tools/sync-moovit.sh"
+    "moovit": "bash tools/sync-moovit.sh",
+    "test": "NODE_PATH=$(npm root -g) npx playwright test -c tools/tests",
+    "graduate": "node tools/graduate.mjs"
   }
 }

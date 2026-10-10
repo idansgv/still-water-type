@@ -70,7 +70,8 @@ export function label(c, text, x, y, col, k, align = 'left', size = 10) {
 }
 /** the title block in the top-right corner of the sheet */
 export function titleBlock(c, W, H, lines, col, k) {
-  const x1 = W - 22, y0 = 20, w = 196, h = 10 + lines.length * 13;
+  c.font = '500 10px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+  const x1 = W - 22, y0 = 20, w = Math.max(150, Math.ceil(Math.max(...lines.map((t) => c.measureText(t).width))) + 18), h = 10 + lines.length * 13;
   c.strokeStyle = col(0.7 * k); c.lineWidth = 1; c.strokeRect(x1 - w, y0, w, h);
   lines.forEach((t, i) => label(c, t, x1 - w + 8, y0 + 17 + i * 13, col, k));
 }

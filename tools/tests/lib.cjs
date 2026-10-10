@@ -7,6 +7,8 @@ const DARK_AT_REST = new Set(['backlight']);
 async function posters() {
   const { POSTERS } = await import('../../src/posters/index.js');
   const all = process.env.SET === 'all';                       // default: the published posters only (SET=all adds the drafts)
+  const only = (process.env.SLUGS || '').split(',').filter(Boolean);   // SLUGS=a,b: exactly these (drafts included), for the graduation gate
+  if (only.length) return POSTERS.filter((p) => only.includes(p.slug));
   return POSTERS.filter((p) => !SKIP.has(p.slug) && (all || !p.draft));
 }
 
