@@ -39,3 +39,6 @@ Inspired by a soft-bodied type site (idea only; our own implementation). Many sh
 
 ## Update 7 Oct 2026: optimization
 Particle contacts use a reused typed-array grid and a pair bitmap instead of string-keyed sets and per-pass Maps; per-step scratch arrays are reused; an even stroke is drawn as one path. Measured on 247 particles: physics step 0.9 ms to 0.25 ms (busy: 1.8 to 0.5), draw 1.8 ms to 0.8 ms. Behaviour unchanged.
+
+## Reveal (10 Oct 2026)
+Three quick taps invert the page and show the particles, the springs between them, where each lives (+ and a tether when it is away), the mouth, and an air gauge over each letter.

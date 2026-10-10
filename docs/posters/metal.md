@@ -24,3 +24,7 @@ Your settings (tension 400, friction 12.5, calm 1.1, forget 0.15, max speed 1000
 Black page (7 Oct 2026): the inverted white metal looked like chalk, so the default is now chrome: the reflection looks into a bright sky above and to the left and a dark room below, so strokes have a dark middle and bright, directional edges. Panel: "Black page: chrome (1) or inverted (0)". The light page is unchanged.
 
 Black page, second try (7 Oct 2026): chrome was rejected. The black page now shows the same black metal (obsidian) with a stronger rim and a slightly lifted base so the letters read against the black; the highlights are unchanged. Panel: "Black page: rim light" and "base grey". The inverted and chrome looks are removed.
+
+## Update 10 Oct 2026: returns home, reveal
+- **Returns to the name.** Left alone for `rest` seconds (default 6; panel Feel: "Returns to the name after", 0 = never) with nothing held, the home of every droplet slides back to its original spot over `back` seconds (1.2) and the metal follows it, agitation fading as it goes; about 3 s to settle. A touch on a droplet stops it. Double tap on empty space still re-forms at once (now a beat later, so a third tap can mean reveal).
+- **Reveal** (three quick taps): the page inverts and the droplets, the bonds between neighbours (a stretched bond disappears), the home of each and a tether to it are drawn over the metal. See [INTERACTIONS.md](../INTERACTIONS.md).

@@ -17,6 +17,8 @@ import { compile } from '../engine.js';
 import { shatterBox } from './shatter.js';
 import { Dust } from './dust.js';
 import { glyphBoxes } from './glyph-boxes.js';
+import { createReveal } from './reveal.js';
+import { blueprint, fractureMap } from './columns-reveal.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qmul = (a, b) => ({ x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y, y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w, w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z });
@@ -144,10 +146,14 @@ export async function mountColumns(stage, mode) {
   overlay.setAttribute('aria-hidden', 'true');
   stage.root.appendChild(overlay);
   const octx = overlay.getContext('2d');
+  let lastKnock = null; stage.on('reveal', () => clearTimeout(reformT));                                                  // for the reveal: where the last topple landed and which way it pushed
+  const rv = createReveal(stage, (c, W_, H_, k, t) => (EXPLODE ? fractureMapDraw : blueprintDraw)(c, W_, H_, k, t));
+  const rvApi = { stage, toPx: (x, y, z) => toPx(x, y, z), letters: () => letters, get P() { return P; }, qrot, qmul, knock: () => lastKnock, get S() { return S; }, get colH() { return colH; }, UNIT_H };
+  const blueprintDraw = blueprint(rvApi), fractureMapDraw = fractureMap(rvApi);
   const dust = new Dust(gl);
 
   const P = EXPLODE ? { gravity: 26, blast: 0.44, speed: 0.43, lift: 0.4, spin: 1.4, chain: 27, decay: 0.44, size: 0.03, chunk: 0.02, rough: 2, gap: 0.91, crack: 1.25, crackAt: 0.46, jitter: 1.05, reach: 2.25, hit: 0.3, passive: 0, transfer: 0.15, bounce: 0.95, friction: 0.32, lines: 0, shake: 0, bg: 1, fg: 0, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0, dustSize: 0.05, dustLife: 0.2, dustHits: 0, dustTone: 0, dustSoft: 0, dustAlpha: 1, height: 0.75, adapt: 0 } : { gravity: 13, topple: 6, bg: 0, fg: 1, camPitch: 0, camYaw: 0, zoom: 1, persp: 0, dust: 0.7, dustSize: 1, dustLife: 1.6, dustHits: 1, dustSpeed: 4, dustTone: 0.5, dustSoft: 0.6, dustAlpha: 0.8, height: 3.7 };   // Explode's defaults are Idan's tuned values (fifth set, 7 Oct 2026)
-  if (EXPLODE && stage.flip) { const t = P.bg; P.bg = P.fg; P.fg = t; }   // every shuffle swaps black-on-white and white-on-black
+  P.bg = stage.flip ? 0 : 1; P.fg = 1 - P.bg;   // the shell alternates black-on-white and white-on-black on every shuffle
   const DT = EXPLODE ? 1 / 90 : 1 / 120;
   // Collapse draws real letters from a font when the font is here (local trial files, see src/local-fonts.js); otherwise the hand-made strokes
   const FACE = '"GT Pantheon"', FACE_W = 900;
@@ -158,7 +164,7 @@ export async function mountColumns(stage, mode) {
   const coarse = matchMedia('(pointer: coarse)').matches, cores = navigator.hardwareConcurrency || 8, mem = navigator.deviceMemory || 8;
   let perf = coarse && (cores <= 4 || mem <= 3) ? 1.8 : coarse ? 1.15 : 1, slowFrames = 0, ema = 16;
   let W = 1, H = 1, S = 100, sim = null, solids = [], letters = [], bursts = [], shake = 0, fade = 1;
-  let press = null, pid = null, lastEmptyTap = 0, acc = 0;
+  let press = null, pid = null, lastEmptyTap = 0, reformT = 0, acc = 0;
   stage.setBackdrop(P.bg);
 
   // ---------- layout (pixels), same composition as Soft type ----------
@@ -321,6 +327,7 @@ export async function mountColumns(stage, mode) {
     let dx = body.position.x - point.x, dy = body.position.y - point.y, d = Math.hypot(dx, dy);
     if (d < 0.08) { const a = Math.random() * Math.PI * 2; dx = Math.cos(a); dy = Math.sin(a); d = 1; }
     dx /= d; dy /= d;
+    lastKnock = { x: point.x, y: point.y, z: point.z, dx, dy, t: performance.now() / 1000 };
     const J = body.mass * P.topple;
     body.impulseAt({ x: dx * J, y: dy * J, z: 0 }, point);
   }
@@ -545,7 +552,7 @@ export async function mountColumns(stage, mode) {
     if (!hit || !hit.body.isLetter) {
       pid = null;
       const now = performance.now();
-      if (now - lastEmptyTap < 380) { build(); resize2(); } lastEmptyTap = now;   // a double tap on empty space re-forms the letters
+      if (now - lastEmptyTap < 380) { clearTimeout(reformT); reformT = setTimeout(() => { build(); resize2(); }, 420); } lastEmptyTap = now;   // a double tap on empty space re-forms the letters (a beat later, so a third tap can still mean reveal)
       return;
     }
     if (EXPLODE) { detonate(hit.body, hit.point.x, hit.point.y, 0); pid = null; return; }   // a tap sets it off at once
@@ -702,6 +709,7 @@ export async function mountColumns(stage, mode) {
     fade = Math.min(1, fade + dt * 2.2);
     if (shake > 0) { shake = Math.max(0, shake - dt); const a = shake / 0.4 * 9; canvas.style.transform = shake ? `translate(${(Math.random() - 0.5) * a}px, ${(Math.random() - 0.5) * a}px)` : ''; if (!shake) canvas.style.transform = ''; }
     draw();
+    rv.draw();
   }));
 
   const reform = () => { timers = []; dust.clear(); build(); resize2(); };
@@ -739,7 +747,7 @@ export async function mountColumns(stage, mode) {
     debug: { strike, kinVel, fracture, perf: () => perf, setPerf: (v) => { perf = v; }, world: () => sim, letters: () => letters, solids: () => solids, topple, detonate, S: () => S, pick, pending: () => pending },
     destroy() {
       offs.forEach((f) => f());
-      overlay.remove(); canvas.style.transform = ''; stage.root.style.cursor = '';
+      clearTimeout(reformT); rv.destroy(); overlay.remove(); canvas.style.transform = ''; stage.root.style.cursor = '';
       stage.setBackdrop(null);
     },
   };

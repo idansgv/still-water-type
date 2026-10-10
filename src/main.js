@@ -1,7 +1,7 @@
 // The shell: picks a poster at random, mounts it, and keeps the page furniture honest.
 
-import { POSTERS, PUBLISHED, bySlug, pickTheme } from './posters/index.js';
-import { createStage, THEMES, fontsReady, mulberry32 } from './engine.js';
+import { POSTERS, PUBLISHED, bySlug } from './posters/index.js';
+import { createStage, THEMES, fontsReady } from './engine.js';
 import { createPanel } from './panel.js';
 
 const $ = (id) => document.getElementById(id);
@@ -102,10 +102,12 @@ function seedFromHash() {
   const m = /[#&]s=([0-9a-z]+)/i.exec(location.hash);
   return m ? parseInt(m[1], 36) >>> 0 : null;
 }
-function chooseTheme(poster, seed) {
+// One rule for every poster: the first poster is black on white, and each shuffle swaps (white on black, then black on white...).
+// ?theme=light|dark overrides it. Posters read it as stage.theme.name (and stage.flip, which is true on white-on-black).
+function chooseTheme() {
   const forced = params.get('theme');
   if (forced === 'light' || forced === 'dark') return forced;
-  return pickTheme(poster, mulberry32(seed ^ 0x9e3779b9));
+  return shuffles % 2 === 1 ? 'dark' : 'light';
 }
 
 // ---------- mounting ----------
@@ -162,12 +164,13 @@ function armHint(poster, stage) {
 
 async function show(poster, { seed = randomSeed(), themeName } = {}) {
   busy = true;
-  const theme = THEMES[themeName || chooseTheme(poster, seed)];
+  const theme = THEMES[themeName || chooseTheme()];
 
   if (panel) { panel.destroy(); panel = null; }
   if (current) {
     stageEl.classList.add('swap');
     await wait(reduced ? 0 : 100);
+    try { if (current.inst && current.inst.destroy) current.inst.destroy(); } catch (err) { console.error('[poster destroy]', err); }   // the poster's own listeners, overlays and backdrop
     if (current.stage) current.stage.destroy();
     stageEl.querySelectorAll('.fallback').forEach((n) => n.remove());
   }
@@ -176,7 +179,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
 
   const stage = createStage(stageEl, { seed, theme, toast, setBackdrop });
   stage.refreshPanel = syncPanel;                                   // a poster whose settings change (a mode switch) asks for the panel to be rebuilt
-  stage.flip = shuffles % 2 === 1;
+  stage.flip = theme.name === 'dark';
   current = { poster, stage, seed, theme };
   let inst = null;
   try {

@@ -24,6 +24,7 @@
 // Heavy letters shove light ones in contacts and keep their momentum longer. The air is the stored energy.
 
 import { SKELETON, ratio, radiusFor } from './lettering.js';
+import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -473,7 +474,32 @@ export function mount(stage) {
   resize();
   draw();
 
+  // Reveal (three quick taps): the particles, the springs between them, where each lives, and the air in each letter
+  const rv = createReveal(stage, (c, W_, H_, k) => {
+    const col = (x) => rvInk(stage, x);
+    grid(c, W_, H_, 24, col, k); corners(c, W_, H_, 16, col, k);
+    let links = 0;
+    for (const g of glyphs) {
+      links += g.links.length;
+      c.strokeStyle = col(0.6 * k); c.lineWidth = 0.9; c.beginPath();
+      for (const l of g.links) { c.moveTo(l.a.x, l.a.y); c.lineTo(l.b.x, l.b.y); }
+      c.stroke();
+      for (const n of g.nodes) {
+        c.strokeStyle = col(0.9 * k); c.lineWidth = 0.9; c.beginPath(); c.arc(n.x, n.y, Math.max(2, n.rad * 0.55), 0, 7); c.stroke();
+        const d = Math.hypot(n.x - n.hx, n.y - n.hy);                                  // where it lives, and the tether when it is away
+        c.strokeStyle = col(0.7 * k); c.beginPath(); c.moveTo(n.hx - 2.5, n.hy); c.lineTo(n.hx + 2.5, n.hy); c.moveTo(n.hx, n.hy - 2.5); c.lineTo(n.hx, n.hy + 2.5); c.stroke();
+        if (d > 3) { c.setLineDash([2, 3]); c.beginPath(); c.moveTo(n.x, n.y); c.lineTo(n.hx, n.hy); c.stroke(); c.setLineDash([]); }
+      }
+      const bw = 44, bx = g.cx - bw / 2, by = g.cy - g.h * 0.56 - 12;                  // the air: a gauge over the letter, full when it is about to burst
+      c.strokeStyle = col(0.7 * k); c.lineWidth = 1; c.strokeRect(bx, by, bw, 5);
+      c.fillStyle = col(0.9 * k); c.fillRect(bx, by, bw * Math.min(1, g.air), 5);
+      label(c, 'p ' + g.air.toFixed(2), g.cx, by - 4, col, k, 'center');
+      if (g.mouth) { c.strokeStyle = col(k); c.beginPath(); c.arc(g.mouth.x, g.mouth.y, 6, 0, 7); c.stroke(); }
+    }
+    titleBlock(c, W_, H_, ['SOFT TYPE · STRUCTURE', '○ particle  ┼ home  ┄ tether', 'bar = air (full: bursts)', `${nodes.length} particles · ${links} springs`], col, k);
+  });
   offs.push(stage.frame((dt) => {
+    rv.draw();
     if (stage.reduced && quiet > 2) return;
     if (!touched && !stage.reduced && !drag) {                // the hint, until the first touch: a faint breeze, and now and then a letter breathes
       idle += dt;
@@ -509,7 +535,7 @@ export function mount(stage) {
     },
     debug: { glyphs: () => glyphs, marks: () => marks, step: () => step(), draw: () => draw() },
     destroy() {
-      offs.forEach((f) => f());
+      offs.forEach((f) => f()); rv.destroy();
       stage.root.style.cursor = '';
       stage.setBackdrop(null);
     },

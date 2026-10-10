@@ -183,7 +183,7 @@ export function mount(ctx) {
   };
 
   // ---------- input ----------
-  let downAt = null, taps = [];
+  let downAt = null;
   offs.push(ctx.on('move', (p) => {
     ptr = toSim(p.x, p.y); if (!last) last = ptr;
     lamp.tx = p.x / ctx.W; lamp.ty = 1 - p.y / ctx.H; lamp.idle = 0;
@@ -193,11 +193,8 @@ export function mount(ctx) {
     if (downAt && Math.hypot(p.x - downAt[0], p.y - downAt[1]) < 8) { const [x, y] = toSim(p.x, p.y); drop(x, y, -4, 9); }
     downAt = null;
     if (p.type !== 'mouse') ptr = last = null;
-    const now = performance.now();
-    taps = taps.filter((t) => now - t.t < 650 && Math.hypot(t.x - p.x, t.y - p.y) < 50);
-    taps.push({ t: now, x: p.x, y: p.y });
-    if (taps.length >= 3) { taps = []; setLamp(!lamp.on); }
   }));
+  offs.push(ctx.on('reveal', (on) => setLamp(on)));                  // three quick taps (engine) or L: the lamp is this poster's reveal
   canvas.addEventListener('pointerleave', () => { ptr = last = null; });
   function setLamp(v) {
     lamp.on = v;
@@ -206,7 +203,7 @@ export function mount(ctx) {
   }
   const onKey = (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'l' || e.key === 'L') setLamp(!lamp.on);
+    if (e.key === 'l' || e.key === 'L') ctx.setReveal(!lamp.on);
     else if (e.key === 'x' || e.key === 'X') rain();
   };
   addEventListener('keydown', onKey);

@@ -31,3 +31,6 @@ It was the single poster of the site before the portfolio existed (tagged `still
 **Lighter (8 Oct 2026).** The type is now Leida Book (weight 350) instead of Black, to make the poster gentler; the panel (`?p=still-water&tune`, or T) has a Weight slider from 200 to 900. On the live site, where Leida is absent, Archivo falls back to its nearest weight (700).
 
 **Not all caps (8 Oct 2026).** The type is "Idan / Segev" in mixed case again (two rows on every screen shape). The block is fitted from the top of the d to the bottom of the g, centred, with the same margins as the other posters.
+
+## Reveal (10 Oct 2026)
+The triple tap is now an engine gesture shared by every poster (`stage.setReveal`); here it still toggles the lamp, which is this poster's reveal. L does the same.

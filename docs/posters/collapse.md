@@ -31,3 +31,6 @@ Idan's tuned set applied as defaults (7 Oct 2026): gravity 21, extrusion height 
 **Status:** in the shuffle since 7 Oct 2026 (a share page exists at `/p/collapse/`).
 
 **Update 8 Oct 2026.** Idan's set applied as defaults: gravity 13, tap push 6, dust 0.7, height 3.7. Dust now rises only where something lands on the floor, and only when its vertical speed is above `dustSpeed` (default 4, panel: "Landing speed that raises dust"); letters touching letters raise none. Explode keeps its own dust rules. Next: real font letter shapes (font files go in `assets/fonts/`).
+
+## Reveal (10 Oct 2026)
+Three quick taps invert the page and lay a blueprint of the operating forces over the columns (`columns-reveal.js`): the boxes the physics uses as wireframes, each column's centre of mass (weight into the page), the support polygon on the floor with reaction dots, the lean (overturning direction and angle), speed, and the last knock (J). The double tap that re-forms now waits a beat (420 ms) so a third tap can mean reveal.

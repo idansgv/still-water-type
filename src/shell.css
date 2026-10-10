@@ -18,6 +18,11 @@
   --dim: #767676;
 }
 
+/* Reveal (three quick taps): the whole page inverts, and the poster draws what it is made of over it. */
+html { transition: filter 0.45s ease; }
+html.revealed { filter: invert(1); }
+@media (prefers-reduced-motion: reduce) { html { transition: none; } }
+
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {

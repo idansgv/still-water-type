@@ -89,7 +89,7 @@ export function createStage(root, { seed = 1, theme = THEMES.dark, toast = () =>
   canvas.setAttribute('aria-hidden', 'true');
   root.appendChild(canvas);
 
-  const handlers = { down: new Set(), move: new Set(), up: new Set(), resize: new Set() };
+  const handlers = { down: new Set(), move: new Set(), up: new Set(), resize: new Set(), reveal: new Set() };
   const frames = new Set();
 
   const ctx = {
@@ -102,6 +102,10 @@ export function createStage(root, { seed = 1, theme = THEMES.dark, toast = () =>
     tilt: tiltState,
     adaptive: false,                                // posters that are expensive opt in to the governor
     interacted: false,
+    // Three quick taps (or a poster's own key) toggle "reveal": the colours invert and the poster shows what it is made of.
+    // Posters listen with stage.on('reveal', (on) => ...); stage.revealed holds the state.
+    revealed: false,
+    setReveal(v) { v = !!v; if (v === ctx.revealed) return; ctx.revealed = v; handlers.reveal.forEach((fn) => fn(v)); },
     on(type, fn) { handlers[type].add(fn); return () => handlers[type].delete(fn); },
     frame(fn) { frames.add(fn); return () => frames.delete(fn); },
     colors: { bg: hexToRgb(theme.bg), fg: hexToRgb(theme.fg), dim: hexToRgb(theme.dim) },
@@ -138,10 +142,12 @@ export function createStage(root, { seed = 1, theme = THEMES.dark, toast = () =>
     return q;
   }
   const unit = () => Math.min(ctx.W, ctx.H) * 0.75;
+  let taps = [], tapDown = null;
   function onDown(e) {
     ctx.interacted = true;
     askTilt();
     const q = setPtr(e); q.down = true; q.vx = q.vy = 0;
+    tapDown = { x: q.x, y: q.y, t: performance.now(), id: e.pointerId };
     if (q.type !== 'mouse') { drag.on = true; drag.sx = q.x; drag.sy = q.y; drag.lx = ctx.look.tx; drag.ly = ctx.look.ty; }
     try { root.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events */ }
     handlers.down.forEach((fn) => fn(q, e));
@@ -159,6 +165,13 @@ export function createStage(root, { seed = 1, theme = THEMES.dark, toast = () =>
   function onUp(e) {
     const q = setPtr(e); q.down = false; drag.on = false;
     handlers.up.forEach((fn) => fn(q, e));
+    const now = performance.now();                                    // a tap: short and still; three in a row, close together, toggle reveal
+    if (tapDown && tapDown.id === e.pointerId && e.type === 'pointerup' && now - tapDown.t < 400 && Math.hypot(q.x - tapDown.x, q.y - tapDown.y) < 10) {
+      taps = taps.filter((t) => now - t.t < 650 && Math.hypot(t.x - q.x, t.y - q.y) < 50);
+      taps.push({ t: now, x: q.x, y: q.y });
+      if (taps.length >= 3) { taps = []; ctx.setReveal(!ctx.revealed); }
+    } else taps = [];
+    tapDown = null;
   }
   root.addEventListener('pointerdown', onDown);
   root.addEventListener('pointermove', onMove);
@@ -213,7 +226,7 @@ export function createStage(root, { seed = 1, theme = THEMES.dark, toast = () =>
       if (lose) lose.loseContext();
     } catch (err) { /* ignore */ }
     canvas.remove();
-    handlers.down.clear(); handlers.move.clear(); handlers.up.clear(); handlers.resize.clear(); frames.clear();
+    handlers.down.clear(); handlers.move.clear(); handlers.up.clear(); handlers.resize.clear(); handlers.reveal.clear(); frames.clear();
   }
 
   resize();

@@ -19,6 +19,7 @@
 
 import { getGL, compile } from '../engine.js';
 import { SKELETON, ratio, radiusFor } from './lettering.js';
+import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -99,7 +100,7 @@ export function mount(stage) {
   let sp = 14, R = 22, tR = 12, Tfield = 0.5, scale = 1;                  // droplet spacing, kernel radius, stroke half-thickness, field threshold and gain
   let glyphBox = [];
   let head = new Int32Array(4096), nextIn = new Int32Array(1);
-  let lastEmpty = 0, grab = null, press = null, quiet = 0, touched = false, idle = 0, nextRipple = 3.5, ripple = null, acc = 0;
+  let since = 0, returning = false, lastEmpty = 0, reformT = 0, grab = null, press = null, quiet = 0, touched = false, idle = 0, nextRipple = 3.5, ripple = null, acc = 0;
 
   // ---------- layout: the same composition as the other type posters ----------
   function layout() {
@@ -177,7 +178,7 @@ export function mount(stage) {
   // The settings (panel: ?tune or T). Defaults are deliberately calm; raise tension and agitation for wilder mercury.
   const DEFAULTS = {
     tension: 400, volume: 6200, sticky: 5, friction: 12.5, spread: 0.92, calm: 1.1, trigger: 240, bounce: 0.5, tilt: 300,
-    home: 70, forget: 0.15, maxV: 1000,
+    home: 70, forget: 0.15, maxV: 1000, rest: 6, back: 1.2,
     splash: 0.6, splashR: 4.2, grabR: 2.6, grabK: 1500,
     shine: 6, darkRim: 0.6, darkBase: 0.07, lamp1: 1.05, lamp1Size: 0.075, lamp2: 0.7, lamp2Size: 0.04, rim: 0.18, base: 0.02,
   };
@@ -196,7 +197,7 @@ export function mount(stage) {
     for (let i = 0; i < N; i++) {
       const dx = HX[i] - X[i], dy = HY[i] - Y[i], disp = Math.hypot(dx, dy);
       DP[i] = disp;
-      const a = AG[i], k = P.home * (grab ? 0.55 : 1) * (1 - a) * (1 - a);                 // an agitated drop has forgotten where it lives
+      const a = AG[i], k = P.home * (grab ? 0.55 : returning ? 5 : 1) * (1 - (returning ? Math.min(a, 0.5) : a)) * (1 - (returning ? Math.min(a, 0.5) : a));                 // an agitated drop has forgotten where it lives
       FX[i] += dx * k; FY[i] += dy * k;
       AG2[i] = a * Math.exp(-h / P.calm);
       if (tilting && a > 0.02) { FX[i] += stage.look.x * P.tilt * a; FY[i] -= stage.look.y * P.tilt * a; }   // tilt the table: loose beads roll downhill
@@ -231,7 +232,7 @@ export function mount(stage) {
       }
       const hh = (gx * 73856093 ^ gy * 19349663) & M; nextIn[i] = head[hh]; head[hh] = i;
     }
-    const floor = H - (W < 720 ? 78 : 70), follow = grab ? 0 : 1 - Math.exp(-h / P.forget);   // while held the old shape is kept; after, it is forgotten
+    const floor = H - (W < 720 ? 78 : 70), follow = grab || returning ? 0 : 1 - Math.exp(-h / P.forget), back = returning ? 1 - Math.exp(-h / P.back) : 0;   // while held the old shape is kept; after, it is forgotten
     let e = 0;
     for (let i = 0; i < N; i++) {
       const damp = Math.exp(-P.friction * (1 - 0.7 * AG[i]) * h);                            // mercury has almost no friction
@@ -241,6 +242,7 @@ export function mount(stage) {
       const v = Math.hypot(VX[i], VY[i]); if (v > P.maxV) { VX[i] *= P.maxV / v; VY[i] *= P.maxV / v; }
       X[i] += VX[i] * h; Y[i] += VY[i] * h;
       const fl = ripple && GR[i] === ripple.g ? 0 : follow; HX[i] += (X[i] - HX[i]) * fl; HY[i] += (Y[i] - HY[i]) * fl;
+      if (back) { HX[i] += (H0X[i] - HX[i]) * back; HY[i] += (H0Y[i] - HY[i]) * back; if (AG2[i] > 0.05) AG2[i] *= 1 - back; }   // left alone: the home slides back to the name and the metal follows it
       const m = R * 0.4;
       if (X[i] < m) { X[i] = m; VX[i] = Math.abs(VX[i]) * P.bounce; } else if (X[i] > W - m) { X[i] = W - m; VX[i] = -Math.abs(VX[i]) * P.bounce; }
       if (Y[i] < m) { Y[i] = m; VY[i] = Math.abs(VY[i]) * P.bounce; } else if (Y[i] > floor) { Y[i] = floor; VY[i] = -Math.abs(VY[i]) * P.bounce; }
@@ -301,8 +303,8 @@ export function mount(stage) {
   offs.push(stage.on('down', (q, e) => {
     if (pid !== null) return;
     const i = nearest(q);
-    if (i < 0) { const now = performance.now(); if (now - lastEmpty < 380) reform(); lastEmpty = now; return; }
-    pid = e.pointerId; touched = true; ripple = null; quiet = 0;
+    if (i < 0) { const now = performance.now(); if (now - lastEmpty < 380) { clearTimeout(reformT); reformT = setTimeout(reform, 420); } lastEmpty = now; return; }   // a beat later, so a third tap can still mean reveal
+    pid = e.pointerId; touched = true; ripple = null; quiet = 0; since = 0; returning = false;
     const rg = tR * P.grabR, ids = [], ox = [], oy = [], w = [];
     for (let k = 0; k < N; k++) {
       const d = Math.hypot(X[k] - q.x, Y[k] - q.y);
@@ -325,18 +327,55 @@ export function mount(stage) {
         if (d < rs) { const f = (1 - d / rs) ** 1.1 * (760 + Math.random() * 560) * P.splash; VX[k] += dx / d * f + (Math.random() - 0.5) * 220 * P.splash; VY[k] += dy / d * f + (Math.random() - 0.5) * 220 * P.splash; AG[k] = AG2[k] = 1; }
       }
     }
-    grab = null; press = null; pid = null; quiet = 0;
+    grab = null; press = null; pid = null; quiet = 0; since = 0;
   }));
 
   function resize() { W = stage.W; H = stage.H; seed(); sizeField(); draw(); }
   offs.push(stage.on('resize', resize));
   resize();
 
+  // Reveal (three quick taps): the droplets and the lattice that holds them, the home each one keeps, and the tether when it is away
+  let pairs = null;
+  stage.on('reveal', () => clearTimeout(reformT));
+  const rv = createReveal(stage, (c, W_, H_, k) => {
+    const col = (x) => rvInk(stage, x);
+    grid(c, W_, H_, 24, col, k); corners(c, W_, H_, 16, col, k);
+    if (!pairs || pairs.n !== N) {                                                    // the neighbours at rest, found once from the homes
+      const cell = sp * 1.5, map = new Map(), out = [];
+      for (let i = 0; i < N; i++) { const key = Math.floor(H0X[i] / cell) * 4096 + Math.floor(H0Y[i] / cell); (map.get(key) || map.set(key, []).get(key)).push(i); }
+      for (let i = 0; i < N; i++) {
+        const gx = Math.floor(H0X[i] / cell), gy = Math.floor(H0Y[i] / cell);
+        for (let a = gx - 1; a <= gx + 1; a++) for (let b = gy - 1; b <= gy + 1; b++) for (const j of map.get(a * 4096 + b) || []) if (j > i && Math.hypot(H0X[i] - H0X[j], H0Y[i] - H0Y[j]) < sp * 1.3) out.push(i, j);
+      }
+      pairs = { n: N, list: Int32Array.from(out) };
+    }
+    c.lineWidth = 0.7; c.strokeStyle = col(0.5 * k); c.beginPath();
+    const L = pairs.list, far = (sp * 2.2) ** 2;
+    for (let q = 0; q < L.length; q += 2) { const i = L[q], j = L[q + 1]; if ((X[i] - X[j]) ** 2 + (Y[i] - Y[j]) ** 2 > far) continue; c.moveTo(X[i], Y[i]); c.lineTo(X[j], Y[j]); }   // a bond that stretched too far is gone
+    c.stroke();
+    c.fillStyle = col(0.9 * k); c.beginPath();
+    for (let i = 0; i < N; i++) { c.moveTo(X[i] + 1.6, Y[i]); c.arc(X[i], Y[i], 1.6, 0, 7); }
+    c.fill();
+    c.strokeStyle = col(0.7 * k); c.beginPath();
+    for (let i = 0; i < N; i += 5) { const d = Math.hypot(X[i] - H0X[i], Y[i] - H0Y[i]); if (d > 6) { c.moveTo(X[i], Y[i]); c.lineTo(H0X[i], H0Y[i]); } }
+    c.setLineDash([2, 3]); c.stroke(); c.setLineDash([]);
+    titleBlock(c, W_, H_, ['LIQUID METAL · STRUCTURE', '● droplet  — bond  ┄ way home', `${N} droplets · ${glyphBox.length} letters`], col, k);
+  });
   offs.push(stage.frame((dt) => {
+    rv.draw();
     if (stage.reduced && quiet > 2) return;
     if (!touched && !stage.reduced) {                                                      // the hint, until the first touch: now and then a slow swell runs along one letter
       idle += dt;
       if (idle > nextRipple && !ripple) { ripple = { g: Math.floor(Math.random() * glyphBox.length), t: 0, x0: 0 }; ripple.x0 = glyphBox[ripple.g].x - glyphBox[ripple.g].w / 2; nextRipple = idle + 5 + Math.random() * 3; quiet = 0; }
+    }
+    if (grab) since = 0; else since += dt;
+    if (!returning && P.rest > 0 && since > P.rest && !ripple) {                           // left alone for rest seconds: if anything is away from the name, bring it back
+      let far = 0; for (let i = 0; i < N; i++) if (Math.abs(X[i] - H0X[i]) + Math.abs(Y[i] - H0Y[i]) > 3) { far = 1; break; }
+      if (far) { returning = true; quiet = 0; } else since = 0;
+    }
+    if (returning) {
+      quiet = 0; let far = 0; for (let i = 0; i < N; i++) if (Math.abs(X[i] - H0X[i]) + Math.abs(Y[i] - H0Y[i]) > 1.5) { far = 1; break; }
+      if (!far) { returning = false; since = 0; reform(); }
     }
     acc = Math.min(acc + dt, 0.05);
     let e = 0, ran = false;
@@ -352,13 +391,13 @@ export function mount(stage) {
   }));
 
   const Ctl = (key, label, min, max, step) => ({ key, label, min, max, step });
-  const reform = () => { for (let i = 0; i < N; i++) { X[i] = HX[i] = H0X[i]; Y[i] = HY[i] = H0Y[i]; VX[i] = VY[i] = 0; } quiet = 0; };
+  function reform() { for (let i = 0; i < N; i++) { X[i] = HX[i] = H0X[i]; Y[i] = HY[i] = H0Y[i]; VX[i] = VY[i] = 0; } quiet = 0; since = 0; returning = false; }
   return {
     tune: {
       title: 'Liquid metal', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Mercury', items: [Ctl('tension', 'Surface tension (beading)', 100, 3500, 50), Ctl('spread', 'How far agitation spreads', 0.5, 0.995, 0.005), Ctl('calm', 'Calm-down time (s)', 0.2, 6, 0.1), Ctl('trigger', 'Speed that agitates a bead', 60, 700, 10), Ctl('bounce', 'Bounce off the edges', 0, 0.95, 0.05), Ctl('tilt', 'Tilt (touch devices)', 0, 900, 20)] },
-        { name: 'Feel', items: [Ctl('sticky', 'Stickiness', 0, 14, 0.5), Ctl('friction', 'Friction', 1, 16, 0.5), Ctl('volume', 'Firmness (volume)', 2000, 12000, 200), Ctl('home', 'Pull to the name (while calm)', 0, 200, 5), Ctl('forget', 'Forgets its shape (s)', 0.05, 2, 0.05), Ctl('maxV', 'Top speed', 400, 3000, 100)] },
+        { name: 'Feel', items: [Ctl('sticky', 'Stickiness', 0, 14, 0.5), Ctl('friction', 'Friction', 1, 16, 0.5), Ctl('volume', 'Firmness (volume)', 2000, 12000, 200), Ctl('home', 'Pull to the name (while calm)', 0, 200, 5), Ctl('forget', 'Forgets its shape (s)', 0.05, 2, 0.05), Ctl('maxV', 'Top speed', 400, 3000, 100), Ctl('rest', 'Returns to the name after (s, 0 = never)', 0, 20, 0.5), Ctl('back', 'Return glide (s)', 0.2, 4, 0.1)] },
         { name: 'Touch', items: [Ctl('splash', 'Splash power', 0, 2, 0.05), Ctl('splashR', 'Splash radius', 1, 9, 0.1), Ctl('grabR', 'Grab radius', 1, 5, 0.1), Ctl('grabK', 'Grab strength', 300, 4000, 100)] },
         { name: 'Look', items: [Ctl('shine', 'Surface relief (highlight spread)', 1, 20, 0.5), Ctl('lamp1', 'Main highlight', 0, 1.5, 0.05), Ctl('lamp1Size', 'Main highlight size', 0.01, 0.2, 0.005), Ctl('lamp2', 'Second highlight', 0, 1.5, 0.05), Ctl('lamp2Size', 'Second highlight size', 0.01, 0.2, 0.005), Ctl('rim', 'Rim light', 0, 0.6, 0.01), Ctl('base', 'Base grey (0 = pure black)', 0, 0.2, 0.005), Ctl('darkRim', 'Black page: rim light', 0, 1.2, 0.02), Ctl('darkBase', 'Black page: base grey', 0, 0.25, 0.005)] },
       ],
@@ -366,7 +405,7 @@ export function mount(stage) {
       set(key, value) { P[key] = value; quiet = 0; },
       reset() { Object.assign(P, DEFAULTS); reform(); },
     },
-    debug: { pull: (cx, cy, r, dx, dy) => { for (let i = 0; i < N; i++) { const d = Math.hypot(X[i] - cx, Y[i] - cy); if (d < r) { const w = (1 - (d / r) ** 2) ** 2; X[i] += dx * w; Y[i] += dy * w; } } quiet = 0; }, count: () => N, step: () => stepOnce(1 / 180), draw: () => draw(), state: () => ({ sp, R, tR, Tfield, scale, grab: !!grab, far: Array.from(DP).filter((v) => v > 25).length, maxDp: Math.max(...DP), vmax: Math.max(...VX.map(Math.abs)) }) },
-    destroy() { offs.forEach((f) => f()); stage.root.style.cursor = ''; stage.setBackdrop(null); },
+    debug: { pull: (cx, cy, r, dx, dy) => { for (let i = 0; i < N; i++) { const d = Math.hypot(X[i] - cx, Y[i] - cy); if (d < r) { const w = (1 - (d / r) ** 2) ** 2; X[i] += dx * w; Y[i] += dy * w; } } quiet = 0; }, count: () => N, step: () => stepOnce(1 / 180), draw: () => draw(), state: () => ({ sp, R, tR, Tfield, scale, grab: !!grab, far: Array.from(DP).filter((v) => v > 25).length, maxDp: Math.max(...DP), away: Math.round(Math.max(...Array.from(X, (x, i) => Math.hypot(x - H0X[i], Y[i] - H0Y[i])))), returning, vmax: Math.max(...VX.map(Math.abs)) }) },
+    destroy() { clearTimeout(reformT); rv.destroy(); offs.forEach((f) => f()); stage.root.style.cursor = ''; stage.setBackdrop(null); },
   };
 }

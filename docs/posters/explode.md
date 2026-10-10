@@ -62,3 +62,6 @@ Fourth tuned set applied as defaults (size 0.03, blast 0.08, chain 23.5, crack 1
 Fifth tuned set applied as defaults (7 Oct 2026): chunk 0.02, blast 0.44, speed 0.43, chain 27, jitter 1.05, reach 2.25, passive off, black type on white by default (the shuffle still alternates).
 
 Shuffle (7 Oct 2026): every shuffle swaps black-on-white and white-on-black; direct links start black on white.
+
+## Reveal (10 Oct 2026)
+Three quick taps invert the page and show the fracture cells of every letter (broken ones dashed, damage shaded), the reach of a blast around each letter and the chain between neighbours (`columns-reveal.js`).
