@@ -16,7 +16,7 @@ Idan's spec: *draft the type first, then place no more than 50 objects, extruded
 **Look.** Shadows are solid ink (black on white, white on black on alternate shuffles). The solids are drawn painter's order from the camera, faces tinted by how squarely the light meets them and half transparent (`glass`) so the type shows through, hairline edges.
 
 ## Camera (11 Oct)
-Drag empty space to orbit (the light holds still while you drag; a drag is more than 8 px). Keys **1** front, **2** side (how far each solid stands out), **3** top, **4** from the light: looking down the beams, the solids line up and read as the type, which shows why the shadow is exact. The wall appears as a sheet once the view is not straight on. The panel has the same four views as buttons.
+Drag empty space to orbit (the light holds still while you drag; a drag is more than 8 px). Keys **1** front, **2** side (how far each solid stands out), **3** top, **4** from the light: looking down the beams, the solids line up and read as the type, which shows why the shadow is exact. **L** (or the panel) shows the light: a parallel ray for every solid, from the lamp's side down to where that solid's shadow falls (each passes through its solid), and the lamp at the far end (drawn as near as keeps it on the screen). It follows the light as you move it. The wall appears as a sheet once the view is not straight on. The panel has the same four views as buttons.
 
 Earlier attempts (in git, not what Idan asked for): a point light with 300 polyhedra; 1,500 and then 230 scattered toy blocks from a coverage solver (`fa97b54`); a beam or tube per stroke (`b77ce8d`, `865085c`).
 

@@ -55,7 +55,7 @@ export function mount(stage) {
   const offs = [];
   let seedBump = 0;
 
-  const DEFAULTS = { glass: 0.5, angle: 20, slant: 1.8, span: 0.72, weight: 1, depth: 0.15, length: 0.06, lean: 0.35, range: 0.5, snap: 0.07, rest: 4 };
+  const DEFAULTS = { showLight: 0, glass: 0.5, angle: 20, slant: 1.8, span: 0.72, weight: 1, depth: 0.15, length: 0.06, lean: 0.35, range: 0.5, snap: 0.07, rest: 4 };
   const P = { ...DEFAULTS };
   const home = () => { const a = P.angle * Math.PI / 180; return [Math.cos(a) * P.slant, -Math.sin(a) * P.slant]; };   // where the light comes from: 0 is the right, 90 the top; shadows fall the other way
 
@@ -161,6 +161,7 @@ export function mount(stage) {
         // its shadow on the wall for the light now (the corners thrown along it)
         const sp = f.v.map((p) => [p[0] - Math.max(0, p[2]) * lx, p[1] - Math.max(0, p[2]) * ly]);
         if (area(sp) < 0) sp.reverse();
+        if (f.kind === 'top') o.sc = [sp.reduce((a, p) => a + p[0], 0) / sp.length, sp.reduce((a, p) => a + p[1], 0) / sp.length];   // where the middle of this solid's shadow falls
         shadow.push(sp.map((p) => pr(p[0], p[1], 0)));
         // its normal, outward (in the world), and whether the camera sees it
         let nx, ny, nz;
@@ -193,7 +194,26 @@ export function mount(stage) {
       c2.beginPath(); c2.moveTo(f.s[0][0], f.s[0][1]); for (let i = 1; i < f.s.length; i++) c2.lineTo(f.s[i][0], f.s[i][1]); c2.closePath();
       c2.fillStyle = `rgba(${tone},${tone},${tone},${P.glass})`; c2.fill(); c2.stroke();           // faces are part glass, so the shadow type shows through the solids
     }
+    if (P.showLight) drawLight(lx, ly);
     lampPos = [lx, ly];
+  }
+
+  // The light, shown: a ray for every solid, parallel, from the lamp's side down to where that solid's shadow falls (each passes through its
+  // solid), and the lamp itself at the far end. A directional light is infinitely far; the lamp is drawn as near as keeps it on the screen.
+  function drawLight(lx, ly) {
+    const col = (a) => (dark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`), m = Math.max(W, H);
+    let zl = 0.85 * m, Lp = pr(W / 2 + lx * zl, H / 2 + ly * zl, zl);
+    for (let i = 0; i < 10 && !(Lp[0] > 50 && Lp[0] < W - 50 && Lp[1] > 50 && Lp[1] < H - 50); i++) { zl *= 0.78; Lp = pr(W / 2 + lx * zl, H / 2 + ly * zl, zl); }
+    c2.save(); c2.lineWidth = 0.9; c2.setLineDash([7, 5]); c2.strokeStyle = col(0.6);
+    for (const o of objs) {
+      if (!o.sc) continue;
+      const a = pr(o.sc[0], o.sc[1], 0), b = pr(o.sc[0] + lx * zl, o.sc[1] + ly * zl, zl);
+      c2.beginPath(); c2.moveTo(a[0], a[1]); c2.lineTo(b[0], b[1]); c2.stroke();
+    }
+    c2.setLineDash([]); c2.strokeStyle = col(0.95); c2.fillStyle = bg; c2.lineWidth = 1.6;                      // the lamp
+    c2.beginPath(); c2.arc(Lp[0], Lp[1], 15, 0, 7); c2.fill(); c2.stroke();
+    for (let a = 0; a < 10; a++) { const an = a / 10 * Math.PI * 2; c2.beginPath(); c2.moveTo(Lp[0] + Math.cos(an) * 21, Lp[1] + Math.sin(an) * 21); c2.lineTo(Lp[0] + Math.cos(an) * 31, Lp[1] + Math.sin(an) * 31); c2.stroke(); }
+    c2.restore();
   }
 
   // ---------- reveal: the drafted type, a ray from each solid to its piece, the light ----------
@@ -244,6 +264,7 @@ export function mount(stage) {
   const onKey = (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('input, textarea, [contenteditable]'))) return;
     const v = { 1: 'front', 2: 'side', 3: 'top', 4: 'light' }[e.key]; if (v) view(v);
+    if (e.key === 'l' || e.key === 'L') { P.showLight = P.showLight ? 0 : 1; dirty = true; if (stage.refreshPanel) stage.refreshPanel(); }
   };
   addEventListener('keydown', onKey);
   offs.push(stage.on('reveal', () => clearTimeout(reformT)));
@@ -281,9 +302,10 @@ export function mount(stage) {
       title: 'Shadow', values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Light', items: [Ctl('angle', 'Where the light comes from (0 right, 90 top, 180 left)', -90, 270, 1), Ctl('slant', 'How low the light sits', 0.4, 3.5, 0.05), Ctl('range', 'How far the light swings', 0.1, 1.2, 0.01), Ctl('snap', 'Snap-to-home plateau', 0, 0.2, 0.005), Ctl('rest', 'Light returns home after (s, 0 = never)', 0, 20, 0.5)] },
+        { name: 'View', items: [Ctl('showLight', 'Show the light (L)', 0, 1, 1)] },
         { name: 'Type and solids', items: [Ctl('span', 'How much of the page the type spans (re-forms)', 0.4, 1, 0.01), Ctl('weight', 'Letter weight (re-forms)', 0.6, 2, 0.05), Ctl('depth', 'Height of the lowest ends (re-forms)', 0.03, 0.4, 0.005), Ctl('length', 'How long each solid is along the light (re-forms)', 0.03, 0.4, 0.005), Ctl('lean', 'How much the ends lean (re-forms)', 0, 1, 0.01), Ctl('glass', 'How solid the faces are', 0.1, 1, 0.01)] },
       ],
-      actions: { 'New plan': reform, '1  Front': () => view('front'), '2  Side (how far each solid stands out)': () => view('side'), '3  Top': () => view('top'), '4  From the light (the solids line up as the type)': () => view('light') },
+      actions: { 'New plan': reform, 'L  Show or hide the light': () => { P.showLight = P.showLight ? 0 : 1; dirty = true; }, '1  Front': () => view('front'), '2  Side (how far each solid stands out)': () => view('side'), '3  Top': () => view('top'), '4  From the light (the solids line up as the type)': () => view('light') },
       set(key, value) { P[key] = value; if (['weight', 'depth', 'length', 'lean', 'angle', 'slant', 'span'].includes(key)) reform(); dirty = true; },
       reset() { Object.assign(P, DEFAULTS); reform(); },
     },

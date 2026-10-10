@@ -43,7 +43,7 @@ What each published poster does today, and the rules every poster should follow.
 | Drag on background | orbits the camera; the light holds still |
 | Tap on background | nothing |
 | Hold | nothing |
-| Keys | 1 front, 2 side, 3 top, 4 from the light |
+| Keys | 1 front, 2 side, 3 top, 4 from the light; L shows the light |
 | Double tap (empty) | a new plan (a beat later) |
 | Three taps (reveal) | page inverts; the type as drafted and a ray from each solid to its piece, the light and its slant |
 | Self-demo | the light swings once at 3.5 s, then every 9 to 13 s, until the first touch; off under reduced motion |
