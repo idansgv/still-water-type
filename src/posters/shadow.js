@@ -54,6 +54,36 @@ function rodMesh(A, B, rho, k, phase, ext) {
   f.push([...Array(k).keys()]); f.push([...Array(k).keys()].map((i) => k + i));
   return build3(v, f, k > 4);
 }
+// a curved tube: a round section swept along a 3D path (k sides), for the curves of the letters; segs lists the vertices of each short piece,
+// because the shadow of a bent body is the union of the shadows of its pieces
+function sweepMesh(P3, rho, k) {
+  const n = P3.length, C = [0, 1, 2].map((a) => P3.reduce((t, p) => t + p[a], 0) / n), v = [], f = [], nm = [], segs = [], dirs = [], tans = [];
+  let pv = null;
+  for (let i = 0; i < n; i++) {
+    const a = P3[Math.min(i + 1, n - 1)], b = P3[Math.max(i - 1, 0)];
+    let t = [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; const tl = Math.hypot(...t) || 1; t = t.map((q) => q / tl); tans.push(t);
+    let vv;
+    if (!pv) { const ref = Math.abs(t[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]; vv = [t[1] * ref[2] - t[2] * ref[1], t[2] * ref[0] - t[0] * ref[2], t[0] * ref[1] - t[1] * ref[0]]; }
+    else { const d = pv[0] * t[0] + pv[1] * t[1] + pv[2] * t[2]; vv = [pv[0] - d * t[0], pv[1] - d * t[1], pv[2] - d * t[2]]; }
+    const vl = Math.hypot(...vv) || 1; vv = vv.map((q) => q / vl); pv = vv;
+    const ww = [t[1] * vv[2] - t[2] * vv[1], t[2] * vv[0] - t[0] * vv[2], t[0] * vv[1] - t[1] * vv[0]], ring = [];
+    for (let j = 0; j < k; j++) {
+      const an = j / k * Math.PI * 2, d = [Math.cos(an) * vv[0] + Math.sin(an) * ww[0], Math.cos(an) * vv[1] + Math.sin(an) * ww[1], Math.cos(an) * vv[2] + Math.sin(an) * ww[2]];
+      ring.push(d); v.push([P3[i][0] - C[0] + rho * d[0], P3[i][1] - C[1] + rho * d[1], P3[i][2] - C[2] + rho * d[2]]);
+    }
+    dirs.push(ring);
+  }
+  for (let i = 0; i < n - 1; i++) {
+    segs.push([...Array(2 * k).keys()].map((q) => i * k + q));
+    for (let j = 0; j < k; j++) {
+      const j2 = (j + 1) % k, a = dirs[i][j], b = dirs[i][j2], x = a[0] + b[0], y = a[1] + b[1], z = a[2] + b[2], l = Math.hypot(x, y, z) || 1;
+      f.push([i * k + j, i * k + j2, (i + 1) * k + j2, (i + 1) * k + j]); nm.push([x / l, y / l, z / l]);
+    }
+  }
+  f.push([...Array(k).keys()]); nm.push(tans[0].map((q) => -q));
+  f.push([...Array(k).keys()].map((q) => (n - 1) * k + q)); nm.push(tans[n - 1]);
+  return { v, f, n: nm, round: true, segs, C };
+}
 const I3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 // Douglas-Peucker: a curve as straight runs, to within eps
 function simplify(pts, eps) {
@@ -104,7 +134,7 @@ export function mount(stage) {
   const offs = [];
   let seedBump = 0;
 
-  const DEFAULTS = { slant: 1.5, depth: 0.3, size: 1, tilt: 1, range: 0.5, snap: 0.07, rest: 4 };
+  const DEFAULTS = { slant: 2.6, depth: 0.1, size: 1, tilt: 0.6, range: 0.5, snap: 0.07, rest: 4 };
   const P = { ...DEFAULTS };
   const DIR = [0.96, -0.28];                                                  // where the light comes from: the upper right, so shadows fall to the lower left
   const home = () => [DIR[0] * P.slant, DIR[1] * P.slant];
@@ -141,7 +171,7 @@ export function mount(stage) {
     const rand = (() => { let a = (stage.seed ^ (seedBump * 0x9e3779b1)) >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
     const poses = layout(), [lx, ly] = home();
     tR = radiusFor(poses[0].ch, poses[0].w, poses[0].h) * 0.8;               // the stroke's half thickness
-    const wTarget = tR * 1.75 * P.size, zmax = P.depth * H, zmin = zmax * 0.15, rows = [...new Set(poses.map((q) => Math.round(q.y)))].sort((a, b) => a - b);
+    const wTarget = tR * 1.75 * P.size, zmax = P.depth * H, zmin = zmax * 0.35, rows = [...new Set(poses.map((q) => Math.round(q.y)))].sort((a, b) => a - b);
     const list = [];
     for (const pose of poses) {
       // this letter's own frame: a base height by row, and a tilt in a direction of its own
@@ -153,13 +183,27 @@ export function mount(stage) {
       for (const st of SKELETON[pose.ch].s()) {
         let pts = st.pts.map((q) => ({ x: pose.x + q.x * pose.w, y: pose.y + q.y * pose.h }));
         const curved = !st.sharp;
-        if (curved) pts = simplify(pts, tR * 0.36);
-        for (let i = 0; i < pts.length - 1; i++) {
+        if (curved) {                                                          // a curve: one smooth tube swept along it, a point every few degrees
+          const m = Math.max(1, Math.round(st.pts.length / 16)), q = st.pts.map((p) => ({ x: pose.x + p.x * pose.w, y: pose.y + p.y * pose.h })).filter((_, i, A) => i % m === 0 || i === A.length - 1);
+          const ext = wTarget * 0.3, e0 = q[0], e1 = q[q.length - 1], d0 = Math.hypot(q[1].x - e0.x, q[1].y - e0.y) || 1, d1 = Math.hypot(e1.x - q[q.length - 2].x, e1.y - q[q.length - 2].y) || 1;
+          q.unshift({ x: e0.x - (q[1].x - e0.x) / d0 * ext, y: e0.y - (q[1].y - e0.y) / d0 * ext });
+          q.push({ x: e1.x + (e1.x - q[q.length - 2].x) / d1 * ext, y: e1.y + (e1.y - q[q.length - 2].y) / d1 * ext });
+          const P3 = q.map((S) => { const z = zAt(S.x, S.y); return [S.x + z * lx, S.y + z * ly, z]; });
+          let rho = wTarget * 0.5, m3 = sweepMesh(P3, rho, 14);
+          const mid = Math.floor(q.length / 2), dx = q[mid + 1].x - q[mid].x, dy = q[mid + 1].y - q[mid].y, dl = Math.hypot(dx, dy) || 1;
+          for (let it = 0; it < 3; it++) {                                     // fit the radius so the shadow is as wide as the stroke
+            let lo = Infinity, hi = -Infinity;
+            for (const ix of m3.segs[mid]) { const vv = m3.v[ix], Z = Math.max(0, m3.C[2] + vv[2]), X = m3.C[0] + vv[0] - Z * lx, Y = m3.C[1] + vv[1] - Z * ly, qq = (-X * dy + Y * dx) / dl; if (qq < lo) lo = qq; if (qq > hi) hi = qq; }
+            rho *= wTarget / Math.max(1, hi - lo); m3 = sweepMesh(P3, rho, 14);
+          }
+          list.push({ x: m3.C[0], y: m3.C[1], z: m3.C[2], r: 1, mesh: m3, M0: I3, spin: null, hull: null, sh: null, shs: null });
+          continue;
+        }
+        for (let i = 0; i < pts.length - 1; i++) {                             // a straight run: one square beam
           const Sa = pts[i], Sb = pts[i + 1], len = Math.hypot(Sb.x - Sa.x, Sb.y - Sa.y); if (len < tR * 0.4) continue;
           const za = zAt(Sa.x, Sa.y), zb = zAt(Sb.x, Sb.y);
           const A = [Sa.x + za * lx, Sa.y + za * ly, za], B = [Sb.x + zb * lx, Sb.y + zb * ly, zb];
-          const k = 4, phase = rand() * Math.PI / 2, ext = wTarget * 0.45;           // square beams throughout: crisp shadows, one material
-          // fit the radius so the shadow is as wide as the stroke
+          const k = 4, phase = rand() * Math.PI / 2, ext = wTarget * 0.45;
           let rho = wTarget * 0.5, m = rodMesh(A, B, rho, k, phase, ext);
           const dx = (Sb.x - Sa.x) / len, dy = (Sb.y - Sa.y) / len, C = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2];
           for (let it = 0; it < 3; it++) {
@@ -167,7 +211,7 @@ export function mount(stage) {
             for (const v of m.v) { const Z = Math.max(0, C[2] + v[2]), X = C[0] + v[0] - Z * lx, Y = C[1] + v[1] - Z * ly, q = -X * dy + Y * dx; if (q < lo) lo = q; if (q > hi) hi = q; }
             rho *= wTarget / Math.max(1, hi - lo); m = rodMesh(A, B, rho, k, phase, ext);
           }
-          list.push({ x: C[0], y: C[1], z: C[2], r: 1, mesh: m, M0: I3, spin: null, hull: null, sh: null, row: i });
+          list.push({ x: C[0], y: C[1], z: C[2], r: 1, mesh: m, M0: I3, spin: null, hull: null, sh: null, shs: null });
         }
       }
     }
@@ -196,9 +240,10 @@ export function mount(stage) {
       if (s.spin) { const u = (t - s.spin.t0) / s.spin.dur; if (u >= 1) s.spin = null; else if (u > 0) M = mul3(rotAxis(s.spin.ax, s.spin.ay, s.spin.az, Math.PI * 2 * smooth(u)), s.M0); }
       const { V, SH } = project(s.mesh, M, s.x, s.y, s.z, s.r, lx, ly);
       s.V = V; s.M = M; s.sh = hull(SH); s.hull = hull(V);
+      s.shs = s.mesh.segs ? s.mesh.segs.map((ix) => hull(ix.map((i) => SH[i]))) : [s.sh];
     }
     c2.beginPath();
-    for (const s of shapes) { c2.moveTo(s.sh[0][0], s.sh[0][1]); for (let i = 1; i < s.sh.length; i++) c2.lineTo(s.sh[i][0], s.sh[i][1]); c2.closePath(); }
+    for (const s of shapes) for (const poly of s.shs) { c2.moveTo(poly[0][0], poly[0][1]); for (let i = 1; i < poly.length; i++) c2.lineTo(poly[i][0], poly[i][1]); c2.closePath(); }
     c2.fillStyle = fg; c2.fill();                                             // the shadows: solid ink on the wall
     // the blocks, low first; each face is tinted by how squarely the light meets it
     c2.lineJoin = 'round'; c2.lineWidth = 1; const edge = dark ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)';
@@ -224,6 +269,9 @@ export function mount(stage) {
     const col = (x) => rvInk(stage, x), [lx, ly] = lampPos;
     grid(c, W_, H_, 24, col, k); corners(c, W_, H_, 16, col, k);
     c.lineWidth = 0.8;
+    c.strokeStyle = col(0.7 * k); c.lineWidth = 1; c.setLineDash([5, 4]);                               // each piece's shadow, outlined
+    for (const s of shapes) for (const poly of s.shs || []) { c.beginPath(); c.moveTo(poly[0][0], poly[0][1]); for (let i = 1; i < poly.length; i++) c.lineTo(poly[i][0], poly[i][1]); c.closePath(); c.stroke(); }
+    c.setLineDash([]); c.lineWidth = 0.8;
     for (const s of shapes) {
       const q = s.sh && s.sh.length ? s.sh.reduce((a, p) => [a[0] + p[0] / s.sh.length, a[1] + p[1] / s.sh.length], [0, 0]) : [s.x, s.y];
       c.strokeStyle = col(0.55 * k); c.setLineDash([3, 3]); c.beginPath(); c.moveTo(s.x, s.y); c.lineTo(q[0], q[1]); c.stroke(); c.setLineDash([]);
@@ -235,7 +283,7 @@ export function mount(stage) {
     for (let a = 0; a < 8; a++) { const an = a / 8 * Math.PI * 2; c.beginPath(); c.moveTo(cx + Math.cos(an) * 19, cy + Math.sin(an) * 19); c.lineTo(cx + Math.cos(an) * 26, cy + Math.sin(an) * 26); c.stroke(); }
     c.setLineDash([4, 3]); c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx - lx / len * 70, cy - ly / len * 70); c.stroke(); c.setLineDash([]);
     const z0 = shapes.length ? Math.round(Math.min(...shapes.map((s) => s.z)) / H * 100) : 0, z1 = shapes.length ? Math.round(Math.max(...shapes.map((s) => s.z)) / H * 100) : 0;
-    titleBlock(c, W_, H_, ['SHADOW · PLAN', '● rod  ┄ ray  + shadow', `${shapes.length} rods · height ${z0}–${z1}% of the wall`, `light ${Math.round(Math.atan(len) * 57.3)}° from the wall`], col, k);
+    titleBlock(c, W_, H_, ['SHADOW · PLAN', '● piece  ┄ ray  + shadow', `${shapes.length} pieces · height ${z0}–${z1}% of the wall`, `light ${Math.round(Math.atan(len) * 57.3)}° from the wall`], col, k);
   });
   offs.push(stage.on('reveal', (on) => { revealed = on; dirty = true; }));
 
