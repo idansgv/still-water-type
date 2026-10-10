@@ -4,28 +4,32 @@
 
 **Brief (Idan).** The letters shown are actually the shadows of random shapes, carefully organised so that the shadows they cast make the typography. Consider user interactions.
 
-## What it is
-About 230 bulky wooden toy blocks (cubes, thick slabs, short bars, stub and fat cylinders, half-rounds, a wedge; nothing thin) lie on the wall plane, a thin layer standing out about 11% of the wall's height at most, under one low directional light from the upper right; they are not a 3D cloud (Idan, 10 Oct: "not cloud, should lay on the plane"; "fewer, larger, bulkier") ; the shadows they cast are IDAN SEGEV. The reference is Kumi Yamashita's wall pieces, which Idan shared on 10 Oct 2026 and pointed back to twice: the *kind* of shapes (toy blocks, not abstract polyhedra, beams or tubes) and the *distribution* (densest where the shadow is, thinning and scattering toward the light; where blocks are many the shadows merge into one solid mass, and at the edges single shadows show beside their blocks). His other notes: bigger shapes, carefully chosen and placed; a directional light with long shadows; every part of the sculpture must have a noticeable effect on the shadow.
+## What it is (current build, 11 Oct 2026)
+Idan's spec: *draft the type first, then place no more than 50 objects, extruded at different heights and placed at different angles, so that the directional light casts a shadow that makes up the type precisely.*
 
-**Geometry.** A far light with slant `l` (|l| 2.2, from the upper right). A point at height z above the wall throws its shadow to `(x - z*lx, y - z*ly)`; a block's shadow is the hull of its corners thrown that way, so it is the block moved by its distance from the wall and stretched along the light by its own depth (a peg standing out of the wall throws a long streak). Moving the light slides every shadow by z times the change: tall blocks swing far, low ones barely, and the letters tear apart (a plateau at home, `snap`, keeps them exact).
+**The type is drafted first** (`draft()` in `shadow.js`): every stroke of every letter as exact shapes, a straight bar for a straight stroke and one bent band for a curve (22 pieces for IDAN SEGEV, never more than 50).
 
-**The plan** (`build()` in `shadow.js`, solved, not scattered). The letters are drawn into a half-size mask. Blocks are added one at a time, the outline first (so edges come out crisp), then the inside. For each bare spot 90 candidates are tried (kind, size, how it lies: 84% flat on the wall, 7% a peg standing out of it, the rest at any angle; height: `0.25 + 0.75 * u^1.2` of the depth). A candidate's real shadow polygon is scored: `new letter - 8 * spill - 1.2 * covered twice - crowding - leaving the page`. The best stays only if it brings enough that is its own and spills little (under 15% of its gain), so no block is redundant. About 90% of the letters are covered with 8% spill (shown in the reveal).
+**Each piece becomes one solid.** The light is a far lamp with slant `l`; a point at height z above the wall throws its shadow to `(x - z*lx, y - z*ly)`. So the point whose shadow must land on p, at height z, sits at `p + z*l`. Give every corner of the piece any height at all and its shadow still lands on p. A solid whose bottom and top faces are the piece lifted to heights of its own (so each end can be tilted any way) therefore casts exactly the piece, and its sides are parallel to the light (a beam of light made solid). At the home light the shadow is the type exactly; the heights and tilts are free, and they are the sculpture. Move the light and each corner's shadow shears by its height: tall ends swing far, low ends barely.
 
-**Look.** Shadows are solid ink (black on white; white on black on alternate shuffles). Blocks are lit solids, painter's order low first, faces tinted by how squarely the light meets them, hairline edges (round blocks show edges on their ends only). Nothing is drawn when nothing changes.
+**Not on the plane.** The solids hang above the wall (heights 3 to 20% of its height, `depth` and `length`), because a solid that touched the wall would hide its own shadow; the front view flattens that, which is why there is a camera.
 
-Earlier attempts, kept for the record: a point light in front of the wall with 300 polyhedra; 1,500 small polyhedra; a few dozen blocks (letters were fragments); one beam or tube per stroke close to the wall (a clever frame, but not the shapes or the distribution of the reference; it is in the git history as `b77ce8d` and `865085c`).
+**Look.** Shadows are solid ink (black on white, white on black on alternate shuffles). The solids are drawn painter's order from the camera, faces tinted by how squarely the light meets them and half transparent (`glass`) so the type shows through, hairline edges.
+
+## Camera (11 Oct)
+Drag empty space to orbit (the light holds still while you drag; a drag is more than 8 px). Keys **1** front, **2** side (how far each solid stands out), **3** top, **4** from the light: looking down the beams, the solids line up and read as the type, which shows why the shadow is exact. The wall appears as a sheet once the view is not straight on. The panel has the same four views as buttons.
+
+Earlier attempts (in git, not what Idan asked for): a point light with 300 polyhedra; 1,500 and then 230 scattered toy blocks from a coverage solver (`fa97b54`); a beam or tube per stroke (`b77ce8d`, `865085c`).
 
 ## Interactions
 - **Light:** its slant follows the pointer (mouse hover; a dragging finger; device tilt), via `stage.look`. A plateau around home (`snap`) holds the letters exact.
-- **Tap a block:** it and its neighbours turn a full turn about a random axis (the nearest first); their shadows boil and settle.
+- **Tap a solid:** it slides along the light and back (the shadow, at home, does not move: the proof that the shadow depends only on where the beam points).
 - **Left alone:** after `rest` seconds (4) the light eases home; a finger's drag offset is let go too.
-- **Double tap empty space:** a new plan, with new blocks (a beat later, so a third tap can mean reveal).
-- **Three quick taps:** reveal. The page inverts and the plan is drawn: each block's shadow outlined and a ray from each block to it, the light and its slant, the height range.
+- **Double tap empty space:** a new plan, with new heights and tilts (a beat later, so a third tap can mean reveal).
+- **Three quick taps:** reveal. The page inverts and the plan is drawn: the type as drafted (dashed) and a ray from each solid to its piece, the light and its slant, the height range.
 - **Hint:** until the first touch, the light makes one slow swing now and then (3.5 s, then every 9 to 13 s) and returns. Off under reduced motion.
 - Gestures use `src/gestures.js` (tap 250 ms / 8 px).
 
 ## Open
-- Fewer and bulkier blocks cost legibility: letters are readable but fragmentary (counters of D, A, G fill in). Fewer, larger blocks and long shadows pull against each other; a lower slant or thinner letters would recover it.
-- Letters are legible but rough-edged (they are made of block shadows); smaller blocks (`size`) sharpen them.
-- Not measured on a phone.
-- Ideas: a pool of light on the wall as in the reference; warm wood tones are not allowed (black and white only), so the wood is carried by shading alone; blocks that drop in when re-formed.
+- The solids still sit over part of the type from the front (glass faces soften it). Raising `depth` or lowering `span` moves them off it at the cost of reach.
+- The letterforms are plain geometric strokes (from `lettering.js` skeletons), not a refined face.
+- Not measured on a phone. Idan has not yet commented on the interactions or the camera.
