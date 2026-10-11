@@ -166,8 +166,14 @@ body {
   .actions button { margin-block: -13px; }
 }
 
+/* Shuffle breathes slowly, like an AI "thinking" cursor, so it is not missed. Still on hover/focus. */
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+#btn-shuffle { animation: breathe 2.4s ease-in-out infinite; }
+#btn-shuffle:hover, #btn-shuffle:focus-visible, #btn-shuffle:active { animation: none; }
+
 @media (prefers-reduced-motion: reduce) {
   .stage, .hint, #toast { transition: none; }
+  #btn-shuffle { animation: none; }
 }
 
 noscript .plain {

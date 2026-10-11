@@ -110,6 +110,13 @@ function chooseTheme() {
   return shuffles % 2 === 1 ? 'dark' : 'light';
 }
 
+// Favicon follows the page background: black tile on dark, white tile on light.
+function setFavicon(light) {
+  const link = document.querySelector('link[rel="icon"]');
+  const href = `/assets/favicon-${light ? 'light' : 'dark'}.svg`;
+  if (link && link.getAttribute('href') !== href) link.setAttribute('href', href);
+}
+
 // ---------- mounting ----------
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme.name;
@@ -118,6 +125,7 @@ function applyTheme(theme) {
   stageEl.style.background = '';
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', theme.bg);
+  setFavicon(theme.name === 'light');
 }
 
 // A poster that lets the page background be tuned (grey level 0..1) calls this; null hands it back to the theme.
@@ -133,6 +141,7 @@ function setBackdrop(level) {
   document.documentElement.dataset.theme = light ? 'light' : 'dark';
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', bg);
+  setFavicon(light);
 }
 
 function showFallback(poster) {
