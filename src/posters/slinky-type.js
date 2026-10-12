@@ -18,8 +18,8 @@ export function mount(stage) {
   stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
 
-  const shared = { ...SHARED_DEFAULTS, size: 0.06, wire: 0.03, gap: 0.3, gravity: 22.5, turn: 4 };
-  const OWN = { coils: 8, lean0: 0.004 };            // rings in a letter; the lean it starts with (a letter stands almost straight)
+  const shared = { ...SHARED_DEFAULTS, size: 0.06, wire: 0.05, gap: 0.045, gravity: 22.5, turn: 4 };
+  const OWN = { coils: 12, lean0: 0.004, stretch: 0.62 };            // rings in a letter; the lean it starts with (a letter stands almost straight)
   const DEFAULTS = { ...shared, ...OWN };
   const P = bindParams(shared, OWN);
   const V = createView(stage, { yaw: 0, pitch: 46 }); V.setView('iso');           // tilted: the stacks read as ribbed columns, the caps as the type
@@ -57,7 +57,13 @@ export function mount(stage) {
   }
   function stepAll() {
     const env = envNow(), h = 1 / 960;
-    if (auto) { auto.t += 1 / 60; const u = Math.min(1, auto.t / 1.1); grab = { L: auto.L, x: auto.x0 + auto.dir * R * 2.4 * u, y: auto.y0 + R * 0.7 * Math.sin(Math.min(1, u * 1.3) * Math.PI) }; if (auto.t > 1.2) { grab = null; auto = null; } }
+    if (auto) {
+      auto.t += 1 / 60;
+      if (auto.kind === 'spring') {                                           // lifted straight up until the whole coil is drawn out, held a breath, let go
+        const u = Math.min(1, auto.t / 0.55), e = u * u * (3 - 2 * u);
+        grab = { L: auto.L, x: auto.x0, y: auto.y0 + e * P.stretch * auto.L.N * R }; if (auto.t > 0.72) { grab = null; auto = null; }
+      } else { const u = Math.min(1, auto.t / 1.1); grab = { L: auto.L, x: auto.x0 + auto.dir * R * 2.4 * u, y: auto.y0 + R * 0.7 * Math.sin(Math.min(1, u * 1.3) * Math.PI) }; if (auto.t > 1.2) { grab = null; auto = null; } }
+    }
     for (const L of letters) {
       env.grab = grab && grab.L === L ? (() => { const g = L.hand || (L.hand = { pt: 0 }); g.x = grab.x; g.y = grab.y; trackHand(g, g.x, g.y, 1 / 60); return g; })() : null;
       for (let s = 0; s < 16; s++) L.ring.step(h, env);
@@ -109,7 +115,7 @@ export function mount(stage) {
   }));
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pid) return;
-    if (grab && performance.now() - grab.t < 250 && Math.hypot(q.x - grab.q0.x, q.y - grab.q0.y) < 8) { if (standing(grab.L)) grab.L.th = Math.random() * Math.PI * 2; auto = { L: grab.L, t: 0, dir: 1, x0: grab.L.ring.x[0], y0: grab.L.ring.y[0] }; }   // a tap: the head ring is lifted and carried over by itself
+    if (grab && performance.now() - grab.t < 250 && Math.hypot(q.x - grab.q0.x, q.y - grab.q0.y) < 8) { if (standing(grab.L)) grab.L.th = Math.random() * Math.PI * 2; auto = { L: grab.L, t: 0, dir: 1, kind: 'flip', x0: grab.L.ring.x[0], y0: grab.L.ring.y[0] }; }   // a tap kicks the letter over (the spring release, kind 'spring', is parked: the stiff coil carries the whole stack up with the hand) the head ring is lifted and carried over by itself
     if (orbiting) V.orbit.end(); grab = null; down = null; orbiting = false; pid = null;
   }));
   const onKey = (e) => {
@@ -126,7 +132,7 @@ export function mount(stage) {
     tune: {
       title: 'Slinky type', values: P, defaults: DEFAULTS,
       groups: [
-        { name: 'Letters', items: [Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('lean0', 'Lean at the start (re-forms)', 0, 0.1, 0.002), Ctl('size', 'Size', 0.02, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
+        { name: 'Letters', items: [Ctl('stretch', 'How far a tap draws the coil out', 0.1, 1.2, 0.01), Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('lean0', 'Lean at the start (re-forms)', 0, 0.1, 0.002), Ctl('size', 'Size', 0.02, 0.14, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
         { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path', 0, 2, 0.05), Ctl('spring', 'Wire stiffness', 5, 4000, 1), Ctl('gap', 'Closest coils (radii, re-forms)', 0.02, 0.5, 0.005), Ctl('wireDamp', 'Wire damping', 0, 60, 0.5), Ctl('contact', 'Ring on ring stiffness', 5, 80, 1), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05), Ctl('spin', 'Spin damping', 0, 10, 0.1), Ctl('endFlat', 'End rings lie flat', 0, 3, 0.05), Ctl('capInertia', 'Weight of the cap rings', 1, 12, 0.5)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction', 0, 1.5, 0.05), Ctl('bounce', 'Bounce', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05)] },
         { name: 'Hand', items: [Ctl('turn', 'The ring in hand turns with the move', 0, 14, 0.1), Ctl('turnReach', 'Rings it carries along', 0, 30, 1), Ctl('turnDelay', 'How late each is (frames)', 0, 8, 1)] },
@@ -135,7 +141,7 @@ export function mount(stage) {
       set(key, value) { P[key] = value; if (['coils', 'lean0', 'size', 'gap', 'wire'].includes(key)) layout(); },
       reset() { Object.assign(P, DEFAULTS); layout(); },
     },
-    debug: { run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, letters: () => letters, V, tap: (i) => { auto = { L: letters[i], t: 0, dir: 1, x0: letters[i].ring.x[0], y0: letters[i].ring.y[0] }; } },
+    debug: { run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, letters: () => letters, V, tap: (i, kind) => { auto = { L: letters[i], t: 0, dir: 1, kind: kind || 'flip', x0: letters[i].ring.x[0], y0: letters[i].ring.y[0] }; } },
     destroy() { removeEventListener('keydown', onKey); offs.forEach((f) => f()); V.destroy(); stage.setBackdrop(null); },
   };
 }
