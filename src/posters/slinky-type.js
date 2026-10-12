@@ -1,5 +1,5 @@
 // Slinky type. IDAN SEGEV laid across the plane the way the other posters lay it (IDAN / SEGEV, three rows on a phone), each letter a slinky standing on its end: a stack of rings in
-// the shape of the letter, read from above (the top view). Tap one and it is kicked over and walks off its place; drag its top ring and carry it over to flip it; drag empty space to turn the
+// the shape of the letter. Seen tilted (46 degrees) the head ring is a solid cap, the letter itself, and the rest of the coil hangs below it as wire. Tap one and it is kicked over and walks off its place; drag its top ring and carry it over to flip it; drag empty space to turn the
 // view, keys 1 to 6 for the views, X stands them all up again, L locks the camera. The same rigid-ring solver and the same settings as the other Slinky scenes (slinky-rings.js,
 // slinky-params.js), one chain for each letter, each on its own line of the plane.
 // One colour: black on white, white on black on every second shuffle.
@@ -18,11 +18,11 @@ export function mount(stage) {
   stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
 
-  const shared = { ...SHARED_DEFAULTS, size: 0.06, wire: 0.05, gap: 0.12, gravity: 22.5, turn: 4 };
-  const OWN = { coils: 14, lean0: 0.004 };            // rings in a letter; the lean it starts with (a letter stands almost straight)
+  const shared = { ...SHARED_DEFAULTS, size: 0.06, wire: 0.03, gap: 0.3, gravity: 22.5, turn: 4 };
+  const OWN = { coils: 8, lean0: 0.004 };            // rings in a letter; the lean it starts with (a letter stands almost straight)
   const DEFAULTS = { ...shared, ...OWN };
   const P = bindParams(shared, OWN);
-  const V = createView(stage, { yaw: 0, pitch: 89 }); V.setView('top');
+  const V = createView(stage, { yaw: 0, pitch: 46 }); V.setView('iso');           // tilted: the stacks read as ribbed columns, the caps as the type
 
   let W = 1, H = 1, R = 40, rw = 3;
   let auto = null, letters = [], cam = { x: 0, y: -40 }, grab = null, pid = null, down = null, orbiting = false, acc = 0;
@@ -31,7 +31,7 @@ export function mount(stage) {
   function layout() {
     W = stage.W; H = stage.H;
     const portrait = W / H < 0.85, rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
-    const padX = Math.max(14, W * 0.045), top = Math.max(18, H * 0.04), bottom = 96, availW = W - 2 * padX, availH = H - top - bottom, colK = 2.3, rowK = 2.3;
+    const padX = Math.max(14, W * 0.045), top = Math.max(18, H * 0.04), bottom = 96, availW = W - 2 * padX, availH = H - top - bottom, colK = 2.3, rowK = 3.4;
     R = Math.min(availW / (Math.max(...rows.map((r) => r.length)) * colK), availH / (rows.length * rowK), Math.min(W, H) * P.size * 1.6);
     rw = Math.max(2, R * P.wire * 0.5);
     letters = [];
@@ -44,7 +44,7 @@ export function mount(stage) {
         letters.push({ ch, X, Z, ring, N, shape: ringShape(ch, { top: true }), hand: null, th: 0 });
       });
     });
-    cam = { x: 0, y: 0 }; grab = null;
+    cam = { x: 0, y: P.coils * (R * P.gap + rw) * 1.3 * 0.5 }; grab = null;                // the middle of a standing stack, so the whole piece sits in the frame
   }
 
   // a letter's chain lives in a vertical plane turned th about the vertical axis; lx along it, d across it
@@ -73,7 +73,7 @@ export function mount(stage) {
     ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = ink;
     ctx.lineWidth = 1; ctx.globalAlpha = 0.25;                                // the plane: an outline, so that turning the view shows it
     ctx.beginPath(); for (const [x, z] of [[-W / 2, -H / 2], [W / 2, -H / 2], [W / 2, H / 2], [-W / 2, H / 2], [-W / 2, -H / 2]]) { const q = V.project([x, 0, z], r, ox, oy); ctx.lineTo(q[0], q[1]); } ctx.stroke(); ctx.globalAlpha = 1;
-    ctx.lineWidth = Math.max(1.3, R * P.wire);
+    ctx.lineWidth = Math.max(1.3, R * P.wire); ctx.fillStyle = ink;
     const items = [];
     for (const L of letters) for (let i = 0; i < L.ring.n; i++) items.push({ L, i, z: V.project(wp(L, L.ring.x[i], L.ring.y[i], 0), r, 0, 0)[2] });
     items.sort((a, b) => a.z - b.z);
@@ -83,6 +83,7 @@ export function mount(stage) {
       if (L.shape) for (const loop of L.shape) {
         for (let k = 0; k <= loop.length; k++) { const pt = loop[k % loop.length], q = V.project(wp(L, cx + ux * pt[0] * R, cy + uy * pt[0] * R, pt[1] * R), r, ox, oy); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
       } else for (let k = 0; k <= 36; k++) { const t = k / 36 * Math.PI * 2, q = V.project(wp(L, cx + ux * Math.cos(t) * R, cy + uy * Math.cos(t) * R, Math.sin(t) * R), r, ox, oy); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
+      if (L.shape && i === 0) ctx.fill('evenodd');                           // the head ring is a solid cap: the letter itself; the rest of the coil is wire
       ctx.stroke();
     }
   }
