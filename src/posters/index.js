@@ -158,10 +158,9 @@ export const POSTERS = [
     slug: 'slinky-type',
     title: 'Slinky type',
     words: ['Idan', 'Segev'],
-    blurb: 'Every letter a slinky standing on the plane. Tap one.',
+    blurb: 'Solid letters that are really coiled Slinkys. Tap one and it springs free.',
     hint: null,
     themes: { dark: 0, light: 1 },
-    draft: true,
     load: () => import('./slinky-type.js'),
   },
   {

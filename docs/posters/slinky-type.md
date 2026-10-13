@@ -1,6 +1,6 @@
 # Slinky type
 
-**Status:** draft until published. Test at `/?p=slinky-type` (panel: `&tune`). File: `src/posters/slinky-type.js`. Built on the Slinky physics ([slinky.md](slinky.md), `slinky-rings.js`).
+**Status:** published 2026-10-13. Test at `/?p=slinky-type`.
 
 **Brief (Idan, 12 Oct 2026).** The delight comes from a magical, surprising interaction. Tilted view with solid caps for the letters; each letter a condensed slinky, released on user interaction. Letters should fall toward the camera, not sideways, and motion should cover x and y as well as z.
 
