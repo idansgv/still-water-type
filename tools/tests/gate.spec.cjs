@@ -66,7 +66,7 @@ test('gate: calm under reduced motion', async ({ browser }) => {
   for (const p of LIST) {
     const errs = watch(page);
     await open(page, p.slug);
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(6000);                                                       // a short intro on load is allowed (Slinky settles for about 5 s); after that, stillness
     const snap = () => page.evaluate(() => { const c = document.querySelector('#stage canvas.poster-canvas'), t = document.createElement('canvas'); t.width = 96; t.height = 60; const g = t.getContext('2d', { willReadFrequently: true }); g.drawImage(c, 0, 0, 96, 60); return Array.from(g.getImageData(0, 0, 96, 60).data); });
     const a = await snap(); await page.waitForTimeout(1500); const b = await snap();
     let d = 0; for (let i = 0; i < a.length; i += 4) d += Math.abs(a[i] - b[i]); const motion = +(d / (a.length / 4) / 255).toFixed(4);
