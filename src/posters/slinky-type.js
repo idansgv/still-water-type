@@ -161,8 +161,7 @@ export function mount(stage) {
     for (let i = 0; i < N; i++) { const t = i / (N - 1); L.ring.vx[i] += R * v * (1 - 0.45 * t); L.ring.vy[i] += R * 1.6 * (1 - 0.4 * t); }   // the head leads (t = 0), the tail is shoved less: the coil opens and follows
   }
   function click(L) {
-    if (L.clicks === 0) { L.clicks = 1; bump(L, P.bump, P.pull); }
-    else if (L.clicks === 1) { L.clicks = 2; bump(L, P.push, P.pull2); }
+    if (L.clicks === 0) { L.clicks = 2; bump(L, P.push, P.pull2); }                                  // one click: the whole arc, over the edge and off the screen, then back on the wall
   }
   // the pointer's place in a letter's own vertical plane (lx out from the wall, y up), or null when that plane is seen edge-on
   function onChain(q, L) {
