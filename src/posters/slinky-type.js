@@ -21,8 +21,8 @@ export function mount(stage) {
   stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
 
-  const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS };                      // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (13 Oct 2026)
-  const OWN = { coils: 12, ledge: 2.6, bump: 2.4, push: 9.5 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
+  const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS, spring: 958, gravity: 23, bounce: 0.81, inertia: 0.3 };   // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (14 Oct 2026)
+  const OWN = { coils: 12, ledge: 5, bump: 4.1, push: 9.5, pull: 1.3, pull2: 2.8 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
   const DEFAULTS = { ...shared, ...OWN };
   const P = bindParams(shared, OWN);
   const V = createView(stage, { yaw: 50, pitch: 20 }); V.setView('iso');          // Idan's camera for the Slinky (13 Oct 2026)
@@ -82,6 +82,11 @@ export function mount(stage) {
   }
   function stepAll() {
     const env = envNow(), h = 1 / 960;
+    if (hand && hand.auto) {                                                       // a bump also takes the cap and pulls it ahead for a moment, so the spring opens, then lets go
+      hand.t += 1 / 60; const u = Math.min(1, hand.t / 0.32), e = u * u * (3 - 2 * u);
+      hand.x = hand.x0 + R * hand.pull * e; hand.y = hand.y0 + R * 0.5 * Math.sin(u * Math.PI);
+      if (hand.t > 0.34) { hand.L.state = 'free'; hand = null; }
+    }
     for (const L of letters) {
       if (!L.awake) continue;
       env.grab = hand && hand.L === L ? (() => { const g = L.hand || (L.hand = { pt: 0 }); g.x = hand.x; g.y = hand.y; trackHand(g, g.x, g.y, 1 / 60); return g; })() : null;
@@ -149,14 +154,15 @@ export function mount(stage) {
   };
   // A bump: a shove forward and a small hop, the head ring shoved hardest so the coil opens as it goes. The first click bumps gently (onto the ledge, where it bounces and settles); the
   // second bumps hard (over the edge and off the screen).
-  function bump(L, v) {
+  function bump(L, v, pull) {
     wake(L); L.state = 'bump'; L.hand = null;
     const N = L.ring.n;
-    for (let i = 0; i < N; i++) { const t = i / (N - 1); L.ring.vx[i] += R * v * (1 - 0.45 * t); L.ring.vy[i] += R * 2.2 * (1 - 0.4 * t); L.ring.w[i] += 1.5; }   // the head leads (t = 0), the tail is shoved less: the coil opens and follows
+    if (!hand && pull > 0) hand = { L, auto: true, t: 0, x0: L.ring.x[0], y0: L.ring.y[0], pull, x: L.ring.x[0], y: L.ring.y[0] };
+    for (let i = 0; i < N; i++) { const t = i / (N - 1); L.ring.vx[i] += R * v * (1 - 0.45 * t); L.ring.vy[i] += R * 1.6 * (1 - 0.4 * t); }   // the head leads (t = 0), the tail is shoved less: the coil opens and follows
   }
   function click(L) {
-    if (L.clicks === 0) { L.clicks = 1; bump(L, P.bump); }
-    else if (L.clicks === 1) { L.clicks = 2; bump(L, P.push); }
+    if (L.clicks === 0) { L.clicks = 1; bump(L, P.bump, P.pull); }
+    else if (L.clicks === 1) { L.clicks = 2; bump(L, P.push, P.pull2); }
   }
   // the pointer's place in a letter's own vertical plane (lx out from the wall, y up), or null when that plane is seen edge-on
   function onChain(q, L) {
@@ -168,16 +174,16 @@ export function mount(stage) {
   offs.push(stage.on('move', (q, e) => {
     if (e.pointerId !== pid) return;
     const far = down && Math.hypot(q.x - down.x, q.y - down.y) > TAP.px;
-    if (pressed && far && !hand) { const w = onChain(q, pressed); if (w) { wake(pressed); pressed.state = 'held'; hand = { L: pressed, x: w[0], y: w[1] }; } }
-    if (hand) { const w = onChain(q, hand.L); if (w) { hand.x = Math.max(rw * 2, w[0]); hand.y = Math.max(rw * 2, w[1]); } return; }       // the cap follows the pointer
+    if (pressed && far && !(hand && !hand.auto)) { const w = onChain(q, pressed); if (w) { wake(pressed); pressed.state = 'held'; hand = { L: pressed, x: w[0], y: w[1] }; } }
+    if (hand && !hand.auto) { const w = onChain(q, hand.L); if (w) { hand.x = Math.max(rw * 2, w[0]); hand.y = Math.max(rw * 2, w[1]); } return; }       // the cap follows the pointer
     if (!pressed && down && !orbiting && Math.hypot(q.x - down.x, q.y - down.y) > 10) { orbiting = true; V.orbit.start(down); }
     if (orbiting) V.orbit.move(q);
   }));
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pid) return;
-    if (!hand && !orbiting && pressed && performance.now() - down.t < TAP.ms && Math.hypot(q.x - down.x, q.y - down.y) < TAP.px) click(pressed);
-    if (hand) { hand.L.state = 'drop'; hand.L.clicks = Math.max(hand.L.clicks, 1); wake(hand.L); }                                      // let go of the cap: it falls from where it was held
-    if (orbiting) V.orbit.end(); hand = null; pressed = null; down = null; orbiting = false; pid = null;
+    if (!(hand && !hand.auto) && !orbiting && pressed && performance.now() - down.t < TAP.ms && Math.hypot(q.x - down.x, q.y - down.y) < TAP.px) click(pressed);
+    if (hand && !hand.auto) { hand.L.state = 'drop'; hand.L.clicks = Math.max(hand.L.clicks, 1); wake(hand.L); }                                      // let go of the cap: it falls from where it was held
+    if (orbiting) V.orbit.end(); if (hand && !hand.auto) hand = null; pressed = null; down = null; orbiting = false; pid = null;
   }));
   const onKey = (e) => {
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
@@ -193,7 +199,7 @@ export function mount(stage) {
     tune: {
       title: 'Slinky type', values: P, defaults: DEFAULTS,
       groups: [
-        { name: 'Scene', items: [Ctl('ledge', 'How deep the ledge is (radii, re-forms)', 1.2, 5, 0.1), Ctl('bump', 'How hard the first bump is (radii / s)', 0.5, 8, 0.1), Ctl('push', 'How hard the second bump is (radii / s)', 3, 18, 0.1), Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
+        { name: 'Scene', items: [Ctl('ledge', 'How deep the ledge is (radii, re-forms)', 1.2, 5, 0.1), Ctl('bump', 'How hard the first bump is (radii / s)', 0.5, 8, 0.1), Ctl('pull', 'How far the first bump pulls the cap ahead (radii)', 0, 4, 0.1), Ctl('pull2', 'How far the second bump pulls it (radii)', 0, 5, 0.1), Ctl('push', 'How hard the second bump is (radii / s)', 3, 18, 0.1), Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
         { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path', 0, 2, 0.05), Ctl('spring', 'Wire stiffness', 5, 4000, 1), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction', 0, 1.5, 0.05), Ctl('bounce', 'Bounce', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05)] },
       ],
