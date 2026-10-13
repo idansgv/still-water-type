@@ -71,7 +71,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 |---|---|
 | Tap on a letter | kicked over, falls toward the camera, leaning to the touched side (under 250 ms, 8 px) |
 | Drag a letter's top | falls the way it is pulled |
-| Drag on background | orbits the camera |
+| Drag on background | orbits the camera; wheel / pinch zooms; Shift- or right-drag pans |
 | Tap on background | nothing |
 | Hold | nothing |
 | Keys | 1 to 6 views, X stand up, L lock the camera |

@@ -23,9 +23,15 @@ export function mount(stage) {
 
   const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS, spring: 958, gravity: 23, bounce: 0.81, inertia: 0.3 };   // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (14 Oct 2026)
   const OWN = { coils: 20, ledge: 10, bump: 2.9, push: 9.5, pull: 1.7, pull2: 2.8 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
-  const DEFAULTS = { ...shared, ...OWN };
+  const CAM = { yaw: 20, pitch: 10, zoom: 1, panX: 0, panY: 0 };                                    // Idan's camera (14 Oct 2026); zoom and pan are a multiplier on the fitted scene and a share of the screen
+  const DEFAULTS = { ...shared, ...OWN, ...CAM };
   const P = bindParams(shared, OWN);
-  const V = createView(stage, { yaw: 20, pitch: 10 }); V.setView('iso');          // Idan's camera (14 Oct 2026)
+  const V = createView(stage, { yaw: CAM.yaw, pitch: CAM.pitch }); V.setView('iso');
+  const cam3 = { zoom: CAM.zoom, panX: CAM.panX, panY: CAM.panY };
+  const camGet = { yaw: () => V.target.yaw, pitch: () => V.target.pitch, zoom: () => cam3.zoom, panX: () => cam3.panX, panY: () => cam3.panY };
+  const camSet = { yaw: (v) => { V.target.yaw = v; V.name = 'custom'; }, pitch: (v) => { V.target.pitch = v; V.name = 'custom'; }, zoom: (v) => { cam3.zoom = v; }, panX: (v) => { cam3.panX = v; }, panY: (v) => { cam3.panY = v; } };
+  for (const k of Object.keys(CAM)) Object.defineProperty(P, k, { enumerable: true, get: camGet[k], set: camSet[k] });   // the camera is part of the settings: it is copied with them
+  const setCamera = (c) => { for (const k of Object.keys(CAM)) camSet[k](c[k]); };
 
   let W = 1, H = 1, R = 40, rw = 3, wallW = 1, wallH = 1, acc = 0;
   let hand = null, letters = [], cam = { x: 0, y: 0 }, pid = null, down = null, orbiting = false, pressed = null;
@@ -47,9 +53,9 @@ export function mount(stage) {
   function origin2(r) {
     const [ox0, oy0] = V.origin(r, cam, W, H); let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
     for (const c of corners3()) { const q = V.project(c, r, ox0, oy0); x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
-    return [ox0 + W / 2 - (x0 + x1) / 2, oy0 + (H - 40) / 2 - (y0 + y1) / 2, x1 - x0, y1 - y0];
+    return [ox0 + W / 2 - (x0 + x1) / 2 + cam3.panX * W, oy0 + (H - 40) / 2 - (y0 + y1) / 2 + cam3.panY * H, x1 - x0, y1 - y0];
   }
-  function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul); V.zoomMul += (f - V.zoomMul) * 0.15; }
+  function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul) * cam3.zoom; V.zoomMul += (f - V.zoomMul) * 0.15; }
   function layout() {
     W = stage.W; H = stage.H;
     const portrait = W / H < 0.85, rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], rowK = 3.7;
@@ -63,7 +69,7 @@ export function mount(stage) {
     rows.forEach((row, k) => {
       const gap = GAP; let x = -rowW(row) / 2;
       [...row].forEach((ch, j) => {
-        const [lo, hi] = ext(ch), X = (x - lo) * R, N = Math.round(P.coils), L = { ch, X, Y: R * 1.3 + (rows.length - 1 - k) * R * rowK + R * 0.9, ring: createRings(N + 2), N, shape: ringShape(ch), hand: null, awake: false };
+        const [lo, hi] = ext(ch), X = (x - lo) * R, N = Math.round(P.coils), L = { ch, X, Y: R * 1.3 + (rows.length - 1 - k) * R * rowK + R * 0.9, ring: createRings(N + 2), N, shape: ringShape(ch), hand: null, awake: false, fade: 1 };
         x += hi - lo + gap;
         poseWall(L); letters.push(L);
       });
@@ -93,13 +99,14 @@ export function mount(stage) {
       if (hand.t > 0.34) { hand.L.state = 'free'; hand = null; }
     }
     for (const L of letters) {
+      if (L.fade < 1) L.fade = Math.min(1, L.fade + 1 / 60 / 1.6);
       if (!L.awake) continue;
       env.grab = hand && hand.L === L ? (() => { const g = L.hand || (L.hand = { pt: 0 }); g.x = hand.x; g.y = hand.y; trackHand(g, g.x, g.y, 1 / 60); return g; })() : null;
       for (let s = 0; s < 16; s++) L.ring.step(h, env);
       for (let i = 0; i < L.ring.n; i++) { const hx = R * Math.abs(Math.cos(L.ring.a[i])) + rw; if (L.ring.x[i] < hx) { L.ring.x[i] = hx; if (L.ring.vx[i] < 0) L.ring.vx[i] = 0; } }   // the wall is solid: no ring goes behind it
       if (!(hand && hand.L === L)) restCheck(L); else L.q = 0;
       let top = -1e9; for (let i = 0; i < L.ring.n; i++) top = Math.max(top, L.ring.y[i]);
-      if (top < -R * 9) poseWall(L);                                              // it has fallen off the screen: back on the wall
+      if (top < -R * 9) { poseWall(L); L.fade = 0; }                                              // it has fallen off the screen: back on the wall
     }
   }
 
@@ -124,8 +131,10 @@ export function mount(stage) {
       for (const loop of L.shape) {
         for (let k = 0; k <= loop.length; k++) { const pt = loop[k % loop.length], q = V.project(wp(L, cx + ux * pt[0] * R, cy + uy * pt[0] * R, pt[1] * R), r, ox, oy); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
       }
-      ctx.fillStyle = ink; if (i === 0) ctx.fill('evenodd');                      // the head ring is a solid cap: the letter itself; the rest of the coil is wire
-      ctx.stroke();
+      ctx.fillStyle = ink;                                                           // the head ring is a solid cap: the letter itself; the rest of the coil is wire
+      const oa = Math.min(1, L.fade / 0.4), fa = Math.min(1, Math.max(0, (L.fade - 0.4) / 0.6)), se = (t) => t * t * (3 - 2 * t);   // back on the wall: the outline fades in first, then the letter fills
+      if (i === 0) { ctx.globalAlpha = se(fa); ctx.fill('evenodd'); }
+      ctx.globalAlpha = se(oa); ctx.stroke(); ctx.globalAlpha = 1;
     }
   }
 
@@ -173,9 +182,14 @@ export function mount(stage) {
     const x1 = (q.x - ox) / r.z, vz = (x1 - r.cy * L.X) / r.sy, z1 = -r.sy * L.X + r.cy * vz, y2 = (oy - q.y) / r.z, vy = (y2 + r.sx * z1) / r.cx;
     return [-vz, vy];
   }
-  offs.push(stage.on('down', (q, e) => { if (pid !== null) return; pid = e.pointerId; down = { x: q.x, y: q.y, t: performance.now() }; orbiting = false; pressed = hit(q); }));
+  let panning = null;
+  offs.push(stage.on('down', (q, e) => { if (pid !== null) return; pid = e.pointerId; down = { x: q.x, y: q.y, t: performance.now() }; orbiting = false; pressed = hit(q); if (e.shiftKey || e.button === 2) { pressed = null; panning = { x: q.x, y: q.y, px: cam3.panX, py: cam3.panY }; } }));
+  const onWheel = (e) => { e.preventDefault(); cam3.zoom = clamp(cam3.zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), 0.3, 4); };   // wheel or trackpad pinch: zoom
+  stage.root.addEventListener('wheel', onWheel, { passive: false }); offs.push(() => stage.root.removeEventListener('wheel', onWheel));
+  const noMenu = (e) => e.preventDefault(); stage.root.addEventListener('contextmenu', noMenu); offs.push(() => stage.root.removeEventListener('contextmenu', noMenu));
   offs.push(stage.on('move', (q, e) => {
     if (e.pointerId !== pid) return;
+    if (panning) { cam3.panX = panning.px + (q.x - panning.x) / W; cam3.panY = panning.py + (q.y - panning.y) / H; return; }
     const far = down && Math.hypot(q.x - down.x, q.y - down.y) > TAP.px;
     if (pressed && far && !(hand && !hand.auto)) { const w = onChain(q, pressed); if (w) { wake(pressed); pressed.state = 'held'; hand = { L: pressed, x: w[0], y: w[1] }; } }
     if (hand && !hand.auto) { const w = onChain(q, hand.L); if (w) { hand.x = Math.max(rw * 2, w[0]); hand.y = Math.max(rw * 2, w[1]); } return; }       // the cap follows the pointer
@@ -186,11 +200,11 @@ export function mount(stage) {
     if (e.pointerId !== pid) return;
     if (!(hand && !hand.auto) && !orbiting && pressed && performance.now() - down.t < TAP.ms && Math.hypot(q.x - down.x, q.y - down.y) < TAP.px) click(pressed);
     if (hand && !hand.auto) { hand.L.state = 'drop'; hand.L.clicks = Math.max(hand.L.clicks, 1); wake(hand.L); }                                      // let go of the cap: it falls from where it was held
-    if (orbiting) V.orbit.end(); if (hand && !hand.auto) hand = null; pressed = null; down = null; orbiting = false; pid = null;
+    panning = null; if (orbiting) V.orbit.end(); if (hand && !hand.auto) hand = null; pressed = null; down = null; orbiting = false; pid = null;
   }));
   const onKey = (e) => {
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
-    if (e.key === 'x' || e.key === 'X') layout(); else if (e.key === 'l' || e.key === 'L') V.lock = !V.lock;
+    if (e.key === 'x' || e.key === 'X') layout(); else if (e.key === 'l' || e.key === 'L') V.lock = !V.lock; else if (e.key === '0') setCamera(CAM); else if (e.key === '=' || e.key === '+') cam3.zoom = clamp(cam3.zoom * 1.15, 0.3, 4); else if (e.key === '-') cam3.zoom = clamp(cam3.zoom / 1.15, 0.3, 4);
   };
   addEventListener('keydown', onKey);
   offs.push(stage.on('resize', layout));
@@ -205,10 +219,14 @@ export function mount(stage) {
         { name: 'Scene', items: [Ctl('ledge', 'How deep the ledge is (radii, re-forms)', 1.2, 14, 0.1), Ctl('bump', 'How hard the first bump is (radii / s)', 0.5, 8, 0.1), Ctl('pull', 'How far the first bump pulls the cap ahead (radii)', 0, 4, 0.1), Ctl('pull2', 'How far the second bump pulls it (radii)', 0, 5, 0.1), Ctl('push', 'How hard the second bump is (radii / s)', 3, 18, 0.1), Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
         { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path', 0, 2, 0.05), Ctl('spring', 'Wire stiffness', 5, 4000, 1), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction', 0, 1.5, 0.05), Ctl('bounce', 'Bounce', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05)] },
+        { name: 'Camera', items: [Ctl('yaw', 'Turn (deg)', -90, 90, 1), Ctl('pitch', 'Tilt (deg)', 0, 89, 1), Ctl('zoom', 'Zoom', 0.3, 4, 0.01), Ctl('panX', 'Shift left / right', -0.6, 0.6, 0.005), Ctl('panY', 'Shift up / down', -0.6, 0.6, 0.005)] },
       ],
-      actions: { 'X  Put them back on the wall': layout, 'L  Lock the camera': () => { V.lock = !V.lock; } },
+      actions: {
+        'X  Put them back on the wall': layout, 'L  Lock the camera': () => { V.lock = !V.lock; },
+        'Face on': () => setCamera({ ...CAM, yaw: 0, pitch: 0 }), 'From above': () => setCamera({ ...CAM, yaw: 25, pitch: 55 }), '0  Default camera': () => setCamera(CAM),
+      },
       set(key, value) { P[key] = value; if (['coils', 'size', 'gap', 'wire', 'ledge'].includes(key)) layout(); },
-      reset() { Object.assign(P, DEFAULTS); layout(); },
+      reset() { Object.assign(P, DEFAULTS); setCamera(CAM); layout(); },
     },
     debug: { run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, letters: () => letters, V, click: (i) => click(letters[i]), tap: (i) => click(letters[i]) },
     destroy() { removeEventListener('keydown', onKey); rv.destroy(); offs.forEach((f) => f()); V.destroy(); stage.setBackdrop(null); },
