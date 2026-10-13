@@ -49,7 +49,9 @@ export function mount(stage) {
 
   // a letter's chain lives in a vertical plane turned th about the vertical axis; lx along it, d across it
   const wp = (L, lx, y, d) => { const c = Math.cos(L.th), s = Math.sin(L.th); return [L.X + c * lx - s * d, y, L.Z + s * lx + c * d]; };
-  const standing = (L) => { let a = 1e9, b = -1e9; for (let i = 0; i < L.N; i++) { a = Math.min(a, L.ring.x[i]); b = Math.max(b, L.ring.x[i]); } return b - a < R * 1.5 && L.ring.y[0] > L.N * R * 0.12; };
+  // the way the camera looks from, along the plane: a letter that is tapped falls toward the viewer, not sideways
+  const toCamera = () => { const r = V.rot(); return Math.atan2(-r.cy, r.sy); };       // +z runs up the screen in this view, so toward the viewer is -z
+  const standing = (L) => { let a = 1e9, b = -1e9; for (let i = 0; i < L.N; i++) { a = Math.min(a, L.ring.x[i]); b = Math.max(b, L.ring.x[i]); } return b - a < R * 1.5 && L.ring.y[0] > L.N * (R * P.gap + rw) * 0.55; };   // upright: narrow, and the head well above the floor (a condensed stack is only a few rings' thickness tall)
   function envNow() {
     const k = P.spring, kw = k * 60, kc = k * P.contact, e = clamp(P.bounce, 0.02, 0.98), zeta = -Math.log(e) / Math.sqrt(Math.PI * Math.PI + Math.log(e) ** 2), dmin = R * P.gap + rw, I = R * R * P.inertia, kl = k * R * R * P.leanK;
     return { R, g: P.gravity * R, k, kd: P.shear * k, l0: Math.hypot(2 * R, dmin), cw: P.wireDamp, kc, cc: 2 * Math.sqrt(kc) * P.contactDamp, dmin, rw, kw, cwall: 2 * zeta * Math.sqrt(kw), mu: P.grip, cf: 60, inertia: P.inertia, lean: P.lean * Math.PI / 180,
@@ -115,7 +117,7 @@ export function mount(stage) {
   }));
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pid) return;
-    if (grab && performance.now() - grab.t < 250 && Math.hypot(q.x - grab.q0.x, q.y - grab.q0.y) < 8) { if (standing(grab.L)) grab.L.th = Math.random() * Math.PI * 2; auto = { L: grab.L, t: 0, dir: 1, kind: 'flip', x0: grab.L.ring.x[0], y0: grab.L.ring.y[0] }; }   // a tap kicks the letter over (the spring release, kind 'spring', is parked: the stiff coil carries the whole stack up with the hand) the head ring is lifted and carried over by itself
+    if (grab && performance.now() - grab.t < 250 && Math.hypot(q.x - grab.q0.x, q.y - grab.q0.y) < 8) { if (standing(grab.L)) grab.L.th = toCamera(); auto = { L: grab.L, t: 0, dir: 1, kind: 'flip', x0: grab.L.ring.x[0], y0: grab.L.ring.y[0] }; }   // a tap kicks the letter over (the spring release, kind 'spring', is parked: the stiff coil carries the whole stack up with the hand) the head ring is lifted and carried over by itself
     if (orbiting) V.orbit.end(); grab = null; down = null; orbiting = false; pid = null;
   }));
   const onKey = (e) => {
@@ -141,7 +143,7 @@ export function mount(stage) {
       set(key, value) { P[key] = value; if (['coils', 'lean0', 'size', 'gap', 'wire'].includes(key)) layout(); },
       reset() { Object.assign(P, DEFAULTS); layout(); },
     },
-    debug: { run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, letters: () => letters, V, tap: (i, kind) => { auto = { L: letters[i], t: 0, dir: 1, kind: kind || 'flip', x0: letters[i].ring.x[0], y0: letters[i].ring.y[0] }; } },
+    debug: { run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, letters: () => letters, V, tap: (i, kind) => { if (standing(letters[i])) letters[i].th = toCamera(); auto = { L: letters[i], t: 0, dir: 1, kind: kind || 'flip', x0: letters[i].ring.x[0], y0: letters[i].ring.y[0] }; } },
     destroy() { removeEventListener('keydown', onKey); offs.forEach((f) => f()); V.destroy(); stage.setBackdrop(null); },
   };
 }
