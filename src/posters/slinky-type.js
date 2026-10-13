@@ -22,10 +22,10 @@ export function mount(stage) {
   const offs = [];
 
   const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS, spring: 958, gravity: 23, bounce: 0.81, inertia: 0.3 };   // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (14 Oct 2026)
-  const OWN = { coils: 12, ledge: 5, bump: 4.1, push: 9.5, pull: 1.3, pull2: 2.8 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
+  const OWN = { coils: 20, ledge: 10, bump: 2.9, push: 9.5, pull: 1.7, pull2: 2.8 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
   const DEFAULTS = { ...shared, ...OWN };
   const P = bindParams(shared, OWN);
-  const V = createView(stage, { yaw: 50, pitch: 20 }); V.setView('iso');          // Idan's camera for the Slinky (13 Oct 2026)
+  const V = createView(stage, { yaw: 20, pitch: 10 }); V.setView('iso');          // Idan's camera (14 Oct 2026)
 
   let W = 1, H = 1, R = 40, rw = 3, wallW = 1, wallH = 1, acc = 0;
   let hand = null, letters = [], cam = { x: 0, y: 0 }, pid = null, down = null, orbiting = false, pressed = null;
@@ -38,8 +38,8 @@ export function mount(stage) {
   function poseWall(L) {                                                            // the condensed stack, rings upright, the head ring (0) farthest from the wall and facing you
     const N = L.N, sp = (R * P.gap + rw) * 1.3;
     for (let i = 0; i < N; i++) { const k = N - 1 - i; L.ring.x[i] = rw + k * sp; L.ring.y[i] = L.Y; L.ring.a[i] = Math.PI / 2; L.ring.vx[i] = L.ring.vy[i] = L.ring.w[i] = 0; }
-    L.ring.n = N; L.ring.setCaps(P.capInertia);
-    L.state = 'wall'; L.clicks = 0; L.awake = false; L.q = 0; L.f = 0; L.snap = null; L.hand = null;
+    L.S0 = (N - 1) * sp; L.ring.n = N; L.ring.setCaps(P.capInertia);
+    L.state = 'wall'; L.open = 0; L.clicks = 0; L.awake = false; L.q = 0; L.f = 0; L.snap = null; L.hand = null;
   }
 
   // the backdrop and the ledge, centred and fitted on the screen whatever the view
@@ -52,14 +52,19 @@ export function mount(stage) {
   function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul); V.zoomMul += (f - V.zoomMul) * 0.15; }
   function layout() {
     W = stage.W; H = stage.H;
-    const portrait = W / H < 0.85, rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], colK = 2.6, rowK = 3.7, maxRow = Math.max(...rows.map((r) => r.length));
-    R = Math.min(W * 0.78 / (maxRow * colK), H * 0.62 / (rows.length * rowK + 1.6), Math.min(W, H) * 0.11 * 1.6);
+    const portrait = W / H < 0.85, rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], rowK = 3.7;
+    const ext = (ch) => { let lo = 1e9, hi = -1e9; for (const loop of ringShape(ch) || []) for (const pt of loop) { lo = Math.min(lo, pt[1]); hi = Math.max(hi, pt[1]); } return lo > hi ? [-1, 1] : [lo, hi]; };   // a letter's width, across the wall, in radii
+    const GAP = 0.5;                                                                                     // the same space between every pair of letters (not the same pitch): even colour
+    const rowW = (row) => [...row].reduce((a, ch) => a + ext(ch)[1] - ext(ch)[0], 0) + GAP * (row.length - 1), maxW = Math.max(...rows.map(rowW));
+    R = Math.min(W * 0.78 / maxW, H * 0.62 / (rows.length * rowK + 1.6), Math.min(W, H) * 0.11 * 1.6);
     rw = Math.max(2, R * P.wire * 0.5);
-    wallW = (maxRow * colK + 1.2) * R / 2; wallH = (rows.length * rowK + 0.8) * R;
+    wallW = (maxW + 1.2) * R / 2; wallH = (rows.length * rowK + 0.8) * R;
     letters = [];
     rows.forEach((row, k) => {
+      const gap = GAP; let x = -rowW(row) / 2;
       [...row].forEach((ch, j) => {
-        const X = (j - (row.length - 1) / 2) * R * colK, N = Math.round(P.coils), L = { ch, X, Y: R * 1.3 + (rows.length - 1 - k) * R * rowK + R * 0.9, ring: createRings(N + 2), N, shape: ringShape(ch), hand: null, awake: false };
+        const [lo, hi] = ext(ch), X = (x - lo) * R, N = Math.round(P.coils), L = { ch, X, Y: R * 1.3 + (rows.length - 1 - k) * R * rowK + R * 0.9, ring: createRings(N + 2), N, shape: ringShape(ch), hand: null, awake: false };
+        x += hi - lo + gap;
         poseWall(L); letters.push(L);
       });
     });
@@ -105,17 +110,16 @@ export function mount(stage) {
     ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
     const r = V.rot(), [ox, oy] = origin2(r), T = R * 0.9, E = edge();
     ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = ink; ctx.fillStyle = paper; ctx.lineWidth = Math.max(1.2, R * 0.03);
-    const quad = (pts) => { ctx.beginPath(); pts.forEach((q, i) => { const s2 = V.project(q, r, ox, oy); i ? ctx.lineTo(s2[0], s2[1]) : ctx.moveTo(s2[0], s2[1]); }); ctx.closePath(); ctx.fill(); ctx.stroke(); };
-    quad([[-wallW, 0, 0], [wallW, 0, 0], [wallW, wallH, 0], [-wallW, wallH, 0]]);                                   // the backdrop, upright
-    quad([[-wallW, 0, 0], [wallW, 0, 0], [wallW, 0, -E], [-wallW, 0, -E]]);                                          // the ledge: its top,
-    quad([[-wallW, 0, -E], [wallW, 0, -E], [wallW, -T, -E], [-wallW, -T, -E]]);                                     // its front,
-    quad([[wallW, 0, 0], [wallW, 0, -E], [wallW, -T, -E], [wallW, -T, 0]]);                                          // and its end
+    ctx.fillStyle = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';                                          // the ledge's top: a solid 5% tint; the wall and the ledge's sides are not drawn
+    ctx.beginPath(); [[-wallW, 0, 0], [wallW, 0, 0], [wallW, 0, -E], [-wallW, 0, -E]].forEach((q, i) => { const s2 = V.project(q, r, ox, oy); i ? ctx.lineTo(s2[0], s2[1]) : ctx.moveTo(s2[0], s2[1]); }); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = paper;
     ctx.lineWidth = Math.max(1.3, R * P.wire);
     const items = [];
     for (const L of letters) for (let i = 0; i < L.ring.n; i++) items.push({ L, i, z: V.project(wp(L, L.ring.x[i], L.ring.y[i], 0), r, 0, 0)[2] });
     items.sort((a, b) => a.z - b.z);
+    for (const L of letters) L.open += ((L.awake || hand?.L === L ? 1 : 0) - L.open) * 0.22;   // pressed and held: a letter at rest hides its coil behind the cap; the moment it moves the coil shows
     for (const { L, i } of items) {
-      const a = L.ring.a[i], ux = Math.cos(a), uy = Math.sin(a), cx = L.ring.x[i], cy = L.ring.y[i];
+      const a = L.ring.a[i], ux = Math.cos(a), uy = Math.sin(a), cx = L.ring.x[0] + (L.ring.x[i] - L.ring.x[0]) * L.open, cy = L.ring.y[0] + (L.ring.y[i] - L.ring.y[0]) * L.open;
       ctx.beginPath();
       for (const loop of L.shape) {
         for (let k = 0; k <= loop.length; k++) { const pt = loop[k % loop.length], q = V.project(wp(L, cx + ux * pt[0] * R, cy + uy * pt[0] * R, pt[1] * R), r, ox, oy); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
@@ -198,7 +202,7 @@ export function mount(stage) {
     tune: {
       title: 'Slinky type', values: P, defaults: DEFAULTS,
       groups: [
-        { name: 'Scene', items: [Ctl('ledge', 'How deep the ledge is (radii, re-forms)', 1.2, 5, 0.1), Ctl('bump', 'How hard the first bump is (radii / s)', 0.5, 8, 0.1), Ctl('pull', 'How far the first bump pulls the cap ahead (radii)', 0, 4, 0.1), Ctl('pull2', 'How far the second bump pulls it (radii)', 0, 5, 0.1), Ctl('push', 'How hard the second bump is (radii / s)', 3, 18, 0.1), Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
+        { name: 'Scene', items: [Ctl('ledge', 'How deep the ledge is (radii, re-forms)', 1.2, 14, 0.1), Ctl('bump', 'How hard the first bump is (radii / s)', 0.5, 8, 0.1), Ctl('pull', 'How far the first bump pulls the cap ahead (radii)', 0, 4, 0.1), Ctl('pull2', 'How far the second bump pulls it (radii)', 0, 5, 0.1), Ctl('push', 'How hard the second bump is (radii / s)', 3, 18, 0.1), Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
         { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path', 0, 2, 0.05), Ctl('spring', 'Wire stiffness', 5, 4000, 1), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction', 0, 1.5, 0.05), Ctl('bounce', 'Bounce', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05)] },
       ],
