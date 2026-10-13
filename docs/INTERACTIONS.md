@@ -49,6 +49,19 @@ What each published poster does today, and the rules every poster should follow.
 | Self-demo | the light swings once at 3.5 s, then every 9 to 13 s, until the first touch; off under reduced motion |
 | Idle | light eases home after 4 s |
 
+## Slinky type
+
+| | Slinky type |
+|---|---|
+| Tap on a letter | kicked over, falls toward the camera, leaning to the touched side (under 250 ms, 8 px) |
+| Drag a letter's top | falls the way it is pulled |
+| Drag on background | orbits the camera |
+| Tap on background | nothing |
+| Hold | nothing |
+| Keys | 1 to 6 views, X stand up, L lock the camera |
+| Three taps (reveal) | spine, ring tilts, head ring and ring count |
+| Self-demo | none |
+
 ## Known inconsistencies still to settle
 
 1. Tap length and travel differ (0.22 s, 260 ms, 380 ms, 450 ms; 8 or 10 px); Still Water and Explode have no cap.

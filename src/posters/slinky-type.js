@@ -8,6 +8,8 @@ import { createRings, trackHand } from './slinky-rings.js';
 import { SHARED_DEFAULTS, bindParams } from './slinky-params.js';
 import { ringShape } from './slinky-shape.js';
 import { createView } from './slinky-view.js';
+import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
+import { TAP } from '../gestures.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -98,6 +100,27 @@ export function mount(stage) {
     }
   }
 
+  // Reveal (three quick taps): the page inverts and every letter shows what it is: the spine through its ring centres, a tick for each ring's tilt,
+  // the head ring (the solid cap) ringed, and the rings counted.
+  const rv = createReveal(stage, (c, W_, H_, k) => {
+    const col = (a) => rvInk(stage, a), r = V.rot(), [ox, oy] = V.origin(r, cam, W_, H_);
+    grid(c, W_, H_, 24, col, k); corners(c, W_, H_, 16, col, k);
+    let rings = 0;
+    for (const L of letters) {
+      const pts = []; rings += L.ring.n;
+      for (let i = 0; i < L.ring.n; i++) { const q = V.project(wp(L, L.ring.x[i], L.ring.y[i], 0), r, ox, oy); pts.push(q); }
+      c.strokeStyle = col(0.9 * k); c.lineWidth = 1; c.beginPath(); pts.forEach((q, i) => (i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]))); c.stroke();
+      for (let i = 0; i < L.ring.n; i++) {
+        const a = L.ring.a[i], q = pts[i], e = V.project(wp(L, L.ring.x[i] + Math.cos(a) * R * 0.5, L.ring.y[i] + Math.sin(a) * R * 0.5, 0), r, ox, oy);
+        c.strokeStyle = col(0.7 * k); c.beginPath(); c.moveTo(q[0], q[1]); c.lineTo(e[0], e[1]); c.stroke();
+        c.fillStyle = col(0.9 * k); c.beginPath(); c.arc(q[0], q[1], 2, 0, 7); c.fill();
+      }
+      c.strokeStyle = col(k); c.lineWidth = 1.4; c.beginPath(); c.arc(pts[0][0], pts[0][1], 9, 0, 7); c.stroke();
+      label(c, L.ch, pts[0][0] + 13, pts[0][1] - 10, col, k);
+    }
+    titleBlock(c, W_, H_, ['SLINKY TYPE · STRUCTURE', '● ring  ─ spine  ○ head (the cap)', `${letters.length} letters · ${rings} rings`], col, k);
+  });
+
   // ---------- touch: a tap kicks a letter over; a drag carries its top ring; empty space turns the view ----------
   const screenOf = (L, i) => { const r = V.rot(), [ox, oy] = V.origin(r, cam, W, H), q = V.project(wp(L, L.ring.x[i], L.ring.y[i], 0), r, ox, oy); return [q[0], q[1]]; };
   const hit = (q) => { let best = null, bd = (R * 1.5 * V.rot().z) ** 2; for (const L of letters) { const s = screenOf(L, 0), dd = (s[0] - q.x) ** 2 + (s[1] - q.y) ** 2; if (dd < bd) { bd = dd; best = L; } } return best; };
@@ -119,7 +142,7 @@ export function mount(stage) {
   }));
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pid) return;
-    if (grab && performance.now() - grab.t < 250 && Math.hypot(q.x - grab.q0.x, q.y - grab.q0.y) < 8) { if (standing(grab.L)) grab.L.th = fallDir(grab.L, q); auto = { L: grab.L, t: 0, dir: 1, kind: 'flip', x0: grab.L.ring.x[0], y0: grab.L.ring.y[0] }; }   // a tap kicks the letter over (the spring release, kind 'spring', is parked: the stiff coil carries the whole stack up with the hand) the head ring is lifted and carried over by itself
+    if (grab && performance.now() - grab.t < TAP.ms && Math.hypot(q.x - grab.q0.x, q.y - grab.q0.y) < TAP.px) { if (standing(grab.L)) grab.L.th = fallDir(grab.L, q); auto = { L: grab.L, t: 0, dir: 1, kind: 'flip', x0: grab.L.ring.x[0], y0: grab.L.ring.y[0] }; }   // a tap kicks the letter over (the spring release, kind 'spring', is parked: the stiff coil carries the whole stack up with the hand) the head ring is lifted and carried over by itself
     if (orbiting) V.orbit.end(); grab = null; down = null; orbiting = false; pid = null;
   }));
   const onKey = (e) => {
@@ -129,7 +152,7 @@ export function mount(stage) {
   addEventListener('keydown', onKey);
   offs.push(stage.on('resize', layout));
   layout();
-  offs.push(stage.frame((dt) => { acc = Math.min(acc + dt, 0.05); while (acc >= 1 / 60) { acc -= 1 / 60; stepAll(); } draw(); }));
+  offs.push(stage.frame((dt) => { acc = Math.min(acc + dt, 0.05); while (acc >= 1 / 60) { acc -= 1 / 60; stepAll(); } draw(); rv.draw(); }));
 
   const Ctl = (key, label, min, max, step) => ({ key, label, min, max, step });
   return {
@@ -146,6 +169,6 @@ export function mount(stage) {
       reset() { Object.assign(P, DEFAULTS); layout(); },
     },
     debug: { run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, letters: () => letters, V, tap: (i, kind, x) => { if (standing(letters[i])) letters[i].th = x === undefined ? toCamera() : fallDir(letters[i], { x, y: 0 }); auto = { L: letters[i], t: 0, dir: 1, kind: kind || 'flip', x0: letters[i].ring.x[0], y0: letters[i].ring.y[0] }; } },
-    destroy() { removeEventListener('keydown', onKey); offs.forEach((f) => f()); V.destroy(); stage.setBackdrop(null); },
+    destroy() { removeEventListener('keydown', onKey); rv.destroy(); offs.forEach((f) => f()); V.destroy(); stage.setBackdrop(null); },
   };
 }
