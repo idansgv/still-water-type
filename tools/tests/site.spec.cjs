@@ -205,3 +205,36 @@ for (const mode of ['mouse', 'touch']) {
     await ctx.close();
   });
 }
+
+// 8. The menu: a quiet corner on hover, a click opens the posters in large type with a preview that follows the pointer, a click on a row switches poster, Escape closes.
+for (const mode of ['mouse', 'touch']) {
+  test(`8 menu (${mode}): corner, list, preview, switch, close`, async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: mode === 'touch' ? { width: 390, height: 844 } : { width: 1280, height: 800 }, hasTouch: mode === 'touch', isMobile: mode === 'touch' });
+    const page = await ctx.newPage(); const errs = watch(page);
+    await open(page, LIST[0].slug);
+    const op = () => page.evaluate(() => +getComputedStyle(document.getElementById('menu-corner')).opacity);
+    if (mode === 'mouse') { expect(await op(), 'corner is hidden at rest').toBe(0); await page.mouse.move(50, 28); await page.waitForTimeout(450); expect(await op(), 'corner shows on hover').toBe(1); await page.mouse.click(50, 28); }
+    else { await page.tap('#menu-corner'); }
+    await page.waitForTimeout(500);
+    const rows = await page.locator('#index-list a').count();
+    const published = await page.evaluate(async () => (await import('/src/posters/index.js')).PUBLISHED.length);
+    expect(rows, 'one row per published poster').toBe(published);
+    const target = (await page.locator('#index-list a').nth(rows - 1).getAttribute('data-slug'));
+    if (mode === 'mouse') {
+      const box = await page.locator('#index-list a').nth(rows - 1).boundingBox();
+      await page.mouse.move(box.x + 40, box.y + box.height / 2, { steps: 5 }); await page.waitForTimeout(500);
+      const peek = await page.evaluate(() => ({ on: document.getElementById('peek').classList.contains('on'), src: document.querySelector('#peek img').getAttribute('src') }));
+      expect(peek.on, 'a preview shows on hover').toBe(true); expect(peek.src).toContain(target);
+      const loaded = await page.evaluate(() => { const i = document.querySelector('#peek img'); return i.complete && i.naturalWidth > 0; });
+      expect(loaded, 'the preview image loads').toBe(true);
+      await page.mouse.click(box.x + 40, box.y + box.height / 2);
+    } else { await page.locator('#index-list a').nth(rows - 1).tap(); }
+    await page.waitForTimeout(1500);
+    expect(await page.evaluate(() => window.__poster.slug), 'the row switches the poster').toBe(target);
+    expect(await page.evaluate(() => document.getElementById('index').hidden), 'the menu closes').toBe(true);
+    await page.mouse.move(50, 28); await page.keyboard.press('Escape');
+    if (mode === 'mouse') { await page.mouse.click(50, 28); await page.waitForTimeout(400); await page.keyboard.press('Escape'); await page.waitForTimeout(500); expect(await page.evaluate(() => document.getElementById('index').hidden), 'Escape closes').toBe(true); }
+    expect(errs, 'errors').toEqual([]);
+    await ctx.close();
+  });
+}

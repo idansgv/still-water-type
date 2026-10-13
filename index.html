@@ -39,6 +39,13 @@
 
 <div id="stage" class="stage"></div>
 
+<!-- The menu: hover the top-left corner and a quiet "Posters" appears; click it and the posters are listed in large type, a preview following the pointer. -->
+<button id="menu-corner" class="menu-corner" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="index"><span class="lbl">Posters</span></button>
+<div id="index" class="index" role="dialog" aria-modal="true" aria-label="Posters" hidden>
+  <ol id="index-list" class="index-list"></ol>
+  <div id="peek" class="peek" aria-hidden="true"><img alt="" decoding="async"></div>
+</div>
+
 <div id="hint" class="hint" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 

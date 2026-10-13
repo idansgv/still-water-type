@@ -254,11 +254,68 @@ function setLinks(open) {
   nameBtn.setAttribute('aria-expanded', String(open));
 }
 
+// ---------- the menu: hover the top-left corner, click, and the posters are listed in large type with a preview following the pointer ----------
+const menuBtn = $('menu-corner'), indexEl = $('index'), listEl = $('index-list'), peekEl = $('peek'), peekImg = peekEl.querySelector('img');
+let indexOpen = false, peekRaf = 0;
+const peek = { x: 0, y: 0, tx: 0, ty: 0, slug: '' };
+function buildIndex() {
+  listEl.textContent = '';
+  PUBLISHED.forEach((p, i) => {
+    const li = document.createElement('li'), a = document.createElement('a');
+    a.href = `/p/${p.slug}/`; a.dataset.slug = p.slug; a.innerHTML = `<span class="t"></span><span class="n">${String(i + 1).padStart(2, '0')}</span>`;
+    a.querySelector('.t').textContent = p.title; li.appendChild(a); listEl.appendChild(li);
+  });
+}
+function peekLoop() {
+  peek.x += (peek.tx - peek.x) * 0.16; peek.y += (peek.ty - peek.y) * 0.16;
+  peekEl.style.transform = `translate3d(${peek.x.toFixed(1)}px, ${peek.y.toFixed(1)}px, 0)`;
+  peekRaf = indexOpen ? requestAnimationFrame(peekLoop) : 0;
+}
+function peekShow(slug, e) {
+  if (e && e.pointerType === 'touch') return;                                  // no hover on touch: the list alone
+  if (peek.slug !== slug) {
+    peek.slug = slug; peekImg.src = `/assets/previews/${slug}.jpg`;
+    peekEl.classList.remove('swap'); void peekEl.offsetWidth; if (!reduced) peekEl.classList.add('swap');
+  }
+  peekEl.classList.add('on');
+}
+function openIndex() {
+  if (indexOpen) return;
+  indexOpen = true; if (!listEl.children.length) buildIndex();
+  indexEl.hidden = false; document.body.classList.add('index-open'); menuBtn.setAttribute('aria-expanded', 'true');
+  requestAnimationFrame(() => indexEl.classList.add('on'));
+  if (!peekRaf) peekRaf = requestAnimationFrame(peekLoop);
+  PUBLISHED.forEach((p) => { const im = new Image(); im.src = `/assets/previews/${p.slug}.jpg`; });   // warm the previews
+}
+function closeIndex() {
+  if (!indexOpen) return;
+  indexOpen = false; indexEl.classList.remove('on'); peekEl.classList.remove('on'); peek.slug = ''; document.body.classList.remove('index-open'); menuBtn.setAttribute('aria-expanded', 'false');
+  setTimeout(() => { if (!indexOpen) indexEl.hidden = true; }, reduced ? 0 : 300);
+}
+async function openPoster(slug) {
+  closeIndex();
+  const poster = bySlug(slug);
+  if (!poster || busy || !current || current.poster.slug === slug) return;
+  shuffles++;
+  if (location.pathname !== '/') history.replaceState(null, '', '/');
+  await show(poster);
+}
+menuBtn.addEventListener('click', () => (indexOpen ? closeIndex() : openIndex()));
+listEl.addEventListener('pointerover', (e) => { const a = e.target.closest('a'); if (a) peekShow(a.dataset.slug, e); });
+listEl.addEventListener('focusin', (e) => { const a = e.target.closest('a'); if (a) peekShow(a.dataset.slug); });
+listEl.addEventListener('pointerleave', () => { peekEl.classList.remove('on'); peek.slug = ''; });
+indexEl.addEventListener('pointermove', (e) => { if (e.pointerType === 'touch') return; peek.tx = e.clientX + 18; peek.ty = e.clientY + 18; if (!peekEl.classList.contains('on')) { peek.x = peek.tx; peek.y = peek.ty; } });
+indexEl.addEventListener('click', (e) => {
+  const a = e.target.closest('a');
+  if (a) { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); openPoster(a.dataset.slug); }
+  else if (!e.target.closest('.index-list')) closeIndex();                      // a click beside the list closes it
+});
+
 // ---------- wiring ----------
 $('btn-prompt').addEventListener('click', copyPrompt);
 nameBtn.addEventListener('click', () => setLinks(!whoEl.classList.contains('open')));
 addEventListener('pointerdown', (e) => { if (whoEl.classList.contains('open') && !e.target.closest('.who')) setLinks(false); });
-addEventListener('keydown', (e) => { if (e.key === 'Escape') setLinks(false); });
+addEventListener('keydown', (e) => { if (e.key === 'Escape') { setLinks(false); closeIndex(); } });
 $('btn-shuffle').addEventListener('click', shuffle);
 $('btn-share').addEventListener('click', share);
 // Parked (7 Oct 2026): the rotating aside after the role line is off for now (see docs/PROJECT.md, "To reconsider"). To bring it back, restore <span id="tagline"> in index.html and uncomment:
@@ -267,6 +324,10 @@ $('btn-share').addEventListener('click', share);
 addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.target.closest && e.target.closest('input, textarea, [contenteditable]')) return;
+  if (indexOpen) {                                                              // the menu is open: the arrows walk the list, nothing else shuffles
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const rows = [...listEl.querySelectorAll('a')], i = rows.indexOf(document.activeElement), n = e.key === 'ArrowDown' ? (i + 1) % rows.length : (i <= 0 ? rows.length - 1 : i - 1); rows[n].focus(); }
+    return;
+  }
   const onControl = e.target.closest && e.target.closest('button, a');
   if (e.key === ' ' || e.key === 'Enter') { if (onControl) return; e.preventDefault(); shuffle(); }
   else if (e.key === 'ArrowRight' || e.key === 'r' || e.key === 'R') { e.preventDefault(); shuffle(); }

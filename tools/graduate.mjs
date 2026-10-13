@@ -56,6 +56,7 @@ function staticChecks(row) {
   }
   need(existsSync(join(root, `docs/posters/${row.slug}.md`)), `docs/posters/${row.slug}.md`, `missing docs/posters/${row.slug}.md`);
   need(read('docs/INTERACTIONS.md').toLowerCase().includes(row.title.toLowerCase()), 'listed in docs/INTERACTIONS.md', `add ${row.title} to the tables in docs/INTERACTIONS.md`);
+  need(existsSync(join(root, `assets/previews/${row.slug}.jpg`)), `menu preview assets/previews/${row.slug}.jpg`, `missing the menu preview: add a scene for ${row.slug} to tools/previews.cjs and run it`);
   const fonts = execSync('git ls-files assets/fonts', { cwd: root }).toString().trim().split('\n').filter((f) => f && !f.endsWith('README.md'));
   need(fonts.length === 0, 'no trial fonts tracked', 'trial fonts are tracked in git: ' + fonts.join(', '));
   return out;

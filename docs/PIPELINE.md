@@ -26,6 +26,7 @@ Nothing is committed or pushed by the scripts. Publishing is outward-facing: it 
 - **Calm.** No idle motion except that demo. Under `prefers-reduced-motion` a poster stands still (the gate checks).
 - **Settings panel.** Optional, for tuning (`tune`); no settings required to look right.
 - **Docs.** `docs/posters/<slug>.md` (brief, what it is, interactions, open items) and a column or section in `docs/INTERACTIONS.md`.
+- **Menu preview.** A preview image `assets/previews/<slug>.jpg` for the menu: add a scene for the poster to `tools/previews.cjs` (a touch, then a moment) and run it (`NODE_PATH=$(npm root -g) node tools/previews.cjs <slug>`); the gate checks the file exists.
 - **Fonts.** Trial fonts stay local (`assets/fonts/*` is git-ignored); the gate fails if any are tracked.
 
 ## The gate

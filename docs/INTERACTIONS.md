@@ -2,6 +2,9 @@
 
 What each published poster does today, and the rules every poster should follow. Written 10 Oct 2026 from the code (an audit of every poster); the drafts are not listed. Slinky is out for now.
 
+## The menu (13 Oct 2026)
+Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is always faintly there). Click it and the published posters are listed in large type (Archivo, a number at the right); the hovered row nudges left and the others dim, and a preview image follows the pointer with easing (not on touch). Click a row to go to that poster (a middle or modifier click opens its share page); Escape, the corner ("Close") or a click beside the list closes it; with it open the arrow keys walk the list and nothing shuffles. The previews are `assets/previews/<slug>.jpg`, made by `tools/previews.cjs` (the poster a moment after a touch, on the live fonts). It is built from the registry, so a poster that graduates joins the list, and the same list can carry Work later.
+
 ## Rules for every poster
 
 | Gesture | Rule | State |
