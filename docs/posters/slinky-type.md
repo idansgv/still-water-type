@@ -8,8 +8,9 @@
 An upright backdrop with IDAN SEGEV on it and a ledge in front (the sketch: a wall, a stair, arrows down). Each letter is a condensed slinky stood out of the wall, rings upright, the head ring (the solid cap) facing you: from the front it reads as flat type. Idan's Slinky settings and camera (yaw 50, pitch 20, isometric) apply (`POSTER_DEFAULTS`, `slinky-params.js`).
 
 ## Interactions
-- **Click a letter:** it lets go of the wall, drops onto the ledge and bounces.
-- **Click it again:** it is shoved along the ledge, goes over the edge and falls off the screen; once it is out of sight it is back on the wall (and can be clicked again).
+- **Click a letter:** a bump: it is shoved forward off the wall (the head ring leads, so the coil opens as it goes) with a small hop, lands on the ledge and bounces.
+- **Click it again:** a harder bump: it goes over the edge and falls off the screen; once it is out of sight it is back on the wall.
+- **Drag a letter's cap:** grab it and pull; the rest of the coil follows, and it falls from wherever you let go.
 - **Drag empty space:** orbits the camera. Keys 1 to 6 are views, X puts every letter back, L locks the camera.
 - **Three quick taps:** reveal (spine, ring tilts, head rings).
 - Tap time and travel are the shared ones (`src/gestures.js`). Letters start asleep and sleep again when still, so nothing moves at rest.
