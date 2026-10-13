@@ -27,7 +27,7 @@ export function mount(stage) {
   const V = createView(stage, { yaw: 0, pitch: 46 }); V.setView('iso');           // tilted: the stacks read as ribbed columns, the caps as the type
 
   let W = 1, H = 1, R = 40, rw = 3;
-  let quiet = 0, auto = null, letters = [], cam = { x: 0, y: -40 }, grab = null, pid = null, down = null, orbiting = false, acc = 0;
+  let auto = null, letters = [], cam = { x: 0, y: -40 }, grab = null, pid = null, down = null, orbiting = false, acc = 0;
   const FLOOR = [[-1e5, 1e5, 0]];
 
   function layout() {
@@ -43,10 +43,10 @@ export function mount(stage) {
         const X = (j - (row.length - 1) / 2) * R * colK, N = Math.round(P.coils), ring = createRings(N + 2), sp = (R * P.gap + rw) * 1.3;
         for (let i = 0; i < N; i++) { const k2 = N - 1 - i; ring.x[i] = k2 * R * P.lean0 * (0.6 + Math.random() * 0.8); ring.y[i] = rw + k2 * sp; ring.a[i] = 0; ring.vx[i] = ring.vy[i] = ring.w[i] = 0; }
         ring.n = N; ring.setCaps(P.capInertia);
-        letters.push({ ch, X, Z, ring, N, shape: ringShape(ch, { top: true }), hand: null, th: 0 });
+        letters.push({ ch, X, Z, ring, N, shape: ringShape(ch, { top: true }), hand: null, th: 0, awake: false, q: 0, f: 0, snap: null });
       });
     });
-    quiet = 0; cam = { x: 0, y: P.coils * (R * P.gap + rw) * 1.3 * 0.5 }; grab = null;                // the middle of a standing stack, so the whole piece sits in the frame
+    cam = { x: 0, y: P.coils * (R * P.gap + rw) * 1.3 * 0.5 }; grab = null;                // the middle of a standing stack, so the whole piece sits in the frame
   }
 
   // a letter's chain lives in a vertical plane turned th about the vertical axis; lx along it, d across it
@@ -61,6 +61,14 @@ export function mount(stage) {
     return { R, g: P.gravity * R, k, kd: P.shear * k, l0: Math.hypot(2 * R, dmin), cw: P.wireDamp, kc, cc: 2 * Math.sqrt(kc) * P.contactDamp, dmin, rw, kw, cwall: 2 * zeta * Math.sqrt(kw), mu: P.grip, cf: 60, inertia: P.inertia, lean: P.lean * Math.PI / 180,
       kl, kla: 2 * Math.sqrt(kl * I) * 0.5, endFlat: kl * P.endFlat, square: P.square, bend: P.bend, turn: P.turn, turnReach: P.turnReach, turnDelay: P.turnDelay, wdamp: P.spin, air: P.damping, reach: 5, boxes: FLOOR, grab: null };
   }
+  // A letter at rest does not move: it starts asleep, wakes when it is touched or kicked, and sleeps again once its rings have stayed put for 1.5 s.
+  const wake = (L) => { L.awake = true; L.q = 0; L.f = 0; L.snap = null; };
+  function restCheck(L) {
+    if (++L.f % 30) return;
+    const a = new Float32Array(L.ring.n * 2); for (let i = 0; i < L.ring.n; i++) { a[2 * i] = L.ring.x[i]; a[2 * i + 1] = L.ring.y[i]; }
+    if (L.snap) { let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i] - L.snap[i])); if (m < 0.5) { if (++L.q >= 3) { L.awake = false; L.ring.vx.fill(0); L.ring.vy.fill(0); L.ring.w.fill(0); } } else L.q = 0; }
+    L.snap = a;
+  }
   function stepAll() {
     const env = envNow(), h = 1 / 960;
     if (auto) {
@@ -71,8 +79,10 @@ export function mount(stage) {
       } else { const u = Math.min(1, auto.t / 1.1); grab = { L: auto.L, x: auto.x0 + auto.dir * R * 2.4 * u, y: auto.y0 + R * 0.7 * Math.sin(Math.min(1, u * 1.3) * Math.PI) }; if (auto.t > 1.2) { grab = null; auto = null; } }
     }
     for (const L of letters) {
+      if (!L.awake) continue;
       env.grab = grab && grab.L === L ? (() => { const g = L.hand || (L.hand = { pt: 0 }); g.x = grab.x; g.y = grab.y; trackHand(g, g.x, g.y, 1 / 60); return g; })() : null;
       for (let s = 0; s < 16; s++) L.ring.step(h, env);
+      if (!(grab && grab.L === L) && !(auto && auto.L === L)) restCheck(L); else L.q = 0;
     }
   }
 
@@ -127,8 +137,8 @@ export function mount(stage) {
   // the point of the horizontal plane at height y under the pointer, as [world x, world z]
   const ground = (q, y) => { const r = V.rot(), [ox, oy] = V.origin(r, cam, W, H); if (Math.abs(r.sx) < 0.2) return null; const a = (q.x - ox) / r.z, z1 = (r.cx * y - (oy - q.y) / r.z) / r.sx; return [r.cy * a - r.sy * z1, r.sy * a + r.cy * z1]; };
   offs.push(stage.on('down', (q, e) => {
-    if (pid !== null) return; pid = e.pointerId; quiet = 0; down = { x: q.x, y: q.y, t: performance.now() }; orbiting = false;
-    const L = hit(q); if (L) grab = { L, x: L.ring.x[0], y: L.ring.y[0], q0: { ...q }, y0: L.ring.y[0], t: performance.now(), free: standing(L), set: false };
+    if (pid !== null) return; pid = e.pointerId; down = { x: q.x, y: q.y, t: performance.now() }; orbiting = false;
+    const L = hit(q); if (L) wake(L); if (L) grab = { L, x: L.ring.x[0], y: L.ring.y[0], q0: { ...q }, y0: L.ring.y[0], t: performance.now(), free: standing(L), set: false };
   }));
   offs.push(stage.on('move', (q, e) => {
     if (e.pointerId !== pid) return;
@@ -152,13 +162,7 @@ export function mount(stage) {
   addEventListener('keydown', onKey);
   offs.push(stage.on('resize', layout));
   layout();
-  // at rest nothing moves: once every ring has been still for 1.5 s the solver sleeps, until a touch, a tap or a re-form wakes it
-  const still = () => letters.every((L) => { for (let i = 0; i < L.ring.n; i++) if (Math.abs(L.ring.vx[i]) + Math.abs(L.ring.vy[i]) > 4 || Math.abs(L.ring.w[i]) > 0.08) return false; return true; });
-  offs.push(stage.frame((dt) => {
-    acc = Math.min(acc + dt, 0.05);
-    if (quiet < 90 || auto || grab) { while (acc >= 1 / 60) { acc -= 1 / 60; stepAll(); } quiet = !auto && !grab && still() ? quiet + 1 : 0; if (quiet === 90) for (const L of letters) { L.ring.vx.fill(0); L.ring.vy.fill(0); L.ring.w.fill(0); } } else acc = 0;
-    draw(); rv.draw();
-  }));
+  offs.push(stage.frame((dt) => { acc = Math.min(acc + dt, 0.05); while (acc >= 1 / 60) { acc -= 1 / 60; stepAll(); } draw(); rv.draw(); }));
 
   const Ctl = (key, label, min, max, step) => ({ key, label, min, max, step });
   return {
@@ -174,7 +178,7 @@ export function mount(stage) {
       set(key, value) { P[key] = value; if (['coils', 'lean0', 'size', 'gap', 'wire'].includes(key)) layout(); },
       reset() { Object.assign(P, DEFAULTS); layout(); },
     },
-    debug: { run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, letters: () => letters, V, tap: (i, kind, x) => { quiet = 0; if (standing(letters[i])) letters[i].th = x === undefined ? toCamera() : fallDir(letters[i], { x, y: 0 }); auto = { L: letters[i], t: 0, dir: 1, kind: kind || 'flip', x0: letters[i].ring.x[0], y0: letters[i].ring.y[0] }; } },
+    debug: { run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, letters: () => letters, V, tap: (i, kind, x) => { wake(letters[i]); if (standing(letters[i])) letters[i].th = x === undefined ? toCamera() : fallDir(letters[i], { x, y: 0 }); auto = { L: letters[i], t: 0, dir: 1, kind: kind || 'flip', x0: letters[i].ring.x[0], y0: letters[i].ring.y[0] }; } },
     destroy() { removeEventListener('keydown', onKey); rv.destroy(); offs.forEach((f) => f()); V.destroy(); stage.setBackdrop(null); },
   };
 }
