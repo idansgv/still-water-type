@@ -5,3 +5,6 @@ Font files here are **not committed** (`.gitignore`): the ones in use are trial 
 To ship one, buy the web licence, then remove its line from `.gitignore` (and keep the licence file next to it).
 
 Files in use: `leida-font-family-1761628710-0/` (Still Water), `GT-Pantheon/` (Collapse), `GT-Maru/` (the Soft type test).
+
+The live Still Water uses **Bitter** (open licence, Google Fonts); Leida is used first only where these local files exist.
+

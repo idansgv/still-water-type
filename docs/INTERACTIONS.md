@@ -49,6 +49,19 @@ What each published poster does today, and the rules every poster should follow.
 | Self-demo | the light swings once at 3.5 s, then every 9 to 13 s, until the first touch; off under reduced motion |
 | Idle | light eases home after 4 s |
 
+## Slinky
+
+| | Slinky |
+|---|---|
+| Tap an end ring | the slinky is nudged forward and walks down the steps (under 250 ms) |
+| Drag an end ring | pulls it |
+| Drag on background | orbits the camera |
+| Tap on background | nothing |
+| Hold | nothing (the factory scene: holding streams coils) |
+| Keys | M scene (stairs, factory, plane), 1 to 6 views, L lock the camera, X re-form |
+| Three taps (reveal) | the spine and rings, the settings |
+| Self-demo | none |
+
 ## Slinky type
 
 | | Slinky type |

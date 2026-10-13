@@ -34,3 +34,7 @@ It was the single poster of the site before the portfolio existed (tagged `still
 
 ## Reveal (10 Oct 2026)
 The triple tap is now an engine gesture shared by every poster (`stage.setReveal`); here it still toggles the lamp, which is this poster's reveal. L does the same.
+
+## Font (13 Oct 2026)
+The live site sets the type in **Bitter** (open licence), loaded from Google Fonts by `still-water.js` (after Leida's closest free serifs were compared: Bitter, Roboto Serif, Fraunces). **Leida** is a trial licence ("Free for Personal Use"), so its files stay local and git-ignored; where they are present (Idan's machine) Leida is used first and Bitter is the fallback, then Archivo. `?font=Name` tries any other Google font, e.g. `/?p=still-water&font=Fraunces`. Phone testing of local fonts: `python3 tools/dev.py 8911 0.0.0.0`, then open the Mac's address on the same Wi-Fi.
+

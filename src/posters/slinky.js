@@ -13,7 +13,8 @@ import { mountWalk } from './slinky-walk.js';
 import { createPhys } from './slinky-phys.js';
 import { createFactory } from './slinky-factory.js';
 import { createView } from './slinky-view.js';
-import { SHARED_DEFAULTS } from './slinky-params.js';
+import { SHARED_DEFAULTS, POSTER_DEFAULTS } from './slinky-params.js';
+import { createReveal, ink as rvInk, grid, corners, titleBlock } from './reveal.js';
 
 // The default is one poster with two scenes and a switch between them: the factory (a spout streams coils, real springs) and the stairs
 // (a slinky going down steps, rods and springs), both seen through the same camera (six views, orbit, zoom). The panel has the switch
@@ -23,15 +24,15 @@ export function mount(stage) {
   const mode = new URLSearchParams(location.search).get('mode');
   if (mode === 'spring') return mountSpring(stage);
   if (mode === 'css') return mountWalk(stage);
-  return mountBoth(stage, mode === 'stairs' ? 'stairs' : mode === 'plane' ? 'plane' : 'factory');
+  return mountBoth(stage, mode === 'factory' ? 'factory' : mode === 'plane' ? 'plane' : 'stairs');
 }
 
 function mountBoth(stage, start) {
   const dark = !!stage.flip;
   stage.setBackdrop(dark ? 0 : 1);
-  const V = createView(stage, { yaw: 50, pitch: 32 });
+  const V = createView(stage, { yaw: 50, pitch: 20 });
   V.mode = start; V.zoomMul = start === 'factory' ? 0.72 : 1;                     // the factory scene is wider than the stairs, so it is framed a little further back
-  const shared = { ...SHARED_DEFAULTS };                                         // one set of settings for both scenes
+  const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS };                      // one set of settings for the scenes (the poster's tuned set)
   const scenes = { factory: createFactory(stage, V, shared), stairs: createPhys(stage, V, shared), plane: createPhys(stage, V, shared, { id: 'plane', flat: true }) };
   const ORDER = ['factory', 'stairs', 'plane'];
   const cur = () => scenes[V.mode];
@@ -61,12 +62,24 @@ function mountBoth(stage, start) {
     set(key, value) { cur().tune.set(key, value); },
     reset() { cur().tune.reset(); },
   };
+  // Reveal (three quick taps): the page inverts and the Slinky shows what it is made of: a spine through the ring centres, a tick across every ring, the rings counted.
+  const rv = createReveal(stage, (c, W_, H_, k) => {
+    const col = (a) => rvInk(stage, a), s = cur().debug.structure ? cur().debug.structure() : null;
+    grid(c, W_, H_, 24, col, k); corners(c, W_, H_, 16, col, k);
+    if (s) {
+      c.strokeStyle = col(0.9 * k); c.lineWidth = 1; c.beginPath(); s.pts.forEach((q, i) => (i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]))); c.stroke();
+      c.strokeStyle = col(0.7 * k); c.beginPath(); for (const [a, b] of s.ticks) { c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); } c.stroke();
+      c.fillStyle = col(0.9 * k); c.beginPath(); for (const q of s.pts) { c.moveTo(q[0] + 2, q[1]); c.arc(q[0], q[1], 2, 0, 7); } c.fill();
+    }
+    titleBlock(c, W_, H_, ['SLINKY · STRUCTURE', s ? `${s.N} rigid rings · ● centre  ─ spine` : 'a stream of rigid rings', `wire: zero-length springs, k ${Math.round(shared.spring)}`, `gravity ${shared.gravity} radii / s²`], col, k);
+  });
+  const offReveal = stage.frame(() => rv.draw());
   return {
     tune,
     debug: { mode: () => V.mode, setMode, V, ...Object.fromEntries(['factory', 'stairs', 'plane'].map((k) => [k, scenes[k].debug])), setView: (n) => V.setView(n), view: () => ({ ...V.view, name: V.name }), cam: () => (scenes[V.mode].debug.cam ? scenes[V.mode].debug.cam() : null),
       // the active scene's own helpers, at the top level, for tests
       ...Object.fromEntries(['run', 'kick', 'state', 'press', 'release', 'pieces'].map((n) => [n, (...a) => { const f = cur().debug[n]; return f ? f(...a) : undefined; }])) },
-    destroy() { removeEventListener('keydown', onKey); scenes.factory.destroy(); scenes.stairs.destroy(); scenes.plane.destroy(); V.destroy(); stage.setBackdrop(null); stage.root.style.cursor = ''; },
+    destroy() { removeEventListener('keydown', onKey); offReveal(); rv.destroy(); scenes.factory.destroy(); scenes.stairs.destroy(); scenes.plane.destroy(); V.destroy(); stage.setBackdrop(null); stage.root.style.cursor = ''; },
   };
 }
 

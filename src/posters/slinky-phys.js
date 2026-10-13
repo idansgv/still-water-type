@@ -9,6 +9,7 @@
 
 import { createRings, trackHand } from './slinky-rings.js';
 import { SHARED_DEFAULTS, bindParams } from './slinky-params.js';
+import { TAP } from '../gestures.js';
 import { ringShape } from './slinky-shape.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -22,12 +23,12 @@ export function createPhys(stage, V, shared = { ...SHARED_DEFAULTS }, opts = {})
   const offs = [];
 
   const OWN = {                                      // the stairs' own: how many coils, the pose at the start, the steps, the tap
-    coils: 40, stand: 1, lean0: 0.1,                // number of coils; 1: it starts standing on its end on the top step, leaning a little toward the edge (0: draped over it)
+    coils: 40, stand: 0, lean0: 0.1,                // number of coils; 1: it starts standing on its end on the top step, leaning a little toward the edge (0: draped over it)
     arch: 6, pack: 0.1, archW: 2.8, archH: 1.8,      // coils on the arch at the start, stack spacing, arch width and height
-    stepW: 6.9, drop: 2.3, push: 2.4,                // width and drop of a step (radii), the strength of the tap
-    yaw: 50, pitch: 32,                              // the view (degrees)
+    stepW: 8, drop: 2.3, push: 2.4,                // width and drop of a step (radii), the strength of the tap
+    yaw: 50, pitch: 20,                              // the view (degrees)
   };
-  const DEFAULTS = { ...SHARED_DEFAULTS, ...OWN };
+  const DEFAULTS = { ...shared, ...OWN };                // what Reset returns to: the settings this scene was made with
   const P = bindParams(shared, OWN);
 
   let W = 1, H = 1, R = 60, N = 20, L = 120, rw = 4, stepW = 450, Hs = 70;
@@ -161,7 +162,7 @@ export function createPhys(stage, V, shared = { ...SHARED_DEFAULTS }, opts = {})
   offs.push(stage.on('up', (q, e) => {
     if (V.mode !== MODE) return;
     if (e.pointerId !== pid) return;
-    if (grab && performance.now() - grab.t < 250) tapImpulse(grab.i, P.push);   // a tap: nudge that end forward
+    if (grab && performance.now() - grab.t < TAP.ms) tapImpulse(grab.i, P.push);   // a tap: nudge that end forward
     grab = null; V.orbit.end(); pid = null;
   }));
   offs.push(stage.on('resize', build));
@@ -185,7 +186,17 @@ export function createPhys(stage, V, shared = { ...SHARED_DEFAULTS }, opts = {})
       set(key, value) { P[key] = value; if (key === 'yaw' || key === 'pitch') { V.iso.yaw = P.yaw; V.iso.pitch = P.pitch; V.setView('iso'); } if (['coils', 'size', 'gap', 'arch', 'pack', 'archW', 'archH', 'stepW', 'drop', 'stand', 'lean0'].includes(key)) build(); },
       reset() { Object.assign(P, DEFAULTS); build(); },
     },
-    debug: { cam: () => ({ ...cam }), kick: (i, ax, ay) => ring.impulseAt(i, R * ax, R * ay, R, R * R * P.inertia), run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, state: () => ({ N, R, px: Array.from(px), py: Array.from(py), stepW, Hs }), nudge: (f = 1) => tapImpulse(0, f), ring: () => ring },
+    debug: {
+      // the structure for the reveal: the spine through the ring centres, and a tick across each ring, on the screen
+      structure: () => {
+        const r = rot(), [ox, oy] = origin(r), pts = [], ticks = [];
+        for (let i = 0; i < N; i++) {
+          const cx = (px[2 * i] + px[2 * i + 1]) / 2, cy = (py[2 * i] + py[2 * i + 1]) / 2, ux = (px[2 * i] - px[2 * i + 1]) / L, uy = (py[2 * i] - py[2 * i + 1]) / L;
+          pts.push(project([cx, cy, 0], r, ox, oy)); ticks.push([project([cx - ux * R * 0.6, cy - uy * R * 0.6, 0], r, ox, oy), project([cx + ux * R * 0.6, cy + uy * R * 0.6, 0], r, ox, oy)]);
+        }
+        return { pts, ticks, N };
+      },
+      cam: () => ({ ...cam }), kick: (i, ax, ay) => ring.impulseAt(i, R * ax, R * ay, R, R * R * P.inertia), run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, state: () => ({ N, R, px: Array.from(px), py: Array.from(py), stepW, Hs }), nudge: (f = 1) => tapImpulse(0, f), ring: () => ring },
     destroy() { offs.forEach((f) => f()); },
   };
 }

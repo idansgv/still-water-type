@@ -8,6 +8,8 @@ export const SHARED_DEFAULTS = {                     // Idan's hand-tuned set (1
   letter: '',                                        // the ring's shape: a letter (empty = round)
   turn: 4, turnReach: 10, turnDelay: 2, endFlat: 1.85, capInertia: 3,   // the ring in hand turns with the move, how many rings it carries along and how late each is, end rings lie flat, caps' weight
 };
+// The published Slinky poster (Idan's tuned set, 13 Oct 2026): over the shared defaults above, for the poster only (Slinky type keeps its own).
+export const POSTER_DEFAULTS = { wire: 0.02, contactDamp: 0.16, inertia: 0.55, square: 1.25, letter: 'n' };
 const GEOMETRY = ['size', 'gap'];                    // changing these means a scene has to be formed again
 export function bindParams(shared, own) {
   const P = { ...own };

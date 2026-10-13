@@ -6,7 +6,15 @@ import { getGL, compile, texture, uploadCanvas, VS_TRI } from '../engine.js';
 
 const DEFAULT = { title: 'Idan', artist: 'Segev', lyrics: [] };   // lyrics are parked, not removed
 const LINE_MS = 9000;
-const FONT = '"Leida", "Archivo", "Arial Black", "Helvetica Neue", sans-serif';   // Leida (local trial files, assets/fonts) when present; Archivo on the live site
+// The live face is Bitter (open licence, loaded from Google Fonts). Leida (a trial licence, local files only) is used first when its files are present.
+// ?font=Name tries another Google font instead, e.g. /?p=still-water&font=Fraunces.
+const ASKED = new URLSearchParams(location.search).get('font'), TRY = ASKED || 'Bitter';
+{
+  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(TRY).replace(/%20/g, '+')}:wght@200..900&display=swap`;
+  await new Promise((r) => { l.onload = r; l.onerror = r; setTimeout(r, 2500); document.head.appendChild(l); });          // the stylesheet first, then the face
+  try { await Promise.race([document.fonts.load(`350 100px "${TRY}"`), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* use the fallback */ }
+}
+const FONT = (ASKED ? `"${TRY}", "Leida", ` : `"Leida", "${TRY}", `) + '"Archivo", "Arial Black", "Helvetica Neue", sans-serif';
 
 export function mount(ctx) {
   const { canvas } = ctx;
