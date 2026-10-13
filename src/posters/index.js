@@ -148,10 +148,9 @@ export const POSTERS = [
     slug: 'slinky',
     title: 'Slinky',
     words: ['Idan', 'Segev'],
-    blurb: 'A Slinky. Hang it, pull it, let go.',
+    blurb: 'A Slinky on the stairs. Tap an end and it walks down.',
     hint: null,
     themes: { dark: 0, light: 1 },
-    draft: true,
     load: () => import('./slinky.js'),
   },
   {

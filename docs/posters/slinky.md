@@ -1,5 +1,7 @@
 # Slinky (draft)
 
+**Status:** published 2026-10-13.
+
 `?p=slinky` (the panel: `&tune`). Draft, not in the shuffle. One colour (black on white, white on black on every second shuffle). The full chronological log of how it got here is in [slinky-log.md](slinky-log.md); this page is the current state.
 
 **Brief (Idan).** A Slinky from letters. Stage one: get the spring right. Stage two (not started): lay the chain along the letter strokes (the font's skeleton paths), rings perpendicular to the path, so a letter can be stretched, squeezed and sprung.
