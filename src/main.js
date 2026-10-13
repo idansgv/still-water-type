@@ -232,7 +232,33 @@ async function share() {
   catch (e) { toast(url, 4000); }
 }
 
+// The Prompt button copies a brief for recreating the current poster in the visitor's own AI tool.
+async function copyPrompt() {
+  if (!current) return;
+  const { poster } = current;
+  const text = `Build "${poster.title}", an interactive typographic poster, as a single self-contained HTML file with no build step.\n\n${poster.prompt || poster.blurb}\n\nMake it work with mouse and touch, size it to the full viewport, keep the composition simple and bold, and respect prefers-reduced-motion. Start with the flat look and let the behaviour be a discovery.`;
+  try { await navigator.clipboard.writeText(text); toast('Prompt copied'); return; } catch (e) { /* fall through */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
+  ta.remove();
+  toast(ok ? 'Prompt copied' : 'Copy failed');
+}
+
+// The name swaps the tagline for the social links (on hover with a mouse, on tap with a finger).
+const nameBtn = $('btn-name'), whoEl = $('who');
+function setLinks(open) {
+  whoEl.classList.toggle('open', open);
+  nameBtn.setAttribute('aria-expanded', String(open));
+}
+
 // ---------- wiring ----------
+$('btn-prompt').addEventListener('click', copyPrompt);
+nameBtn.addEventListener('click', () => setLinks(!whoEl.classList.contains('open')));
+addEventListener('pointerdown', (e) => { if (whoEl.classList.contains('open') && !e.target.closest('.who')) setLinks(false); });
+addEventListener('keydown', (e) => { if (e.key === 'Escape') setLinks(false); });
 $('btn-shuffle').addEventListener('click', shuffle);
 $('btn-share').addEventListener('click', share);
 // Parked (7 Oct 2026): the rotating aside after the role line is off for now (see docs/PROJECT.md, "To reconsider"). To bring it back, restore <span id="tagline"> in index.html and uncomment:

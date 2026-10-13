@@ -71,8 +71,8 @@ body {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
   padding: 0 var(--gutter) calc(max(14px, 2vh) + env(safe-area-inset-bottom, 0px));
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  grid-template-areas: "id links actions";
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "id actions";
   align-items: end;
   gap: 6px 20px;
   color: var(--dim);
@@ -84,18 +84,30 @@ body {
 .id, .links { -webkit-user-select: text; user-select: text; cursor: text; }
 .links a { cursor: pointer; }
 .chrome button { -webkit-user-select: none; user-select: none; }
-.id b { color: var(--fg); font-weight: 500; }
+.who { width: fit-content; max-width: 100%; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.7em; }
+/* the tagline and the links share one slot, so the swap never changes the box and hover cannot flicker */
+.slot { display: inline-grid; }
+.slot > * { grid-area: 1 / 1; }
+.links { display: flex; gap: 16px; visibility: hidden; }
+.chrome .links a { padding-block: 0; line-height: inherit; }
+.who.open .role, .who:has(:focus-visible) .role { visibility: hidden; }
+.who.open .links, .who:has(:focus-visible) .links { visibility: visible; }
+@media (hover: hover) {
+  .who:hover .role { visibility: hidden; }
+  .who:hover .links { visibility: visible; }
+}
+.id .name { color: var(--fg); font-weight: 500; text-align: left; }
 .id .role { color: var(--dim); }
 #tagline { color: var(--dim); opacity: 0.78; }
 .folio { opacity: 0.9; }
-.links { grid-area: links; display: flex; gap: 18px; justify-content: center; }
-.actions { grid-area: actions; display: flex; gap: 6px; justify-content: flex-end; }
+.actions { grid-area: actions; display: flex; gap: 6px; justify-content: flex-end; align-items: flex-end; }
 
 .chrome a, .chrome button {
   font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; margin: 0;
   text-decoration: none; cursor: pointer; line-height: 1.2;
 }
 .actions button { padding: 8px 10px; margin: -8px -4px; }
+.chrome .id .name { padding-block: 0; cursor: pointer; }
 .chrome a:hover, .chrome button:hover { color: var(--fg); }
 .chrome a:focus-visible, .chrome button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; color: var(--fg); }
 
@@ -149,21 +161,23 @@ body {
 
 @media (max-width: 720px) {
   .chrome {
-    grid-template-columns: 1fr auto;
-    grid-template-areas: "id actions" "links folio";
+    grid-template-columns: 1fr;
+    grid-template-areas: "id" "actions" "folio";
     align-items: end;
   }
   .id { display: contents; }
-  .id .who { grid-area: id; }
+  .id .who { grid-area: id; flex-direction: column; align-items: flex-start; }
+  .chrome .id .name { padding: 8px 0 2px; }
   .id .folio { grid-area: folio; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .folio .count { display: none; }
-  .links { justify-content: flex-start; gap: 16px; }
   .hint { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
 }
 
 @media (pointer: coarse) {
   .chrome a, .chrome button { padding-block: 13px; }
   .actions button { margin-block: -13px; }
+  .chrome .id .name { padding-top: 14px; }
+  .chrome .links a { padding-block: 6px; }
 }
 
 /* Shuffle breathes slowly, like an AI "thinking" cursor, so it is not missed. Still on hover/focus. */

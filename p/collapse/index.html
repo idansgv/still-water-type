@@ -42,17 +42,22 @@
 <div id="hint" class="hint" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
-<!-- Parked (7 Oct 2026): the poster name (.folio), the social links (nav.links) and Share are hidden with the `hidden` attribute. Remove it to bring them back. -->
 <footer class="chrome">
   <div class="id">
-    <span class="who"><b>Idan Segev</b> <span class="role">Design leader. Building teams of builders.</span></span>
+    <span class="who" id="who">
+      <button id="btn-name" class="name" type="button" aria-expanded="false" aria-controls="links">Idan Segev</button>
+      <span class="slot">
+        <span class="role">Design leader. Building teams of builders.</span>
+        <nav id="links" class="links" aria-label="Elsewhere">
+          <a href="https://www.linkedin.com/in/idansegev" target="_blank" rel="noopener">LinkedIn</a>
+          <a href="https://x.com/idan_sgv" target="_blank" rel="noopener">X</a>
+        </nav>
+      </span>
+    </span>
     <span class="folio" hidden><span id="folio-title"></span><span class="count" id="folio-count"></span></span>
   </div>
-  <nav class="links" aria-label="Elsewhere" hidden>
-    <a href="https://www.linkedin.com/in/idansegev" target="_blank" rel="noopener">LinkedIn</a>
-    <a href="https://x.com/idan_sgv" target="_blank" rel="noopener">X</a>
-  </nav>
   <div class="actions">
+    <button id="btn-prompt" type="button">Copy prompt</button>
     <button id="btn-shuffle" type="button">Shuffle</button>
     <button id="btn-share" type="button" hidden>Share</button>
   </div>

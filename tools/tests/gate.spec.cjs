@@ -28,7 +28,7 @@ test('gate: destroy leaves nothing behind', async ({ page }) => {
     console.log(`${p.slug}: canvases left ${after.left}; html class "${after.cls}"; listeners left on window/document:`, Object.entries(after.lc).filter(([k, v]) => (k.startsWith('window') || k.startsWith('document')) && v > 0 && /keydown|keyup|deviceorientation/.test(k)).map(([k, v]) => `${k}=${v}`).join(', ') || 'none');
     expect.soft(after.left, `${p.slug}: canvases left after destroy`).toBe(0);
     expect.soft(after.cls.includes('revealed'), `${p.slug}: page still inverted after destroy`).toBe(false);
-    expect.soft((after.lc['window:keydown'] || 0), `${p.slug}: window keydown listeners left`).toBeLessThanOrEqual(1);   // the shell's own
+    expect.soft((after.lc['window:keydown'] || 0), `${p.slug}: window keydown listeners left`).toBeLessThanOrEqual(2);   // the shell's own two: the shuffle keys, and Escape for the links
     expect.soft(errs, `${p.slug} errors`).toEqual([]);
     page.removeAllListeners('console'); page.removeAllListeners('pageerror'); page.removeAllListeners('requestfailed'); page.removeAllListeners('response');
   }

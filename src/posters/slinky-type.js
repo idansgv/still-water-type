@@ -5,7 +5,7 @@
 // One colour: black on white, white on black on every second shuffle.
 
 import { createRings, trackHand } from './slinky-rings.js';
-import { SHARED_DEFAULTS, bindParams } from './slinky-params.js';
+import { SHARED_DEFAULTS, POSTER_DEFAULTS, bindParams } from './slinky-params.js';
 import { ringShape } from './slinky-shape.js';
 import { createView } from './slinky-view.js';
 import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
@@ -20,11 +20,11 @@ export function mount(stage) {
   stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
 
-  const shared = { ...SHARED_DEFAULTS, size: 0.06, wire: 0.05, gap: 0.045, gravity: 22.5, turn: 4 };
+  const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS };                      // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (13 Oct 2026)
   const OWN = { coils: 12, lean0: 0.004, stretch: 0.62 };            // rings in a letter; the lean it starts with (a letter stands almost straight)
   const DEFAULTS = { ...shared, ...OWN };
   const P = bindParams(shared, OWN);
-  const V = createView(stage, { yaw: 0, pitch: 46 }); V.setView('iso');           // tilted: the stacks read as ribbed columns, the caps as the type
+  const V = createView(stage, { yaw: 50, pitch: 20 }); V.setView('iso');          // Idan's camera for the Slinky (13 Oct 2026)
 
   let W = 1, H = 1, R = 40, rw = 3;
   let auto = null, letters = [], cam = { x: 0, y: -40 }, grab = null, pid = null, down = null, orbiting = false, acc = 0;

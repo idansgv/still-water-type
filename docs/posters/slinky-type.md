@@ -5,7 +5,7 @@
 **Brief (Idan, 12 Oct 2026).** The delight comes from a magical, surprising interaction. Tilted view with solid caps for the letters; each letter a condensed slinky, released on user interaction. Letters should fall toward the camera, not sideways, and motion should cover x and y as well as z.
 
 ## What it is
-IDAN SEGEV laid out like the other posters (IDAN / SEGEV; three rows on a phone), each letter its own slinky: a stack of 12 rings in the shape of the letter, packed tight (gap 0.045) so that at rest it reads as a bold solid block letter. The camera is tilted 46 degrees; the head ring of each letter is a solid fill (the cap, the letter itself) and the rest of the coil is wire, so the ribs show only as thin lines. Nothing says it is a Slinky until you touch it.
+IDAN SEGEV laid out like the other posters (IDAN / SEGEV; three rows on a phone), each letter its own slinky: a stack of 12 rings in the shape of the letter, packed close (gap 0.035) so that at rest it reads as a bold solid block letter. The camera is Idan's Slinky camera (yaw 50, pitch 20, isometric), and the rings, wire, contact, gravity and friction are his tuned set (`SHARED_DEFAULTS` + `POSTER_DEFAULTS`, 13 Oct 2026); the head ring of each letter is a solid fill (the cap, the letter itself) and the rest of the coil is wire, so the ribs show only as thin lines. Nothing says it is a Slinky until you touch it.
 
 ## Interactions
 - **Tap a letter:** it is kicked over and unspools as it falls toward the camera, leaning left or right toward the side of the letter that was touched (up to about 43 degrees, plus a small random wobble). A tap in the middle falls straight toward the viewer.

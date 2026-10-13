@@ -6,11 +6,13 @@
 //   hint     one quiet line that appears only if the visitor has not touched anything for a while
 //   themes   relative odds of dark and light each time the poster is drawn
 //   blurb    what a shared link says
+//   prompt   what the footer's Prompt button copies: a brief to recreate the poster in your own AI tool
 //   draft    not in the random rotation, no share page; still reachable with ?p=<slug> while it is worked on
 
 export const POSTERS = [
   {
     slug: 'still-water',
+    prompt: "Flat black type reading \"Idan Segev\" on a white page (with an inverted white-on-black variant), drawn with WebGL2. Underneath the flat graphic runs a real 2D wave-equation height field, stepped on the GPU with ping-pong float textures. Pointer and touch drop ripples into it that spread, reflect off the edges and slowly fade, and the type refracts through the surface so every touch distorts the letters. Hidden extra: press L (or tap three times) to turn on a lamp that throws caustics through the water onto the type. Only black and white, no UI, no instructions.",
     title: 'Still Water',
     words: ['Idan', 'Segev'],
     blurb: 'Type that remembers every touch. Ripples, and a lamp if you find it.',
@@ -40,6 +42,7 @@ export const POSTERS = [
   },
   {
     slug: 'soft-type',
+    prompt: "The name \"Idan Segev\" in huge bold type, where each letter is a few skeleton strokes sampled into round particles that behave like one soft elastic material (position-based dynamics: distance links, a bending-smoothing pass, a spatial hash for contacts, a weak pull back to each letter's rest shape). The thick bubbly look is a round-capped stroke drawn along the particle path. Drag a letter and it bends and squashes against its neighbours. Hold one without moving and it inflates through a point on the letter; let go and air rushes out, rocketing it the other way. Hold too long and it trembles, then bursts, throwing the other letters across the page. Cartoon speed lines and little flicks tell the story. Black on white, canvas 2D.",
     title: 'Soft type',
     words: ['Idan', 'Segev'],
     blurb: 'Letters made of one soft material. Drag them, squash them, hold one until it pops.',
@@ -49,6 +52,7 @@ export const POSTERS = [
   },
   {
     slug: 'collapse',
+    prompt: "The name \"Idan Segev\" as flat black-and-white type that is secretly a field of tall standing columns, seen straight down through an orthographic camera so only the tops show. Use a 3D rigid-body engine (Rapier, WASM) and render with WebGL. Columns are cut from the letter shapes as overlapping boxes. Tap a column and it is knocked over and falls onto its neighbours; drag one and it follows the pointer on a spring. At rest it must look like plain flat type.",
     title: 'Collapse',
     words: ['Idan', 'Segev'],
     blurb: 'Flat type that is really standing columns. Knock one over and watch them fall on each other.',
@@ -58,6 +62,7 @@ export const POSTERS = [
   },
   {
     slug: 'explode',
+    prompt: "The name \"Idan Segev\" as flat black-and-white type that is secretly a field of solid anchored columns, seen straight down through an orthographic camera. Use a 3D rigid-body engine (Rapier, WASM) and render with WebGL. Tap a letter and its column blows into triangular slabs; slabs that hit another letter hard enough set that one off too, a little weaker each time, so a chain reaction spreads. At rest it must look like plain flat type.",
     title: 'Explode',
     words: ['Idan', 'Segev'],
     blurb: 'Flat type that is really solid. Touch a letter and it shatters, and the pieces set off the rest.',
@@ -117,6 +122,7 @@ export const POSTERS = [
   },
   {
     slug: 'metal',
+    prompt: "The name \"Idan Segev\" as liquid mercury: about 95% black, lit like a mirror that reflects a black room with two small lamps, so only a few crisp highlights slide across it as it moves. Particles drawn as a metaball field, with surface tension (close pairs push apart, displaced pairs pull together) and neighbours sharing velocity. Left alone it holds its letter shapes. Pull a letter and the metal follows the finger, thins to a thread and beads into droplets that stay where they land; push two letters together and they fuse; tap to scatter into beads; double-tap empty space to pour it back into the name. On a phone, tilting rolls the beads.",
     title: 'Liquid metal',
     words: ['Idan', 'Segev'],
     blurb: 'The name as liquid metal: black, with a few bright highlights. Pull it, scatter it, fuse it.',
@@ -151,6 +157,7 @@ export const POSTERS = [
     blurb: 'A Slinky on the stairs. Tap an end and it walks down.',
     hint: null,
     themes: { dark: 0, light: 1 },
+    draft: true,
     load: () => import('./slinky.js'),
   },
   {
