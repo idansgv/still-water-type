@@ -19,8 +19,11 @@ const FILES = [
   ['GT Maru', 500, 'GT-Maru/GT-Maru-Medium-Trial.woff2'],
   ['GT Maru', 400, 'GT-Maru/GT-Maru-Regular-Trial.woff2'],
 ];
+// Only on a machine that can have the files (localhost, a private network address, .local): on the live site there is nothing to ask for, so no requests and no 404s in the console.
+const LOCAL = /^(localhost|127\.|\[?::1\]?$|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|.*\.local$)/.test(location.hostname);
 let done = null;
 export function registerLocalFonts() {
+  if (!LOCAL) return (done ??= Promise.resolve([]));
   return (done ??= Promise.all(FILES.map(async ([family, weight, file]) => {
     try {
       const f = new FontFace(family, `url("${DIR}${file}")`, { weight: String(weight) });
