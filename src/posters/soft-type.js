@@ -529,7 +529,7 @@ export function mount(stage) {
   const reform = () => { for (const g of glyphs) { g.state = 'returning'; g.ret = 180; g.air = AREST; } quiet = 0; };
   return {
     tune: {
-      title: 'Soft type', values: {}, defaults: {}, groups: [],
+      title: 'Soft', values: {}, defaults: {}, groups: [],
       actions: { 'Re-form': reform },
       set() {}, reset() { reform(); },
     },

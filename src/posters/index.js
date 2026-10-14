@@ -43,7 +43,7 @@ export const POSTERS = [
   {
     slug: 'soft-type',
     prompt: "The name \"Idan Segev\" in huge bold type, where each letter is a few skeleton strokes sampled into round particles that behave like one soft elastic material (position-based dynamics: distance links, a bending-smoothing pass, a spatial hash for contacts, a weak pull back to each letter's rest shape). The thick bubbly look is a round-capped stroke drawn along the particle path. Drag a letter and it bends and squashes against its neighbours. Hold one without moving and it inflates through a point on the letter; let go and air rushes out, rocketing it the other way. Hold too long and it trembles, then bursts, throwing the other letters across the page. Cartoon speed lines and little flicks tell the story. Black on white, canvas 2D.",
-    title: 'Soft type',
+    title: 'Soft',
     words: ['Idan', 'Segev'],
     blurb: 'Letters made of one soft material. Drag them, squash them, hold one until it pops.',
     hint: null,
@@ -63,7 +63,7 @@ export const POSTERS = [
   {
     slug: 'explode',
     prompt: "The name \"Idan Segev\" as flat black-and-white type that is secretly a field of solid anchored columns, seen straight down through an orthographic camera. Use a 3D rigid-body engine (Rapier, WASM) and render with WebGL. Tap a letter and its column blows into triangular slabs; slabs that hit another letter hard enough set that one off too, a little weaker each time, so a chain reaction spreads. At rest it must look like plain flat type.",
-    title: 'Explode',
+    title: 'Shatter',
     words: ['Idan', 'Segev'],
     blurb: 'Flat type that is really solid. Touch a letter and it shatters, and the pieces set off the rest.',
     hint: null,
@@ -162,7 +162,7 @@ export const POSTERS = [
   },
   {
     slug: 'slinky-type',
-    title: 'Slinky type',
+    title: 'Slinky',
     words: ['Idan', 'Segev'],
     blurb: 'Solid letters that are really coiled Slinkys. Tap one and it springs free.',
     hint: null,

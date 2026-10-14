@@ -728,7 +728,7 @@ export async function mountColumns(stage, mode) {
        { name: 'Effects', items: [{ key: 'dust', label: 'Dust (0 = none)', min: 0, max: 3, step: 0.05 }, { key: 'dustSpeed', label: 'Landing speed that raises dust', min: 0.5, max: 14, step: 0.25 }, { key: 'dustSize', label: 'Dust puff size', min: 0.05, max: 3, step: 0.01 }, { key: 'dustLife', label: 'Dust lasts (s)', min: 0.2, max: 5, step: 0.1 }, { key: 'dustTone', label: 'Dust tone (0 black, 1 white)', min: 0, max: 1, step: 0.01 }, { key: 'dustSoft', label: 'Dust softness (0 = hard edged)', min: 0, max: 1, step: 0.01 }, { key: 'dustAlpha', label: 'Dust opacity', min: 0.1, max: 1, step: 0.01 }] },
        colourGroup, cameraGroup];
   const tuneApi = {
-    title: EXPLODE ? 'Explode' : 'Collapse',
+    title: EXPLODE ? 'Shatter' : 'Collapse',
     values: { ...P }, defaults: { ...P }, groups,
     actions: Object.assign(EXPLODE ? { 'Re-form': reform, 'Detonate all': detonateAll } : { 'Re-form': reform }, {
       'Reset camera': () => { for (const k of ['camPitch', 'camYaw', 'persp']) tuneApi.set(k, 0); tuneApi.set('zoom', 1); },

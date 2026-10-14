@@ -274,7 +274,7 @@ export function mount(stage) {
   const Ctl = (key, label, min, max, step) => ({ key, label, min, max, step });
   return {
     tune: {
-      title: 'Slinky type', persist: true, values: P, defaults: DEFAULTS,
+      title: 'Slinky', persist: true, values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Scene', items: [Ctl('ledge', 'How deep the ledge is (radii, re-forms)', 1.2, 14, 0.1), Ctl('bump', 'How hard the first bump is (radii / s)', 0.5, 8, 0.1), Ctl('pull', 'How far the first bump pulls the cap ahead (radii)', 0, 4, 0.1), Ctl('pull2', 'How far the second bump pulls it (radii)', 0, 5, 0.1), Ctl('push', 'How hard the second bump is (radii / s)', 3, 18, 0.1), Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
         { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path', 0, 2, 0.05), Ctl('spring', 'Wire stiffness', 5, 4000, 1), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05)] },
