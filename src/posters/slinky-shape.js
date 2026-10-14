@@ -4,12 +4,12 @@ import { glyphContours } from './glyph-contours.js';
 
 const cache = new Map();
 export function ringShape(text, opts) {
-  const top = !!(opts && opts.top);
+  const top = !!(opts && opts.top), fine = !!(opts && opts.fine), font = (opts && opts.font) || 'Arial Black, Helvetica Neue, Helvetica, sans-serif', weight = (opts && opts.weight) || 900;
   const ch = text ? [...String(text)][0] : '';
   if (!ch || ch === ' ') return null;
-  const key = ch + (top ? '^' : '');
+  const key = ch + (top ? '^' : '') + (fine ? '~' : '') + (opts && opts.font ? '|' + opts.font + weight : '');
   if (cache.has(key)) return cache.get(key);
   let loops = null;
-  try { const gc = glyphContours(ch, 'Arial Black, Helvetica Neue, Helvetica, sans-serif', 900, 120, 0.06); loops = gc.loops.map((l) => l.pts.map(([x, y]) => top ? [x / 0.5, y / 0.5] : [y / 0.5, x / 0.5])); } catch (e) { loops = null; }   // [u, z] in radii
+  try { const gc = glyphContours(ch, font, weight, fine ? 420 : 120, fine ? 0.012 : 0.06); loops = gc.loops.map((l) => l.pts.map(([x, y]) => top ? [x / 0.5, y / 0.5] : [y / 0.5, x / 0.5])); } catch (e) { loops = null; }   // [u, z] in radii
   cache.set(key, loops); return loops;
 }

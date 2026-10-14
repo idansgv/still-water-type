@@ -96,7 +96,12 @@ function pickFirst() {
   if (fixed && bySlug(fixed)) return bySlug(fixed);
   let last = null;
   try { last = localStorage.getItem('swt:last'); } catch (e) { /* private mode */ }
-  return pickOther(last);
+  const pool = PUBLISHED.filter((p) => p.slug !== last);
+  if (!pool.length) return PUBLISHED[0];
+  const w = (p) => (p.slug === 'still-water' ? 2.5 : 1);                          // Still Water opens the site 2.5 times as often as each of the others
+  let r = Math.random() * pool.reduce((a, p) => a + w(p), 0);
+  for (const p of pool) { r -= w(p); if (r < 0) return p; }
+  return pool[pool.length - 1];
 }
 function seedFromHash() {
   const m = /[#&]s=([0-9a-z]+)/i.exec(location.hash);

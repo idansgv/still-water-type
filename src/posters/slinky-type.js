@@ -11,6 +11,15 @@ import { createView } from './slinky-view.js';
 import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
 import { TAP } from '../gestures.js';
 
+// The face: Bungee Inline (open licence, from Google Fonts), loaded before the first layout; Arial Black stands in if it does not arrive.
+const FACE = new URLSearchParams(location.search).get('font') || 'Bungee Inline';
+{
+  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(FACE).replace(/%20/g, '+')}&display=swap`;
+  await new Promise((r) => { l.onload = r; l.onerror = r; setTimeout(r, 2500); document.head.appendChild(l); });
+  try { await Promise.race([document.fonts.load(`400 100px "${FACE}"`), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the stand-in */ }
+}
+const FONT = `"${FACE}", Arial Black, Helvetica Neue, Helvetica, sans-serif`;
+const shapeOf = (ch, fine) => ringShape(ch, { fine, font: FONT, weight: 400 });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const TH = -Math.PI / 2;                       // every chain runs along -z: out of the wall, toward you
 
@@ -23,7 +32,7 @@ export function mount(stage) {
 
   const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS, spring: 958, gravity: 23, bounce: 0.81, inertia: 0.3 };   // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (14 Oct 2026)
   const OWN = { coils: 20, ledge: 10, bump: 2.9, push: 9.5, pull: 1.7, pull2: 2.8 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
-  const CAM = { yaw: 20, pitch: 10, zoom: 1, panX: 0, panY: 0 };                                    // Idan's camera (14 Oct 2026); zoom and pan are a multiplier on the fitted scene and a share of the screen
+  const CAM = { yaw: 30, pitch: 10, zoom: 1.5, panX: 0, panY: 0 };                                    // Idan's camera (14 Oct 2026); zoom and pan are a multiplier on the fitted scene and a share of the screen
   const DEFAULTS = { ...shared, ...OWN, ...CAM };
   const P = bindParams(shared, OWN);
   const V = createView(stage, { yaw: CAM.yaw, pitch: CAM.pitch }); V.setView('iso');
@@ -59,18 +68,36 @@ export function mount(stage) {
   function layout() {
     W = stage.W; H = stage.H;
     const portrait = W / H < 0.85, rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], rowK = 3.7;
-    const ext = (ch) => { let lo = 1e9, hi = -1e9; for (const loop of ringShape(ch) || []) for (const pt of loop) { lo = Math.min(lo, pt[1]); hi = Math.max(hi, pt[1]); } return lo > hi ? [-1, 1] : [lo, hi]; };   // a letter's width, across the wall, in radii
-    const GAP = 0.5;                                                                                     // the same space between every pair of letters (not the same pitch): even colour
-    const rowW = (row) => [...row].reduce((a, ch) => a + ext(ch)[1] - ext(ch)[0], 0) + GAP * (row.length - 1), maxW = Math.max(...rows.map(rowW));
+    const fine = (ch) => shapeOf(ch, true) || [];
+    const prof = (ch) => {                                                                                // a letter's left and right edge at each height (across the wall, in radii)
+      const K = 40, lo = new Array(K).fill(NaN), hi = new Array(K).fill(NaN);
+      for (const loop of fine(ch)) for (let i = 0; i < loop.length; i++) {
+        const a = loop[i], b = loop[(i + 1) % loop.length];
+        for (let k = 0; k < K; k++) { const u = -1 + (k + 0.5) * 2 / K; if ((a[0] - u) * (b[0] - u) < 0) { const x = a[1] + (b[1] - a[1]) * (u - a[0]) / (b[0] - a[0]); if (!(x >= lo[k])) lo[k] = x; if (!(x <= hi[k])) hi[k] = x; } }
+      }
+      return { lo, hi };
+    };
+    const ext = (ch) => { const p = prof(ch); let a = 1e9, b = -1e9; p.lo.forEach((v) => { if (v < a) a = v; }); p.hi.forEach((v) => { if (v > b) b = v; }); return a > b ? [-1, 1] : [a, b]; };
+    const SPACE = 0.62, CLIP = 1.5, MIN = 0.2;                                                            // optical spacing: the average open space between two letters (each gap capped), never closer than MIN
+    const pairShift = (c1, c2) => {                                                                       // how far right the second letter's origin sits from the first's
+      const A = prof(c1), B = prof(c2), gaps = (s) => { let sum = 0, mn = 1e9; for (let k = 0; k < A.hi.length; k++) { const g = isNaN(A.hi[k]) || isNaN(B.lo[k]) ? CLIP : Math.min(CLIP, s + B.lo[k] - A.hi[k]); sum += g; if (!isNaN(A.hi[k]) && !isNaN(B.lo[k])) mn = Math.min(mn, s + B.lo[k] - A.hi[k]); } return [sum / A.hi.length, mn]; };
+      let lo = -10, hi = 10;
+      for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2, [avg, mn] = gaps(m); if (avg < SPACE || mn < MIN) lo = m; else hi = m; }
+      return hi;
+    };
+    const rowXs = (row) => {                                                                              // each letter's origin along the row, centred on the row's ink
+      const cs = [...row], xs = [0]; for (let j = 1; j < cs.length; j++) xs.push(xs[j - 1] + pairShift(cs[j - 1], cs[j]));
+      const left = xs[0] + ext(cs[0])[0], right = xs[cs.length - 1] + ext(cs[cs.length - 1])[1], c = (left + right) / 2;
+      return { xs: xs.map((x) => x - c), span: right - left };
+    };
+    const rl = rows.map(rowXs), maxW = Math.max(...rl.map((r) => r.span));
     R = Math.min(W * 0.78 / maxW, H * 0.62 / (rows.length * rowK + 1.6), Math.min(W, H) * 0.11 * 1.6);
     rw = Math.max(2, R * P.wire * 0.5);
     wallW = (maxW + 1.2) * R / 2; wallH = (rows.length * rowK + 0.8) * R;
     letters = [];
     rows.forEach((row, k) => {
-      const gap = GAP; let x = -rowW(row) / 2;
       [...row].forEach((ch, j) => {
-        const [lo, hi] = ext(ch), X = (x - lo) * R, N = Math.round(P.coils), L = { ch, X, Y: R * 1.3 + (rows.length - 1 - k) * R * rowK + R * 0.9, ring: createRings(N + 2), N, shape: ringShape(ch), hand: null, awake: false, fade: 1 };
-        x += hi - lo + gap;
+        const X = rl[k].xs[j] * R, N = Math.round(P.coils), L = { ch, X, Y: R * 1.3 + (rows.length - 1 - k) * R * rowK + R * 0.9, ring: createRings(N + 2), N, shape: shapeOf(ch, false), cap: shapeOf(ch, true), hand: null, awake: false, fade: 1 };
         poseWall(L); letters.push(L);
       });
     });
@@ -126,15 +153,16 @@ export function mount(stage) {
     items.sort((a, b) => a.z - b.z);
     for (const L of letters) L.open += ((L.awake || hand?.L === L ? 1 : 0) - L.open) * 0.22;   // pressed and held: a letter at rest hides its coil behind the cap; the moment it moves the coil shows
     for (const { L, i } of items) {
+      if (i > 0 && L.open < 0.01) continue;                                         // squeezed behind the cap: nothing to see
       const a = L.ring.a[i], ux = Math.cos(a), uy = Math.sin(a), cx = L.ring.x[0] + (L.ring.x[i] - L.ring.x[0]) * L.open, cy = L.ring.y[0] + (L.ring.y[i] - L.ring.y[0]) * L.open;
       ctx.beginPath();
-      for (const loop of L.shape) {
+      for (const loop of (i === 0 ? L.cap : L.shape)) {
         for (let k = 0; k <= loop.length; k++) { const pt = loop[k % loop.length], q = V.project(wp(L, cx + ux * pt[0] * R, cy + uy * pt[0] * R, pt[1] * R), r, ox, oy); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
       }
       ctx.fillStyle = ink;                                                           // the head ring is a solid cap: the letter itself; the rest of the coil is wire
       const oa = Math.min(1, L.fade / 0.4), fa = Math.min(1, Math.max(0, (L.fade - 0.4) / 0.6)), se = (t) => t * t * (3 - 2 * t);   // back on the wall: the outline fades in first, then the letter fills
       if (i === 0) { ctx.globalAlpha = se(fa); ctx.fill('evenodd'); }
-      ctx.globalAlpha = se(oa); ctx.stroke(); ctx.globalAlpha = 1;
+      if (i > 0 || L.fade < 1) { ctx.globalAlpha = se(oa); ctx.stroke(); ctx.globalAlpha = 1; }                // (a settled cap is the fill alone, so the face's inline stays open)
     }
   }
 

@@ -224,7 +224,6 @@ noscript .plain {
 .menu-corner:hover, .menu-corner:focus-visible, body.index-open .menu-corner { opacity: 1; }
 .menu-corner:hover, .menu-corner:focus-visible { color: var(--fg); }
 .menu-corner:focus-visible { outline: 2px solid var(--fg); outline-offset: -6px; }
-@media (hover: none) { .menu-corner { opacity: 0.55; } }
 body.index-open .menu-corner .lbl { font-size: 0; }
 body.index-open .menu-corner .lbl::after { content: "Close"; font-size: 12px; }
 
@@ -234,6 +233,8 @@ body.index-open .menu-corner .lbl::after { content: "Close"; font-size: 12px; }
   opacity: 0; transition: opacity 0.3s ease; overflow-y: auto; overscroll-behavior: contain;
 }
 .index[hidden] { display: none; }
+.index-prompt { position: fixed; left: var(--gutter); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); font: 400 12px/1.2 var(--mono); color: var(--dim); background: none; border: 0; padding: 10px 0; cursor: pointer; }
+.index-prompt:hover, .index-prompt:focus-visible { color: var(--fg); outline: none; }
 .index.on { opacity: 1; }
 .index-list { list-style: none; margin: auto; padding: 0; width: min(760px, 100%); }
 .index-list li { border-bottom: 1px solid color-mix(in srgb, var(--fg) 16%, transparent); }
