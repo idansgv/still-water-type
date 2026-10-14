@@ -31,6 +31,10 @@ export function mount(stage) {
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
   stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
+  // How the rings are drawn (the physics is the same): 'line' is the wire as strokes; 'solid' fills each ring as a plate, shaded by how it faces the light. ?render=solid, or M to cycle.
+  const RENDERERS = ['line', 'solid'], asked = new URLSearchParams(location.search).get('render');
+  let render = RENDERERS.includes(asked) ? asked : 'line';
+  const LIGHT = (() => { const l = [-0.5, 0.75, 0.55], n = Math.hypot(...l); return l.map((v) => v / n); })();
 
   const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS, spring: 958, gravity: 23, bounce: 0.81, inertia: 0.3 };   // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (14 Oct 2026)
   const OWN = { coils: 20, ledge: 10, bump: 2.9, push: 9.5, pull: 1.7, pull2: 2.8 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
@@ -162,6 +166,12 @@ export function mount(stage) {
       for (const loop of (i === 0 ? L.cap : L.shape)) {
         for (let k = 0; k <= loop.length; k++) { const pt = loop[k % loop.length], q = V.project(wp(L, cx + ux * pt[0] * R, cy + uy * pt[0] * R, pt[1] * R), r, ox, oy); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
       }
+      if (render === 'solid' && i > 0) {                                              // a plate: fill by the angle between the ring's plane and the light, a fine edge to part it from the next
+        const lit = Math.abs(-ux * LIGHT[1] - uy * LIGHT[2]), v = 0.05 + 0.75 * lit, g = Math.round(255 * (dark ? 1 - v : v));
+        ctx.fillStyle = `rgb(${g},${g},${g})`; ctx.globalAlpha = Math.min(1, L.fade / 0.4); ctx.fill('evenodd');
+        ctx.strokeStyle = dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'; ctx.lineWidth = Math.max(0.8, R * 0.012); ctx.stroke();
+        ctx.globalAlpha = 1; ctx.strokeStyle = ink; ctx.lineWidth = Math.max(1.3, R * P.wire); continue;
+      }
       ctx.fillStyle = ink;                                                           // the head ring is a solid cap: the letter itself; the rest of the coil is wire
       const oa = Math.min(1, L.fade / 0.4), fa = Math.min(1, Math.max(0, (L.fade - 0.4) / 0.6)), se = (t) => t * t * (3 - 2 * t);   // back on the wall: the outline fades in first, then the letter fills
       if (i === 0) { ctx.globalAlpha = se(fa); ctx.fill('evenodd'); }
@@ -235,7 +245,7 @@ export function mount(stage) {
   }));
   const onKey = (e) => {
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
-    if (e.key === 'x' || e.key === 'X') layout(); else if (e.key === 'l' || e.key === 'L') V.lock = !V.lock; else if (e.key === '0') setCamera(CAM); else if (e.key === '=' || e.key === '+') cam3.zoom = clamp(cam3.zoom * 1.15, 0.3, 4); else if (e.key === '-') cam3.zoom = clamp(cam3.zoom / 1.15, 0.3, 4);
+    if (e.key === 'x' || e.key === 'X') layout(); else if (e.key === 'l' || e.key === 'L') V.lock = !V.lock; else if (e.key === '0') setCamera(CAM); else if (e.key === 'm' || e.key === 'M') render = RENDERERS[(RENDERERS.indexOf(render) + 1) % RENDERERS.length]; else if (e.key === '=' || e.key === '+') cam3.zoom = clamp(cam3.zoom * 1.15, 0.3, 4); else if (e.key === '-') cam3.zoom = clamp(cam3.zoom / 1.15, 0.3, 4);
   };
   addEventListener('keydown', onKey);
   offs.push(stage.on('resize', layout));
@@ -254,6 +264,7 @@ export function mount(stage) {
       ],
       actions: {
         'X  Put them back on the wall': layout, 'L  Lock the camera': () => { V.lock = !V.lock; },
+        'M  Renderer (line / solid)': () => { render = RENDERERS[(RENDERERS.indexOf(render) + 1) % RENDERERS.length]; },
         'Face on': () => setCamera({ ...CAM, yaw: 0, pitch: 0 }), 'From above': () => setCamera({ ...CAM, yaw: 25, pitch: 55 }), '0  Default camera': () => setCamera(CAM),
       },
       set(key, value) { P[key] = value; if (['coils', 'size', 'gap', 'wire', 'ledge'].includes(key)) layout(); },
