@@ -208,6 +208,15 @@ export const POSTERS = [
     standalone: true,        // out of the rotation and the menu, but with its own page (p/fan-color/) shown without the site's frame
     load: () => import('./fan-color.js'),
   },
+  {
+    slug: 'fontapalloza',
+    title: 'Fontapalloza',
+    words: ['Idan', 'Segev'],
+    blurb: 'Every letter in a different typeface. Hover to swap one, press to make them all go.',
+    hint: null,
+    themes: { dark: 0.5, light: 0.5 },
+    load: () => import('./fontapalloza.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

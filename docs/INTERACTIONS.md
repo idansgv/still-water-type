@@ -68,6 +68,21 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Settings | `?p=rain&tune` or T; Save as defaults writes `src/posters/params/rain.json` |
 | Multi-touch | one pointer |
 
+## Fontapalloza (published 14 Oct 2026)
+
+| | Fontapalloza |
+|---|---|
+| Hover (mouse) | the letter under the cursor swaps to a new typeface once, and holds it |
+| Tap / press | every letter thrashes through the collection, each on its own random clock (0 to 34 ms, now and then a pause of 40 to 150 ms), until release; each keeps the last face it landed on |
+| Touch | no hover; press thrashes, dragging a finger over a letter swaps that one |
+| Tap on background | the same thrash while pressed |
+| Hold | keeps thrashing |
+| Double tap | nothing |
+| Three taps (reveal) | each letter's cell, tinted, with the name of the face it holds, and how many faces have loaded |
+| Self-demo | none |
+| Reduced motion | the thrash slows to about three swaps a second per letter |
+| Multi-touch | one pointer |
+
 ## In the pipeline (draft)
 
 | | Shadow |
