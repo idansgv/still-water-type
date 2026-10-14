@@ -1,4 +1,4 @@
-# Jazz: brief (idea stage, no code yet)
+# Fan (was Jazz, then jazz-fan): brief (idea stage, no code yet)
 
 **Status:** published 2026-10-14.
 
@@ -28,8 +28,8 @@ JAZZ in a heavy wide face (Bungee/Archivo Black class, fills the width), black o
 
 ## Next steps
 1. Idan answers the three questions and OKs or redirects the still.
-2. Draft `src/posters/jazz.js` (`?p=jazz&tune`), with `destroy()`, gestures, reveal, per `docs/PIPELINE.md`.
+2. Draft `src/posters/fan.js` (`?p=fan&tune`), with `destroy()`, gestures, reveal, per `docs/PIPELINE.md`.
 3. `npm run shot -- jazz`, panel Save as defaults, `npm run ship -- jazz` (no push without his yes).
 
-## Draft status
-`?p=jazz&tune` (draft, local, unpushed): `src/posters/jazz.js`, 30 spring strips per line, wrap-around reels, fan (top left, bottom right), reveal view. Not yet: previews image, `docs/INTERACTIONS.md` entry, gate run.
+## Status
+Published 14 Oct 2026 as `jazz-fan`, renamed `fan` the same day (the old URL /p/jazz-fan/ no longer exists). WebGL, one textured quad per strip (45 per line), five springs per strip (swing, yaw, pitch, length, slide); the fan pivots on one centre line through the block (above leans up, below leans down). Camera: wheel zoom, Alt-drag orbit, Shift-drag pan, panel sliders. Idan's tuned values are `DEF` in `src/posters/fan.js`. Colour experiments live in `fan-color` (draft).

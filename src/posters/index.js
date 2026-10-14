@@ -180,13 +180,13 @@ export const POSTERS = [
     load: () => import('./shadow.js'),
   },
   {
-    slug: 'jazz-fan',
-    title: 'Jazz fan',
+    slug: 'fan',
+    title: 'Fan',
     words: ['Idan', 'Segev'],
     blurb: 'The name, cut into strips that fan, scatter and snap back. Drag it, or tap.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
-    load: () => import('./jazz-fan.js'),
+    load: () => import('./fan.js'),
   },
   {
     slug: 'rain',

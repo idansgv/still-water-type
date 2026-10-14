@@ -1,7 +1,7 @@
-// Jazz fan: IDAN / SEGEV in the heaviest Archivo, cut into thin horizontal strips that live in 3D.
+// Fan: IDAN / SEGEV in the heaviest Archivo, cut into thin horizontal strips that live in 3D.
 // Each strip is a textured quad with its own springs: an in-plane swing about a pivot (the fan), a yaw and a pitch
 // (so the strips leave the page and the perspective stretches them into rays), a lengthening, and a sideways slide
-// of the type itself (a reel). Idea from a motion piece in a festival identity (docs/posters/jazz.md). Black and white.
+// of the type itself (a reel). Idea from a motion piece in a festival identity (docs/posters/fan.md). Black and white.
 //
 //   rest      the word, whole, hairline gaps between strips
 //   drag      pressed where you want the pivot; drag right/left to swing the fan, up/down to tip it into depth; let go and it springs home
@@ -197,7 +197,7 @@ export function mount(stage) {
     }
     for (const by of new Set(strips.map((t) => t.base))) { c.strokeStyle = col(k); c.beginPath(); c.arc(px, by, 6, 0, 7); c.moveTo(px - 10, by); c.lineTo(px + 10, by); c.stroke(); }
     label(c, 'centre line', px + 12, strips[0] ? strips[0].base - 8 : 0, col, k);
-    titleBlock(c, W_, H_, ['JAZZ FAN · STRIPS', `${strips.length} quads, 5 springs each`, 'swing · yaw · pitch · length · slide', 'o = pivot (where you pressed)'], col, k);
+    titleBlock(c, W_, H_, ['FAN · STRIPS', `${strips.length} quads, 5 springs each`, 'swing · yaw · pitch · length · slide', 'o = pivot (where you pressed)'], col, k);
   });
 
   function resize() { W = stage.W; H = stage.H; PW = stage.pw; PH = stage.ph; layout(); draw(); }
@@ -224,7 +224,7 @@ export function mount(stage) {
 
   return {
     tune: {
-      title: 'Jazz fan', values: P, defaults: { ...DEF },
+      title: 'Fan', values: P, defaults: { ...DEF },
       groups: [
         { name: 'Cut', items: [{ key: 'rows', label: 'Rows per line', min: 12, max: 45, step: 1 }, { key: 'gap', label: 'Gap', min: 0.05, max: 0.7, step: 0.01 }] },
         { name: 'Fan', items: [{ key: 'fan', label: 'Swing', min: 0, max: 2, step: 0.01 }, { key: 'yaw', label: 'Yaw', min: 0, max: 1.5, step: 0.01 }, { key: 'pitch', label: 'Pitch', min: 0, max: 1.4, step: 0.01 }, { key: 'stretch', label: 'Length', min: 0, max: 2, step: 0.01 }, { key: 'persp', label: 'Perspective', min: 0.6, max: 3, step: 0.01 }] },
