@@ -263,6 +263,7 @@ let indexOpen = false, peekRaf = 0;
 const peek = { x: 0, y: 0, tx: 0, ty: 0, slug: '' };
 function buildIndex() {
   listEl.textContent = '';
+  listEl.style.setProperty('--rows', PUBLISHED.length);                         // the type shrinks so every row fits the window (see .index-list a)
   PUBLISHED.forEach((p, i) => {
     const li = document.createElement('li'), a = document.createElement('a');
     a.href = `/p/${p.slug}/`; a.dataset.slug = p.slug; a.innerHTML = `<span class="t"></span><span class="n">${String(i + 1).padStart(2, '0')}</span>`;

@@ -188,6 +188,15 @@ export const POSTERS = [
     themes: { dark: 0.5, light: 0.5 },
     load: () => import('./jazz-fan.js'),
   },
+  {
+    slug: 'rain',
+    title: 'Rain',
+    words: ['Idan', 'Segev'],
+    blurb: 'Heavy type the colour of the page. Rain follows you and leaves its mark. Press, and it pours.',
+    hint: null,
+    themes: { dark: 0.5, light: 0.5 },
+    load: () => import('./rain.js'),
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

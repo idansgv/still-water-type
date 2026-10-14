@@ -52,6 +52,22 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Self-demo | after about 3.2 s untouched: fan, hold, scatter, resolve, repeat, until the first touch; off under reduced motion |
 | Multi-touch | one pointer |
 
+## Rain (published 14 Oct 2026)
+
+| | Rain |
+|---|---|
+| Hover (mouse) | light rain falls where the cursor is and marks the letters it lands on; marks never fade |
+| Tap / press | pours: a dense, wide downpour while pressed and for 1.3 s after release |
+| Touch | no hover rain; rain falls at the finger while pressed |
+| Tap on background | the same pour (rain only marks the letters) |
+| Hold | keeps pouring |
+| Drag | the rain follows |
+| Double tap | dries the word again (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | the extruded outline front and back, and the rain's direction |
+| Self-demo | off in the saved settings (the panel has a switch: a slow sweep across each line until the first touch) |
+| Settings | `?p=rain&tune` or T; Save as defaults writes `src/posters/params/rain.json` |
+| Multi-touch | one pointer |
+
 ## In the pipeline (draft)
 
 | | Shadow |
