@@ -163,14 +163,16 @@ body {
 .tune-text textarea { grid-column: 1 / -1; width: 100%; font: inherit; color: #fff; background: #000; border: 1px solid #3a3a3a; padding: 6px; resize: vertical; }
 
 @media (max-width: 720px) {
-  .chrome {
-    grid-template-columns: 1fr;
-    grid-template-areas: "id" "actions" "folio";
-    align-items: end;
+  .chrome {                                           /* the name and Shuffle share a baseline; the tagline runs full width beneath */
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "name actions" "role role" "folio folio";
+    align-items: baseline;
+    gap: 0 20px;
   }
-  .id { display: contents; }
-  .id .who { grid-area: id; flex-direction: column; align-items: flex-start; }
-  .chrome .id .name { padding: 8px 0 2px; }
+  .id, .id .who { display: contents; }
+  .chrome .id .name { grid-area: name; justify-self: start; padding: 8px 0 2px; }
+  .id .slot { grid-area: role; }
+  .actions { align-self: baseline; }
   .id .folio { grid-area: folio; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .folio .count { display: none; }
   .hint { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
