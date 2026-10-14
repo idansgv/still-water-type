@@ -19,6 +19,8 @@ const FACE = new URLSearchParams(location.search).get('font') || 'Bungee Inline'
   try { await Promise.race([document.fonts.load(`400 100px "${FACE}"`), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the stand-in */ }
 }
 const FONT = `"${FACE}", Arial Black, Helvetica Neue, Helvetica, sans-serif`;
+// Defaults saved from the settings panel (Save as defaults, local dev server): src/posters/params/slinky-type.json, over the built-in ones below.
+const SAVED = await fetch(new URL('./params/slinky-type.json', import.meta.url)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
 const shapeOf = (ch, fine) => ringShape(ch, { fine, font: FONT, weight: 400 });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const TH = -Math.PI / 2;                       // every chain runs along -z: out of the wall, toward you
@@ -33,6 +35,7 @@ export function mount(stage) {
   const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS, spring: 958, gravity: 23, bounce: 0.81, inertia: 0.3 };   // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (14 Oct 2026)
   const OWN = { coils: 20, ledge: 10, bump: 2.9, push: 9.5, pull: 1.7, pull2: 2.8 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
   const CAM = { yaw: 30, pitch: 10, zoom: 1.5, panX: 0, panY: 0 };                                    // Idan's camera (14 Oct 2026); zoom and pan are a multiplier on the fitted scene and a share of the screen
+  for (const [k, v] of Object.entries(SAVED)) { if (k in CAM) CAM[k] = v; else if (k in OWN) OWN[k] = v; else if (k in shared) shared[k] = v; }
   const DEFAULTS = { ...shared, ...OWN, ...CAM };
   const P = bindParams(shared, OWN);
   const V = createView(stage, { yaw: CAM.yaw, pitch: CAM.pitch }); V.setView('iso');
@@ -64,7 +67,7 @@ export function mount(stage) {
     for (const c of corners3()) { const q = V.project(c, r, ox0, oy0); x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
     return [ox0 + W / 2 - (x0 + x1) / 2 + cam3.panX * W, oy0 + (H - 40) / 2 - (y0 + y1) / 2 + cam3.panY * H, x1 - x0, y1 - y0];
   }
-  function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul) * cam3.zoom; V.zoomMul += (f - V.zoomMul) * 0.15; }
+  function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul) * (W / H < 0.85 ? Math.min(cam3.zoom, 1) : cam3.zoom); V.zoomMul += (f - V.zoomMul) * 0.15; }
   function layout() {
     W = stage.W; H = stage.H;
     const portrait = W / H < 0.85, rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], rowK = 3.7;
@@ -242,7 +245,7 @@ export function mount(stage) {
   const Ctl = (key, label, min, max, step) => ({ key, label, min, max, step });
   return {
     tune: {
-      title: 'Slinky type', values: P, defaults: DEFAULTS,
+      title: 'Slinky type', persist: true, values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Scene', items: [Ctl('ledge', 'How deep the ledge is (radii, re-forms)', 1.2, 14, 0.1), Ctl('bump', 'How hard the first bump is (radii / s)', 0.5, 8, 0.1), Ctl('pull', 'How far the first bump pulls the cap ahead (radii)', 0, 4, 0.1), Ctl('pull2', 'How far the second bump pulls it (radii)', 0, 5, 0.1), Ctl('push', 'How hard the second bump is (radii / s)', 3, 18, 0.1), Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
         { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path', 0, 2, 0.05), Ctl('spring', 'Wire stiffness', 5, 4000, 1), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05)] },

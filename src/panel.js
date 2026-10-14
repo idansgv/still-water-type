@@ -11,9 +11,10 @@
 //   }
 //
 // Open it with ?tune, or press T. Settings persist (per poster, in this browser) while ?tune is on, and
+// A poster that sets `persist: true` also gets "Save as defaults" (local dev server: writes src/posters/params/<slug>.json).
 // "Copy settings" puts them on the clipboard as JSON to paste back into the poster's defaults.
 
-export function createPanel(tune, { toast = () => {}, onClose = () => {} } = {}) {
+export function createPanel(tune, { toast = () => {}, onClose = () => {}, slug = '' } = {}) {
   const el = document.createElement('aside');
   el.className = 'tune';
   el.setAttribute('aria-label', `${tune.title} settings`);
@@ -42,6 +43,10 @@ export function createPanel(tune, { toast = () => {}, onClose = () => {} } = {})
     const json = JSON.stringify(tune.values, null, 2);
     try { await navigator.clipboard.writeText(json); toast('Settings copied'); }
     catch (e) { window.prompt && toast('Copy blocked: see the console'); console.log(json); }
+  });
+  if (tune.persist && slug) mk('Save as defaults', async () => {                    // local dev server only: writes src/posters/params/<slug>.json, which the poster reads
+    try { const r = await fetch(`/__params/${slug}`, { method: 'POST', body: JSON.stringify(tune.values) }); toast(r.ok ? 'Saved as defaults' : 'Save needs the local dev server'); }
+    catch (e) { toast('Save needs the local dev server'); }
   });
   mk('Reset', () => { tune.reset(); sync(); toast('Reset to defaults'); });
   el.appendChild(actions);

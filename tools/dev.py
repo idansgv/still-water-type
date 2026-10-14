@@ -6,13 +6,30 @@
 Python's plain `http.server` sends no cache headers, so browsers reuse old copies of the ES modules
 (src/*.js) and a page can end up running a mix of old and new files. This sends `Cache-Control: no-store`.
 """
-import os, sys
+import json, os, re, sys
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
 class H(SimpleHTTPRequestHandler):
+    # The settings panel's "Save as defaults": POST /__params/<slug> with the poster's settings as JSON lands in src/posters/params/<slug>.json (local requests only).
+    def do_POST(self):
+        m = re.fullmatch(r'/__params/([a-z0-9-]+)', self.path)
+        local = self.client_address[0] in ('127.0.0.1', '::1')
+        try:
+            n = int(self.headers.get('Content-Length', '0'))
+            if not (m and local) or n <= 0 or n > 20000: raise ValueError('refused')
+            data = json.loads(self.rfile.read(n))
+            if not isinstance(data, dict) or not all(isinstance(v, (int, float, str, bool)) for v in data.values()): raise ValueError('not settings')
+            path = os.path.join(ROOT, 'src', 'posters', 'params', m.group(1) + '.json')
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w') as f: json.dump(data, f, indent=2); f.write('\n')
+            self.send_response(200)
+        except Exception:
+            self.send_response(400)
+        self.send_header('Content-Length', '0'); self.end_headers()
+
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store')
         super().end_headers()

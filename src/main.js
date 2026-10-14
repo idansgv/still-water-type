@@ -33,7 +33,7 @@ export function toast(msg, ms = 2200) {
 function syncPanel() {
   if (panel) { panel.destroy(); panel = null; }
   if (wantPanel && current && current.inst && current.inst.tune) {
-    panel = createPanel(current.inst.tune, { toast, onClose: () => { wantPanel = false; panel = null; } });
+    panel = createPanel(current.inst.tune, { toast, slug: current.poster.slug, onClose: () => { wantPanel = false; panel = null; } });
   }
 }
 function togglePanel() {

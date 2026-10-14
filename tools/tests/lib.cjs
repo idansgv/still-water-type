@@ -1,5 +1,5 @@
 // Shared bits for the site checks. Slinky posters are left out for now (still in draft and in progress).
-const SKIP = new Set(['slinky', 'slinky-type']);
+const SKIP = new Set(['slinky']);
 // Posters that are black until the visitor finds something (Backlight: the light), so a blank canvas at rest is correct.
 const DARK_AT_REST = new Set(['backlight']);
 
