@@ -14,7 +14,7 @@ const SCENES = {
   collapse: async (p) => { await p.mouse.click(430, 260); await sleep(900); },
   explode: async (p) => { await p.mouse.click(640, 260); await sleep(450); },
   metal: async (p) => { await p.mouse.move(420, 300); await p.mouse.down(); for (let i = 0; i <= 16; i++) { await p.mouse.move(420 + i * 22, 300 - i * 9); await sleep(16); } await p.mouse.up(); await sleep(400); },
-  'slinky-type': async (p) => { await p.evaluate(() => { const d = window.__poster.inst.debug; d.click(1); d.click(6); d.run(34); }); await sleep(100); await p.evaluate(() => window.__poster.inst.debug.run(1)); },
+  'slinky-type': async (p) => { await p.evaluate(() => { const d = window.__poster.inst.debug, t = window.__poster.inst.tune; t.set('zoom', 1.75); t.set('panY', 0.065); d.click(1); d.click(6); d.run(14); }); await sleep(1200); await p.evaluate(() => window.__poster.inst.debug.run(1)); },
 };
 
 (async () => {
