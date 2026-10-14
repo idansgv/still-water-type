@@ -2,6 +2,7 @@
 
 import { POSTERS, PUBLISHED, bySlug } from './posters/index.js';
 import { createStage, THEMES, fontsReady } from './engine.js';
+import { rollColour, colourPass } from './colour.js';
 import { createPanel } from './panel.js';
 
 const $ = (id) => document.getElementById(id);
@@ -190,10 +191,12 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   }
   applyTheme(theme);
   setChrome(poster);
+  stageEl.querySelectorAll('.colour-pass').forEach((n) => n.remove()); stageEl.classList.remove('colour-dark');
 
   const stage = createStage(stageEl, { seed, theme, toast, setBackdrop });
   stage.refreshPanel = syncPanel;                                   // a poster whose settings change (a mode switch) asks for the panel to be rebuilt
   stage.flip = theme.name === 'dark';
+  stage.colour = poster.standalone ? null : rollColour(params);          // about one showing in ten is in colour (src/colour.js)
   current = { poster, stage, seed, theme };
   let inst = null;
   try {
@@ -201,6 +204,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     const mod = await poster.load();
     inst = await mod.mount(stage);
     current.inst = inst;
+    if (stage.colour && poster.colour !== 'native') colourPass(stageEl, stage.colour, { dark: stage.flip });
     stage.start();
     syncPanel();
     armHint(poster, stage);
@@ -211,7 +215,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     current.stage = null;
     showFallback(poster);
   }
-  window.__poster = { slug: poster.slug, seed, theme: theme.name, stage: current.stage, inst };
+  window.__poster = { slug: poster.slug, seed, theme: theme.name, colour: stage.colour ? stage.colour.name : null, stage: current.stage, inst };
   try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
   requestAnimationFrame(() => stageEl.classList.remove('swap'));
   busy = false;

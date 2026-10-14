@@ -93,3 +93,28 @@ test('gate: background tap, hold and double tap are harmless', async ({ page }) 
     page.removeAllListeners('console'); page.removeAllListeners('pageerror'); page.removeAllListeners('requestfailed'); page.removeAllListeners('response');
   }
 });
+
+// Colour: every poster has a coloured version (src/colour.js). With ?colour=on it mounts, draws, and the page really has colour in it, in both themes.
+test('gate: a coloured version exists and shows colour (light and dark)', async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 500 });
+  for (const p of LIST) for (const theme of ['light', 'dark']) {
+    const errs = watch(page);
+    await open(page, p.slug, `&colour=on&theme=${theme}`);
+    await page.mouse.move(180, 200); await page.mouse.down();            // a poster that is blank until touched (Rain) shows itself while pressed
+    for (let i = 0; i <= 16; i++) { await page.mouse.move(180 + i * 26, 200 + Math.sin(i / 2) * 70); await page.waitForTimeout(30); }
+    const info = await page.evaluate(() => ({ colour: window.__poster.colour, pass: !!document.querySelector('.colour-pass') }));
+    const shot = await page.screenshot(); await page.mouse.up();
+    const coloured = await page.evaluate(async (b64) => {          // the share of pixels that are clearly coloured (saturated and not near black)
+      const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
+      const c = document.createElement('canvas'); c.width = 160; c.height = 100; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, 160, 100);
+      const d = x.getImageData(0, 0, 160, 100).data; let n = 0;
+      for (let i = 0; i < d.length; i += 4) { const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]); if (mx > 90 && (mx - mn) / mx > 0.35) n++; }
+      return n / (160 * 100);
+    }, shot.toString('base64'));
+    console.log(`${p.slug} ${theme}: colour ${info.colour}, pass ${info.pass}, coloured pixels ${(coloured * 100).toFixed(1)}%`);
+    expect.soft(info.colour, `${p.slug}: no palette chosen`).toBeTruthy();
+    expect.soft(coloured, `${p.slug} (${theme}): the coloured version shows no colour`).toBeGreaterThan(0.004);
+    expect.soft(errs, `${p.slug} errors`).toEqual([]);
+    page.removeAllListeners('console'); page.removeAllListeners('pageerror'); page.removeAllListeners('requestfailed'); page.removeAllListeners('response');
+  }
+});

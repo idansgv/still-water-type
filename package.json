@@ -11,6 +11,7 @@
     "test:quick": "NODE_PATH=$(npm root -g) npx playwright test -c tools/tests -g 'smoke|mouse|touch|reveal|menu|theme'",
     "shot": "NODE_PATH=$(npm root -g) node tools/shot.cjs",
     "ship": "NODE_PATH=$(npm root -g) node tools/ship.cjs",
-    "previews": "NODE_PATH=$(npm root -g) node tools/previews.cjs"
+    "previews": "NODE_PATH=$(npm root -g) node tools/previews.cjs",
+    "colours": "NODE_PATH=$(npm root -g) node tools/colour-sheet.cjs"
   }
 }

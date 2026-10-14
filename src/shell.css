@@ -53,6 +53,8 @@ body {
   transition: opacity 180ms ease;
 }
 .stage.swap { opacity: 0; transition-duration: 90ms; }
+.colour-pass { position: absolute; inset: 0; pointer-events: none; }   /* the colour pass (src/colour.js): a gradient blended over the stage */
+.stage.colour-dark .poster-canvas { filter: brightness(1.9); }
 .poster-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
 /* Shown when WebGL is unavailable or a poster fails: the words, set big, no tricks. */

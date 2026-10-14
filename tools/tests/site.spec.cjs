@@ -238,3 +238,16 @@ for (const mode of ['mouse', 'touch']) {
     await ctx.close();
   });
 }
+
+// 9. Colour is rare: one showing in about ten, never two in a row, and ?colour= can force or forbid it.
+test('9 colour: about one in ten, never twice in a row, forced and forbidden by the URL', async () => {
+  const { rollColour, forgetColour, COLOUR_ODDS } = await import('../../src/colour.js');
+  forgetColour();
+  let n = 0, prev = false, runs = 0; const N = 40000;
+  for (let i = 0; i < N; i++) { const c = rollColour(new URLSearchParams(), Math.random); if (c) { n++; if (prev) runs++; } prev = !!c; }
+  console.log(`colour rate ${(100 * n / N).toFixed(2)}% (odds ${COLOUR_ODDS.toFixed(3)}), back-to-back ${runs}`);
+  expect(n / N).toBeGreaterThan(0.085); expect(n / N).toBeLessThan(0.115); expect(runs).toBe(0);
+  expect(rollColour(new URLSearchParams('colour=on'), () => 0.9)).not.toBeNull();
+  expect(rollColour(new URLSearchParams('colour=off'), () => 0)).toBeNull();
+  expect(rollColour(new URLSearchParams('colour=3'), () => 0.9).index).toBe(3);
+});
