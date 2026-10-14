@@ -215,6 +215,9 @@ noscript .plain {
   .tune-toggle input[type="checkbox"] { width: 26px; height: 26px; }
 }
 
+/* a standalone page (data-bare): the poster alone, without the site's frame */
+html[data-bare] .chrome, html[data-bare] #menu-corner, html[data-bare] #index, html[data-bare] #hint { display: none !important; }
+
 /* ---------- the menu: a quiet corner, and the posters in large type ---------- */
 .menu-corner {
   position: fixed; top: 0; left: 0; z-index: 45; width: 132px; height: 68px;

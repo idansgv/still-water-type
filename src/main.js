@@ -218,7 +218,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
 }
 
 async function shuffle() {
-  if (busy || !current) return;
+  if (busy || !current || document.documentElement.dataset.bare !== undefined) return;       // a standalone page does not shuffle
   const next = pickOther(current.poster.slug);
   shuffles++;
   if (location.pathname !== '/') history.replaceState(null, '', '/');
@@ -286,7 +286,7 @@ function peekShow(slug, e) {
   peekEl.classList.add('on');
 }
 function openIndex() {
-  if (indexOpen) return;
+  if (indexOpen || document.documentElement.dataset.bare !== undefined) return;
   indexOpen = true; if (!listEl.children.length) buildIndex();
   indexEl.hidden = false; document.body.classList.add('index-open'); menuBtn.setAttribute('aria-expanded', 'true');
   requestAnimationFrame(() => indexEl.classList.add('on'));

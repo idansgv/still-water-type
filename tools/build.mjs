@@ -6,7 +6,8 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PUBLISHED as POSTERS } from '../src/posters/index.js';
+import { POSTERS as ALL } from '../src/posters/index.js';
+const POSTERS = ALL.filter((p) => !p.draft || p.standalone);        // the published ones, and the standalone pages (no menu, no shuffle)
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const home = readFileSync(join(root, 'index.html'), 'utf8');
@@ -18,7 +19,7 @@ for (const p of POSTERS) {
   const title = `${p.title} · Idan Segev`;
   const image = existsSync(join(root, 'assets', `og-${p.slug}.png`)) ? `${ORIGIN}/assets/og-${p.slug}.png` : `${ORIGIN}/assets/og.png`;
   let html = home
-    .replace('<html lang="en">', `<html lang="en" data-poster="${p.slug}">`)
+    .replace('<html lang="en">', `<html lang="en" data-poster="${p.slug}"${p.standalone ? ' data-bare' : ''}>`)
     .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`)
     .replace(/(<meta name="description" content=")[^"]*(")/, `$1${esc(p.blurb)}$2`)
     .replace(/(<link rel="canonical" href=")[^"]*(")/, `$1${url}$2`)
