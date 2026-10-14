@@ -8,3 +8,6 @@ assets/fonts/*
 
 # reference images of someone else's artwork: local only, never committed
 docs/posters/shadow-refs/
+
+# contact sheets from tools/shot.cjs
+output/

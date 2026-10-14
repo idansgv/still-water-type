@@ -7,6 +7,10 @@
     "stubs": "node tools/build.mjs",
     "moovit": "bash tools/sync-moovit.sh",
     "test": "NODE_PATH=$(npm root -g) npx playwright test -c tools/tests",
-    "graduate": "node tools/graduate.mjs"
+    "graduate": "node tools/graduate.mjs",
+    "test:quick": "NODE_PATH=$(npm root -g) npx playwright test -c tools/tests -g 'smoke|mouse|touch|reveal|menu|theme'",
+    "shot": "NODE_PATH=$(npm root -g) node tools/shot.cjs",
+    "ship": "NODE_PATH=$(npm root -g) node tools/ship.cjs",
+    "previews": "NODE_PATH=$(npm root -g) node tools/previews.cjs"
   }
 }

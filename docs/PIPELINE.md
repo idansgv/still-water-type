@@ -16,6 +16,17 @@ The rhythm we already work in, written down, with a gate at the end that enforce
 
 Nothing is committed or pushed by the scripts. Publishing is outward-facing: it only happens after stage 6.
 
+## The tools (so each stage is one command)
+
+| Stage | Command | What it does |
+|---|---|---|
+| Iterate | `npm run shot -- <slug>` | One contact sheet (`output/shots/<slug>.png`): desktop and phone, light and dark, at rest and after a touch. Looks at the poster's scene in `tools/scenes.cjs`. Add `--url "&font=Name"` to try a variant. |
+| Parametric refinements | `?p=<slug>&tune` then **Save as defaults** | Writes the panel's values (camera included) to `src/posters/params/<slug>.json` through the dev server; the poster reads that file over its built-in defaults. A poster opts in with `persist: true` in `tune` and reading its params file (Slinky type does). No more pasting JSON into chat. |
+| Quick check | `npm run test:quick` (`SLUGS=<slug>`) | Smoke, interaction, reveal, menu, theme: about a minute, instead of 4.5 for the full set. |
+| Publish | `npm run ship -- <slug> -m "message"` | Static checks, quick tests (`--full` for all), the menu preview, share pages, commit. Stops there. After Idan's yes, add `--push`: pushes `portfolio-v1` and `main`, then waits for the live page to answer. |
+
+Adding a poster also means a scene in `tools/scenes.cjs` (used by the menu preview and the contact sheet).
+
 ## The standard (what every graduating poster must do)
 
 - **Mount and destroy.** Returns `destroy()`; the shell calls it on every shuffle. It removes its own listeners, canvases and backdrop (the gate checks).
