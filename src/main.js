@@ -237,19 +237,17 @@ async function share() {
   catch (e) { toast(url, 4000); }
 }
 
-// The Prompt button copies a brief for recreating the current poster in the visitor's own AI tool.
-async function copyPrompt() {
-  if (!current) return;
-  const { poster } = current;
+// A row's Copy prompt button copies a brief for recreating that poster in the visitor's own AI tool; true when it was copied.
+async function copyPrompt(poster) {
   const text = `Build "${poster.title}", an interactive typographic poster, as a single self-contained HTML file with no build step.\n\n${poster.prompt || poster.blurb}\n\nMake it work with mouse and touch, size it to the full viewport, keep the composition simple and bold, and respect prefers-reduced-motion. Start with the flat look and let the behaviour be a discovery.`;
-  try { await navigator.clipboard.writeText(text); toast('Prompt copied'); return; } catch (e) { /* fall through */ }
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* fall through */ }
   const ta = document.createElement('textarea');
   ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
   document.body.appendChild(ta); ta.select();
   let ok = false;
   try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
   ta.remove();
-  toast(ok ? 'Prompt copied' : 'Copy failed');
+  return ok;
 }
 
 // The name swaps the tagline for the social links (on hover with a mouse, on tap with a finger).
@@ -268,7 +266,9 @@ function buildIndex() {
   PUBLISHED.forEach((p, i) => {
     const li = document.createElement('li'), a = document.createElement('a');
     a.href = `/p/${p.slug}/`; a.dataset.slug = p.slug; a.innerHTML = `<span class="t"></span><span class="n">${String(i + 1).padStart(2, '0')}</span>`;
-    a.querySelector('.t').textContent = p.title; li.appendChild(a); listEl.appendChild(li);
+    a.querySelector('.t').textContent = p.title; li.appendChild(a);
+    const cp = document.createElement('button'); cp.type = 'button'; cp.className = 'cp'; cp.dataset.slug = p.slug; cp.textContent = 'Copy prompt'; cp.setAttribute('aria-label', `Copy the prompt for ${p.title}`); li.appendChild(cp);
+    listEl.appendChild(li);
   });
 }
 function peekLoop() {
@@ -306,18 +306,25 @@ async function openPoster(slug) {
   await show(poster);
 }
 menuBtn.addEventListener('click', () => (indexOpen ? closeIndex() : openIndex()));
-listEl.addEventListener('pointerover', (e) => { const a = e.target.closest('a'); if (a) peekShow(a.dataset.slug, e); });
-listEl.addEventListener('focusin', (e) => { const a = e.target.closest('a'); if (a) peekShow(a.dataset.slug); });
+listEl.addEventListener('pointerover', (e) => {
+  if (e.target.closest('.cp')) { peekEl.classList.remove('on'); peek.slug = ''; return; }          // on the copy button the preview steps aside
+  const li = e.target.closest('li'); if (li) peekShow(li.querySelector('a').dataset.slug, e);
+});
+listEl.addEventListener('focusin', (e) => { if (e.target.closest('.cp')) return; const li = e.target.closest('li'); if (li) peekShow(li.querySelector('a').dataset.slug); });
 listEl.addEventListener('pointerleave', () => { peekEl.classList.remove('on'); peek.slug = ''; });
 indexEl.addEventListener('pointermove', (e) => { if (e.pointerType === 'touch') return; peek.tx = e.clientX + 18; peek.ty = e.clientY + 18; if (!peekEl.classList.contains('on')) { peek.x = peek.tx; peek.y = peek.ty; } });
-indexEl.addEventListener('click', (e) => {
+indexEl.addEventListener('click', async (e) => {
+  const cp = e.target.closest('.cp');
+  if (cp) {                                                                    // copy this poster's prompt; the button says so, then goes back
+    const ok = await copyPrompt(bySlug(cp.dataset.slug)); cp.textContent = ok ? 'Copied' : 'Copy failed'; cp.classList.add('done');
+    clearTimeout(cp._t); cp._t = setTimeout(() => { cp.textContent = 'Copy prompt'; cp.classList.remove('done'); }, 1800); return;
+  }
   const a = e.target.closest('a');
   if (a) { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); openPoster(a.dataset.slug); }
   else if (!e.target.closest('.index-list')) closeIndex();                      // a click beside the list closes it
 });
 
 // ---------- wiring ----------
-$('btn-prompt').addEventListener('click', copyPrompt);
 nameBtn.addEventListener('click', () => setLinks(!whoEl.classList.contains('open')));
 addEventListener('pointerdown', (e) => { if (whoEl.classList.contains('open') && !e.target.closest('.who')) setLinks(false); });
 addEventListener('keydown', (e) => { if (e.key === 'Escape') { setLinks(false); closeIndex(); } });
