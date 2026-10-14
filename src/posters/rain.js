@@ -147,14 +147,19 @@ export async function mount(ctx) {
   // ---------- world ----------
   let A = 1.6, MW = 1024, MH = 640, Mc = null, mask = null;
   let paintC = null, pg = null, VX = VXN, VY = 200, vol = null, volDirty = false, fDirty = false, lastUp = 0;
-  let tint = null, bands = [];
+  let tint = null, bands = [], shiftY = 0;
 
   function build() {
     A = ctx.W / ctx.H;
     MW = 1024; MH = Math.max(256, Math.round(MW / A));
     const lines = String(P.words).split('\n').map((l) => l.trim()).filter(Boolean);
     const fam = P.font === 'Bitter' ? 'Bitter' : `${P.font}", "Bitter`;
-    mask = typeMask(MW, MH, { lines: lines.length ? lines : ['Idan'], mode: 'fit', weight: P.weight, family: fam, pad: P.pad, valign: 'middle', align: P.center ? 'center' : 'left', gap: P.gap });
+    const tm = { lines: lines.length ? lines : ['Idan'], mode: 'fit', weight: P.weight, family: fam, pad: P.pad, valign: 'middle', align: P.center ? 'center' : 'left', gap: P.gap };
+    // typeMask sizes the lines by cap height, so a descender (the g of Segev) can run off the bottom of the mask and be cut flat.
+    // Reserve room for it under the type, and shift the view by half of that so the word keeps its place on the screen.
+    const size = typeMask(MW, MH, tm).info.sizes[0], reserve = Math.round(size * 0.3);
+    mask = typeMask(MW, MH, { ...tm, bottomReserve: reserve });
+    shiftY = reserve / 2 / MH;
     D = P.depth;
     const id = mask.getContext('2d').getImageData(0, 0, MW, MH).data;
     Mc = new Uint8Array(MW * MH);
@@ -206,7 +211,7 @@ export async function mount(ctx) {
 
   /** where the cursor's ray first meets the type (or the front plane if it misses) */
   function pick(u, v) {
-    const sx = (u - 0.5) * A / P.zoom + P.panX, sy = (v - 0.5) / P.zoom + P.panY, { X, U, F } = cam;
+    const sx = (u - 0.5) * A / P.zoom + P.panX, sy = (v - 0.5) / P.zoom + P.panY + shiftY, { X, U, F } = cam;
     const O = [X[0] * sx + U[0] * sy - F[0] * 4, X[1] * sx + U[1] * sy - F[1] * 4, X[2] * sx + U[2] * sy - F[2] * 4];
     const t0 = -O[2] / F[2], t1 = (-D - O[2]) / F[2];
     for (let i = 0; i <= 90; i++) {
@@ -362,7 +367,7 @@ export async function mount(ctx) {
 
   const reveal = createReveal(ctx, (c, W, H, k) => {
     const z = P.zoom * H, w = A * z;
-    const x0 = W / 2 - (A / 2 + P.panX) * z, y0 = H / 2 - (0.5 - P.panY) * z;
+    const x0 = W / 2 - (A / 2 + P.panX) * z, y0 = H / 2 - (0.5 - P.panY - shiftY) * z;
     const bx = -D * cam.X[2] * z, by = D * cam.U[2] * z;                     // where the back face lands relative to the front
     c.save();
     c.globalAlpha = 0.28 * k; c.drawImage(tint, x0 + bx, y0 + by, w, z);
@@ -386,7 +391,7 @@ export async function mount(ctx) {
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_3D, pV); gl.uniform1i(u.uPaintV, 2);
     const R = Math.PI / 180, lt = P.lightTurn * R, lh = P.lightHeight * R;
     gl.uniform1f(u.uA, A); gl.uniform1f(u.uD, D); gl.uniform1f(u.uAmb, P.sides); gl.uniform1f(u.uBody, P.body);
-    gl.uniform1f(u.uZoom, P.zoom); gl.uniform2f(u.uPan, P.panX, P.panY);
+    gl.uniform1f(u.uZoom, P.zoom); gl.uniform2f(u.uPan, P.panX, P.panY + shiftY);
     gl.uniform1f(u.uInk, P.ink); gl.uniform1f(u.uGloss, P.gloss); gl.uniform1f(u.uRag, P.ragged); gl.uniform1f(u.uGrain, P.grain); gl.uniform1f(u.uEdge, P.edge);
     gl.uniform3f(u.uL, Math.cos(lh) * Math.sin(lt), Math.sin(lh), Math.cos(lh) * Math.cos(lt));
     gl.uniform3fv(u.uX, cam.X); gl.uniform3fv(u.uU, cam.U); gl.uniform3fv(u.uF, cam.F);
@@ -401,7 +406,7 @@ export async function mount(ctx) {
       }
       sprog.use(); const su = sprog.u;
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-      gl.uniform3fv(su.uX, cam.X); gl.uniform3fv(su.uU, cam.U); gl.uniform1f(su.uA, A); gl.uniform1f(su.uZoom, P.zoom); gl.uniform2f(su.uPan, P.panX, P.panY);
+      gl.uniform3fv(su.uX, cam.X); gl.uniform3fv(su.uU, cam.U); gl.uniform1f(su.uA, A); gl.uniform1f(su.uZoom, P.zoom); gl.uniform2f(su.uPan, P.panX, P.panY + shiftY);
       gl.uniform3fv(su.uCol, sc); gl.uniform1f(su.uAlpha, P.streakOpacity);
       gl.bindVertexArray(svao); gl.bindBuffer(gl.ARRAY_BUFFER, sbuf);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, sdata.subarray(0, nd * 8));
