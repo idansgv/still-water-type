@@ -21,3 +21,5 @@ An upright backdrop with IDAN SEGEV on it and a ledge in front (the sketch: a wa
 - Each letter moves in its own vertical plane running out from the wall: it can fall toward you, not sideways. Full 3D would need a new solver.
 - The ledge is a floor with a wall behind it for the rings; the scene is framed to fit whatever the view.
 - Not tried on a phone. No hint is shown.
+
+**Locked (14 Oct 2026):** Bungee Inline, spacing, camera (yaw 30, pitch 10, zoom 1.5), the settings and the menu preview are final and live. Change only on Idan's word.
