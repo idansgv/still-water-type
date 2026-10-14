@@ -34,6 +34,7 @@ export function mount(stage) {
   // How the rings are drawn (the physics is the same): 'line' is the wire as strokes; 'solid' fills each ring as a plate, shaded by how it faces the light. ?render=solid, or M to cycle.
   const RENDERERS = ['line', 'solid'], asked = new URLSearchParams(location.search).get('render');
   let render = RENDERERS.includes(asked) ? asked : 'line';
+  const SUN = (() => { const l = [-0.45, 0.8, -0.4], n = Math.hypot(...l); return l.map((v) => v / n); })();   // where the shadows come from (high, from the front left)
   const LIGHT = (() => { const l = [-0.5, 0.75, 0.55], n = Math.hypot(...l); return l.map((v) => v / n); })();
 
   const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS, spring: 958, gravity: 23, bounce: 0.81, inertia: 0.3 };   // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (14 Oct 2026)
@@ -155,6 +156,23 @@ export function mount(stage) {
     ctx.beginPath(); [[-wallW, 0, 0], [wallW, 0, 0], [wallW, 0, -E], [-wallW, 0, -E]].forEach((q, i) => { const s2 = V.project(q, r, ox, oy); i ? ctx.lineTo(s2[0], s2[1]) : ctx.moveTo(s2[0], s2[1]); }); ctx.closePath(); ctx.fill();
     ctx.fillStyle = paper;
     ctx.lineWidth = Math.max(1.3, R * P.wire);
+    if (render === 'solid') {                                                       // the shadow of every letter off the wall, cast along the light onto the ledge's top (clipped to it)
+      const sh = new Path2D(), quad = new Path2D();
+      [[-wallW, 0, 0], [wallW, 0, 0], [wallW, 0, -E], [-wallW, 0, -E]].forEach((q, k) => { const s2 = V.project(q, r, ox, oy); k ? quad.lineTo(s2[0], s2[1]) : quad.moveTo(s2[0], s2[1]); }); quad.closePath();
+      for (const L of letters) {
+        if (L.state === 'wall' && !L.awake) continue;
+        for (let i = 0; i < L.ring.n; i += 2) {
+          const loop = (L.shape || [])[0]; if (!loop) continue;
+          const a = L.ring.a[i], ux = Math.cos(a), uy = Math.sin(a), cx = L.ring.x[i], cy = L.ring.y[i];
+          for (let k = 0; k <= loop.length; k += 2) {
+            const pt = loop[k % loop.length], w = wp(L, cx + ux * pt[0] * R, cy + uy * pt[0] * R, pt[1] * R), up = Math.max(0, w[1]) / SUN[1];
+            const q = V.project([w[0] - SUN[0] * up, 0, w[2] - SUN[2] * up], r, ox, oy); k ? sh.lineTo(q[0], q[1]) : sh.moveTo(q[0], q[1]);
+          }
+          sh.closePath();
+        }
+      }
+      ctx.save(); ctx.clip(quad); ctx.fillStyle = dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.14)'; ctx.fill(sh, 'nonzero'); ctx.restore(); ctx.fillStyle = paper;
+    }
     const items = [];
     for (const L of letters) for (let i = 0; i < L.ring.n; i++) items.push({ L, i, z: V.project(wp(L, L.ring.x[i], L.ring.y[i], 0), r, 0, 0)[2] });
     items.sort((a, b) => a.z - b.z);
@@ -169,7 +187,8 @@ export function mount(stage) {
       if (render === 'solid' && i > 0) {                                              // a plate: fill by the angle between the ring's plane and the light, a fine edge to part it from the next
         const lit = Math.abs(-ux * LIGHT[1] - uy * LIGHT[2]), v = 0.05 + 0.75 * lit, g = Math.round(255 * (dark ? 1 - v : v));
         ctx.fillStyle = `rgb(${g},${g},${g})`; ctx.globalAlpha = Math.min(1, L.fade / 0.4); ctx.fill('evenodd');
-        ctx.strokeStyle = dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'; ctx.lineWidth = Math.max(0.8, R * 0.012); ctx.stroke();
+        ctx.strokeStyle = dark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.5)'; ctx.lineWidth = Math.max(0.8, R * 0.012); ctx.stroke();          // the gap between plates
+        ctx.strokeStyle = `rgba(255,255,255,${(0.03 + 0.28 * lit * lit * lit).toFixed(2)})`; ctx.lineWidth = Math.max(0.7, R * 0.008); ctx.translate(-0.7, -0.7); ctx.stroke(); ctx.translate(0.7, 0.7);   // the rim light: a bright edge toward the light
         ctx.globalAlpha = 1; ctx.strokeStyle = ink; ctx.lineWidth = Math.max(1.3, R * P.wire); continue;
       }
       ctx.fillStyle = ink;                                                           // the head ring is a solid cap: the letter itself; the rest of the coil is wire
