@@ -37,7 +37,10 @@ const fail = (m) => { console.error('\n\x1b[31m✗ ' + m + '\x1b[0m'); process.e
   step(7, 'wait for the live site');
   const url = `https://idansegev.com/p/${slug}/`, t0 = Date.now(), want = execSync('git rev-parse --short HEAD', { cwd: root }).toString().trim();
   for (;;) {
-    try { const r = await fetch(url + '?v=' + Date.now(), { cache: 'no-store' }); if (r.ok) { console.log(`  ${r.status} ${url}`); break; } } catch (e) { /* retry */ }
+    try {                                                                         // live means: the page answers and serves this commit's shell code, not the previous deploy's
+      const r = await fetch(url + '?v=' + Date.now(), { cache: 'no-store' }), js = await (await fetch('https://idansegev.com/src/main.js?v=' + Date.now(), { cache: 'no-store' })).text();
+      if (r.ok && js === require('fs').readFileSync(path.join(root, 'src', 'main.js'), 'utf8')) { console.log(`  ${r.status} ${url} (serving ${want})`); break; }
+    } catch (e) { /* retry */ }
     if (Date.now() - t0 > 240000) fail('the live site did not answer in 4 minutes');
     await new Promise((r) => setTimeout(r, 5000));
   }
