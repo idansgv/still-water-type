@@ -37,6 +37,21 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Self-demo | opening splash; lamp wanders after 2.5 s still | breeze at 3 s, a letter breathes every 4.5 to 7.5 s, until a letter is pressed | none | none | ripple along a letter at 3.5 s then every 5 to 8 s, until a droplet is grabbed |
 | Reduced motion | amplitudes 45%, no drip | demo off | not read | not read | demo off |
 
+## Jazz fan (published 14 Oct 2026)
+
+| | Jazz fan |
+|---|---|
+| Hover (mouse) | a moving mouse nudges the strips it passes sideways (they slide like a reel and spring back) |
+| Tap | a stab: a wave of flicks runs out from the tap, row by row (under 250 ms, 8 px) |
+| Tap on background | the same stab (the whole poster is strips) |
+| Hold | nothing |
+| Drag | pressed point is the pivot; right or left swings the fan, up or down tips it into depth; release springs home |
+| Camera | wheel zooms, Alt-drag orbits, Shift-drag pans; the settings panel has orbit, roll, zoom, pan and Reset camera |
+| Double tap | nothing |
+| Three taps (reveal) | the strip rows, the centre line and each strip's swing |
+| Self-demo | after about 3.2 s untouched: fan, hold, scatter, resolve, repeat, until the first touch; off under reduced motion |
+| Multi-touch | one pointer |
+
 ## In the pipeline (draft)
 
 | | Shadow |
