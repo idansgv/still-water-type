@@ -103,14 +103,19 @@ test('gate: a coloured version exists and shows colour (light and dark)', async 
     await page.mouse.move(180, 200); await page.mouse.down();            // a poster that is blank until touched (Rain) shows itself while pressed
     for (let i = 0; i <= 16; i++) { await page.mouse.move(180 + i * 26, 200 + Math.sin(i / 2) * 70); await page.waitForTimeout(30); }
     const info = await page.evaluate(() => ({ colour: window.__poster.colour, pass: !!document.querySelector('.colour-pass') }));
-    const shot = await page.screenshot(); await page.mouse.up();
-    const coloured = await page.evaluate(async (b64) => {          // the share of pixels that are clearly coloured (saturated and not near black)
-      const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
-      const c = document.createElement('canvas'); c.width = 160; c.height = 100; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, 160, 100);
-      const d = x.getImageData(0, 0, 160, 100).data; let n = 0;
-      for (let i = 0; i < d.length; i += 4) { const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]); if (mx > 90 && (mx - mn) / mx > 0.35) n++; }
-      return n / (160 * 100);
-    }, shot.toString('base64'));
+    const measure = async () => {                                   // the share of pixels that are clearly coloured (saturated and not near black)
+      const shot = await page.screenshot();
+      return page.evaluate(async (b64) => {
+        const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
+        const c = document.createElement('canvas'); c.width = 160; c.height = 100; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, 160, 100);
+        const d = x.getImageData(0, 0, 160, 100).data; let n = 0;
+        for (let i = 0; i < d.length; i += 4) { const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]); if (mx > 90 && (mx - mn) / mx > 0.35) n++; }
+        return n / (160 * 100);
+      }, shot.toString('base64'));
+    };
+    let coloured = await measure();
+    for (let k = 0; k < 4 && coloured <= 0.004; k++) { await page.waitForTimeout(1000); coloured = await measure(); }   // a poster that loads its fonts from the network may need a moment
+    await page.mouse.up();
     console.log(`${p.slug} ${theme}: colour ${info.colour}, pass ${info.pass}, coloured pixels ${(coloured * 100).toFixed(1)}%`);
     expect.soft(info.colour, `${p.slug}: no palette chosen`).toBeTruthy();
     expect.soft(coloured, `${p.slug} (${theme}): the coloured version shows no colour`).toBeGreaterThan(0.004);
