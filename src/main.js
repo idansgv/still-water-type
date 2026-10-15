@@ -196,7 +196,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   const stage = createStage(stageEl, { seed, theme, toast, setBackdrop });
   stage.refreshPanel = syncPanel;                                   // a poster whose settings change (a mode switch) asks for the panel to be rebuilt
   stage.flip = theme.name === 'dark';
-  stage.colour = poster.standalone ? null : rollColour(params);          // about one showing in ten is in colour (src/colour.js)
+  stage.colour = poster.standalone ? null : rollColour(params, Math.random, { dark: theme.name === 'dark' });          // about one showing in twenty is in colour (src/colour.js)
   current = { poster, stage, seed, theme };
   let inst = null;
   try {

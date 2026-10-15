@@ -27,6 +27,16 @@ export const PALETTES = [
   { name: 'Violet', g: [['#b78bff', '#6a6bff', '#27b9ff'], ['#ff7be5', '#b078ff', '#5a7bff']] },
   { name: 'Ember', g: [['#fff1b0', '#ffb347', '#ff4a1c'], ['#ffd08a', '#ff6a3d', '#c4177d']] },
 ];
+// The same six names for a light page: deeper, richer stops, because the neon set above washes out on white (cyan, lime and yellow have no weight there).
+// The colour pass (src/colour.js) picks the set by the page; fan-color and the other native users keep PALETTES.
+export const PALETTES_LIGHT = [
+  { name: 'North Sea', g: [['#0a7fb5', '#0f9d8a', '#4a9a1a'], ['#c2185b', '#e0455a', '#e8652e']] },
+  { name: 'Hot', g: [['#c2188f', '#d81b60', '#e8501c'], ['#c2188f', '#d81b60', '#e8501c']] },
+  { name: 'Sunset', g: [['#d9a300', '#e8710a', '#d81b4e'], ['#e8710a', '#c2185b', '#6a1fc2']] },
+  { name: 'Acid', g: [['#7aa600', '#1f9e57', '#0b87b8'], ['#0b87b8', '#2d6fd6', '#7a3fd0']] },
+  { name: 'Violet', g: [['#7b4fe0', '#3a45d6', '#0a8fcf'], ['#c2399f', '#8a46d6', '#3d5bd6']] },
+  { name: 'Ember', g: [['#b8860b', '#d9751a', '#d02a12'], ['#c0762a', '#d84a1c', '#9c1466']] },
+];
 export const CUSTOM = PALETTES.length;                       // palette index that reads the hue sliders
 
 export const COLOUR_DEF = {
