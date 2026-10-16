@@ -1,8 +1,9 @@
-// A sheet of every published poster in colour, light and dark, at rest and a moment after a touch: the check that each has a good coloured version.
+// A sheet of every published poster in colour, after what wakes each one's colour (tools/colour-scenes.cjs),, light and dark, at rest and a moment after a touch: the check that each has a good coloured version.
 //   NODE_PATH=$(npm root -g) node tools/colour-sheet.cjs [palette 0..5]   ->  output/shots/colour.png
 const { chromium } = require('@playwright/test');
 const fs = require('fs'), path = require('path');
-const { SCENES, sleep } = require('./scenes.cjs');
+const { sleep } = require('./scenes.cjs');
+const { COLOUR_SCENES } = require('./colour-scenes.cjs');
 const { serve } = require('./lib-serve.cjs');
 (async () => {
   const pal = process.argv[2] ?? '1', srv = await serve(), browser = await chromium.launch({ channel: 'chrome', args: ['--enable-unsafe-swiftshader'] });
@@ -11,10 +12,10 @@ const { serve } = require('./lib-serve.cjs');
   for (const p of PUBLISHED) for (const theme of ['light', 'dark']) {
     const page = await (await browser.newContext({ viewport: { width: 800, height: 500 } })).newPage(), errs = [];
     page.on('pageerror', (e) => errs.push(e.message));
-    await page.goto(`${srv.base}/?p=${p.slug}&theme=${theme}&colour=${pal}&colourat=load`);
+    await page.goto(`${srv.base}/?p=${p.slug}&theme=${theme}&colour=${pal}`);
     await page.waitForFunction(() => window.__poster && window.__poster.inst, null, { timeout: 30000 });
     await sleep(2000);
-    if (SCENES[p.slug]) { try { await SCENES[p.slug](page); } catch (e) { /* scene sized for 1200x750 */ } }
+    if (COLOUR_SCENES[p.slug]) await COLOUR_SCENES[p.slug](page);                       // each poster's own way of waking its colour
     await page.addStyleTag({ content: '.chrome, #hint, #toast, #menu-corner { display: none !important; }' });
     tiles.push({ label: `${p.slug} · ${theme}${errs.length ? ' · ERROR ' + errs[0].slice(0, 50) : ''}`, data: (await page.screenshot()).toString('base64') });
   }

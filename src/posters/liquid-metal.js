@@ -18,6 +18,7 @@
 // that slide over it as it moves, and a faint bright rim where the surface turns away.
 
 import { getGL, compile } from '../engine.js';
+import { colourOf, GLSL_PAGE_GRADIENT } from '../colour.js';
 import { SKELETON, ratio, radiusFor } from './lettering.js';
 import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
 
@@ -25,11 +26,12 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 const SPLAT_VS = `#version 300 es
 uniform vec2 uRes;
-in vec3 iDrop;                                   // x, y (css px) and kernel radius
+in vec4 iDrop;                                   // x, y (css px), kernel radius, and 1 when this droplet has been touched (coloured)
 out vec2 vU;
+out float vTag;
 void main() {
   vec2 c = vec2(float(gl_VertexID & 1) * 2.0 - 1.0, float((gl_VertexID >> 1) & 1) * 2.0 - 1.0);
-  vU = c;
+  vU = c; vTag = iDrop.w;
   vec2 p = iDrop.xy + c * iDrop.z;
   gl_Position = vec4(p.x / uRes.x * 2.0 - 1.0, 1.0 - p.y / uRes.y * 2.0, 0.0, 1.0);
 }`;
@@ -37,12 +39,13 @@ const SPLAT_FS = `#version 300 es
 precision highp float;
 uniform float uScale;
 in vec2 vU;
+in float vTag;
 out vec4 o;
 void main() {
   float u2 = dot(vU, vU);
   if (u2 >= 1.0) discard;
   float w = (1.0 - u2); w = w * w * w;
-  o = vec4(w * uScale, 0.0, 0.0, 0.0);
+  o = vec4(w * uScale, w * uScale * vTag, 0.0, 0.0);                  // the field, and how much of it comes from touched droplets
 }`;
 const SHOW_VS = `#version 300 es
 out vec2 vUv;
@@ -66,8 +69,10 @@ uniform vec2 uTexel;
 uniform vec3 uInk, uPaper;
 uniform float uT, uK, uRim, uBase;
 uniform vec3 uLamp1, uLamp2;                                       // brightness, and the two edges of the highlight
+uniform float uColAmt;
 in vec2 vUv;
 out vec4 o;
+${GLSL_PAGE_GRADIENT}
 void main() {
   float f = texture(uField, vUv).r;
   float aa = fwidth(f) * 0.8 + 0.004;
@@ -84,7 +89,11 @@ void main() {
   float base = uBase + 0.03 * n.z;
   float c = clamp(base + lamp1 + lamp2 + edge, 0.0, 1.0);
     float v = c;
-  o = vec4(mix(uPaper, vec3(v), mask), 1.0);
+  vec3 metal = vec3(v);
+  float tagged = texture(uField, vUv).g / max(f, 0.001);                // the touched blobs only: the metal takes the gradient, its highlights stay bright
+  vec3 tinted = gradientAt(1.0 - vUv.y) * (0.62 + 1.1 * v) + vec3(max(v - 0.55, 0.0));
+  metal = mix(metal, tinted, smoothstep(0.3, 0.7, tagged) * uColAmt);
+  o = vec4(mix(uPaper, metal, mask), 1.0);
 }`;
 
 export function mount(stage) {
@@ -94,9 +103,11 @@ export function mount(stage) {
   const ink = dark ? [1, 1, 1] : [0, 0, 0], paper = dark ? [0, 0, 0] : [1, 1, 1];
   stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
+  const col = colourOf(stage);                                             // in colour (about one showing in twenty): the droplets you touch turn colour, the rest stays metal
+  const gUni = col ? col.uniform() : new Float32Array(18);
 
   let W = 1, H = 1, N = 0;
-  let H0X = new Float32Array(1), H0Y = H0X, X = new Float32Array(1), Y = X, VX = X, VY = X, HX = X, HY = X, FX = X, FY = X, GR = new Int16Array(1), DP = X, AG = X, AG2 = X;   // per droplet: position, velocity, home, force, glyph, distance from home
+  let H0X = new Float32Array(1), H0Y = H0X, X = new Float32Array(1), Y = X, VX = X, VY = X, HX = X, HY = X, FX = X, FY = X, GR = new Int16Array(1), DP = X, AG = X, AG2 = X, TG = X;   // per droplet: position, velocity, home, force, glyph, distance from home
   let sp = 14, R = 22, tR = 12, Tfield = 0.5, scale = 1;                  // droplet spacing, kernel radius, stroke half-thickness, field threshold and gain
   let glyphBox = [];
   let head = new Int32Array(4096), nextIn = new Int32Array(1);
@@ -163,7 +174,7 @@ export function mount(stage) {
     });
     N = pts.length;
     X = new Float32Array(N); Y = new Float32Array(N); VX = new Float32Array(N); VY = new Float32Array(N); HX = new Float32Array(N); HY = new Float32Array(N);
-    FX = new Float32Array(N); FY = new Float32Array(N); H0X = new Float32Array(N); H0Y = new Float32Array(N); GR = new Int16Array(N); DP = new Float32Array(N); AG = new Float32Array(N); AG2 = new Float32Array(N); nextIn = new Int32Array(N);
+    FX = new Float32Array(N); FY = new Float32Array(N); H0X = new Float32Array(N); H0Y = new Float32Array(N); GR = new Int16Array(N); DP = new Float32Array(N); TG = new Float32Array(N); AG = new Float32Array(N); AG2 = new Float32Array(N); nextIn = new Int32Array(N);
     pts.forEach((q, i) => { X[i] = HX[i] = H0X[i] = q[0]; Y[i] = HY[i] = H0Y[i] = q[1]; GR[i] = q[2]; });
     glyphBox = poses.map((p) => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
     // the threshold: where an infinite stroke of this lattice should end, half a spacing past its outer row
@@ -256,7 +267,7 @@ export function mount(stage) {
   const vaoSplat = gl.createVertexArray(), vaoShow = gl.createVertexArray();
   const dropBuf = gl.createBuffer();
   const dropLoc = gl.getAttribLocation(splat.p, 'iDrop');
-  let drops = new Float32Array(3), fieldTex = null, tmpTex = null, blurTex = null, fbo = null, fboTmp = null, fboBlur = null, FW = 1, FH = 1;
+  let drops = new Float32Array(4), fieldTex = null, tmpTex = null, blurTex = null, fbo = null, fboTmp = null, fboBlur = null, FW = 1, FH = 1;
   const makeTarget = (old) => {
     if (old.t) gl.deleteTexture(old.t);
     const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -274,15 +285,16 @@ export function mount(stage) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
   function draw() {
-    if (drops.length < N * 3) drops = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) { drops[i * 3] = X[i]; drops[i * 3 + 1] = Y[i]; drops[i * 3 + 2] = R; }
+    if (drops.length < N * 4) drops = new Float32Array(N * 4);
+    if (col) { col.update(1 / 60); if (touched) for (let i = 0; i < N; i++) if (AG[i] > 0.2) { TG[i] = 1; col.wake(); } }      // a droplet that has been touched stays coloured
+    for (let i = 0; i < N; i++) { drops[i * 4] = X[i]; drops[i * 4 + 1] = Y[i]; drops[i * 4 + 2] = R; drops[i * 4 + 3] = TG[i]; }
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, FW, FH);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.disable(gl.DEPTH_TEST);
     splat.use(); gl.uniform2f(splat.u.uRes, W, H); gl.uniform1f(splat.u.uScale, scale);
     gl.bindVertexArray(vaoSplat);
-    gl.bindBuffer(gl.ARRAY_BUFFER, dropBuf); gl.bufferData(gl.ARRAY_BUFFER, drops.subarray(0, N * 3), gl.DYNAMIC_DRAW);
-    gl.enableVertexAttribArray(dropLoc); gl.vertexAttribPointer(dropLoc, 3, gl.FLOAT, false, 12, 0); gl.vertexAttribDivisor(dropLoc, 1);
+    gl.bindBuffer(gl.ARRAY_BUFFER, dropBuf); gl.bufferData(gl.ARRAY_BUFFER, drops.subarray(0, N * 4), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(dropLoc); gl.vertexAttribPointer(dropLoc, 4, gl.FLOAT, false, 16, 0); gl.vertexAttribDivisor(dropLoc, 1);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, N);
     gl.disable(gl.BLEND);
     gl.bindVertexArray(vaoShow); blur.use();                                              // smooth the field, so the surface normals (and the highlights) are clean
@@ -293,6 +305,7 @@ export function mount(stage) {
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fieldTex); gl.uniform1i(show.u.uField, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, blurTex); gl.uniform1i(show.u.uBlur, 1); gl.activeTexture(gl.TEXTURE0);
     gl.uniform3fv(show.u.uInk, ink); gl.uniform3fv(show.u.uPaper, paper); gl.uniform1f(show.u.uT, 0.25); gl.uniform2f(show.u.uTexel, 1 / FW, 1 / FH); gl.uniform1f(show.u.uK, P.shine); gl.uniform1f(show.u.uRim, dark ? P.darkRim : P.rim); gl.uniform1f(show.u.uBase, dark ? P.darkBase : P.base);   // on a black page the same black metal, with a stronger rim so the shape still reads
+    gl.uniform1f(show.u.uColAmt, col ? col.amount : 0); gl.uniform3fv(show.u['uG[0]'], gUni);
     gl.uniform3f(show.u.uLamp1, P.lamp1, 1 - P.lamp1Size * 1.35, 1 - P.lamp1Size * 0.35); gl.uniform3f(show.u.uLamp2, P.lamp2, 1 - P.lamp2Size * 1.5, 1 - P.lamp2Size * 0.4);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
@@ -391,7 +404,7 @@ export function mount(stage) {
   }));
 
   const Ctl = (key, label, min, max, step) => ({ key, label, min, max, step });
-  function reform() { for (let i = 0; i < N; i++) { X[i] = HX[i] = H0X[i]; Y[i] = HY[i] = H0Y[i]; VX[i] = VY[i] = 0; } quiet = 0; since = 0; returning = false; }
+  function reform() { TG.fill(0); for (let i = 0; i < N; i++) { X[i] = HX[i] = H0X[i]; Y[i] = HY[i] = H0Y[i]; VX[i] = VY[i] = 0; } quiet = 0; since = 0; returning = false; }
   return {
     tune: {
       title: 'Liquid metal', values: P, defaults: DEFAULTS,

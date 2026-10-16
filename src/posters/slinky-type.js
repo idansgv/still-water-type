@@ -8,6 +8,7 @@ import { createRings, trackHand } from './slinky-rings.js';
 import { SHARED_DEFAULTS, POSTER_DEFAULTS, bindParams } from './slinky-params.js';
 import { ringShape } from './slinky-shape.js';
 import { createView } from './slinky-view.js';
+import { colourOf } from '../colour.js';
 import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
 import { TAP } from '../gestures.js';
 
@@ -31,6 +32,7 @@ export function mount(stage) {
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
   stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
+  const col = colourOf(stage);                                                          // in colour (about one showing in twenty): a letter that has dropped off and comes back is coloured
   // How the rings are drawn (the physics is the same): 'line' is the wire as strokes; 'solid' fills each ring as a plate, shaded by how it faces the light. ?render=solid, or M to cycle.
   const RENDERERS = ['line', 'solid'], asked = new URLSearchParams(location.search).get('render');
   let render = RENDERERS.includes(asked) ? asked : 'line';
@@ -141,7 +143,7 @@ export function mount(stage) {
       for (let i = 0; i < L.ring.n; i++) { const hx = R * Math.abs(Math.cos(L.ring.a[i])) + rw; if (L.ring.x[i] < hx) { L.ring.x[i] = hx; if (L.ring.vx[i] < 0) L.ring.vx[i] = 0; } }   // the wall is solid: no ring goes behind it
       if (!(hand && hand.L === L)) restCheck(L); else L.q = 0;
       let top = -1e9; for (let i = 0; i < L.ring.n; i++) top = Math.max(top, L.ring.y[i]);
-      if (top < -R * 9) { poseWall(L); L.fade = 0; }                                              // it has fallen off the screen: back on the wall
+      if (top < -R * 9) { poseWall(L); L.fade = 0; if (col) L.tint = col.css(1 - L.Y / wallH); }                                              // it has fallen off the screen: back on the wall
     }
   }
 
@@ -179,6 +181,8 @@ export function mount(stage) {
     for (const L of letters) L.open += ((L.awake || hand?.L === L ? 1 : 0) - L.open) * 0.22;   // pressed and held: a letter at rest hides its coil behind the cap; the moment it moves the coil shows
     for (const { L, i } of items) {
       if (i > 0 && L.open < 0.01) continue;                                         // squeezed behind the cap: nothing to see
+      const tone = L.tint || ink;                                                     // the letter that came back keeps its colour until the page changes
+      ctx.strokeStyle = tone;
       const a = L.ring.a[i], ux = Math.cos(a), uy = Math.sin(a), cx = L.ring.x[0] + (L.ring.x[i] - L.ring.x[0]) * L.open, cy = L.ring.y[0] + (L.ring.y[i] - L.ring.y[0]) * L.open;
       ctx.beginPath();
       for (const loop of (i === 0 ? L.cap : L.shape)) {
@@ -191,7 +195,7 @@ export function mount(stage) {
         ctx.strokeStyle = `rgba(255,255,255,${(0.03 + 0.28 * lit * lit * lit).toFixed(2)})`; ctx.lineWidth = Math.max(0.7, R * 0.008); ctx.translate(-0.7, -0.7); ctx.stroke(); ctx.translate(0.7, 0.7);   // the rim light: a bright edge toward the light
         ctx.globalAlpha = 1; ctx.strokeStyle = ink; ctx.lineWidth = Math.max(1.3, R * P.wire); continue;
       }
-      ctx.fillStyle = ink;                                                           // the head ring is a solid cap: the letter itself; the rest of the coil is wire
+      ctx.fillStyle = tone;                                                          // the head ring is a solid cap: the letter itself; the rest of the coil is wire
       const oa = Math.min(1, L.fade / 0.4), fa = Math.min(1, Math.max(0, (L.fade - 0.4) / 0.6)), se = (t) => t * t * (3 - 2 * t);   // back on the wall: the outline fades in first, then the letter fills
       if (i === 0) { ctx.globalAlpha = se(fa); ctx.fill('evenodd'); }
       if (i > 0 || L.fade < 1) { ctx.globalAlpha = se(oa); ctx.stroke(); ctx.globalAlpha = 1; }                // (a settled cap is the fill alone, so the face's inline stays open)

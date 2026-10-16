@@ -94,32 +94,37 @@ test('gate: background tap, hold and double tap are harmless', async ({ page }) 
   }
 });
 
-// Colour: every poster has a coloured version (src/colour.js). With ?colour=on it mounts, draws, and the page really has colour in it, in both themes.
-test('gate: a coloured version exists and shows colour (light and dark)', async ({ page }) => {
+// Colour: every poster has a coloured version (src/colour.js), an easter egg that answers a touch: black and white on load, and after the poster's own wake-up (tools/colour-scenes.cjs)
+// real colour shows, in both themes.
+const { COLOUR_SCENES } = require('../colour-scenes.cjs');
+test('gate: a coloured version exists, waits for a touch, and shows colour (light and dark)', async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 500 });
+  const share = async () => {                                       // the share of pixels that are clearly coloured (saturated and not near black)
+    const shot = await page.screenshot();
+    return page.evaluate(async (b64) => {
+      const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
+      const c = document.createElement('canvas'); c.width = 400; c.height = 250; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, 400, 250);
+      const d = x.getImageData(0, 0, 400, 250).data; let n = 0;
+      for (let i = 0; i < d.length; i += 4) { const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]); if (mx > 80 && (mx - mn) / mx > 0.3) n++; }
+      return n / (400 * 250);
+    }, shot.toString('base64'));
+  };
   for (const p of LIST) for (const theme of ['light', 'dark']) {
     const errs = watch(page);
     await open(page, p.slug, `&colour=on&theme=${theme}`);
-    expect.soft(await page.evaluate(() => getComputedStyle(document.querySelector('.colour-pass')).opacity), `${p.slug}: the colour shows before any touch`).toBe('0');   // an easter egg: black and white until the first press
-    await page.mouse.move(180, 200); await page.mouse.down();            // a poster that is blank until touched (Rain) shows itself while pressed
-    for (let i = 0; i <= 16; i++) { await page.mouse.move(180 + i * 26, 200 + Math.sin(i / 2) * 70); await page.waitForTimeout(30); }
-    const info = await page.evaluate(() => ({ colour: window.__poster.colour, pass: !!document.querySelector('.colour-pass') }));
-    const measure = async () => {                                   // the share of pixels that are clearly coloured (saturated and not near black)
-      const shot = await page.screenshot();
-      return page.evaluate(async (b64) => {
-        const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
-        const c = document.createElement('canvas'); c.width = 160; c.height = 100; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, 160, 100);
-        const d = x.getImageData(0, 0, 160, 100).data; let n = 0;
-        for (let i = 0; i < d.length; i += 4) { const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]); if (mx > 90 && (mx - mn) / mx > 0.35) n++; }
-        return n / (160 * 100);
-      }, shot.toString('base64'));
-    };
-    let coloured = await measure();
-    for (let k = 0; k < 4 && coloured <= 0.004; k++) { await page.waitForTimeout(1000); coloured = await measure(); }   // a poster that loads its fonts from the network may need a moment
+    await page.waitForTimeout(800);
+    const before = await share();
+    const scene = COLOUR_SCENES[p.slug];
+    expect.soft(scene, `${p.slug}: no colour scene in tools/colour-scenes.cjs (what wakes its colour)`).toBeTruthy();
+    if (scene) await scene(page);
+    let after = await share();
+    for (let k = 0; k < 4 && after <= 0.0015; k++) { await page.waitForTimeout(1000); after = await share(); }   // a poster that loads its fonts from the network may need a moment
     await page.mouse.up();
-    console.log(`${p.slug} ${theme}: colour ${info.colour}, pass ${info.pass}, coloured pixels ${(coloured * 100).toFixed(1)}%`);
-    expect.soft(info.colour, `${p.slug}: no palette chosen`).toBeTruthy();
-    expect.soft(coloured, `${p.slug} (${theme}): the coloured version shows no colour`).toBeGreaterThan(0.004);
+    const colour = await page.evaluate(() => window.__poster.colour);
+    console.log(`${p.slug} ${theme}: ${colour}, coloured pixels before ${(before * 100).toFixed(1)}% after ${(after * 100).toFixed(1)}%`);
+    expect.soft(colour, `${p.slug}: no palette chosen`).toBeTruthy();
+    expect.soft(before, `${p.slug} (${theme}): colour shows before any touch`).toBeLessThan(0.0015);
+    expect.soft(after, `${p.slug} (${theme}): the coloured version shows no colour after its wake-up`).toBeGreaterThan(0.0015);
     expect.soft(errs, `${p.slug} errors`).toEqual([]);
     page.removeAllListeners('console'); page.removeAllListeners('pageerror'); page.removeAllListeners('requestfailed'); page.removeAllListeners('response');
   }

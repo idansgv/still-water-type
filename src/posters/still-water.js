@@ -3,6 +3,7 @@
 // that throws caustics through the water onto the type, after caustic-volume's lamp scene.
 
 import { getGL, compile, texture, uploadCanvas, VS_TRI } from '../engine.js';
+import { colourOf, GLSL_PAGE_GRADIENT } from '../colour.js';
 
 const DEFAULT = { title: 'Idan', artist: 'Segev', lyrics: [] };   // lyrics are parked, not removed
 const LINE_MS = 9000;
@@ -29,6 +30,9 @@ export function mount(ctx) {
   let song = { ...DEFAULT };
   let lineIdx = 0, lineTimer = 0;
   const offs = [];
+  const col = colourOf(ctx);                                      // in colour (about one showing in twenty): the ripples are coloured, from the first touch
+  if (col) offs.push(col.wakeOnPress({ move: true }));
+  const gUni = col ? col.uniform() : new Float32Array(18);
 
   // ---------- type, drawn into an offscreen canvas as channel masks ----------
   // R = bright type, G = dim type
@@ -114,10 +118,11 @@ export function mount(ctx) {
   uniform vec2 uSimRes, uRes;
   uniform float uRefract;
   uniform vec3 uBg, uFg, uDim;
-  uniform float uLamp;
+  uniform float uLamp, uRip;
   uniform vec2 uLampPos, uCss;
   uniform vec2 uTilt;
   out vec4 o;
+  ${GLSL_PAGE_GRADIENT}
   void main(){
     vec2 s = 1.0 / uSimRes;
     float c = texture(uSim, uv).r;
@@ -127,6 +132,10 @@ export function mount(ctx) {
     vec3 t = texture(uText, uv - off).rgb;
     float bright = smoothstep(0.38, 0.62, t.r), dim = smoothstep(0.38, 0.62, t.g);
     vec3 col = mix(uBg, uFg, bright);
+    if (uRip > 0.0) {                                       // in colour: the ripples themselves take the gradient, wherever the surface moves
+      float act = length(vec2(r - l, u - d)) * 14.0 + abs(c) * 0.8;
+      col = mix(col, gradientAt(1.0 - uv.y), smoothstep(0.6, 1.7, act) * uRip);
+    }
 
     if (uLamp > 0.0) {
       // The lamp's light passes through the moving surface; where it curves, light gathers into bright
@@ -248,13 +257,14 @@ export function mount(ctx) {
     gl.uniform1f(u.uRefract, 26 * dpr);
     gl.uniform3f(u.uBg, inkBg, inkBg, inkBg);
     gl.uniform3f(u.uFg, inkFg, inkFg, inkFg);
-    gl.uniform1f(u.uLamp, lamp.fade);
+    gl.uniform1f(u.uLamp, lamp.fade); gl.uniform1f(u.uRip, col ? col.amount : 0); gl.uniform3fv(u['uG[0]'], gUni);
     gl.uniform2f(u.uLampPos, lamp.x, lamp.y); gl.uniform2f(u.uCss, ctx.W, ctx.H);
     gl.uniform2f(u.uTilt, tilt.x * 6 * dpr, tilt.y * 6 * dpr);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
   offs.push(ctx.frame((dt, t) => {
+    if (col) col.update(dt);
     acc += dt;
     let n = 0; while (acc >= 1 / 120 && n < 6) { step(); acc -= 1 / 120; n++; }
     if (n === 6) acc = 0;

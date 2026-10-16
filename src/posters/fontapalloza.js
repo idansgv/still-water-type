@@ -7,6 +7,7 @@
 
 import { pressTracker } from '../gestures.js';
 import { createReveal, ink, corners } from './reveal.js';
+import { colourOf } from '../colour.js';
 
 const WORDS = ['Idan', 'Segev'];
 const CHARS = 'IdanSegv';
@@ -133,6 +134,10 @@ export function mount(stage) {
   });
   const offUp = stage.on('up', (p, e) => { press.up(p, e.pointerId); thrashing = false; });
 
+  // --- colour (about one showing in twenty): from the first touch every letter takes its own random colour from the palette, and a new one each time its face changes ---
+  const col = colourOf(stage);
+  const offColour = col ? col.wakeOnPress({ move: true }) : () => {};
+
   // --- draw ---
   const rgb = (a = 1) => { const f = stage.colors.fg; return `rgba(${f[0] * 255 | 0},${f[1] * 255 | 0},${f[2] * 255 | 0},${a})`; };
   const bg = () => { const f = stage.colors.bg; return `rgb(${f[0] * 255 | 0},${f[1] * 255 | 0},${f[2] * 255 | 0})`; };
@@ -140,6 +145,7 @@ export function mount(stage) {
   function draw() {
     const k = stage.pw / stage.W, ky = stage.ph / stage.H;
     c.setTransform(k, 0, 0, ky, 0, 0);
+    if (col) col.update(1 / 60);
     c.fillStyle = bg(); c.fillRect(0, 0, stage.W, stage.H);
     c.fillStyle = rgb(); c.textBaseline = 'alphabetic'; c.textAlign = 'left';
     for (const q of cells) if (!ready.includes(q.font) && ready.length) q.font = ready.includes(START) ? START : ready[0];
@@ -149,6 +155,11 @@ export function mount(stage) {
       const m = box(q.font, q.ch);
       const s = q.s;
       c.font = `${SIZE}px "${q.font}"`;
+      if (col) {
+        if (q.lastFont !== q.font) { q.lastFont = q.font; q.rgb = col.rgb(stage.rand()); }
+        const f = stage.colors.fg, a = col.amount, r = q.rgb || f;
+        c.fillStyle = `rgb(${((f[0] + (r[0] - f[0]) * a) * 255) | 0},${((f[1] + (r[1] - f[1]) * a) * 255) | 0},${((f[2] + (r[2] - f[2]) * a) * 255) | 0})`;
+      }
       c.save();
       c.translate(q.x + q.w / 2, q.y + q.h / 2);
       c.scale(s, s);
@@ -188,7 +199,7 @@ export function mount(stage) {
   return {
     destroy() {
       alive = false; clearTimeout(idleTimer);
-      offFrame(); offDown(); offMove(); offUp(); offResize(); rv.destroy();
+      offFrame(); offDown(); offMove(); offUp(); offResize(); offColour(); rv.destroy();
       links.forEach((l) => l.remove());
     },
   };

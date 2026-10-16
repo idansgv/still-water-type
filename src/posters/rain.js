@@ -12,6 +12,7 @@
 import { getGL, compile, texture, uploadCanvas, VS_TRI, typeMask, clamp } from '../engine.js';
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 import { createReveal, ink } from './reveal.js';
+import { colourOf, GLSL_PAGE_GRADIENT } from '../colour.js';
 
 const MAXD = 4000;              // most drops in the air
 const TOP = 0.8;                // drops enter from here (above the frame)
@@ -47,6 +48,9 @@ export async function mount(ctx) {
   const gl = getGL(canvas);
   if (!gl) throw new Error('webgl2 unavailable');
   const offs = [];
+  const col = colourOf(ctx);                                                          // in colour (about one showing in twenty): only the rain is coloured, from the first move
+  if (col) offs.push(col.wakeOnPress({ move: true }));
+  const gUni = col ? col.uniform() : new Float32Array(18);
   const rand = ctx.rand;
   const P = { ...DEFAULTS, ...SAVED };
   const askedFont = new URLSearchParams(location.search).get('font'); if (askedFont) P.font = askedFont;
@@ -124,12 +128,13 @@ export async function mount(ctx) {
   const SVS = `#version 300 es
   in vec4 aP;
   uniform vec3 uX, uU; uniform float uA, uZoom; uniform vec2 uPan;
-  out float vA;
-  void main() { vA = aP.w; gl_Position = vec4((dot(aP.xyz, uX) - uPan.x) * uZoom / (uA * 0.5), (dot(aP.xyz, uU) - uPan.y) * uZoom / 0.5, 0.0, 1.0); }`;
+  out float vA, vT;
+  void main() { vA = aP.w; gl_Position = vec4((dot(aP.xyz, uX) - uPan.x) * uZoom / (uA * 0.5), (dot(aP.xyz, uU) - uPan.y) * uZoom / 0.5, 0.0, 1.0); vT = 0.5 - gl_Position.y * 0.5; }`;
   const SFS = `#version 300 es
   precision highp float;
-  in float vA; uniform vec3 uCol; uniform float uAlpha; out vec4 o;
-  void main() { o = vec4(uCol, vA * uAlpha); }`;
+  in float vA, vT; uniform vec3 uCol; uniform float uAlpha, uAmt; out vec4 o;
+  ${GLSL_PAGE_GRADIENT}
+  void main() { o = vec4(mix(uCol, gradientAt(vT), uAmt), vA * mix(uAlpha, 0.85, uAmt)); }`;       // in colour the rain itself takes the gradient (the letters stay as they are)
 
   const prog = compile(gl, VS_TRI, FS);
   const sprog = compile(gl, SVS, SFS);
@@ -407,7 +412,7 @@ export async function mount(ctx) {
       sprog.use(); const su = sprog.u;
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.uniform3fv(su.uX, cam.X); gl.uniform3fv(su.uU, cam.U); gl.uniform1f(su.uA, A); gl.uniform1f(su.uZoom, P.zoom); gl.uniform2f(su.uPan, P.panX, P.panY + shiftY);
-      gl.uniform3fv(su.uCol, sc); gl.uniform1f(su.uAlpha, P.streakOpacity);
+      gl.uniform3fv(su.uCol, sc); gl.uniform1f(su.uAlpha, P.streakOpacity); gl.uniform1f(su.uAmt, col ? col.amount : 0); gl.uniform3fv(su['uG[0]'], gUni);
       gl.bindVertexArray(svao); gl.bindBuffer(gl.ARRAY_BUFFER, sbuf);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, sdata.subarray(0, nd * 8));
       gl.drawArrays(gl.LINES, 0, nd * 2);
@@ -420,6 +425,7 @@ export async function mount(ctx) {
   if (ctx.reduced) { const was = touched; for (let i = 0; i < 480; i++) advance(1 / 60, true); touched = was; demoT = DEMO_LEN; nd = 0; }
   offs.push(ctx.on('resize', () => { build(); }));
   offs.push(ctx.frame((dt) => {
+    if (col) col.update(dt);
     advance(ctx.reduced ? 0 : dt, !ctx.reduced && !touched);
     if (ctx.reduced && pouring) advance(dt, false);
     upload(performance.now());

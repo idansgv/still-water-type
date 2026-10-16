@@ -204,7 +204,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     const mod = await poster.load();
     inst = await mod.mount(stage);
     current.inst = inst;
-    if (stage.colour && poster.colour !== 'native') colourPass(stageEl, stage.colour, { dark: stage.flip, immediate: params.get('colourat') === 'load' });
+    if (stage.colour && poster.colour !== 'native') colourPass(stageEl, stage.colour, { dark: stage.flip, immediate: params.get('colourat') === 'load', trigger: poster.colourTrigger || 'press' });
     stage.start();
     syncPanel();
     armHint(poster, stage);

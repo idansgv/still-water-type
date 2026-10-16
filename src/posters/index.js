@@ -12,6 +12,7 @@
 export const POSTERS = [
   {
     slug: 'still-water',
+    colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
     prompt: "Flat black type reading \"Idan Segev\" on a white page (with an inverted white-on-black variant), drawn with WebGL2. Underneath the flat graphic runs a real 2D wave-equation height field, stepped on the GPU with ping-pong float textures. Pointer and touch drop ripples into it that spread, reflect off the edges and slowly fade, and the type refracts through the surface so every touch distorts the letters. Hidden extra: press L (or tap three times) to turn on a lamp that throws caustics through the water onto the type. Only black and white, no UI, no instructions.",
     title: 'Still Water',
     words: ['Idan', 'Segev'],
@@ -42,6 +43,7 @@ export const POSTERS = [
   },
   {
     slug: 'soft-type',
+    colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
     prompt: "The name \"Idan Segev\" in huge bold type, where each letter is a few skeleton strokes sampled into round particles that behave like one soft elastic material (position-based dynamics: distance links, a bending-smoothing pass, a spatial hash for contacts, a weak pull back to each letter's rest shape). The thick bubbly look is a round-capped stroke drawn along the particle path. Drag a letter and it bends and squashes against its neighbours. Hold one without moving and it inflates through a point on the letter; let go and air rushes out, rocketing it the other way. Hold too long and it trembles, then bursts, throwing the other letters across the page. Cartoon speed lines and little flicks tell the story. Black on white, canvas 2D.",
     title: 'Soft',
     words: ['Idan', 'Segev'],
@@ -122,6 +124,7 @@ export const POSTERS = [
   },
   {
     slug: 'metal',
+    colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
     prompt: "The name \"Idan Segev\" as liquid mercury: about 95% black, lit like a mirror that reflects a black room with two small lamps, so only a few crisp highlights slide across it as it moves. Particles drawn as a metaball field, with surface tension (close pairs push apart, displaced pairs pull together) and neighbours sharing velocity. Left alone it holds its letter shapes. Pull a letter and the metal follows the finger, thins to a thread and beads into droplets that stay where they land; push two letters together and they fuse; tap to scatter into beads; double-tap empty space to pour it back into the name. On a phone, tilting rolls the beads.",
     title: 'Liquid metal',
     words: ['Idan', 'Segev'],
@@ -162,6 +165,7 @@ export const POSTERS = [
   },
   {
     slug: 'slinky-type',
+    colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
     title: 'Slinky',
     words: ['Idan', 'Segev'],
     blurb: 'Solid letters that are really coiled Slinkys. Tap one and it springs free.',
@@ -181,6 +185,7 @@ export const POSTERS = [
   },
   {
     slug: 'fan',
+    colourTrigger: 'drag',       // the colour pass wakes on a long drag, not a touch
     title: 'Fan',
     words: ['Idan', 'Segev'],
     blurb: 'The name, cut into strips that fan, scatter and snap back. Drag it, or tap.',
@@ -190,6 +195,7 @@ export const POSTERS = [
   },
   {
     slug: 'rain',
+    colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
     title: 'Rain',
     words: ['Idan', 'Segev'],
     blurb: 'Heavy type the colour of the page. Rain follows you and leaves its mark. Press, and it pours.',
@@ -199,6 +205,7 @@ export const POSTERS = [
   },
   {
     slug: 'fontapalloza',
+    colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
     title: 'Fontapalloza',
     words: ['Idan', 'Segev'],
     blurb: 'Every letter in a different typeface. Hover to swap one, press to make them all go.',

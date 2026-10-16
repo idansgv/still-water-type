@@ -25,6 +25,7 @@
 
 import { SKELETON, ratio, radiusFor } from './lettering.js';
 import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
+import { colourOf } from '../colour.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -107,6 +108,7 @@ class Glyph {
 
 export function mount(stage) {
   const ctx = stage.canvas.getContext('2d');
+  const col = colourOf(stage);                                  // in colour (about one showing in twenty): a balloon that bursts shows up in colour, and so do its lines
   const dark = stage.theme.name === 'dark';
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
   stage.setBackdrop(dark ? 0 : 1);
@@ -292,7 +294,8 @@ export function mount(stage) {
       const s0 = size * (0.5 + Math.random() * 0.15), e0 = s0 + size * (long ? 0.7 + Math.random() * 0.6 : 0.28 + Math.random() * 0.2);
       lines.push({ a, s0, e0, bend: (Math.random() - 0.5) * 0.35, w: long ? 7 + Math.random() * 2.5 : 5 });
     }
-    bursts.push({ x: cx, y: cy, t: 0, lines });
+    if (col) g.tint = col.css(Math.min(1, Math.max(0, cy / H)));
+    bursts.push({ x: cx, y: cy, t: 0, lines, tint: g.tint });
     shake = 0.4; quiet = 0;
   }
   function forces() {
@@ -401,7 +404,8 @@ export function mount(stage) {
     ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
     if (shake > 0) { const a = shake / 0.4 * 9; ctx.translate((Math.random() - 0.5) * a, (Math.random() - 0.5) * a); }
     ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    for (const g of glyphs) for (const p of g.paths) strokePath(p);
+    for (const g of glyphs) { ctx.strokeStyle = g.tint || ink; for (const p of g.paths) strokePath(p); }
+    ctx.strokeStyle = ink;
     for (const m of marks) {                                 // hand-flicked marks: travel out, then thin away (same hand as the burst)
       const u = m.age / m.life, ease = (v) => 1 - (1 - clamp(v, 0, 1)) ** 3;
       const head = m.s0 + m.len * ease(m.age / (m.life * 0.5)), tail = m.s0 + m.len * ease((m.age - m.life * 0.18) / (m.life * 0.6));
@@ -415,6 +419,7 @@ export function mount(stage) {
     }
     for (const b of bursts) {                                // minimal cartoon motion lines: each stroke travels out and thins away
       const ease = (u) => 1 - (1 - clamp(u, 0, 1)) ** 3;
+      ctx.strokeStyle = b.tint || ink;
       for (const l of b.lines) {
         const head = l.s0 + (l.e0 - l.s0) * ease(b.t / 0.32), tail = l.s0 + (l.e0 - l.s0) * ease((b.t - 0.1) / 0.42);
         if (tail >= head - 0.5) continue;
@@ -533,7 +538,7 @@ export function mount(stage) {
       actions: { 'Re-form': reform },
       set() {}, reset() { reform(); },
     },
-    debug: { glyphs: () => glyphs, marks: () => marks, step: () => step(), draw: () => draw() },
+    debug: { burst: (i) => explode(glyphs[i]), glyphs: () => glyphs, marks: () => marks, step: () => step(), draw: () => draw() },
     destroy() {
       offs.forEach((f) => f()); rv.destroy();
       stage.root.style.cursor = '';
