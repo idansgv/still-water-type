@@ -25,6 +25,8 @@ const FONTS = [
   'Lacquer', 'Sedgwick Ave Display', 'Syne', 'Bodoni Moda', 'Fraunces', 'Unbounded',
 ];
 const START = 'Archivo Black';
+// Faces the device already has: the poster draws and responds on the first frame, before any web font has arrived.
+const SYSTEM = ['Arial Black', 'Impact', 'Georgia', 'Courier New', 'Times New Roman', 'Futura', 'Didot', 'Marker Felt', 'Chalkduster', 'Copperplate', 'Rockwell', 'Baskerville', 'American Typewriter', 'Papyrus', 'Optima', 'Bradley Hand'];
 const FIT = { I: 0.68 };                          // the I is a bar that fills its cell's height, so it reads far bigger than the rest; pull it in
 
 const SIZE = 200;                                  // measuring size; glyphs are then scaled into their cell
@@ -35,15 +37,20 @@ export function mount(stage) {
   const dark = stage.theme.name === 'dark';          // colours come from stage.colors (the shell's black and white sequence); the Reveal ink follows the same theme
 
   // --- fonts: one stylesheet per batch, each family subset to the letters we use ---
-  const ready = [];                                // families that have loaded, so the pool grows as the network answers
+  const here = (f) => {                            // is this system face installed? compare its width against two generic fallbacks
+    const g = document.createElement('canvas').getContext('2d'), w = (face) => { g.font = `100px ${face}`; return g.measureText('mwiIlLgG08').width; };
+    return w(`"${f}", monospace`) !== w('monospace') || w(`"${f}", serif`) !== w('serif');
+  };
+  const ready = SYSTEM.filter(here);                              // families that have loaded, so the pool grows as the network answers
   let alive = true;
   const loadFace = (f) => document.fonts.load(`${SIZE}px "${f}"`, CHARS).then((r) => { if (alive && r.length && !ready.includes(f)) ready.push(f); }).catch(() => {});
   const links = [];
-  for (let i = 0; i < FONTS.length; i += 30) {
-    const fam = FONTS.slice(i, i + 30).map((f) => 'family=' + f.replace(/ /g, '+')).join('&');
+  const BATCH = [12, 30, 30, 30, 30];              // a small first request so the pool fills quickly on a slow connection
+  for (let i = 0, b = 0; i < FONTS.length; i += BATCH[b++]) {
+    const fam = FONTS.slice(i, i + BATCH[b]).map((f) => 'family=' + f.replace(/ /g, '+')).join('&');
     const l = document.createElement('link');
     l.rel = 'stylesheet'; l.href = `https://fonts.googleapis.com/css2?${fam}&text=${CHARS}&display=block`;
-    const fams = FONTS.slice(i, i + 30);
+    const fams = FONTS.slice(i, i + BATCH[b]);
     l.onload = () => fams.forEach(loadFace);          // the faces exist only once the stylesheet is parsed
     document.head.appendChild(l); links.push(l);
   }
@@ -121,7 +128,7 @@ export function mount(stage) {
     c.setTransform(k, 0, 0, ky, 0, 0);
     c.fillStyle = bg(); c.fillRect(0, 0, stage.W, stage.H);
     c.fillStyle = rgb(); c.textBaseline = 'alphabetic'; c.textAlign = 'left';
-    if (!ready.includes(START) && ready.length) cells.forEach((q) => { q.font = ready[0]; });
+    for (const q of cells) if (!ready.includes(q.font) && ready.length) q.font = ready.includes(START) ? START : ready[0];
     layout();
     for (const q of cells) {
       if (!ready.includes(q.font)) continue;
