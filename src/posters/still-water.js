@@ -134,7 +134,7 @@ export function mount(ctx) {
     vec3 col = mix(uBg, uFg, bright);
     if (uRip > 0.0) {                                       // in colour: the ripples themselves take the gradient, wherever the surface moves
       float act = length(vec2(r - l, u - d)) * 14.0 + abs(c) * 0.8;
-      col = mix(col, gradientAt(1.0 - uv.y), smoothstep(0.6, 1.7, act) * uRip);
+      col = mix(col, gradientAt(1.0 - uv.y), smoothstep(0.7, 2.6, act) * uRip * 0.14);       // a whisper: a faint tint on the steepest wave fronts only
     }
 
     if (uLamp > 0.0) {

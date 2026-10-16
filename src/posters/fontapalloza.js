@@ -138,6 +138,18 @@ export function mount(stage) {
   const col = colourOf(stage);
   const offColour = col ? col.wakeOnPress({ move: true }) : () => {};
 
+  // Rare: after the first touch, every so often one letter (now and then two) takes a random colour for a few seconds, then goes back to the page's ink.
+  let nextGlow = 4 + Math.random() * 3;
+  function glowLetters(dt) {
+    col.update(dt);
+    if (!col.woke) return;
+    for (const q of cells) if (q.glow && (q.glow.t += dt) > q.glow.life) q.glow = null;
+    if ((nextGlow -= dt) > 0) return;
+    nextGlow = 5 + Math.random() * 6;
+    const free = cells.filter((q) => !q.glow), n = Math.random() < 0.25 ? 2 : 1;
+    for (let k = 0; k < n && free.length; k++) { const q = free.splice((Math.random() * free.length) | 0, 1)[0]; q.glow = { t: 0, life: 2.6 + Math.random() * 1.6, rgb: col.rgb(Math.random()) }; }
+  }
+
   // --- draw ---
   const rgb = (a = 1) => { const f = stage.colors.fg; return `rgba(${f[0] * 255 | 0},${f[1] * 255 | 0},${f[2] * 255 | 0},${a})`; };
   const bg = () => { const f = stage.colors.bg; return `rgb(${f[0] * 255 | 0},${f[1] * 255 | 0},${f[2] * 255 | 0})`; };
@@ -145,7 +157,7 @@ export function mount(stage) {
   function draw() {
     const k = stage.pw / stage.W, ky = stage.ph / stage.H;
     c.setTransform(k, 0, 0, ky, 0, 0);
-    if (col) col.update(1 / 60);
+    if (col) glowLetters(1 / 60);
     c.fillStyle = bg(); c.fillRect(0, 0, stage.W, stage.H);
     c.fillStyle = rgb(); c.textBaseline = 'alphabetic'; c.textAlign = 'left';
     for (const q of cells) if (!ready.includes(q.font) && ready.length) q.font = ready.includes(START) ? START : ready[0];
@@ -155,9 +167,8 @@ export function mount(stage) {
       const m = box(q.font, q.ch);
       const s = q.s;
       c.font = `${SIZE}px "${q.font}"`;
-      if (col) {
-        if (q.lastFont !== q.font) { q.lastFont = q.font; q.rgb = col.rgb(stage.rand()); }
-        const f = stage.colors.fg, a = col.amount, r = q.rgb || f;
+      if (col) {                                                               // a letter that is having its moment: its colour rises, holds and sinks back
+        const f = stage.colors.fg, a = q.glow ? Math.sin(Math.min(1, q.glow.t / q.glow.life) * Math.PI) ** 0.6 : 0, r = q.glow ? q.glow.rgb : f;
         c.fillStyle = `rgb(${((f[0] + (r[0] - f[0]) * a) * 255) | 0},${((f[1] + (r[1] - f[1]) * a) * 255) | 0},${((f[2] + (r[2] - f[2]) * a) * 255) | 0})`;
       }
       c.save();
@@ -197,6 +208,7 @@ export function mount(stage) {
   });
 
   return {
+    debug: { glow: (n = 2) => { for (const q of cells.slice(0, n)) q.glow = { t: 0, life: 3, rgb: col ? col.rgb(Math.random()) : [1, 0, 0] }; if (col) col.wake(); } },
     destroy() {
       alive = false; clearTimeout(idleTimer);
       offFrame(); offDown(); offMove(); offUp(); offResize(); offColour(); rv.destroy();
