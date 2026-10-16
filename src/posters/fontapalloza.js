@@ -68,8 +68,9 @@ export function mount(stage) {
   // Each row is packed by the glyphs' real widths, nearly touching, then scaled up to fill the row (or down to fit it).
   const TIGHT = 0.004;                              // gap between letters, as a share of the short side
   function layout() {
-    const W = stage.W, H = stage.H, pad = Math.min(W, H) * 0.04, gap = Math.min(W, H) * TIGHT;
-    const rowH = (H - pad * 2 - Math.min(W, H) * 0.012) / 2, avail = W - pad * 2;
+    const W = stage.W, H = stage.H, pad = Math.min(W, H) * 0.04, gap = Math.min(W, H) * TIGHT, rowGap = Math.min(W, H) * 0.02;
+    const rowH = (H - pad * 2 - rowGap) / 2, avail = W - pad * 2;
+    const rows = [];
     for (let row = 0; row < WORDS.length; row++) {
       const rc = cells.filter((q) => q.row === row), cw = avail / rc.length;
       for (const q of rc) {
@@ -79,11 +80,13 @@ export function mount(stage) {
       const total = () => rc.reduce((a, q) => a + (box0(q).w * q.s), 0) + gap * (rc.length - 1);
       const g = Math.min(avail / total(), rowH / Math.max(...rc.map((q) => box0(q).h * q.s)));
       let x = pad + (avail - total() * g) / 2;
-      for (const q of rc) {
-        q.s *= g; q.w = box0(q).w * q.s; q.h = rowH; q.x = x; q.y = pad + row * (rowH + Math.min(W, H) * 0.012);
-        x += q.w + gap;
-      }
+      for (const q of rc) { q.s *= g; q.w = box0(q).w * q.s; q.x = x; x += q.w + gap; }
+      rows.push({ rc, h: Math.max(...rc.map((q) => box0(q).h * q.s)) });
     }
+    // rows sit close together under their own glyph heights (a phone is tall and the type is wide), the pair centred on the page
+    const used = rows.reduce((a, r) => a + r.h, 0) + rowGap * (rows.length - 1);
+    let y = (H - used) / 2;
+    for (const r of rows) { for (const q of r.rc) { q.y = y; q.h = r.h; } y += r.h + rowGap; }
   }
   const box0 = (q) => (ready.includes(q.font) ? box(q.font, q.ch) : { w: 1, h: 1 });
   layout();
