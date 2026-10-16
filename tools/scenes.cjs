@@ -7,7 +7,6 @@ const SCENES = {
   explode: async (p) => { await p.mouse.click(640, 260); await sleep(450); },
   metal: async (p) => { await p.mouse.move(420, 300); await p.mouse.down(); for (let i = 0; i <= 16; i++) { await p.mouse.move(420 + i * 22, 300 - i * 9); await sleep(16); } await p.mouse.up(); await sleep(400); },
   fan: async (p) => { await p.mouse.move(560, 420); await p.mouse.down(); for (let i = 0; i <= 10; i++) { await p.mouse.move(560 + i * 9, 420 - i * 4); await sleep(16); } await sleep(500); },
-  'fan-color': async (p) => { await p.mouse.move(560, 420); await p.mouse.down(); for (let i = 0; i <= 10; i++) { await p.mouse.move(560 + i * 9, 420 - i * 4); await sleep(16); } await sleep(500); },
   fontapalloza: async (p) => { await p.mouse.move(250, 250); await sleep(300); await p.mouse.move(700, 250); await p.mouse.move(600, 560); await p.mouse.down(); await sleep(400); await p.mouse.up(); await sleep(300); },
   rain: async (p) => { await p.mouse.move(420, 330); await p.mouse.down(); for (let i = 0; i <= 30; i++) { await p.mouse.move(300 + i * 14, 300 + Math.sin(i / 4) * 70); await sleep(30); } await p.mouse.up(); await sleep(900); },
   'rain-color': async (p) => { await p.mouse.move(420, 330); await p.mouse.down(); for (let i = 0; i <= 30; i++) { await p.mouse.move(300 + i * 14, 300 + Math.sin(i / 4) * 70); await sleep(30); } await p.mouse.up(); await sleep(900); },

@@ -32,4 +32,8 @@ JAZZ in a heavy wide face (Bungee/Archivo Black class, fills the width), black o
 3. `npm run shot -- jazz`, panel Save as defaults, `npm run ship -- jazz` (no push without his yes).
 
 ## Status
-Published 14 Oct 2026 as `jazz-fan`, renamed `fan` the same day (the old URL /p/jazz-fan/ no longer exists). WebGL, one textured quad per strip (45 per line), five springs per strip (swing, yaw, pitch, length, slide); the fan pivots on one centre line through the block (above leans up, below leans down). Camera: wheel zoom, Alt-drag orbit, Shift-drag pan, panel sliders. Idan's tuned values are `DEF` in `src/posters/fan.js`. Colour experiments live in `fan-color` (draft).
+Published 14 Oct 2026 as `jazz-fan`, renamed `fan` the same day (the old URL /p/jazz-fan/ no longer exists). WebGL, one textured quad per strip (45 per line), five springs per strip (swing, yaw, pitch, length, slide). Tuned values are `DEF` in `src/posters/fan.js`.
+
+- **Fan:** one split line. Strips above it lean up, strips below lean down, the angle growing with distance from the line. While you drag, the split line follows the pointer's height (and glides back to the middle on release); sideways swings the fan, vertical distance tips it into depth and lengthens the strips.
+- **Camera:** wheel zooms, Alt-drag orbits, Shift-drag pans, the settings panel has the sliders. It starts from the tuned view nudged by a seeded random orbit, roll, pan and zoom (panel: *Random start camera*, *New camera*, *Reset camera*).
+- **Colour:** the shell's (src/colour.js): black and white, about one showing in twenty in colour, woken by a long drag (`colourTrigger: 'drag'`). A separate colour version was tried first (`fan-color`, 14 to 16 Oct 2026: palettes, dark/light toggle, segmented colour controls) and folded back into the shell's colour logic; its palette module lives on as `src/posters/palette.js`.

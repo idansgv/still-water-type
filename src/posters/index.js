@@ -198,17 +198,6 @@ export const POSTERS = [
     load: () => import('./rain.js'),
   },
   {
-    slug: 'fan-color',
-    title: 'Fan color',
-    words: ['Idan', 'Segev'],
-    blurb: 'Fan, in colour. A test: gradients on the strips, light or dark.',
-    hint: null,
-    themes: { dark: 0.5, light: 0.5 },
-    draft: true,
-    standalone: true,        // out of the rotation and the menu, but with its own page (p/fan-color/) shown without the site's frame
-    load: () => import('./fan-color.js'),
-  },
-  {
     slug: 'fontapalloza',
     title: 'Fontapalloza',
     words: ['Idan', 'Segev'],
