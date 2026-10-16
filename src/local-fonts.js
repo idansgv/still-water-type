@@ -18,6 +18,14 @@ const FILES = [
   ['GT Maru', 700, 'GT-Maru/GT-Maru-Bold-Trial.woff2'],
   ['GT Maru', 500, 'GT-Maru/GT-Maru-Medium-Trial.woff2'],
   ['GT Maru', 400, 'GT-Maru/GT-Maru-Regular-Trial.woff2'],
+  // Offline copies of the open-licence fonts the site loads from Google Fonts (latin subset), so the posters look the same with no connection (assets/fonts/offline/, git-ignored).
+  ['Bungee Inline', 400, 'offline/bungee-inline-400.woff2'],
+  ['Archivo', 700, 'offline/archivo-700.woff2'],
+  ['Archivo', 900, 'offline/archivo-900.woff2'],
+  ['IBM Plex Mono', 400, 'offline/ibm-plex-mono-400.woff2'],
+  ['IBM Plex Mono', 500, 'offline/ibm-plex-mono-500.woff2'],
+  ['IBM Plex Sans', 400, 'offline/ibm-plex-sans-400.woff2'],
+  ['IBM Plex Sans', 500, 'offline/ibm-plex-sans-500.woff2'],
 ];
 // Only on a machine that can have the files (localhost, a private network address, .local): on the live site there is nothing to ask for, so no requests and no 404s in the console.
 const LOCAL = /^(localhost|127\.|\[?::1\]?$|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|.*\.local$)/.test(location.hostname);
