@@ -23,6 +23,16 @@ const FONTS = [
   'Rubik Microbe', 'Rubik Maze', 'Sixtyfour', 'Jacquard 24', 'Jersey 10', 'Pixelify Sans', 'Silkscreen', 'Smokum', 'Ewert',
   'Vast Shadow', 'Metal Mania', 'New Rocker', 'Diplomata', 'Elsie Swash Caps', 'Oi', 'Modak', 'Kablammo', 'Rubik Scribble', 'Chicle',
   'Lacquer', 'Sedgwick Ave Display', 'Syne', 'Bodoni Moda', 'Fraunces', 'Unbounded',
+  'Rubik Bubbles', 'Rubik Spray Paint', 'Rubik Vinyl', 'Rubik Gemstones', 'Bungee Spice',
+];
+// The second wave: 50 more, requested only after the first touch (or a few seconds idle), so the first load stays as light as it was.
+const EXTRA = [
+  'Rubik Marker Hatch', 'Rubik Distressed', 'Rubik Doodle Shadow', 'Rubik Puddles', 'Rubik Iso', 'Rubik Pixels', 'Rubik Storm', 'Rubik Beastly',
+  'Bungee Hairline', 'Bungee Outline', 'Bungee Tint', 'Rubik 80s Fade', 'Jolly Lodger', 'Gorditas', 'Flavors', 'Fruktur', 'Griffy', 'Ranchers',
+  'Slackey', 'Spicy Rice', 'Plaster', 'Piedra', 'Shojumaru', 'Almendra Display', 'Astloch', 'Margarine', 'Mystery Quest', 'Nova Cut', 'Nova Flat',
+  'Oldenburg', 'Henny Penny', 'Macondo Swash Caps', 'Purple Purse', 'Ribeye Marrow', 'Risque', 'Seymour One', 'Stalinist One', 'Tourney',
+  'Trade Winds', 'Warnes', 'Wendy One', 'Dela Gothic One', 'RocknRoll One', 'Reggae One', 'Potta One', 'Kalnia Glaze', 'Nerko One', 'Kavoon',
+  'Fontdiner Swanky', 'Londrina Shadow',
 ];
 const START = 'Archivo Black';
 // Faces the device already has: the poster draws and responds on the first frame, before any web font has arrived.
@@ -45,15 +55,19 @@ export function mount(stage) {
   let alive = true;
   const loadFace = (f) => document.fonts.load(`${SIZE}px "${f}"`, CHARS).then((r) => { if (alive && r.length && !ready.includes(f)) ready.push(f); }).catch(() => {});
   const links = [];
-  const BATCH = [12, 30, 30, 30, 30];              // a small first request so the pool fills quickly on a slow connection
-  for (let i = 0, b = 0; i < FONTS.length; i += BATCH[b++]) {
-    const fam = FONTS.slice(i, i + BATCH[b]).map((f) => 'family=' + f.replace(/ /g, '+')).join('&');
-    const l = document.createElement('link');
-    l.rel = 'stylesheet'; l.href = `https://fonts.googleapis.com/css2?${fam}&text=${CHARS}&display=block`;
-    const fams = FONTS.slice(i, i + BATCH[b]);
-    l.onload = () => fams.forEach(loadFace);          // the faces exist only once the stylesheet is parsed
-    document.head.appendChild(l); links.push(l);
-  }
+  const addFonts = (list, sizes) => {
+    for (let i = 0, b = 0; i < list.length; i += sizes[Math.min(b++, sizes.length - 1)]) {
+      const fams = list.slice(i, i + sizes[Math.min(b, sizes.length - 1)]);
+      const l = document.createElement('link');
+      l.rel = 'stylesheet'; l.href = `https://fonts.googleapis.com/css2?${fams.map((f) => 'family=' + f.replace(/ /g, '+')).join('&')}&text=${CHARS}&display=block`;
+      l.onload = () => fams.forEach(loadFace);          // the faces exist only once the stylesheet is parsed
+      document.head.appendChild(l); links.push(l);
+    }
+  };
+  addFonts(FONTS, [12, 30]);                       // a small first request so the pool fills quickly on a slow connection
+  let second = false, idleTimer = 0;
+  const loadSecond = () => { if (second || !alive) return; second = true; clearTimeout(idleTimer); addFonts(EXTRA, [30]); };
+  idleTimer = setTimeout(loadSecond, 5000);
   const metric = new Map();                        // "font|char" -> glyph box at SIZE; only ever filled for loaded fonts
 
   // --- cells ---
@@ -110,7 +124,7 @@ export function mount(stage) {
   const press = pressTracker();
   let thrashing = false, hover = -1;
   const cellAt = (p) => cells.findIndex((q) => p.x >= q.x && p.x <= q.x + q.w && p.y >= q.y && p.y <= q.y + q.h);
-  const offDown = stage.on('down', (p, e) => { press.down(p, e.pointerId); thrashing = true; cells.forEach((q) => { q.next = performance.now() + stage.rand() * 60; }); hover = cellAt(p); });
+  const offDown = stage.on('down', (p, e) => { loadSecond(); press.down(p, e.pointerId); thrashing = true; cells.forEach((q) => { q.next = performance.now() + stage.rand() * 60; }); hover = cellAt(p); });
   const offMove = stage.on('move', (p, e) => {
     press.move(p, e.pointerId);
     if (p.type !== 'mouse' && !p.down) return;
@@ -173,7 +187,7 @@ export function mount(stage) {
 
   return {
     destroy() {
-      alive = false;
+      alive = false; clearTimeout(idleTimer);
       offFrame(); offDown(); offMove(); offUp(); offResize(); rv.destroy();
       links.forEach((l) => l.remove());
     },
