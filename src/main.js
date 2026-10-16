@@ -2,7 +2,7 @@
 
 import { POSTERS, PUBLISHED, bySlug } from './posters/index.js';
 import { createStage, THEMES, fontsReady } from './engine.js';
-import { rollColour, colourPass } from './colour.js';
+import { rollColour, colourPass, clearColourPass } from './colour.js';
 import { createPanel } from './panel.js';
 
 const $ = (id) => document.getElementById(id);
@@ -191,7 +191,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   }
   applyTheme(theme);
   setChrome(poster);
-  stageEl.querySelectorAll('.colour-pass').forEach((n) => n.remove()); stageEl.classList.remove('colour-dark');
+  clearColourPass();
 
   const stage = createStage(stageEl, { seed, theme, toast, setBackdrop });
   stage.refreshPanel = syncPanel;                                   // a poster whose settings change (a mode switch) asks for the panel to be rebuilt
@@ -204,7 +204,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     const mod = await poster.load();
     inst = await mod.mount(stage);
     current.inst = inst;
-    if (stage.colour && poster.colour !== 'native') colourPass(stageEl, stage.colour, { dark: stage.flip });
+    if (stage.colour && poster.colour !== 'native') colourPass(stageEl, stage.colour, { dark: stage.flip, immediate: params.get('colourat') === 'load' });
     stage.start();
     syncPanel();
     armHint(poster, stage);

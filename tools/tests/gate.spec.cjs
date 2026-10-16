@@ -100,6 +100,7 @@ test('gate: a coloured version exists and shows colour (light and dark)', async 
   for (const p of LIST) for (const theme of ['light', 'dark']) {
     const errs = watch(page);
     await open(page, p.slug, `&colour=on&theme=${theme}`);
+    expect.soft(await page.evaluate(() => getComputedStyle(document.querySelector('.colour-pass')).opacity), `${p.slug}: the colour shows before any touch`).toBe('0');   // an easter egg: black and white until the first press
     await page.mouse.move(180, 200); await page.mouse.down();            // a poster that is blank until touched (Rain) shows itself while pressed
     for (let i = 0; i <= 16; i++) { await page.mouse.move(180 + i * 26, 200 + Math.sin(i / 2) * 70); await page.waitForTimeout(30); }
     const info = await page.evaluate(() => ({ colour: window.__poster.colour, pass: !!document.querySelector('.colour-pass') }));

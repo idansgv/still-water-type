@@ -11,7 +11,7 @@ const { serve } = require('./lib-serve.cjs');
   for (const p of PUBLISHED) for (const theme of ['light', 'dark']) {
     const page = await (await browser.newContext({ viewport: { width: 800, height: 500 } })).newPage(), errs = [];
     page.on('pageerror', (e) => errs.push(e.message));
-    await page.goto(`${srv.base}/?p=${p.slug}&theme=${theme}&colour=${pal}`);
+    await page.goto(`${srv.base}/?p=${p.slug}&theme=${theme}&colour=${pal}&colourat=load`);
     await page.waitForFunction(() => window.__poster && window.__poster.inst, null, { timeout: 30000 });
     await sleep(2000);
     if (SCENES[p.slug]) { try { await SCENES[p.slug](page); } catch (e) { /* scene sized for 1200x750 */ } }
