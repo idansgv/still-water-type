@@ -22,12 +22,12 @@ const MAXN = 96, COLS = 28;
 const VS = `#version 300 es
 in vec4 aA;   // x: strip index, y: along the strip 0..1, z: 0 bottom edge / 1 top edge of the strip, w: strip centre y (css px, from top)
 in vec2 aH;   // x: strip height (css px), y: pivot baseline of its line (css px from top)
-uniform vec2 uWH; uniform vec4 uP[${MAXN}]; uniform vec4 uQ[${MAXN}]; uniform vec4 uCam; uniform vec4 uCR; uniform vec2 uCT;   // uP: swing, yaw, pitch, length. uQ: slide px. uCam: focal length, pivot x, 0, 0
+uniform vec2 uWH; uniform vec4 uP[${MAXN}]; uniform vec4 uQ[${MAXN}]; uniform vec4 uCam; uniform vec4 uCR; uniform vec2 uCT;   // uP: swing, yaw, pitch, length. uQ: slide px. uCam: focal length, pivot x, pivot y (css px from the top: the split line), 0
 out vec2 vUV; out vec3 vG; out float vDepth;
 void main() {
   int i = int(aA.x); vec4 p = uP[i]; vec4 q = uQ[i];
   float X = (aA.y - 0.5) * uWH.x, y = aA.w + (0.5 - aA.z) * aH.x, Y = uWH.y * 0.5 - y;
-  float pY = uWH.y * 0.5 - aH.y; vec2 r = vec2(X - uCam.y, Y - pY);
+  float pY = uWH.y * 0.5 - uCam.z; vec2 r = vec2(X - uCam.y, Y - pY);
   r.x *= p.w;
   float ca = cos(p.x), sa = sin(p.x); r = vec2(ca * r.x - sa * r.y, sa * r.x + ca * r.y);
   float z = -r.x * sin(p.y); r.x *= cos(p.y);
@@ -60,12 +60,15 @@ export function mount(stage) {
   const prog = compile(gl, VS, FS);
   const tex = gl.createTexture(), vbo = gl.createBuffer(), ibo = gl.createBuffer(), vao = gl.createVertexArray();
 
-  const DEF = { rows: 45, gap: 0.3, stiff: 155, damp: 0.28, fan: 2, yaw: 0.62, pitch: 0.81, stretch: 2, persp: 2.78, camYaw: -0.27, camPitch: 0.09, camRoll: -0.04, zoom: 0.72, panX: -0.06, panY: 0.01 };
+  const DEF = { rows: 45, gap: 0.3, stiff: 155, damp: 0.28, fan: 2, yaw: 0.62, pitch: 0.81, stretch: 2, persp: 2.78, camYaw: -0.27, camPitch: 0.09, camRoll: -0.04, zoom: 0.72, panX: -0.06, panY: 0.01, randomCam: 1 };
   const P = { ...DEF, ...COL };
   let W = 1, H = 1, PW = 1, PH = 1, strips = [], block = { y0: 0, y1: 0 }, nIdx = 0;
   let touched = false, idle = 0, demoT = 0, dirty = true, alive = true, demoK = 0, demoV = 0, demoTarget = 0, pivX = 0;
-  let kicks = [], drag = null, last = null, drive = { fan: 0, yaw: 0, pitch: 0, stretch: 0, px: 0 };
+  let kicks = [], drag = null, last = null, drive = { fan: 0, yaw: 0, pitch: 0, stretch: 0, px: 0, py: 0 }, pivY = 0;
   const press = pressTracker();
+  const rc = () => (stage.rand() - 0.5) * 2;                                     // seeded, so a shared link opens on the same view
+  function rollCamera() { Object.assign(P, { camYaw: DEF.camYaw + rc() * 0.4, camPitch: DEF.camPitch + rc() * 0.25, camRoll: DEF.camRoll + rc() * 0.1, panX: DEF.panX + rc() * 0.08, panY: DEF.panY + rc() * 0.05, zoom: DEF.zoom + rc() * 0.08 }); dirty = true; }
+  if (P.randomCam) rollCamera();
   const pa = new Float32Array(MAXN * 4), qa = new Float32Array(MAXN * 4);
 
   function layout() {
@@ -80,7 +83,8 @@ export function mount(stage) {
     });
     let total = lines.reduce((a, l) => a + l.cap, 0) + gapL * (lines.length - 1);
     const k = Math.min(1, avail / total); total *= k;
-    let y = topPad + (avail - total) / 2; block = { y0: y, y1: y + total };
+    let y = topPad + (avail - total) / 2; block = { y0: y, y1: y + total, mid: y + total / 2, half: total / 2 };
+    if (!pivY) pivY = block.mid;
     const src = document.createElement('canvas'); src.width = PW; src.height = PH;
     const c = src.getContext('2d'); c.setTransform(PW / W, 0, 0, PH / H, 0, 0); c.fillStyle = inkC; c.textBaseline = 'alphabetic'; c.textAlign = 'center';
     for (const l of lines) { const s = l.size * k, cap = l.cap * k; c.font = FONT.replace('100px', s + 'px'); c.fillText(l.t, W / 2, y + cap); y += cap + gapL * k; }
@@ -128,13 +132,14 @@ export function mount(stage) {
 
   function step(dt) {
     const dk = demoTarget - demoK; demoV += (dk * 60 - demoV * 9) * dt; demoK += demoV * dt;
-    if (drag) { drive.fan = drag.fan; drive.yaw = drag.yaw; drive.pitch = drag.pitch; drive.stretch = Math.abs(drag.fan) * 0.8; drive.px = drag.px; }
-    else { drive.fan = demoK; drive.yaw = demoK * 0.55; drive.pitch = demoK * 0.45; drive.stretch = demoK * 0.85; drive.px = 0; }
+    if (drag) { drive.fan = drag.fan; drive.yaw = drag.yaw; drive.pitch = drag.pitch; drive.stretch = Math.abs(drag.fan) * 0.8 + Math.abs(drag.pitch) * 0.5; drive.px = drag.px; drive.py = drag.py; }
+    else { drive.fan = demoK; drive.yaw = demoK * 0.55; drive.pitch = demoK * 0.45; drive.stretch = demoK * 0.85; drive.px = 0; drive.py = block.mid; }
     pivX += (drive.px - pivX) * Math.min(1, dt * 9);
+    pivY += (drive.py - pivY) * Math.min(1, dt * 9);                             // the split line follows the pointer's height while dragging, and glides back to the middle
     for (let j = kicks.length - 1; j >= 0; j--) { const k = kicks[j]; k.t -= dt; if (k.t <= 0) { k.s.v[0] += k.da; k.s.v[1] += k.db; k.s.v[4] += k.dox; kicks.splice(j, 1); } }
     let moving = Math.abs(demoV) > 0.01 || Math.abs(demoTarget - demoK) > 0.002 || kicks.length > 0 || !!drag;
     for (const s of strips) {
-      const au = Math.abs(s.u), g = Math.sign(s.u) * Math.pow(au, 1.15), kk = P.stiff * (1 - 0.45 * au), cc = 2 * P.damp * Math.sqrt(kk);   // the top lags, so a move flows up the word
+      const ud = clamp((pivY - s.y) / block.half, -1.5, 1.5), au = Math.abs(ud), g = Math.sign(ud) * Math.pow(au, 1.15), kk = P.stiff * (1 - 0.45 * au), cc = 2 * P.damp * Math.sqrt(kk);   // the top lags, so a move flows up the word
       const tg = [drive.fan * P.fan * g, drive.yaw * P.yaw * g, drive.pitch * P.pitch * g, 1 + drive.stretch * P.stretch * Math.abs(g), 0];
       for (let k = 0; k < 5; k++) {
         const kx = k === 4 ? P.stiff : kk, cx = k === 4 ? 2 * P.damp * Math.sqrt(P.stiff) : cc;
@@ -155,7 +160,7 @@ export function mount(stage) {
     prog.use();
     strips.forEach((s, i) => { pa.set([s.c[0], s.c[1], s.c[2], s.c[3]], i * 4); qa[i * 4] = s.c[4]; qa[i * 4 + 1] = s.t; qa[i * 4 + 2] = s.z; qa[i * 4 + 3] = s.li; });
     gl.uniform4fv(prog.u['uP[0]'], pa); gl.uniform4fv(prog.u['uQ[0]'], qa);
-    gl.uniform2f(prog.u.uWH, W, H); gl.uniform4f(prog.u.uCam, P.persp * H, pivX, 0, 0);
+    gl.uniform2f(prog.u.uWH, W, H); gl.uniform4f(prog.u.uCam, P.persp * H, pivX, pivY, 0);
     gl.uniform4f(prog.u.uCR, P.camYaw, P.camPitch, P.camRoll, P.zoom); gl.uniform2f(prog.u.uCT, P.panX * W, P.panY * H);
     gradientUniforms(gl, prog.u, P); gl.uniform3fv(prog.u.uPaper, paperV);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(prog.u.uTex, 0);
@@ -170,13 +175,13 @@ export function mount(stage) {
   offs.push(stage.on('down', (q, e) => {
     if (pid !== null) return; pid = e.pointerId; touched = true; idle = 0; demoTarget = 0;
     if (e.altKey || e.shiftKey) { orbit = { x: q.x, y: q.y, shift: e.shiftKey && !e.altKey }; return; }
-    press.down(q, e.pointerId); drag = { x0: q.x, y0: q.y, fan: 0, yaw: 0, pitch: 0, px: q.x - W / 2 }; last = q;
+    press.down(q, e.pointerId); drag = { x0: q.x, y0: q.y, fan: 0, yaw: 0, pitch: 0, px: q.x - W / 2, py: q.y }; last = q;
   }));
   offs.push(stage.on('move', (q, e) => {
     if (pid !== null && e.pointerId !== pid) return;
     press.move(q, e.pointerId);
     if (orbit) { const dx = q.x - orbit.x, dy = q.y - orbit.y; orbit.x = q.x; orbit.y = q.y; if (orbit.shift) { P.panX += dx / W; P.panY -= dy / H; } else { P.camYaw += dx * 0.006; P.camPitch += dy * 0.006; } dirty = true; return; }
-    if (drag) { const dx = (q.x - drag.x0) / (W * 0.5), dy = (q.y - drag.y0) / (H * 0.5); drag.fan = clamp(dx, -1.3, 1.3); drag.yaw = clamp(dx, -1.3, 1.3) * 0.8; drag.pitch = clamp(-dy, -1.2, 1.2); dirty = true; }
+    if (drag) { const dx = (q.x - drag.x0) / (W * 0.5), dy = (q.y - drag.y0) / (H * 0.5); drag.fan = clamp(dx, -1.3, 1.3); drag.yaw = clamp(dx, -1.3, 1.3) * 0.8; drag.pitch = clamp(-dy, -1.2, 1.2); drag.py = clamp(q.y, block.y0, block.y1); dirty = true; }
     else if (q.type === 'mouse' && last) {                                      // hover: a moving mouse nudges the strips it passes
       const vx = q.x - last.x, R = H * 0.14;
       if (vx) for (const s of strips) { const d = (s.y - q.y) / R; if (Math.abs(d) < 2.5) s.v[4] += vx * 16 * Math.exp(-d * d); }
@@ -200,13 +205,13 @@ export function mount(stage) {
     c.lineWidth = 0.9;
     for (let i = 0; i < strips.length; i++) {
       const s = strips[i], a = s.c[0], len = s.c[3];
-      const py = s.base, f = (x) => { const rx = (x - px) * len, ry = s.y - py; return [px + Math.cos(a) * rx + Math.sin(a) * ry, py - Math.sin(a) * rx + Math.cos(a) * ry]; };
+      const py = pivY, f = (x) => { const rx = (x - px) * len, ry = s.y - py; return [px + Math.cos(a) * rx + Math.sin(a) * ry, py - Math.sin(a) * rx + Math.cos(a) * ry]; };
       const A = f(14), B = f(W_ - 14);
       c.strokeStyle = col(0.65 * k); c.beginPath(); c.moveTo(A[0], A[1]); c.lineTo(B[0], B[1]); c.stroke();
       if (i % 6 === 0) label(c, String(i).padStart(2, '0'), 18, s.y + 3, col, k);
     }
-    for (const by of new Set(strips.map((t) => t.base))) { c.strokeStyle = col(k); c.beginPath(); c.arc(px, by, 6, 0, 7); c.moveTo(px - 10, by); c.lineTo(px + 10, by); c.stroke(); }
-    label(c, 'centre line', px + 12, strips[0] ? strips[0].base - 8 : 0, col, k);
+    c.strokeStyle = col(k); c.beginPath(); c.arc(px, pivY, 6, 0, 7); c.moveTo(px - 10, pivY); c.lineTo(px + 10, pivY); c.stroke();
+    label(c, 'split line (follows the pointer)', px + 12, pivY - 8, col, k);
     titleBlock(c, W_, H_, ['FAN COLOR · STRIPS', `${strips.length} quads, 5 springs each`, 'swing · yaw · pitch · length · slide', 'o = pivot (where you pressed)'], col, k);
   });
 
@@ -238,11 +243,11 @@ export function mount(stage) {
       groups: [
         { name: 'Cut', items: [{ key: 'rows', label: 'Rows per line', min: 12, max: 45, step: 1 }, { key: 'gap', label: 'Gap', min: 0.05, max: 0.7, step: 0.01 }] },
         { name: 'Fan', items: [{ key: 'fan', label: 'Swing', min: 0, max: 2, step: 0.01 }, { key: 'yaw', label: 'Yaw', min: 0, max: 1.5, step: 0.01 }, { key: 'pitch', label: 'Pitch', min: 0, max: 1.4, step: 0.01 }, { key: 'stretch', label: 'Length', min: 0, max: 2, step: 0.01 }, { key: 'persp', label: 'Perspective', min: 0.6, max: 3, step: 0.01 }] },
-        { name: 'Camera (wheel zoom · alt-drag orbit · shift-drag pan)', items: [{ key: 'camYaw', label: 'Orbit left/right', min: -1.5, max: 1.5, step: 0.01 }, { key: 'camPitch', label: 'Orbit up/down', min: -1.5, max: 1.5, step: 0.01 }, { key: 'camRoll', label: 'Roll', min: -1.6, max: 1.6, step: 0.01 }, { key: 'zoom', label: 'Zoom', min: 0.3, max: 4, step: 0.01 }, { key: 'panX', label: 'Pan x', min: -1, max: 1, step: 0.01 }, { key: 'panY', label: 'Pan y', min: -1, max: 1, step: 0.01 }] },
+        { name: 'Camera (wheel zoom · alt-drag orbit · shift-drag pan)', items: [{ key: 'camYaw', label: 'Orbit left/right', min: -1.5, max: 1.5, step: 0.01 }, { key: 'camPitch', label: 'Orbit up/down', min: -1.5, max: 1.5, step: 0.01 }, { key: 'camRoll', label: 'Roll', min: -1.6, max: 1.6, step: 0.01 }, { key: 'zoom', label: 'Zoom', min: 0.3, max: 4, step: 0.01 }, { key: 'panX', label: 'Pan x', min: -1, max: 1, step: 0.01 }, { key: 'panY', label: 'Pan y', min: -1, max: 1, step: 0.01 }, { key: 'randomCam', label: 'Random start camera', type: 'toggle' }] },
         ...colourGroups(),
         { name: 'Springs', items: [{ key: 'stiff', label: 'Stiffness', min: 30, max: 220, step: 1 }, { key: 'damp', label: 'Damping', min: 0.1, max: 1, step: 0.01 }] },
       ],
-      actions: { 'Fan': () => { demoTarget = demoTarget ? 0 : 1; }, 'Stab': () => stab(W / 2, H / 2), 'Scatter': () => scatter(), 'Reset camera': () => { Object.assign(P, { camYaw: DEF.camYaw, camPitch: DEF.camPitch, camRoll: DEF.camRoll, zoom: DEF.zoom, panX: DEF.panX, panY: DEF.panY }); dirty = true; } },
+      actions: { 'Fan': () => { demoTarget = demoTarget ? 0 : 1; }, 'Stab': () => stab(W / 2, H / 2), 'Scatter': () => scatter(), 'New camera': () => rollCamera(), 'Reset camera': () => { Object.assign(P, { camYaw: DEF.camYaw, camPitch: DEF.camPitch, camRoll: DEF.camRoll, zoom: DEF.zoom, panX: DEF.panX, panY: DEF.panY }); dirty = true; } },
       set(k, v) { P[k] = +v; if (k === 'rows' || k === 'gap') layout(); if (k === 'dark' || k === 'bgTone') applyBg(); dirty = true; },
       reset() { Object.assign(P, DEF, COLOUR_DEF, { dark: dark0 ? 1 : 0 }); applyBg(); layout(); },
     },
