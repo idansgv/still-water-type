@@ -12,7 +12,7 @@ const COLOUR_SCENES = {
   metal: async (p) => { await drag(p, wiggle(150, 200, 20, 18)); await p.mouse.up(); await sleep(1500); },                                                // the blobs you pulled
   'slinky-type': async (p) => { await p.evaluate(() => { const d = window.__poster.inst.debug; d.click(1); d.click(6); d.run(340); }); await sleep(1500); },   // a letter drops off and comes back
   fan: async (p) => { await drag(p, wiggle(60, 300, 40, 18), 12); await sleep(300); await p.mouse.up(); await sleep(1500); },                             // a long drag (over about 520 px of path)
-  rain: async (p) => { await p.mouse.move(100, 200); await sleep(100); for (let i = 0; i < 30; i++) { await p.mouse.move(120 + i * 20, 220 + Math.sin(i / 3) * 70); await sleep(30); } await sleep(300); },   // the light rain that follows the cursor, no press                  // rain from the first move
+  rain: async (p) => { await p.mouse.move(100, 200); await sleep(100); await p.mouse.down(); for (let i = 0; i < 30; i++) { await p.mouse.move(120 + i * 20, 220 + Math.sin(i / 3) * 70); await sleep(40); } await sleep(1200); },   // press: it pours, and the stains pile up on the letters
   fontapalloza: async (p) => { await p.mouse.move(200, 200); await sleep(200); await p.mouse.move(420, 260); await sleep(300); await p.evaluate(() => window.__poster.inst.debug.glow(2)); await sleep(1100); },   // after a touch, now and then a letter takes a colour; here two are forced
 };
 module.exports = { COLOUR_SCENES };

@@ -49,7 +49,7 @@ export async function mount(ctx) {
   if (!gl) throw new Error('webgl2 unavailable');
   const offs = [];
   const col = colourOf(ctx);                                                          // in colour (about one showing in twenty): only the rain is coloured, from the first move
-  if (col) col.wake();                                                                  // the rain is the colour from the start, including the self-demo; the letters stay as they are
+  if (col) col.wake();                                                                  // the stains only exist once something has landed, so there is nothing to wait for
   const gUni = col ? col.uniform() : new Float32Array(18);
   const rand = ctx.rand;
   const P = { ...DEFAULTS, ...SAVED };
@@ -68,7 +68,9 @@ export async function mount(ctx) {
   uniform float uA, uD, uAmb, uZoom, uInk, uGloss, uRag, uGrain, uEdge, uBody;
   uniform vec2 uPan;
   uniform vec3 uX, uU, uF, uBg, uFg, uL;
+  uniform float uAmt;
   out vec4 o;
+  ${GLSL_PAGE_GRADIENT}
 
   float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
   float vnoise(vec3 x) {
@@ -120,21 +122,21 @@ export async function mount(ctx) {
       float k = smoothstep(0.51 - uEdge, 0.51 + uEdge, vv);
       vec3 N = normalize(n - (dFdx(vv) * uX + dFdy(vv) * uU) * 6.0);
       float spec = pow(max(dot(N, normalize(uL - uF)), 0.0), 50.0) * k;
-      col = mix(body, mix(uFg, uBg, spec * uGloss), k * uInk);
+      vec3 inkC = mix(uFg, gradientAt(1.0 - uv.y), uAmt);        // in colour the stains (the marks the rain leaves) take the gradient; the letters and the rain stay as they are
+      col = mix(body, mix(inkC, uBg, spec * uGloss), k * uInk);
     }
     o = vec4(col, 1.0);
   }`;
 
   const SVS = `#version 300 es
   in vec4 aP;
-  uniform vec3 uX, uU; uniform float uA, uZoom; uniform vec2 uPan, uOff;
-  out float vA, vT;
-  void main() { vA = aP.w; gl_Position = vec4((dot(aP.xyz, uX) - uPan.x) * uZoom / (uA * 0.5), (dot(aP.xyz, uU) - uPan.y) * uZoom / 0.5, 0.0, 1.0); vT = 0.5 - gl_Position.y * 0.5; gl_Position.xy += uOff; }`;
+  uniform vec3 uX, uU; uniform float uA, uZoom; uniform vec2 uPan;
+  out float vA;
+  void main() { vA = aP.w; gl_Position = vec4((dot(aP.xyz, uX) - uPan.x) * uZoom / (uA * 0.5), (dot(aP.xyz, uU) - uPan.y) * uZoom / 0.5, 0.0, 1.0); }`;
   const SFS = `#version 300 es
   precision highp float;
-  in float vA, vT; uniform vec3 uCol; uniform float uAlpha, uAmt; out vec4 o;
-  ${GLSL_PAGE_GRADIENT}
-  void main() { o = vec4(mix(uCol, gradientAt(vT), uAmt), vA * mix(uAlpha, 1.0, uAmt)); }`;       // in colour the rain itself takes the gradient (the letters stay as they are)
+  in float vA; uniform vec3 uCol; uniform float uAlpha; out vec4 o;
+  void main() { o = vec4(uCol, vA * uAlpha); }`;
 
   const prog = compile(gl, VS_TRI, FS);
   const sprog = compile(gl, SVS, SFS);
@@ -348,7 +350,7 @@ export async function mount(ctx) {
     pourK += ((wantPour ? 1 : 0) - pourK) * Math.min(1, dt * (wantPour ? 14 : 2.4));
     const hover = touched && (ctx.ptr.type === 'mouse' || wantPour);
     const demoOn = demo && P.demo && demoT < DEMO_LEN && !touched;
-    const rate = (hover || demoOn ? P.rate * (col ? 2.2 : 1) : 0) + P.pour * pourK * pourK;     // in colour there is more rain to see
+    const rate = (hover || demoOn ? P.rate : 0) + P.pour * pourK * pourK;
     if (rate > 0) {
       const T = pick(target.u, target.v), jit = P.spread + (P.pourSpread - P.spread) * pourK;
       acc += rate * dt;
@@ -400,23 +402,22 @@ export async function mount(ctx) {
     gl.uniform1f(u.uInk, P.ink); gl.uniform1f(u.uGloss, P.gloss); gl.uniform1f(u.uRag, P.ragged); gl.uniform1f(u.uGrain, P.grain); gl.uniform1f(u.uEdge, P.edge);
     gl.uniform3f(u.uL, Math.cos(lh) * Math.sin(lt), Math.sin(lh), Math.cos(lh) * Math.cos(lt));
     gl.uniform3fv(u.uX, cam.X); gl.uniform3fv(u.uU, cam.U); gl.uniform3fv(u.uF, cam.F);
-    gl.uniform3f(u.uBg, bg[0], bg[1], bg[2]); gl.uniform3f(u.uFg, fg[0], fg[1], fg[2]);
+    gl.uniform3f(u.uBg, bg[0], bg[1], bg[2]); gl.uniform3f(u.uFg, fg[0], fg[1], fg[2]); gl.uniform1f(u.uAmt, col ? col.amount : 0); gl.uniform3fv(u['uG[0]'], gUni);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     if (nd > 0) {
       for (let i = 0; i < nd; i++) {
-        const o = i * 8, sl = P.streakLen * (1 + 1.3 * (col ? col.amount : 0)), ex = dvx[i] / P.fall * sl, ey = dvy[i] / P.fall * sl, ez = dvz[i] / P.fall * sl;     // in colour the rain is longer
+        const o = i * 8, ex = dvx[i] / P.fall * P.streakLen, ey = dvy[i] / P.fall * P.streakLen, ez = dvz[i] / P.fall * P.streakLen;
         sdata[o] = dx[i]; sdata[o + 1] = dy[i]; sdata[o + 2] = dz[i]; sdata[o + 3] = 0.9;
         sdata[o + 4] = dx[i] - ex; sdata[o + 5] = dy[i] - ey; sdata[o + 6] = dz[i] - ez; sdata[o + 7] = 0;
       }
       sprog.use(); const su = sprog.u;
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.uniform3fv(su.uX, cam.X); gl.uniform3fv(su.uU, cam.U); gl.uniform1f(su.uA, A); gl.uniform1f(su.uZoom, P.zoom); gl.uniform2f(su.uPan, P.panX, P.panY + shiftY);
-      gl.uniform3fv(su.uCol, sc); gl.uniform1f(su.uAlpha, P.streakOpacity); gl.uniform1f(su.uAmt, col ? col.amount : 0); gl.uniform3fv(su['uG[0]'], gUni);
+      gl.uniform3fv(su.uCol, sc); gl.uniform1f(su.uAlpha, P.streakOpacity);
       gl.bindVertexArray(svao); gl.bindBuffer(gl.ARRAY_BUFFER, sbuf);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, sdata.subarray(0, nd * 8));
-      const wide = col && col.amount > 0.01 ? [-1, 0, 1] : [0];                       // in colour each streak is drawn three times, side by side: a line about 3 px wide
-      for (const dxp of wide) { gl.uniform2f(su.uOff, dxp * 2 / ctx.pw, 0); gl.drawArrays(gl.LINES, 0, nd * 2); }
+      gl.drawArrays(gl.LINES, 0, nd * 2);
       gl.bindVertexArray(null); gl.disable(gl.BLEND);
     }
   }

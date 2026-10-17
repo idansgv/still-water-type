@@ -125,7 +125,7 @@ test('gate: a coloured version exists, waits for a touch, and shows colour (ligh
     const colour = await page.evaluate(() => window.__poster.colour);
     console.log(`${p.slug} ${theme}: ${colour}, coloured pixels before ${(before * 100).toFixed(1)}% after ${(after * 100).toFixed(1)}%`);
     expect.soft(colour, `${p.slug}: no palette chosen`).toBeTruthy();
-    if (p.slug !== 'rain') expect.soft(before, `${p.slug} (${theme}): colour shows before any touch`).toBeLessThan(0.0015);   // (Rain's own rain falls from the start, in colour)
+    expect.soft(before, `${p.slug} (${theme}): colour shows before any touch`).toBeLessThan(0.0015);
     expect.soft(after, `${p.slug} (${theme}): the coloured version shows no colour after its wake-up`).toBeGreaterThan(0.0015);
     expect.soft(errs, `${p.slug} errors`).toEqual([]);
     page.removeAllListeners('console'); page.removeAllListeners('pageerror'); page.removeAllListeners('requestfailed'); page.removeAllListeners('response');
