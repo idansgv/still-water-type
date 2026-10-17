@@ -205,6 +205,16 @@ export const POSTERS = [
     load: () => import('./rain.js'),
   },
   {
+    slug: 'rain-color',
+    title: 'Rain color',
+    words: ['Idan', 'Segev'],
+    blurb: 'Rain, in colour. A test: the marks are a gradient, light or dark.',
+    hint: null,
+    themes: { dark: 0.5, light: 0.5 },
+    draft: true,
+    load: () => import('./rain-color.js'),
+  },
+  {
     slug: 'fontapalloza',
     colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
     title: 'Fontapalloza',
