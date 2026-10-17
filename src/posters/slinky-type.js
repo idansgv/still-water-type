@@ -32,7 +32,8 @@ export function mount(stage) {
   const ink = dark ? '#fff' : '#000', paper = dark ? '#000' : '#fff';
   stage.setBackdrop(dark ? 0 : 1);
   const offs = [];
-  const col = colourOf(stage);                                                          // in colour (about one showing in twenty): a letter that has dropped off and comes back is coloured
+  const col = colourOf(stage);                                                          // in colour (about one showing in twenty): the coils take the gradient, along their length (they only show once a letter is moving; the caps stay as they are)
+  if (col) col.wake();
   // How the rings are drawn (the physics is the same): 'line' is the wire as strokes; 'solid' fills each ring as a plate, shaded by how it faces the light. ?render=solid, or M to cycle.
   const RENDERERS = ['line', 'solid'], asked = new URLSearchParams(location.search).get('render');
   let render = RENDERERS.includes(asked) ? asked : 'line';
@@ -143,7 +144,7 @@ export function mount(stage) {
       for (let i = 0; i < L.ring.n; i++) { const hx = R * Math.abs(Math.cos(L.ring.a[i])) + rw; if (L.ring.x[i] < hx) { L.ring.x[i] = hx; if (L.ring.vx[i] < 0) L.ring.vx[i] = 0; } }   // the wall is solid: no ring goes behind it
       if (!(hand && hand.L === L)) restCheck(L); else L.q = 0;
       let top = -1e9; for (let i = 0; i < L.ring.n; i++) top = Math.max(top, L.ring.y[i]);
-      if (top < -R * 9) { poseWall(L); L.fade = 0; if (col) L.tint = col.css(1 - L.Y / wallH); }                                              // it has fallen off the screen: back on the wall
+      if (top < -R * 9) { poseWall(L); L.fade = 0;  }                                              // it has fallen off the screen: back on the wall
     }
   }
 
@@ -181,8 +182,8 @@ export function mount(stage) {
     for (const L of letters) L.open += ((L.awake || hand?.L === L ? 1 : 0) - L.open) * 0.22;   // pressed and held: a letter at rest hides its coil behind the cap; the moment it moves the coil shows
     for (const { L, i } of items) {
       if (i > 0 && L.open < 0.01) continue;                                         // squeezed behind the cap: nothing to see
-      const tone = L.tint || ink;                                                     // the letter that came back keeps its colour until the page changes
-      ctx.strokeStyle = tone;
+      const tone = ink;
+      ctx.strokeStyle = col && i > 0 ? col.css(i / Math.max(1, L.ring.n - 1)) : tone;       // a coil ring: its place along the spring picks its colour
       const a = L.ring.a[i], ux = Math.cos(a), uy = Math.sin(a), cx = L.ring.x[0] + (L.ring.x[i] - L.ring.x[0]) * L.open, cy = L.ring.y[0] + (L.ring.y[i] - L.ring.y[0]) * L.open;
       ctx.beginPath();
       for (const loop of (i === 0 ? L.cap : L.shape)) {

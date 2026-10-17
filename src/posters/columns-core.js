@@ -14,6 +14,7 @@ import { loadRapier, Sim } from './physics.js';
 import { perspective, ortho, lookAt, mul, invert, transformPoint } from './lib3d.js';
 import { SKELETON, ratio } from './lettering.js';
 import { compile } from '../engine.js';
+import { colourOf, GLSL_PAGE_GRADIENT } from '../colour.js';
 import { shatterBox } from './shatter.js';
 import { Dust } from './dust.js';
 import { glyphBoxes } from './glyph-boxes.js';
@@ -37,16 +38,18 @@ layout(location=2) in vec3 iPos;
 layout(location=3) in vec4 iQuat;
 layout(location=4) in vec3 iHalf;
 layout(location=5) in float iDmg;
+layout(location=6) in float iTint;
 uniform mat4 uVP;
 out vec3 vN;
 out float vTop;
 out float vDmg;
+out float vTint;
 vec3 rot(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
 void main() {
   vec3 p = rot(iQuat, aPos * iHalf) + iPos;
   vN = rot(iQuat, aNrm);
   vTop = aNrm.z > 0.9 ? 1.0 : 0.0;     // the face the letter is cut into, whichever way the column lies
-  vDmg = iDmg;
+  vDmg = iDmg; vTint = iTint;
   gl_Position = uVP * vec4(p, 1.0);
 }`;
 // the pieces of a shattered letter: free-form meshes, each vertex tagged with its piece, placed from a transform texture
@@ -59,8 +62,10 @@ uniform mat4 uVP;
 out vec3 vN;
 out float vTop;
 out float vDmg;
+out float vTint;
 vec3 rot(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
 void main() {
+  vTint = 0.0;
   int i = int(aShard + 0.5);
   int k = i * 2;
   vec4 a = texelFetch(uXf, ivec2(k % 2048, k / 2048), 0), q = texelFetch(uXf, ivec2((k + 1) % 2048, (k + 1) / 2048), 0);
@@ -76,16 +81,22 @@ precision highp float;
 in vec3 vN;
 in float vTop;
 in float vDmg;
+in float vTint;
 uniform float uFade;
 uniform float uFg;
 uniform float uBg;
+uniform float uAmt;
+uniform vec2 uRes;
 out vec4 o;
+${GLSL_PAGE_GRADIENT}
 void main() {
   vec3 n = normalize(vN);
   float lit = clamp(dot(n.xy, vec2(-0.6, 0.8)), 0.0, 1.0);
   float c = vTop > 0.5 ? (0.5 + 0.5 * clamp(n.z, 0.0, 1.0)) * (1.0 - 0.5 * vDmg) : (0.1 + 0.22 * clamp(n.z, 0.0, 1.0) + 0.3 * lit) * (1.0 - 0.3 * vDmg);
   c = clamp(c, 0.0, 1.0);
-  o = vec4(vec3(mix(uBg, mix(uBg, uFg, c), uFade)), 1.0);
+  vec3 base = vec3(mix(uBg, mix(uBg, uFg, c), uFade));
+  vec3 tinted = mix(vec3(uBg), mix(vec3(uBg), gradientAt(1.0 - gl_FragCoord.y / uRes.y), c), uFade);   // a column that has been touched: its ink is the gradient
+  o = vec4(mix(base, tinted, vTint * uAmt), 1.0);
 }`;
 
 function cubeMesh() {
@@ -117,10 +128,10 @@ export async function mountColumns(stage, mode) {
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
   const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cube.i, gl.STATIC_DRAW);
-  const inst = new Float32Array(MAX_INST * 11), instBuf = gl.createBuffer();
+  const inst = new Float32Array(MAX_INST * 12), instBuf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, instBuf); gl.bufferData(gl.ARRAY_BUFFER, inst.byteLength, gl.DYNAMIC_DRAW);
-  [[2, 3, 0], [3, 4, 12], [4, 3, 28], [5, 1, 40]].forEach(([loc, size, off]) => {
-    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 44, off); gl.vertexAttribDivisor(loc, 1);
+  [[2, 3, 0], [3, 4, 12], [4, 3, 28], [5, 1, 40], [6, 1, 44]].forEach(([loc, size, off]) => {
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 48, off); gl.vertexAttribDivisor(loc, 1);
   });
   gl.bindVertexArray(null);
 
@@ -586,8 +597,25 @@ export async function mountColumns(stage, mode) {
   }
 
   // ---------- drawing ----------
+  // Colour (Collapse only, about one showing in twenty): after the first press, a column that has been touched (it has moved from where it stood, or been hit) is drawn in the gradient and stays so; the rest stay black and white.
+  const col = EXPLODE ? null : colourOf(stage);
+  const gUni = col ? col.uniform() : new Float32Array(18);
+  if (col) offs.push(col.wakeOnPress());
+  function trackTouched() {
+    if (!col) return;
+    col.update(1 / 60);
+    if (!col.woke) return;
+    for (const b of solids) {
+      if (b.isShard || b.touched) continue;
+      const p = b.position, q = b.quaternion;
+      if (!b.rest) { b.rest = [p.x, p.y, p.z, q.x, q.y, q.z, q.w]; continue; }
+      const r = b.rest;
+      if (Math.abs(p.x - r[0]) + Math.abs(p.y - r[1]) + Math.abs(p.z - r[2]) > 0.03 || Math.abs(q.x - r[3]) + Math.abs(q.y - r[4]) + Math.abs(q.z - r[5]) + Math.abs(q.w - r[6]) > 0.02) b.touched = true;
+    }
+  }
   function draw() {
     camera(); const vp = VP;
+    trackTouched();
     let n = 0;
     for (const b of solids) {
       if (b.isShard) continue;
@@ -596,10 +624,10 @@ export async function mountColumns(stage, mode) {
         for (const f of b.drawn) {
           if (n >= MAX_INST) break;
           if (!f.cell.alive) continue;                               // that part has broken off
-          const o = n * 11, a = f.a / 2;
+          const o = n * 12, a = f.a / 2;
           inst[o] = b.position.x + f.x; inst[o + 1] = b.position.y + f.y; inst[o + 2] = b.position.z;
           inst[o + 3] = 0; inst[o + 4] = 0; inst[o + 5] = Math.sin(a); inst[o + 6] = Math.cos(a);
-          inst[o + 7] = f.hx; inst[o + 8] = f.hy; inst[o + 9] = colH / 2; inst[o + 10] = Math.min(0.9, f.cell.dmg);
+          inst[o + 7] = f.hx; inst[o + 8] = f.hy; inst[o + 9] = colH / 2; inst[o + 10] = Math.min(0.9, f.cell.dmg); inst[o + 11] = b.touched || f.cell.dmg > 0 ? 1 : 0;
           n++;
         }
         continue;
@@ -608,10 +636,10 @@ export async function mountColumns(stage, mode) {
         const q = b.quaternion;
         for (const f of b.fine) {
           if (n >= MAX_INST) break;
-          const v = qrot(q, { x: f.x, y: f.y, z: 0 }), o = n * 11;
+          const v = qrot(q, { x: f.x, y: f.y, z: 0 }), o = n * 12;
           inst[o] = b.position.x + v.x; inst[o + 1] = b.position.y + v.y; inst[o + 2] = b.position.z + v.z;
           inst[o + 3] = q.x; inst[o + 4] = q.y; inst[o + 5] = q.z; inst[o + 6] = q.w;
-          inst[o + 7] = f.hx; inst[o + 8] = f.hy; inst[o + 9] = colH / 2; inst[o + 10] = 0;
+          inst[o + 7] = f.hx; inst[o + 8] = f.hy; inst[o + 9] = colH / 2; inst[o + 10] = 0; inst[o + 11] = b.touched ? 1 : 0;
           n++;
         }
         continue;
@@ -619,10 +647,10 @@ export async function mountColumns(stage, mode) {
       for (let i = 0; i < b.shapes.length && n < MAX_INST; i++) {
         const sh = b.shapes[i];
         const qa = qmul(b.quaternion, b.shapeOrientations[i]), vv = qrot(b.quaternion, b.shapeOffsets[i]);
-        const o = n * 11;
+        const o = n * 12;
         inst[o] = b.position.x + vv.x; inst[o + 1] = b.position.y + vv.y; inst[o + 2] = b.position.z + vv.z;
         inst[o + 3] = qa.x; inst[o + 4] = qa.y; inst[o + 5] = qa.z; inst[o + 6] = qa.w;
-        inst[o + 7] = sh.halfExtents.x; inst[o + 8] = sh.halfExtents.y; inst[o + 9] = sh.halfExtents.z; inst[o + 10] = 0;
+        inst[o + 7] = sh.halfExtents.x; inst[o + 8] = sh.halfExtents.y; inst[o + 9] = sh.halfExtents.z; inst[o + 10] = 0; inst[o + 11] = b.touched ? 1 : 0;
         n++;
       }
     }
@@ -639,8 +667,9 @@ export async function mountColumns(stage, mode) {
       prog.use();
       gl.uniformMatrix4fv(prog.u.uVP, false, vp);
       gl.uniform1f(prog.u.uFade, fade); gl.uniform1f(prog.u.uFg, P.fg); gl.uniform1f(prog.u.uBg, P.bg);
+      gl.uniform1f(prog.u.uAmt, col ? col.amount : 0); gl.uniform2f(prog.u.uRes, stage.pw, stage.ph); gl.uniform3fv(prog.u['uG[0]'], gUni);
       gl.bindVertexArray(vao);
-      gl.bindBuffer(gl.ARRAY_BUFFER, instBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, inst, 0, n * 11);
+      gl.bindBuffer(gl.ARRAY_BUFFER, instBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, inst, 0, n * 12);
       gl.drawElementsInstanced(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0, n);
     }
     if (shardCount) {

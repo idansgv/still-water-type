@@ -54,6 +54,7 @@ export const POSTERS = [
   },
   {
     slug: 'collapse',
+    colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
     prompt: "The name \"Idan Segev\" as flat black-and-white type that is secretly a field of tall standing columns, seen straight down through an orthographic camera so only the tops show. Use a 3D rigid-body engine (Rapier, WASM) and render with WebGL. Columns are cut from the letter shapes as overlapping boxes. Tap a column and it is knocked over and falls onto its neighbours; drag one and it follows the pointer on a spring. At rest it must look like plain flat type.",
     title: 'Collapse',
     words: ['Idan', 'Segev'],
