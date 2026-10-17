@@ -1,0 +1,5 @@
+# Unravel (test)
+
+**Brief (Idan, 17 Oct 2026).** From the second round of ideas ("Let's try 4"): the name embroidered in a single continuous thread. Grab the loose end and pull, and the letters unstitch one stitch at a time, the thread trailing after your finger. Let go and it slowly stitches itself back. The bar it has to clear (after Pin screen was discarded): a moment of surprise and delight.
+
+**Test page:** source `docs/posters/prototypes/unravel.html` (Canvas 2D, no library). Each letter is satin-stitched, row after row, by one thread (the front stitches show, the returns run behind the cloth); a short loose end hangs off the last stitch of the V. The surprise is the zip: like a chain stitch, a short pull unzips a long stretch of seam (24 px of thread per px of pull by default), stitches popping out with a small puff, while the thread runs through your fingers so the stretch to the cloth stays taut. Let go and, after a beat, the seam closes again stitch by stitch from where it was pulled out. Settings: re-sew on or off, unzip ratio, re-sew speed, stitch density, thread weight, slant, colour easter egg.

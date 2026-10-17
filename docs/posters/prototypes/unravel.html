@@ -1,0 +1,239 @@
+<title>Unravel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the page is cloth; the name is embroidered in one thread with a loose end. A quiet foot line and a test-only settings sheet. */
+:root {
+  --bg: #ffffff; --ink: #000000; --dim: #707070; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(255, 255, 255, 0.96);
+  --display: "Archivo", "Arial Black", "Helvetica Neue", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000000; --ink: #ffffff; --dim: #8c8c8c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #000000; --ink: #ffffff; --dim: #8c8c8c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; flex-wrap: wrap; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="Idan Segev, embroidered in one thread with a loose end. Pull the end and the name unstitches; let go and it sews itself back."></canvas>
+<div class="foot"><span><b>Unravel</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row tog" for="resew"><span>Let go and it sews itself back</span><input type="checkbox" id="resew" checked></label>
+  <label class="row tog" for="colour"><span>Colour (the rare easter egg)</span><input type="checkbox" id="colour"></label>
+  <label class="row" for="dense"><span>Stitches (open ↔ dense satin)</span><output id="denseO"></output><input type="range" id="dense" min="2" max="9" step="0.25" value="3.5"></label>
+  <label class="row" for="thread"><span>Thread weight</span><output id="threadO"></output><input type="range" id="thread" min="0.6" max="3" step="0.1" value="1.3"></label>
+  <label class="row" for="slant"><span>Slant of the stitches</span><output id="slantO"></output><input type="range" id="slant" min="-1" max="1" step="0.05" value="0.35"></label>
+  <label class="row" for="zip"><span>How fast it unzips (thread per px of pull)</span><output id="zipO"></output><input type="range" id="zip" min="1" max="80" step="1" value="24"></label>
+  <label class="row" for="sew"><span>How fast it sews back</span><output id="sewO"></output><input type="range" id="sew" min="0.5" max="12" step="0.5" value="4"></label>
+  <div class="acts"><button id="again" type="button">Sew it back now</button><button id="copy" type="button">Copy settings</button></div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+  const P = { resew: true, colour: false, dense: 3.5, thread: 1.3, slant: 0.35, sew: 4, zip: 24 };
+  try { Object.assign(P, JSON.parse(localStorage.getItem('unravel') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('unravel', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const PAL = { dark: ['#2ee6ff', '#6fe0a0', '#d4f01a', '#ff4fe0', '#ff5a9a', '#ff6b5e'], light: ['#0a7fb5', '#0f9d8a', '#4a9a1a', '#c2185b', '#e0455a', '#e8652e'] };
+  let W = 1, H = 1, dpr = 1, page = '#fff', ink = '#000', dark = false;
+  const readTheme = () => { const cs = getComputedStyle(document.documentElement); page = cs.getPropertyValue('--bg').trim(); ink = cs.getPropertyValue('--ink').trim(); dark = page === '#000000'; };
+
+  // ---------- the thread ----------
+  // One thread, as a chain of nodes a few px apart. Every node has a home on the cloth. Some nodes are needle holes.
+  // A segment is on the front (seen) or the back (hidden) while it is sewn; once a stretch is pulled out, all of it is seen.
+  // Nodes before `sewn` are stitched in place; the rest are free (a rope you can pull). The last nodes are the loose end.
+  let N = 0, HX, HY, X, Y, PXo, PYo, REST, FRONT, HOLE, TONE, sewn = 0, holes = [];
+  const STEP = 5;
+  async function build() {
+    dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    try { await Promise.race([document.fonts.load('900 100px Archivo'), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* fallback */ }
+    const face = getComputedStyle(document.documentElement).getPropertyValue('--display');
+    const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    const m = document.createElement('canvas'); m.width = Math.ceil(W); m.height = Math.ceil(H); const x = m.getContext('2d', { willReadFrequently: true });
+    x.font = '900 100px ' + face; const widest = Math.max(...lines.map((l) => x.measureText(l).width));
+    const size = Math.min(W * 0.8 / widest * 100, H * (portrait ? 0.21 : 0.32));
+    x.font = '900 ' + size + 'px ' + face; x.textBaseline = 'alphabetic';
+    const lead = size * 0.95, top = H / 2 - (lines.length * lead) / 2 + size * 0.78 - H * 0.03;
+    // each letter on its own, so the thread can sew them one after another
+    const letters = [];
+    lines.forEach((l, li) => {
+      const lw = x.measureText(l).width; let cx = (W - lw) / 2;
+      for (const ch of l) { const cw = x.measureText(ch).width; letters.push({ ch, x: cx, y: top + li * lead, w: cw }); cx += cw; }
+    });
+    const pts = [];                                                   // [x, y, front?, hole?]
+    for (const L of letters) {
+      x.clearRect(0, 0, m.width, m.height); x.fillStyle = '#000'; x.fillText(L.ch, L.x, L.y);
+      const x0 = Math.max(0, Math.floor(L.x - 4)), x1 = Math.min(m.width, Math.ceil(L.x + L.w + 4)), y0 = Math.max(0, Math.floor(L.y - size)), y1 = Math.min(m.height, Math.ceil(L.y + size * 0.1));
+      const d = x.getImageData(x0, y0, x1 - x0, y1 - y0).data, ww = x1 - x0;
+      const inside = (px, py) => d[(py * ww + px) * 4 + 3] > 127;
+      // satin stitch: row after row across the letter; the stitch on the front crosses a span, the thread returns on the back to the next row
+      const slant = P.slant * P.dense * 1.6;
+      for (let ry = 1; ry < y1 - y0 - 1; ry += P.dense) {
+        const py = Math.round(ry); let s = -1;
+        for (let px = 0; px <= ww; px++) {
+          const on = px < ww && inside(px, py);
+          if (on && s < 0) s = px;
+          if (!on && s >= 0) { if (px - s > 1.5) { pts.push([x0 + s, y0 + py - slant / 2, 0, 1], [x0 + px, y0 + py + slant / 2, 1, 1]); } s = -1; }
+        }
+      }
+    }
+    // the loose end: a little tail of thread off the last stitch, lying on the cloth
+    const last = pts[pts.length - 1];
+    for (let i = 1; i <= 26; i++) { const a = 0.9 + i * 0.07; pts.push([last[0] + Math.cos(a) * i * 3.2 + i * 1.2, last[1] + Math.sin(a) * i * 3.0, 1, 0]); }
+    // walk the path into evenly spaced nodes; a segment is on the front if it belongs to a front stitch
+    const hx = [], hy = [], front = [], hole = [];
+    hx.push(pts[0][0]); hy.push(pts[0][1]); front.push(0); hole.push(1);
+    for (let k = 1; k < pts.length; k++) {
+      const [ax, ay] = pts[k - 1], [bx, by, fr, ho] = pts[k], len = Math.hypot(bx - ax, by - ay), n = Math.max(1, Math.round(len / STEP));
+      for (let j = 1; j <= n; j++) { hx.push(ax + (bx - ax) * j / n); hy.push(ay + (by - ay) * j / n); front.push(fr); hole.push(j === n ? ho : 0); }
+    }
+    N = hx.length;
+    HX = Float32Array.from(hx); HY = Float32Array.from(hy); X = HX.slice(); Y = HY.slice(); PXo = HX.slice(); PYo = HY.slice();
+    FRONT = Uint8Array.from(front); HOLE = Uint8Array.from(hole); REST = new Float32Array(N); TONE = new Float32Array(N);
+    for (let i = 1; i < N; i++) REST[i] = Math.hypot(HX[i] - HX[i - 1], HY[i] - HY[i - 1]);
+    holes = []; for (let i = 0; i < N; i++) if (HOLE[i]) holes.push(i);
+    sewn = holes[holes.length - 1] + 1;                               // everything up to the last hole is sewn; the tail is free
+    for (let i = 0; i < N; i++) TONE[i] = (HY[i] / H);
+    grab = null; g = -1; gone = Infinity; idle = 0;
+  }
+
+  // ---------- touch: take the thread (the loose end, or any loose stretch) and pull ----------
+  // Like a chain stitch: pull the right end and the whole seam unzips, far faster than you pull. The thread that has passed
+  // through your fingers is gone from view; a short tail still hangs beyond them.
+  const TAIL = 30;
+  let grab = null, g = -1, gone = Infinity, idle = 0, sparks = [], zipBudget = 0;
+  const visibleEnd = () => Math.min(N, gone);
+  const nearestFree = (px, py, r) => { let best = -1, bd = r * r; for (let i = sewn; i < visibleEnd(); i++) { const d = (X[i] - px) ** 2 + (Y[i] - py) ** 2; if (d < bd) { bd = d; best = i; } } return best; };
+  cv.addEventListener('pointerdown', (e) => {
+    const i = nearestFree(e.clientX, e.clientY, 34);
+    if (i >= 0) { grab = { x: e.clientX, y: e.clientY, px: e.clientX, py: e.clientY }; g = i; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } }
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (grab) { grab.x = e.clientX; grab.y = e.clientY; }
+    else cv.style.cursor = nearestFree(e.clientX, e.clientY, 34) >= 0 ? 'grab' : 'default';
+  });
+  const up = () => { if (grab) { gone = Math.min(N, g + TAIL); } grab = null; idle = 0; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+
+  const rope = (a, b) => { let L = 0; for (let i = a + 1; i <= b; i++) L += REST[i]; return L; };
+  const prevHoleBefore = (i) => { let lo = 0, hi = holes.length - 1, k = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (holes[m] < i) { k = m; lo = m + 1; } else hi = m - 1; } return k; };
+
+  // ---------- the frame ----------
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.033, (now - last) / 1000); last = now;
+    const lastHole = holes[holes.length - 1];
+    if (!grab) idle += dt;
+    if (grab) {
+      const moved = Math.hypot(grab.x - grab.px, grab.y - grab.py); grab.px = grab.x; grab.py = grab.y;
+      zipBudget = Math.min(zipBudget + moved * P.zip, 6000);
+      // taut against the last stitch: it pops, and the next, as long as the pull lasts
+      for (let guard = 0; guard < 400 && sewn > 1 && zipBudget > 0; guard++) {
+        const a = sewn - 1, d = Math.hypot(grab.x - X[a], grab.y - Y[a]);
+        if (d < rope(a, g) * 0.92) break;
+        const k = prevHoleBefore(sewn - 1), next = k >= 0 ? holes[k] + 1 : 1;
+        zipBudget -= rope(next - 1, sewn - 1);
+        sparks.push({ x: X[sewn - 1], y: Y[sewn - 1], t: 0 });
+        for (let i = next; i < sewn; i++) { PXo[i] = X[i]; PYo[i] = Y[i]; }
+        sewn = next;
+      }
+      // reel: the thread runs through your fingers, so the stretch to the cloth stays about as long as the pull
+      const d = Math.hypot(grab.x - X[sewn - 1], grab.y - Y[sewn - 1]);
+      while (g > sewn + 3 && rope(sewn - 1, g) > d * 1.02 + 6) g--;              // (taut, so the next pull pops the next stitch)
+      gone = Math.min(N, g + TAIL);
+    }
+    // sew it back: the seam closes again, stitch by stitch, from where it was pulled out
+    const resewing = !grab && P.resew && idle > 0.6 && sewn <= lastHole;
+    if (resewing) {
+      let budget = P.sew * 900 * dt;
+      while (budget > 0 && sewn <= lastHole) { budget -= REST[sewn] || STEP; X[sewn] = PXo[sewn] = HX[sewn]; Y[sewn] = PYo[sewn] = HY[sewn]; if (HOLE[sewn]) sparks.push({ x: X[sewn], y: Y[sewn], t: 0.18 }); sewn++; }
+      if (sewn > lastHole) { gone = Infinity; for (let i = sewn; i < N; i++) { X[i] = PXo[i] = HX[i]; Y[i] = PYo[i] = HY[i]; } }
+      else if (gone < N && sewn > gone - TAIL) {                       // the thread that went through your fingers comes back as the seam needs it
+        gone = Math.min(N, gone + 1); X[gone - 1] = PXo[gone - 1] = X[gone - 2]; Y[gone - 1] = PYo[gone - 1] = Y[gone - 2];
+      }
+    }
+    // the free stretch is a rope
+    const end = visibleEnd();
+    for (let i = sewn; i < end; i++) {
+      const vx = (X[i] - PXo[i]) * 0.9, vy = (Y[i] - PYo[i]) * 0.9;
+      PXo[i] = X[i]; PYo[i] = Y[i]; X[i] += vx; Y[i] += vy;
+      if (!grab && gone === Infinity && i > lastHole) { X[i] += (HX[i] - X[i]) * dt * 2; Y[i] += (HY[i] - Y[i]) * dt * 2; }   // the loose end settles back onto the cloth
+    }
+    if (grab) { X[g] = grab.x; Y[g] = grab.y; }
+    for (let it = 0; it < 14; it++) {
+      for (let i = Math.max(1, sewn); i < end; i++) {
+        const a = i - 1, dx = X[i] - X[a], dy = Y[i] - Y[a], d = Math.hypot(dx, dy) || 1e-6, diff = (d - REST[i]) / d;
+        const pa = a < sewn || (grab && a === g) ? 0 : 0.5, pb = grab && i === g ? 0 : 0.5;
+        const s = pa + pb || 1; X[a] += dx * diff * (pa / s); Y[a] += dy * diff * (pa / s); X[i] -= dx * diff * (pb / s); Y[i] -= dy * diff * (pb / s);
+      }
+    }
+    for (const sp of sparks) sp.t += dt; sparks = sparks.filter((sp) => sp.t < 0.35); if (sparks.length > 80) sparks.splice(0, sparks.length - 80);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = page; ctx.fillRect(0, 0, W, H);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = P.thread;
+    const pal = PAL[dark ? 'dark' : 'light'], col = (i) => (P.colour ? pal[Math.min(5, Math.floor(TONE[i] * 6))] : ink);
+    // the sewn part: only the stitches on the front show
+    ctx.strokeStyle = ink; ctx.beginPath();
+    for (let i = 1; i < sewn; i++) { if (!FRONT[i]) continue; if (!FRONT[i - 1] || HOLE[i - 1]) ctx.moveTo(X[i - 1], Y[i - 1]); ctx.lineTo(X[i], Y[i]); }
+    ctx.stroke();
+    // the free thread, lifted off the cloth
+    const end = visibleEnd();
+    if (sewn < end) {
+      ctx.lineWidth = P.thread * 1.15;
+      if (P.colour) { for (let i = Math.max(1, sewn); i < end; i++) { ctx.strokeStyle = col(i); ctx.beginPath(); ctx.moveTo(X[i - 1], Y[i - 1]); ctx.lineTo(X[i], Y[i]); ctx.stroke(); } }
+      else { ctx.strokeStyle = ink; ctx.beginPath(); ctx.moveTo(X[Math.max(0, sewn - 1)], Y[Math.max(0, sewn - 1)]); for (let i = sewn; i < end; i++) ctx.lineTo(X[i], Y[i]); ctx.stroke(); }
+    }
+    // a stitch popping out of the cloth: a tiny puff at the hole
+    ctx.lineWidth = 1; ctx.strokeStyle = ink;
+    for (const sp of sparks) { const u = sp.t / 0.35; ctx.globalAlpha = (1 - u) * 0.7; ctx.beginPath(); ctx.arc(sp.x, sp.y, 1.5 + u * 6, 0, 7); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---------- settings (for this test only) ----------
+  const fmt = { zip: (v) => '×' + v, dense: (v) => (+v).toFixed(2) + ' px', thread: (v) => (+v).toFixed(1) + ' px', slant: (v) => (+v).toFixed(2), sew: (v) => '×' + (+v).toFixed(1) };
+  for (const key of ['resew', 'colour']) { $(key).checked = !!P[key]; $(key).addEventListener('change', () => { P[key] = $(key).checked; save(); }); }
+  for (const key of Object.keys(fmt)) { $(key).value = P[key]; $(key + 'O').textContent = fmt[key](P[key]); $(key).addEventListener('input', () => { P[key] = +$(key).value; $(key + 'O').textContent = fmt[key](P[key]); save(); if (key === 'dense' || key === 'slant') rebuild(); }); }
+  $('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });
+  $('again').addEventListener('click', () => { idle = 9; const was = P.resew; P.resew = true; setTimeout(() => { P.resew = was; }, 20000); });
+  $('copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(JSON.stringify(P, null, 2)).then(() => { $('copy').textContent = 'Copied'; }, () => { $('copy').textContent = 'Copy blocked'; })
+      .finally(() => setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1600));
+  });
+  let rt = 0; const rebuild = () => { clearTimeout(rt); rt = setTimeout(build, 220); };
+  addEventListener('resize', rebuild);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+  new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  readTheme(); build().then(() => requestAnimationFrame(frame));
+  window.__unravel = { state: () => ({ N, sewn, holes: holes.length, tail: [X[N - 1], Y[N - 1]] }) };   // (for testing)
+})();
+</script>
