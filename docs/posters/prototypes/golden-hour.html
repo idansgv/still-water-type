@@ -1,0 +1,324 @@
+<title>Golden Hour</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one full-bleed room at golden hour; a quiet foot line and a test-only settings sheet. One visual world: a warm dark room. */
+:root {
+  --bg: #0d0906; --ink: #f3e3cc; --dim: #9a8670; --line: rgba(243, 227, 204, 0.16); --sheet: rgba(18, 12, 8, 0.94);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button, select { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+select { border: 1px solid var(--line); padding: 4px 6px; background: var(--bg); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; flex-wrap: wrap; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="A quiet room at golden hour: low sun comes in through a square window, a beam of light full of floating dust, a soft breeze."></canvas>
+<div class="foot"><span><b>Golden hour</b> &nbsp;a light study</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row" for="shape"><span>The window</span><select id="shape"><option value="square">A square, four panes</option><option value="open">A square, open</option><option value="letters">The name, cut out</option></select></label>
+  <label class="row tog" for="curtain"><span>A sheer curtain in the breeze</span><input type="checkbox" id="curtain" checked></label>
+  <label class="row" for="sun"><span>How low the sun is</span><output id="sunO"></output><input type="range" id="sun" min="6" max="50" step="1" value="27"></label>
+  <label class="row" for="beam"><span>Strength of the light</span><output id="beamO"></output><input type="range" id="beam" min="0.2" max="3" step="0.05" value="1.2"></label>
+  <label class="row" for="haze"><span>Haze in the air</span><output id="hazeO"></output><input type="range" id="haze" min="0" max="3" step="0.05" value="1"></label>
+  <label class="row" for="dust"><span>Dust</span><output id="dustO"></output><input type="range" id="dust" min="0" max="3" step="0.05" value="1"></label>
+  <label class="row" for="breeze"><span>Breeze</span><output id="breezeO"></output><input type="range" id="breeze" min="0" max="3" step="0.05" value="1"></label>
+  <label class="row" for="grain"><span>Film grain</span><output id="grainO"></output><input type="range" id="grain" min="0" max="2" step="0.05" value="1"></label>
+  <div class="acts"><button id="copy" type="button">Copy settings</button></div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c');
+  const gl = cv.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false });
+  if (!gl) { document.querySelector('.foot span').textContent = 'This needs WebGL2.'; return; }
+  const $ = (id) => document.getElementById(id);
+  const P = { shape: 'square', curtain: true, sun: 27, beam: 1.2, haze: 1, dust: 1, breeze: 1, grain: 1 };
+  try { Object.assign(P, JSON.parse(localStorage.getItem('golden') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('golden', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------- the room (metres): x across, y up, z toward the camera. The window is in the left wall (x = -3). ----------
+  const ROOM_MIN = [-3, 0, -5.5], ROOM_MAX = [3, 3, 2.6];
+  const COMMON = `
+  uniform vec3 uL;                 // toward the sun
+  uniform vec4 uWin;               // window: centre z, centre y, width (along z), height
+  uniform sampler2D uMask;         // how much light the window lets through (1 open, 0 wall, mullions, curtain)
+  uniform float uPen;              // penumbra: how fast the edges of the light soften with distance from the window
+  // how much sun reaches point p through the window (soft edges grow with the distance from the window)
+  float sunAt(vec3 p) {
+    if (uL.x >= -1e-3 || p.x <= -2.999) return 0.0;
+    float t = (-3.0 - p.x) / uL.x;                       // distance toward the sun to the window plane
+    vec3 q = p + uL * t;
+    vec2 uv = vec2((uWin.x + uWin.z * 0.5 - q.z) / uWin.z, (q.y - (uWin.y - uWin.w * 0.5)) / uWin.w);
+    if (uv.x < -0.05 || uv.x > 1.05 || uv.y < -0.05 || uv.y > 1.05) return 0.0;
+    return textureLod(uMask, uv, clamp(log2(1.0 + t * uPen), 0.0, 6.0)).r;
+  }
+  float hash13(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
+  float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(hash13(i), hash13(i + vec3(1, 0, 0)), f.x), mix(hash13(i + vec3(0, 1, 0)), hash13(i + vec3(1, 1, 0)), f.x), f.y),
+               mix(mix(hash13(i + vec3(0, 0, 1)), hash13(i + vec3(1, 0, 1)), f.x), mix(hash13(i + vec3(0, 1, 1)), hash13(i + vec3(1, 1, 1)), f.x), f.y), f.z); }
+  `;
+  const VS = `#version 300 es
+  out vec2 vUv; void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); vUv = p; gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+  const FS = `#version 300 es
+  precision highp float;
+  in vec2 vUv; out vec4 o;
+  uniform vec3 uCam, uFwd, uRight, uUp; uniform float uFov, uAspect, uTime, uHaze, uBeam, uGrain, uWind;
+  uniform vec3 uRoomMin, uRoomMax;
+  ${COMMON}
+  const vec3 SUN = vec3(1.0, 0.66, 0.36);
+  float hg(float c, float g) { float g2 = g * g; return (1.0 - g2) / (4.0 * 3.14159 * pow(1.0 + g2 - 2.0 * g * c, 1.5)); }
+  vec3 surface(vec3 p, vec3 n, vec3 rd) {
+    // the window itself, seen from inside: bright sky, the sun burning near its direction
+    if (n.x > 0.5) {
+      vec2 uv = vec2((uWin.x + uWin.z * 0.5 - p.z) / uWin.z, (p.y - (uWin.y - uWin.w * 0.5)) / uWin.w);
+      if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) {
+        float open = texture(uMask, uv).r;
+        vec3 sky = mix(vec3(1.0, 0.62, 0.36), vec3(1.0, 0.86, 0.62), uv.y) * 7.0 + SUN * pow(max(dot(rd, uL), 0.0), 60.0) * 60.0;
+        vec3 wall = vec3(0.12, 0.08, 0.05);
+        return mix(wall, sky, open);
+      }
+    }
+    vec3 alb = vec3(0.72, 0.62, 0.52);                                     // plaster
+    if (n.y > 0.5) {                                                       // floor: wide boards
+      float board = floor(p.x * 3.2), grainW = vnoise(vec3(p.x * 40.0, board * 7.0, p.z * 1.4));
+      alb = mix(vec3(0.42, 0.27, 0.16), vec3(0.55, 0.37, 0.22), hash13(vec3(board, 1.0, 2.0))) * (0.82 + 0.3 * grainW);
+      alb *= 1.0 - 0.35 * smoothstep(0.03, 0.0, abs(fract(p.x * 3.2) - 0.0));
+    } else alb *= 0.9 + 0.16 * vnoise(p * 9.0);
+    float direct = sunAt(p + n * 0.002) * max(dot(n, uL), 0.0) * 6.0 * uBeam;
+    // light bounced off the bright patch on the floor fills the room a little, warmer near it
+    float reach = (uWin.y - 0.2) / max(uL.y, 0.05); vec3 patchC = vec3(-3.0, 0.0, uWin.x) - vec3(uL.x, 0.0, uL.z) * reach; float patchD = length(p - patchC);   // the bright patch on the floor lights the room
+    vec3 bounce = vec3(0.5, 0.3, 0.16) * (0.16 + 0.9 / (1.0 + patchD * patchD * 0.35)) * uBeam;
+    return alb * (SUN * direct + bounce);
+  }
+  void main() {
+    vec2 sp = (vUv * 2.0 - 1.0) * vec2(uAspect, 1.0) * tan(uFov * 0.5);
+    vec3 rd = normalize(uFwd + uRight * sp.x + uUp * sp.y), ro = uCam;
+    // the wall the ray meets (from inside the box)
+    vec3 tA = (uRoomMin - ro) / rd, tB = (uRoomMax - ro) / rd, tf = max(tA, tB);
+    float tHit = min(min(tf.x, tf.y), tf.z);
+    vec3 n = tHit == tf.x ? vec3(-sign(rd.x), 0.0, 0.0) : tHit == tf.y ? vec3(0.0, -sign(rd.y), 0.0) : vec3(0.0, 0.0, -sign(rd.z));
+    vec3 col = surface(ro + rd * tHit, n, rd);
+    // the air: march to the wall, gathering the sunlight the haze sends back toward you
+    const int STEPS = 64;
+    float dt = tHit / float(STEPS), jitter = fract(sin(dot(gl_FragCoord.xy + uTime * 61.0, vec2(12.9898, 78.233))) * 43758.5453);
+    float trans = 1.0; vec3 scat = vec3(0.0);
+    float phase = hg(dot(rd, uL), 0.62) * 2.2 + 0.08;
+    vec3 wind = vec3(0.32, 0.02, 0.08) * uTime * (0.3 + uWind * 0.5);
+    for (int i = 0; i < STEPS; i++) {
+      vec3 p = ro + rd * (float(i) + jitter) * dt;
+      float lit = sunAt(p);
+      float d = 0.012 + 0.03 * uHaze * (0.45 + 0.9 * vnoise(p * 1.6 - wind) * vnoise(p * 4.1 - wind * 1.7));
+      if (lit > 0.001) scat += trans * d * dt * lit * SUN * 38.0 * uBeam * phase;
+      scat += trans * d * dt * vec3(0.05, 0.03, 0.02) * uBeam;          // the faint warm glow of the whole room's air
+      trans *= exp(-d * dt * 0.6);
+    }
+    col = col * trans + scat;
+    // film: exposure, a warm grade, a soft vignette, grain
+    col = vec3(1.0) - exp(-col * 1.45);
+    col = pow(col, vec3(0.95, 1.0, 1.08));
+    float vig = smoothstep(1.35, 0.35, length((vUv - 0.5) * vec2(uAspect, 1.0)));
+    col *= mix(0.55, 1.0, vig);
+    float g = fract(sin(dot(gl_FragCoord.xy + fract(uTime * 7.3) * 113.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+    col += g * 0.045 * uGrain;
+    o = vec4(col, 1.0);
+  }`;
+  // dust: points in the room, bright only where the beam catches them; near and far ones are out of focus
+  const DVS = `#version 300 es
+  precision highp float;
+  layout(location=0) in vec4 aP;     // position, size seed
+  uniform mat4 uVP; uniform vec3 uCam; uniform float uPx, uBeam;
+  ${COMMON}
+  out float vB; out float vBlur;
+  void main() {
+    vec4 c = uVP * vec4(aP.xyz, 1.0); gl_Position = c;
+    float dist = length(aP.xyz - uCam), blur = clamp(abs(dist - 2.6) * 0.55, 0.0, 2.2);   // focus about 2.6 m away
+    float lit = sunAt(aP.xyz);
+    vec3 v = normalize(aP.xyz - uCam);
+    float glint = 0.6 + 1.6 * pow(max(dot(v, uL), 0.0), 3.0);           // dust shines most when you look toward the sun through it
+    vB = lit * glint * uBeam * (1.0 + 1.6 * aP.w) / (1.0 + blur * blur * 1.6) + 0.008;
+    vBlur = blur;
+    gl_PointSize = (1.5 + aP.w * 1.6 + blur * 7.0) * uPx / max(c.w, 0.4);
+  }`;
+  const DFS = `#version 300 es
+  precision highp float;
+  in float vB; in float vBlur; out vec4 o;
+  void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float r = dot(q, q); if (r > 1.0) discard;
+    float a = vBlur > 0.6 ? smoothstep(1.0, 0.75, r) * 0.9 : exp(-r * 3.0);   // a near mote is a soft disc (bokeh), a mote in focus a point
+    o = vec4(vec3(1.0, 0.78, 0.5) * vB * a, 1.0); }`;
+  const mk = (vs, fs) => { const p = gl.createProgram(); for (const [t, s] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); gl.attachShader(p, x); } gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); const c = {}; return { p, u: (n) => c[n] ?? (c[n] = gl.getUniformLocation(p, n)) }; };
+  const pRoom = mk(VS, FS), pDust = mk(DVS, DFS);
+  const vaoRoom = gl.createVertexArray();
+
+  // ---------- the window's mask: panes, an open square, or the name ----------
+  const MW = 512, mask = document.createElement('canvas'); mask.width = MW; mask.height = MW;
+  const mctx = mask.getContext('2d');
+  const maskTex = gl.createTexture();
+  let win = [-2.2, 1.75, 1.35, 1.35];
+  function drawMask(t) {
+    const x = mctx; x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = '#000'; x.fillRect(0, 0, MW, MW);
+    x.fillStyle = '#fff';
+    if (P.shape === 'letters') {
+      win = [-2.2, 1.6, 2.6, 1.3];
+      x.font = '900 220px Archivo, "Arial Black", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.save(); x.translate(MW / 2, MW / 2); x.scale(0.5, 1);                      // the window is twice as wide as it is tall: draw the name squeezed, so it lands true
+      x.fillText('IDAN', 0, -66); x.fillText('SEGEV', 0, 66); x.restore();
+    } else {
+      win = [-2.2, 1.75, 1.35, 1.35];
+      x.fillRect(0, 0, MW, MW);
+      if (P.shape === 'square') { x.fillStyle = '#000'; const b = MW * 0.035; x.fillRect(MW / 2 - b / 2, 0, b, MW); x.fillRect(0, MW / 2 - b / 2, MW, b); x.lineWidth = b * 0.9; x.strokeRect(0, 0, MW, MW); }
+    }
+    if (P.curtain) {                                                       // a sheer curtain drawn to one side, its edge swaying with the breeze: it lets half the light through, in folds
+      const sway = breezeNow * 0.07 + Math.sin(t * 0.7) * 0.012, edge = MW * (0.7 - sway);
+      x.globalCompositeOperation = 'multiply';
+      for (let px = Math.floor(edge - 40); px < MW; px++) {
+        const fold = 0.5 + 0.18 * Math.sin(px * 0.09 + t * 1.3 + Math.sin(px * 0.021 + t) * 2), soft = Math.min(1, Math.max(0, (px - edge + 40) / 40));
+        const v = Math.round(255 * (1 - soft * (1 - fold)));
+        x.fillStyle = `rgb(${v},${v},${v})`; x.fillRect(MW - px - 1, 0, 1, MW);   // (the mask's u runs the other way from the room's z)
+      }
+      x.globalCompositeOperation = 'source-over';
+    }
+    gl.bindTexture(gl.TEXTURE_2D, maskTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, mask);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+
+  // ---------- dust ----------
+  const ND = 2600;
+  const D = new Float32Array(ND * 4), DV = new Float32Array(ND * 3);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  for (let i = 0; i < ND; i++) { D[i * 4] = rnd(-2.9, 2.9); D[i * 4 + 1] = rnd(0.05, 2.95); D[i * 4 + 2] = rnd(-5.4, 2.0); D[i * 4 + 3] = Math.random() ** 3; }
+  const dustBuf = gl.createBuffer(), vaoDust = gl.createVertexArray();
+  gl.bindVertexArray(vaoDust); gl.bindBuffer(gl.ARRAY_BUFFER, dustBuf); gl.bufferData(gl.ARRAY_BUFFER, D.byteLength, gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0); gl.bindVertexArray(null);
+  const n3 = (x, y, z) => Math.sin(x * 1.7 + Math.sin(y * 2.3 + z)) * Math.cos(z * 1.3 + Math.sin(x * 1.1));   // a cheap smooth field for the air's slow swirl
+
+  // ---------- the camera: a lazy handheld drift, and it leans a little toward your pointer ----------
+  const cam = { pos: [0.9, 1.45, 2.0], look: [-1.6, 1.05, -2.6], px: 0, py: 0, tx: 0, ty: 0 };
+  let stir = null;
+  cv.addEventListener('pointermove', (e) => {
+    cam.tx = (e.clientX / innerWidth - 0.5) * 2; cam.ty = (e.clientY / innerHeight - 0.5) * 2;
+    const now = performance.now(); if (stir) { stir.vx = (e.clientX - stir.x) / Math.max(8, now - stir.t); stir.vy = (e.clientY - stir.y) / Math.max(8, now - stir.t); }
+    stir = { x: e.clientX, y: e.clientY, t: now, vx: stir ? stir.vx : 0, vy: stir ? stir.vy : 0 };
+  });
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const norm = (a) => { const l = Math.hypot(...a); return a.map((v) => v / l); };
+
+  let W = 1, H = 1, scale = 0.6, breezeNow = 0, gust = 0, nextGust = 4;
+  function resize() {
+    W = innerWidth; H = innerHeight;
+    scale = Math.min(1, (devicePixelRatio > 1.5 ? 0.55 : 0.75) * Math.sqrt(1600 * 1000 / (W * H * Math.min(2, devicePixelRatio || 1)))) * Math.min(2, devicePixelRatio || 1);
+    cv.width = Math.round(W * scale); cv.height = Math.round(H * scale);
+  }
+  resize(); addEventListener('resize', resize);
+
+  let t0 = performance.now(), T = 0, maskT = 0;
+  function frame(now) {
+    const dt = Math.min(0.05, (now - t0) / 1000); t0 = now; T += reduced ? dt * 0.2 : dt;
+    // the breeze: lazy gusts every so often, easing in and out
+    if ((nextGust -= dt) < 0) { gust = 0.6 + Math.random() * 0.8; nextGust = 6 + Math.random() * 8; }
+    gust *= Math.exp(-dt * 0.45); breezeNow += ((P.breeze * (0.15 + gust)) - breezeNow) * Math.min(1, dt * 1.2);
+    if ((maskT -= dt) < 0 && P.curtain) { drawMask(T); maskT = 1 / 20; }
+    // camera
+    cam.px += (cam.tx - cam.px) * Math.min(1, dt * 1.5); cam.py += (cam.ty - cam.py) * Math.min(1, dt * 1.5);
+    const sway = reduced ? 0 : 1;
+    const pos = [cam.pos[0] - cam.px * 0.25 + Math.sin(T * 0.21) * 0.03 * sway, cam.pos[1] - cam.py * 0.12 + Math.sin(T * 0.33) * 0.02 * sway, cam.pos[2]];
+    const fwd = norm(sub(cam.look, pos)), right = norm(cross(fwd, [0, 1, 0])), up = cross(right, fwd);
+    const fov = 58 * Math.PI / 180, aspect = W / H;
+    // sun: low in the west, beyond the window
+    const elev = P.sun * Math.PI / 180, az = 0.42;
+    const L = norm([-Math.cos(elev) * Math.cos(az), Math.sin(elev), Math.cos(elev) * Math.sin(az)]);
+    // dust: drifting in the slow swirl of warm air, carried by the breeze from the window, stirred where your pointer passes
+    const f = Math.tan(fov / 2);
+    for (let i = 0; i < ND; i++) {
+      const o = i * 4; let x = D[o], y = D[o + 1], z = D[o + 2];
+      const ax = n3(y * 0.7 + T * 0.05, z * 0.7, x * 0.7) * 0.012 + breezeNow * 0.02 * Math.exp(-(x + 3) * 0.35);
+      const ay = n3(z * 0.8 + 3.1, x * 0.8 - T * 0.04, y * 0.8) * 0.01 - 0.0012;
+      const az2 = n3(x * 0.6 - 1.7, y * 0.6, z * 0.6 + T * 0.03) * 0.012 + breezeNow * 0.006;
+      DV[i * 3] = DV[i * 3] * 0.96 + ax * dt * 6; DV[i * 3 + 1] = DV[i * 3 + 1] * 0.96 + ay * dt * 6; DV[i * 3 + 2] = DV[i * 3 + 2] * 0.96 + az2 * dt * 6;
+      if (stir && now - stir.t < 120) {                                      // a hand through the beam: motes near the pointer's line of sight are pushed along
+        const rel = sub([x, y, z], pos), dz = rel[0] * fwd[0] + rel[1] * fwd[1] + rel[2] * fwd[2];
+        if (dz > 0.3) {
+          const sx = (rel[0] * right[0] + rel[1] * right[1] + rel[2] * right[2]) / (dz * f * aspect), sy = (rel[0] * up[0] + rel[1] * up[1] + rel[2] * up[2]) / (dz * f);
+          const qx = (stir.x / W) * 2 - 1, qy = 1 - (stir.y / H) * 2, d2 = (sx - qx) ** 2 + (sy - qy) ** 2;
+          if (d2 < 0.02) { const k = (1 - d2 / 0.02) * 0.02; DV[i * 3] += (right[0] * stir.vx - up[0] * stir.vy) * k; DV[i * 3 + 1] += (right[1] * stir.vx - up[1] * stir.vy) * k; DV[i * 3 + 2] += (right[2] * stir.vx - up[2] * stir.vy) * k; }
+        }
+      }
+      x += DV[i * 3] * dt * 6; y += DV[i * 3 + 1] * dt * 6; z += DV[i * 3 + 2] * dt * 6;
+      if (x > 2.95) x = -2.9; if (x < -2.95) x = 2.9; if (y < 0.02) y = 2.95; if (y > 2.98) y = 0.05; if (z < -5.45) z = 2.4; if (z > 2.5) z = -5.4;
+      D[o] = x; D[o + 1] = y; D[o + 2] = z;
+    }
+    // room
+    gl.viewport(0, 0, cv.width, cv.height); gl.disable(gl.BLEND);
+    gl.useProgram(pRoom.p); gl.bindVertexArray(vaoRoom);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, maskTex); gl.uniform1i(pRoom.u('uMask'), 0);
+    gl.uniform3fv(pRoom.u('uCam'), pos); gl.uniform3fv(pRoom.u('uFwd'), fwd); gl.uniform3fv(pRoom.u('uRight'), right); gl.uniform3fv(pRoom.u('uUp'), up);
+    gl.uniform1f(pRoom.u('uFov'), fov); gl.uniform1f(pRoom.u('uAspect'), aspect); gl.uniform1f(pRoom.u('uTime'), T);
+    gl.uniform1f(pRoom.u('uHaze'), P.haze); gl.uniform1f(pRoom.u('uBeam'), P.beam); gl.uniform1f(pRoom.u('uGrain'), P.grain); gl.uniform1f(pRoom.u('uWind'), breezeNow);
+    gl.uniform3fv(pRoom.u('uRoomMin'), ROOM_MIN); gl.uniform3fv(pRoom.u('uRoomMax'), ROOM_MAX);
+    gl.uniform3fv(pRoom.u('uL'), L); gl.uniform4fv(pRoom.u('uWin'), win); gl.uniform1f(pRoom.u('uPen'), 9);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // dust, added on top
+    if (P.dust > 0) {
+      const proj = (() => { const n = 0.05, fa = 30, ff = 1 / Math.tan(fov / 2); return [ff / aspect, 0, 0, 0, 0, ff, 0, 0, 0, 0, (fa + n) / (n - fa), -1, 0, 0, 2 * fa * n / (n - fa), 0]; })();
+      const view = [right[0], up[0], -fwd[0], 0, right[1], up[1], -fwd[1], 0, right[2], up[2], -fwd[2], 0,
+        -(right[0] * pos[0] + right[1] * pos[1] + right[2] * pos[2]), -(up[0] * pos[0] + up[1] * pos[1] + up[2] * pos[2]), fwd[0] * pos[0] + fwd[1] * pos[1] + fwd[2] * pos[2], 1];
+      const vp = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += proj[k * 4 + r] * view[c * 4 + k]; vp[c * 4 + r] = s; }
+      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+      gl.useProgram(pDust.p); gl.bindVertexArray(vaoDust);
+      gl.bindBuffer(gl.ARRAY_BUFFER, dustBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, D);
+      gl.uniformMatrix4fv(pDust.u('uVP'), false, vp); gl.uniform3fv(pDust.u('uCam'), pos); gl.uniform1f(pDust.u('uPx'), cv.height / 700 * 1.3);
+      gl.uniform1f(pDust.u('uBeam'), P.beam * P.dust);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, maskTex); gl.uniform1i(pDust.u('uMask'), 0);
+      gl.uniform3fv(pDust.u('uL'), L); gl.uniform4fv(pDust.u('uWin'), win); gl.uniform1f(pDust.u('uPen'), 9);
+      gl.drawArrays(gl.POINTS, 0, Math.round(ND * Math.min(1, P.dust)));
+      gl.bindVertexArray(null);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- settings (for this test only) ----------
+  const fmt = { sun: (v) => v + '°', beam: (v) => '×' + (+v).toFixed(2), haze: (v) => '×' + (+v).toFixed(2), dust: (v) => '×' + (+v).toFixed(2), breeze: (v) => '×' + (+v).toFixed(2), grain: (v) => '×' + (+v).toFixed(2) };
+  $('shape').value = P.shape; $('shape').addEventListener('change', () => { P.shape = $('shape').value; save(); drawMask(T); });
+  $('curtain').checked = P.curtain; $('curtain').addEventListener('change', () => { P.curtain = $('curtain').checked; save(); drawMask(T); });
+  for (const key of Object.keys(fmt)) { $(key).value = P[key]; $(key + 'O').textContent = fmt[key](P[key]); $(key).addEventListener('input', () => { P[key] = +$(key).value; $(key + 'O').textContent = fmt[key](P[key]); save(); }); }
+  $('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });
+  $('copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(JSON.stringify(P, null, 2)).then(() => { $('copy').textContent = 'Copied'; }, () => { $('copy').textContent = 'Copy blocked'; })
+      .finally(() => setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1600));
+  });
+  (async () => {
+    try { await Promise.race([document.fonts.load('900 100px Archivo'), new Promise((r) => setTimeout(r, 2000))]); } catch (e) { /* fallback */ }
+    drawMask(0); requestAnimationFrame(frame);
+  })();
+})();
+</script>
