@@ -8,3 +8,7 @@ Files in use: `leida-font-family-1761628710-0/` (Still Water), `GT-Pantheon/` (C
 
 The live Still Water uses **Bitter** (open licence, Google Fonts); Leida is used first only where these local files exist.
 
+
+## Offline copies of the open fonts (14 to 17 Oct 2026)
+
+`assets/fonts/offline/` holds local copies of the open-licence Google fonts the site uses (Bungee Inline for Slinky type, Archivo, IBM Plex Mono and Sans), so the posters look the same with no connection. `src/local-fonts.js` loads them on localhost only (the live site keeps using Google Fonts and never asks for these files). Folder is git-ignored; on a new machine run `node tools/fetch-offline-fonts.mjs` once while online, then check with `NODE_PATH=$(npm root -g) node tools/offline-check.cjs slinky-type`.

@@ -10,5 +10,17 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/p/jazz-fan/",
+      "destination": "/p/fan/",
+      "permanent": true
+    },
+    {
+      "source": "/p/fan-color/",
+      "destination": "/p/fan/",
+      "permanent": true
+    }
   ]
 }

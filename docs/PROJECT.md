@@ -92,6 +92,8 @@ A poster exports `mount(ctx)` (it may be async) and returns `{ destroy(), tune?,
 
 `/?p=<slug>` forces a poster; `&theme=light|dark` forces a theme; `#s=<seed>` replays a random variation; `?tune` shows the settings panel; `?debug` shows poster errors as an on-screen toast; `?live` makes Still Water mirror a local Wordflow3d server (off by default, because a public page reaching for localhost can trigger Chrome's local-network prompt).
 
+**Working offline.** `python3 tools/dev.py` needs nothing from the network once the open fonts are local: run `node tools/fetch-offline-fonts.mjs` once while online (saves them to `assets/fonts/offline/`, git-ignored; `src/local-fonts.js` loads them on localhost), and check with `NODE_PATH=$(npm root -g) node tools/offline-check.cjs <slug>` (blocks every non-localhost request and checks the fonts). Commits work offline; pushing and the live check need a connection.
+
 ## 8. Development and testing
 
 - Local preview: `python3 tools/dev.py 8910` (a no-cache server; plain `http.server` lets browsers keep stale ES modules). `file://` does not work with ES modules. Even with no-cache, Chrome can reuse an imported module from memory within a tab: hard-reload (Cmd+Shift+R) if an edit does not show.
