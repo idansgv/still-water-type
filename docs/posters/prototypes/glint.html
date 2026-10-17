@@ -1,0 +1,225 @@
+<title>Glint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one full-bleed night poster; a quiet mono line at the foot; a settings sheet for this test only. One visual world: black. */
+:root {
+  --bg: #000000; --ink: #ffffff; --dim: #7c7c7c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96);
+  --display: "Archivo", "Arial Black", "Helvetica Neue", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="Idan Segev, in black on black, seen only where a small lamp catches the edges of the letters."></canvas>
+<div class="foot"><span><b>Glint</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row tog" for="colour"><span>Colour (the rare easter egg)</span><input type="checkbox" id="colour"></label>
+  <label class="row" for="haze"><span>Light in the air (beams)</span><output id="hazeO"></output><input type="range" id="haze" min="0" max="2" step="0.02" value="0.45"></label>
+  <label class="row" for="height"><span>Lamp height (low: grazing)</span><output id="heightO"></output><input type="range" id="height" min="20" max="400" step="5" value="80"></label>
+  <label class="row" for="reach"><span>How far the lamp reaches</span><output id="reachO"></output><input type="range" id="reach" min="300" max="2400" step="20" value="1150"></label>
+  <label class="row" for="sharp"><span>Glint (soft ↔ sharp)</span><output id="sharpO"></output><input type="range" id="sharp" min="4" max="120" step="1" value="28"></label>
+  <label class="row" for="bloom"><span>Bloom</span><output id="bloomO"></output><input type="range" id="bloom" min="0" max="3" step="0.05" value="1.4"></label>
+  <label class="row" for="bevel"><span>Bevel width</span><output id="bevelO"></output><input type="range" id="bevel" min="2" max="24" step="1" value="8"></label>
+  <label class="row" for="face"><span>The face, seen at all</span><output id="faceO"></output><input type="range" id="face" min="0" max="0.12" step="0.002" value="0.01"></label>
+  <div class="acts"><button id="copy" type="button">Copy settings</button></div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c');
+  const gl = cv.getContext('webgl2', { antialias: false, alpha: false });
+  if (!gl) { document.querySelector('.foot span').textContent = 'This needs WebGL2.'; return; }
+  const $ = (id) => document.getElementById(id);
+  const P = { colour: false, haze: 0.45, height: 80, reach: 1150, sharp: 28, bloom: 1.4, bevel: 8, face: 0.01 };
+  try { Object.assign(P, JSON.parse(localStorage.getItem('glint') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('glint', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const VS = `#version 300 es
+  out vec2 uv; void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); uv = p; gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+  // the light: a small lamp low over a bevelled black slab, seen from straight above
+  const LIGHT = `#version 300 es
+  precision highp float;
+  in vec2 uv; uniform sampler2D uH; uniform vec2 uCss, uTex; uniform vec3 uLamp; uniform float uSharp, uReach, uFace, uDepth;
+  out vec4 o;
+  void main() {
+    float h = texture(uH, uv).r;
+    float hx = texture(uH, uv + vec2(uTex.x, 0.0)).r - texture(uH, uv - vec2(uTex.x, 0.0)).r;
+    float hy = texture(uH, uv + vec2(0.0, uTex.y)).r - texture(uH, uv - vec2(0.0, uTex.y)).r;
+    float mask = step(0.002, texture(uH, uv).g);
+    vec2 px = vec2(uv.x, 1.0 - uv.y) * uCss;
+    vec2 scale = uDepth / (2.0 * uTex * uCss);                    // height difference per css px
+    vec3 N = normalize(vec3(-hx * scale.x, hy * scale.y, 1.0));
+    vec3 L = vec3(uLamp.xy - px, uLamp.z - h * uDepth); float dist = length(L); L /= dist;
+    vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
+    float fall = pow(clamp(1.0 - dist / uReach, 0.0, 1.0), 1.5);
+    float spec = pow(max(dot(N, H), 0.0), uSharp) * 4.0 * fall;
+    float diff = max(dot(N, L), 0.0) * fall * 0.10 * smoothstep(0.02, 0.2, abs(hx) + abs(hy));
+    o = vec4((spec + diff) * mask + uFace * mask, h, 0.0, 1.0);
+  }`;
+  const BLUR = `#version 300 es
+  precision highp float;
+  in vec2 uv; uniform sampler2D uS; uniform vec2 uDir; out vec4 o;
+  void main() { float w[5] = float[5](0.227, 0.195, 0.122, 0.054, 0.016); float s = texture(uS, uv).r * w[0];
+    for (int i = 1; i < 5; i++) { vec2 d = uDir * float(i) * 1.25; s += (texture(uS, uv + d).r + texture(uS, uv - d).r) * w[i]; } o = vec4(s, 0.0, 0.0, 1.0); }`;
+  // the air: light scattered by haze, marched from each point back toward the lamp; the letters block it, so they throw shafts of shadow away from the lamp
+  const RAYS = `#version 300 es
+  precision highp float;
+  in vec2 uv; uniform sampler2D uH; uniform vec2 uLampUV, uCss; uniform float uReach; out vec4 o;
+  void main() {
+    vec2 d = (uv - uLampUV) / 72.0; vec2 p = uv; float lit = 0.0, w = 1.0, sum = 0.0;
+    for (int i = 0; i < 72; i++) { p -= d; lit += (1.0 - texture(uH, p).g) * w; sum += w; w *= 0.985; }
+    lit /= sum;
+    float dist = length((uv - uLampUV) * uCss);
+    float fall = pow(clamp(1.0 - dist / (uReach * 1.15), 0.0, 1.0), 2.8) + 0.25 * exp(-dist / 60.0);
+    o = vec4(lit * lit * fall, 0.0, 0.0, 1.0);
+  }`;
+  const COMP = `#version 300 es
+  precision highp float;
+  in vec2 uv; uniform sampler2D uL, uB, uR; uniform float uBloom, uCol, uHaze; uniform vec2 uCss; uniform vec3 uLamp; uniform vec3 uG[6];
+  out vec4 o;
+  vec3 grad(float t) { t = clamp(t, 0.0, 1.0);
+    if (t < 0.24) return mix(uG[0], uG[1], t / 0.24); if (t < 0.46) return mix(uG[1], uG[2], (t - 0.24) / 0.22);
+    if (t < 0.54) return mix(uG[2], uG[3], (t - 0.46) / 0.08); if (t < 0.77) return mix(uG[3], uG[4], (t - 0.54) / 0.23); return mix(uG[4], uG[5], (t - 0.77) / 0.23); }
+  void main() {
+    float v = texture(uL, uv).r + texture(uB, uv).r * uBloom + texture(uR, uv).r * uHaze * 0.55;
+    vec2 px = vec2(uv.x, 1.0 - uv.y) * uCss; float d2 = dot(px - uLamp.xy, px - uLamp.xy);
+    float lamp = exp(-d2 / 18.0) + 0.16 * exp(-d2 / 900.0);          // the lamp itself: a tiny point with a soft halo
+    vec3 c = vec3(pow(clamp(v, 0.0, 1.0), 1.0 / 1.4));
+    c = mix(c, c * grad(1.0 - uv.y) * 1.25, uCol);
+    o = vec4(c + lamp, 1.0);
+  }`;
+  const mk = (fs) => { const p = gl.createProgram(); for (const [t, s] of [[gl.VERTEX_SHADER, VS], [gl.FRAGMENT_SHADER, fs]]) { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); gl.attachShader(p, x); } gl.linkProgram(p); const c = {}; return { p, u: (n) => c[n] ?? (c[n] = gl.getUniformLocation(p, n)) }; };
+  const pL = mk(LIGHT), pB = mk(BLUR), pC = mk(COMP), pR = mk(RAYS);
+  gl.bindVertexArray(gl.createVertexArray());
+  const half = gl.getExtension('EXT_color_buffer_float') ? gl.RGBA16F : gl.RGBA8;
+  const target = (w, h) => {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, half, w, h, 0, gl.RGBA, half === gl.RGBA8 ? gl.UNSIGNED_BYTE : gl.HALF_FLOAT, null);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    return { t, f, w, h };
+  };
+
+  // ---------- the slab: the name, as a height field with a bevel ----------
+  let W = 1, H = 1, hTex = null, TL = null, TA = null, TB = null, TR = null, texW = 1, texH = 1;
+  async function build() {
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    try { await Promise.race([document.fonts.load('900 100px Archivo'), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* fallback */ }
+    const k = Math.min(1, 1400 / Math.max(W, H)); texW = Math.round(W * k); texH = Math.round(H * k);
+    const m = document.createElement('canvas'); m.width = texW; m.height = texH; const x = m.getContext('2d', { willReadFrequently: true });
+    const face = getComputedStyle(document.documentElement).getPropertyValue('--display');
+    const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    x.font = '900 100px ' + face; const widest = Math.max(...lines.map((l) => x.measureText(l).width));
+    const size = Math.min(texW * 0.84 / widest * 100, texH * (portrait ? 0.22 : 0.34));
+    x.font = '900 ' + size + 'px ' + face; x.textAlign = 'center'; x.fillStyle = '#fff';
+    const lead = size * 0.93, top = texH / 2 - (lines.length * lead) / 2 + size * 0.78 - texH * 0.02;
+    lines.forEach((l, i) => x.fillText(l, texW / 2, top + i * lead));
+    const src = x.getImageData(0, 0, texW, texH).data, n = texW * texH, mask = new Float32Array(n);
+    for (let i = 0; i < n; i++) mask[i] = src[i * 4 + 3] / 255;
+    // three box blurs make a gaussian: the bevel
+    let a = mask.slice(), b = new Float32Array(n); const r = Math.max(1, Math.round(P.bevel * k));
+    for (let pass = 0; pass < 3; pass++) {
+      for (let y = 0; y < texH; y++) { let s = 0; const o = y * texW; for (let i = -r; i <= r; i++) s += a[o + Math.min(texW - 1, Math.max(0, i))];
+        for (let xx = 0; xx < texW; xx++) { b[o + xx] = s / (2 * r + 1); s += a[o + Math.min(texW - 1, xx + r + 1)] - a[o + Math.max(0, xx - r)]; } }
+      for (let xx = 0; xx < texW; xx++) { let s = 0; for (let i = -r; i <= r; i++) s += b[Math.min(texH - 1, Math.max(0, i)) * texW + xx];
+        for (let y = 0; y < texH; y++) { a[y * texW + xx] = s / (2 * r + 1); s += b[Math.min(texH - 1, y + r + 1) * texW + xx] - b[Math.max(0, y - r) * texW + xx]; } }
+    }
+    const data = new Float32Array(n * 2);                         // height (float, so the bevel's slope has no steps) and the mask
+    for (let i = 0; i < n; i++) { let h = Math.min(1, Math.max(0, (a[i] - 0.5) * 2.2)) * mask[i]; h = h * h * (3 - 2 * h); data[i * 2] = h; data[i * 2 + 1] = mask[i]; }
+    hTex = hTex || gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, hTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16F, texW, texH, 0, gl.RG, gl.FLOAT, data);
+    for (const [kk, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, kk, v);
+    TL = target(cv.width, cv.height); TA = target(cv.width >> 2, cv.height >> 2); TB = target(cv.width >> 2, cv.height >> 2); TR = target(cv.width >> 1, cv.height >> 1);
+  }
+
+  // ---------- the lamp: it drifts on its own until you take it, then it follows you ----------
+  const lamp = { x: 0, y: 0, tx: 0, ty: 0, held: false };
+  let t = 0;
+  cv.addEventListener('pointermove', (e) => { lamp.held = true; lamp.tx = e.clientX; lamp.ty = e.clientY; });
+  cv.addEventListener('pointerdown', (e) => { lamp.held = true; lamp.tx = e.clientX; lamp.ty = e.clientY; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } });
+
+  const PAL = ['#2ee6ff', '#6fe0a0', '#d4f01a', '#ff4fe0', '#ff5a9a', '#ff6b5e'].flatMap((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255));
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
+    if (!lamp.held && !reduced) { lamp.tx = W * (0.5 + 0.42 * Math.sin(t * 0.23)); lamp.ty = H * (0.5 + 0.36 * Math.sin(t * 0.37 + 1.1)); }
+    else if (!lamp.held) { lamp.tx = W * 0.18; lamp.ty = H * 0.42; }
+    if (!lamp.x && !lamp.y) { lamp.x = lamp.tx; lamp.y = lamp.ty; }
+    lamp.x += (lamp.tx - lamp.x) * Math.min(1, dt * 9); lamp.y += (lamp.ty - lamp.y) * Math.min(1, dt * 9);
+    const lampZ = P.height;
+    // light pass
+    gl.bindFramebuffer(gl.FRAMEBUFFER, TL.f); gl.viewport(0, 0, TL.w, TL.h); gl.useProgram(pL.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, hTex); gl.uniform1i(pL.u('uH'), 0);
+    gl.uniform2f(pL.u('uCss'), W, H); gl.uniform2f(pL.u('uTex'), 1 / texW, 1 / texH); gl.uniform3f(pL.u('uLamp'), lamp.x, lamp.y, lampZ);
+    gl.uniform1f(pL.u('uSharp'), P.sharp); gl.uniform1f(pL.u('uReach'), P.reach); gl.uniform1f(pL.u('uFace'), P.face); gl.uniform1f(pL.u('uDepth'), 30 * (W / texW) / 2);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // bloom: a quarter-size blur, there and back
+    gl.useProgram(pB.p);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, TA.f); gl.viewport(0, 0, TA.w, TA.h); gl.bindTexture(gl.TEXTURE_2D, TL.t); gl.uniform1i(pB.u('uS'), 0); gl.uniform2f(pB.u('uDir'), 1 / TA.w, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, TB.f); gl.bindTexture(gl.TEXTURE_2D, TA.t); gl.uniform2f(pB.u('uDir'), 0, 1 / TA.h); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, TA.f); gl.bindTexture(gl.TEXTURE_2D, TB.t); gl.uniform2f(pB.u('uDir'), 1 / TA.w, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);   // twice: a wide, smooth bloom
+    gl.bindFramebuffer(gl.FRAMEBUFFER, TB.f); gl.bindTexture(gl.TEXTURE_2D, TA.t); gl.uniform2f(pB.u('uDir'), 0, 1 / TA.h); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // the air
+    gl.bindFramebuffer(gl.FRAMEBUFFER, TR.f); gl.viewport(0, 0, TR.w, TR.h); gl.useProgram(pR.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, hTex); gl.uniform1i(pR.u('uH'), 0);
+    gl.uniform2f(pR.u('uLampUV'), lamp.x / W, 1 - lamp.y / H); gl.uniform2f(pR.u('uCss'), W, H); gl.uniform1f(pR.u('uReach'), P.reach);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // composite
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, cv.width, cv.height); gl.useProgram(pC.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, TL.t); gl.uniform1i(pC.u('uL'), 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, TB.t); gl.uniform1i(pC.u('uB'), 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, TR.t); gl.uniform1i(pC.u('uR'), 2); gl.activeTexture(gl.TEXTURE0); gl.uniform1f(pC.u('uHaze'), P.haze);
+    gl.uniform1f(pC.u('uBloom'), P.bloom); gl.uniform1f(pC.u('uCol'), P.colour ? 1 : 0); gl.uniform2f(pC.u('uCss'), W, H); gl.uniform3f(pC.u('uLamp'), lamp.x, lamp.y, lampZ);
+    gl.uniform3fv(pC.u('uG[0]'), PAL);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- settings (for this test only) ----------
+  const fmt = { haze: (v) => (+v).toFixed(2), height: (v) => v + ' px', reach: (v) => v + ' px', sharp: (v) => v, bloom: (v) => (+v).toFixed(2), bevel: (v) => v + ' px', face: (v) => (+v).toFixed(3) };
+  $('colour').checked = P.colour; $('colour').addEventListener('change', () => { P.colour = $('colour').checked; save(); });
+  for (const key of Object.keys(fmt)) {
+    $(key).value = P[key]; $(key + 'O').textContent = fmt[key](P[key]);
+    $(key).addEventListener('input', () => { P[key] = +$(key).value; $(key + 'O').textContent = fmt[key](P[key]); save(); if (key === 'bevel') rebuild(); });
+  }
+  $('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });
+  $('copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(JSON.stringify(P, null, 2)).then(() => { $('copy').textContent = 'Copied'; }, () => { $('copy').textContent = 'Copy blocked'; })
+      .finally(() => setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1600));
+  });
+  let rt = 0; const rebuild = () => { clearTimeout(rt); rt = setTimeout(() => build(), 180); };
+  addEventListener('resize', rebuild);
+  build().then(() => requestAnimationFrame(frame));
+})();
+</script>
