@@ -1,6 +1,6 @@
 <title>Unravel</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sacramento&family=Poiret+One&family=Comfortaa:wght@300&family=Josefin+Sans:wght@100&family=Quicksand:wght@300&family=Julius+Sans+One&family=Raleway:wght@100&display=swap">
 <style>
 /* Layout: the page is cloth; the name is embroidered in one thread with a loose end. A quiet foot line and a test-only settings sheet. */
 :root {
@@ -39,14 +39,15 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
 </style>
 
-<canvas id="c" aria-label="Idan Segev, embroidered in one thread with a loose end. Pull the end and the name unstitches; let go and it sews itself back."></canvas>
-<div class="foot"><span><b>Unravel</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<canvas id="c" aria-label="Idan Segev, sewn in one thread in a running stitch, with a loose end. Pull the end and the name unstitches; let go and it sews itself back."></canvas>
+<div class="foot"><span><b>Unravel</b> &nbsp;draft &nbsp;<span id="faceName"></span></span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
 <div class="sheet" id="sheet" hidden>
   <label class="row tog" for="resew"><span>Let go and it sews itself back</span><input type="checkbox" id="resew" checked></label>
+  <label class="row tog" for="newFace"><span>A new face every time it is peeled off</span><input type="checkbox" id="newFace" checked></label>
   <label class="row tog" for="colour"><span>Colour (the rare easter egg)</span><input type="checkbox" id="colour"></label>
-  <label class="row" for="dense"><span>Stitches (open ↔ dense satin)</span><output id="denseO"></output><input type="range" id="dense" min="2" max="9" step="0.25" value="3.5"></label>
-  <label class="row" for="thread"><span>Thread weight</span><output id="threadO"></output><input type="range" id="thread" min="0.6" max="3" step="0.1" value="1.3"></label>
-  <label class="row" for="slant"><span>Slant of the stitches</span><output id="slantO"></output><input type="range" id="slant" min="-1" max="1" step="0.05" value="0.35"></label>
+  <label class="row" for="stitch"><span>Length of a stitch</span><output id="stitchO"></output><input type="range" id="stitch" min="3" max="40" step="1" value="12"></label>
+  <label class="row" for="gap"><span>Gap between stitches</span><output id="gapO"></output><input type="range" id="gap" min="0" max="20" step="1" value="6"></label>
+  <label class="row" for="thread"><span>Thread weight</span><output id="threadO"></output><input type="range" id="thread" min="0.8" max="6" step="0.1" value="3"></label>
   <label class="row" for="zip"><span>How fast it unzips (thread per px of pull)</span><output id="zipO"></output><input type="range" id="zip" min="1" max="80" step="1" value="24"></label>
   <label class="row" for="sew"><span>How fast it sews back</span><output id="sewO"></output><input type="range" id="sew" min="0.5" max="12" step="0.5" value="4"></label>
   <div class="acts"><button id="again" type="button">Sew it back now</button><button id="copy" type="button">Copy settings</button></div>
@@ -56,9 +57,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 (() => {
   const cv = document.getElementById('c'), ctx = cv.getContext('2d');
   const $ = (id) => document.getElementById(id);
-  const P = { resew: true, colour: false, dense: 3.5, thread: 1.3, slant: 0.35, sew: 4, zip: 24 };
-  try { Object.assign(P, JSON.parse(localStorage.getItem('unravel') || '{}')); } catch (e) { /* defaults */ }
-  const save = () => { try { localStorage.setItem('unravel', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const P = { resew: true, newFace: true, colour: false, stitch: 12, gap: 6, thread: 3, sew: 4, zip: 24 };
+  try { Object.assign(P, JSON.parse(localStorage.getItem('unravel-mono') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('unravel-mono', JSON.stringify(P)); } catch (e) { /* fine */ } };
   const PAL = { dark: ['#2ee6ff', '#6fe0a0', '#d4f01a', '#ff4fe0', '#ff5a9a', '#ff6b5e'], light: ['#0a7fb5', '#0f9d8a', '#4a9a1a', '#c2185b', '#e0455a', '#e8652e'] };
   let W = 1, H = 1, dpr = 1, page = '#fff', ink = '#000', dark = false;
   const readTheme = () => { const cs = getComputedStyle(document.documentElement); page = cs.getPropertyValue('--bg').trim(); ink = cs.getPropertyValue('--ink').trim(); dark = page === '#000000'; };
@@ -69,42 +70,138 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   // Nodes before `sewn` are stitched in place; the rest are free (a rope you can pull). The last nodes are the loose end.
   let N = 0, HX, HY, X, Y, PXo, PYo, REST, FRONT, HOLE, TONE, sewn = 0, holes = [];
   const STEP = 5;
-  async function build() {
-    dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    try { await Promise.race([document.fonts.load('900 100px Archivo'), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* fallback */ }
-    const face = getComputedStyle(document.documentElement).getPropertyValue('--display');
+  // The faces the name is sewn in: the first is drawn from skeleton strokes; the others are real monoline fonts, thinned to their centre line.
+  // Every time the name is peeled off, it is sewn back in the next one.
+  const FACES = [
+    { name: 'Skeleton' },
+    { family: 'Sacramento', weight: 400, words: ['Idan', 'Segev'], size: 1.12 },
+    { family: 'Poiret One', weight: 400, words: ['IDAN', 'SEGEV'] },
+    { family: 'Comfortaa', weight: 300, words: ['idan', 'segev'] },
+    { family: 'Josefin Sans', weight: 100, words: ['IDAN', 'SEGEV'] },
+    { family: 'Quicksand', weight: 300, words: ['Idan', 'Segev'] },
+    { family: 'Julius Sans One', weight: 400, words: ['IDAN', 'SEGEV'] },
+    { family: 'Raleway', weight: 100, words: ['IDAN', 'SEGEV'] },
+  ];
+  let face = 0;
+  function skeletonStrokes() {
+    const PI = Math.PI, line = (...p) => p, arc = (a0, a1, cx = 0, cy = 0, rx = 0.31, ry = 0.35) => Array.from({ length: 29 }, (_, i) => { const a = a0 + (a1 - a0) * i / 28; return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]; });
+    const SK = {
+      I: { wf: 0.34, s: [line([0, -0.35], [0, 0.35])] },
+      D: { wf: 0.86, s: [line([-0.3, 0.35], [-0.3, -0.35]), arc(-PI / 2, PI / 2, -0.3, 0, 0.6, 0.35)] },
+      A: { wf: 0.98, s: [line([-0.3, 0.35], [0, -0.35], [0.3, 0.35]), line([0.19, 0.1], [-0.19, 0.1])] },
+      N: { wf: 0.9, s: [line([-0.3, 0.35], [-0.3, -0.35], [0.3, 0.35], [0.3, -0.35])] },
+      S: { wf: 0.78, s: [arc(-0.15 * PI, -1.5 * PI, 0, -0.175, 0.29, 0.175).concat(arc(-0.5 * PI, 0.85 * PI, 0, 0.175, 0.29, 0.175).slice(1))] },
+      E: { wf: 0.76, s: [line([0.3, -0.35], [-0.29, -0.35], [-0.29, 0.35], [0.3, 0.35]), line([-0.29, 0], [0.22, 0])] },
+      G: { wf: 0.92, s: [arc(-0.28 * PI, -2 * PI, 0, 0, 0.31, 0.35).concat([[0.31, 0.02], [0.04, 0.02]])] },
+      V: { wf: 0.98, s: [line([-0.3, -0.35], [0, 0.35], [0.3, -0.35])] },
+    };
     const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
-    const m = document.createElement('canvas'); m.width = Math.ceil(W); m.height = Math.ceil(H); const x = m.getContext('2d', { willReadFrequently: true });
-    x.font = '900 100px ' + face; const widest = Math.max(...lines.map((l) => x.measureText(l).width));
-    const size = Math.min(W * 0.8 / widest * 100, H * (portrait ? 0.21 : 0.32));
-    x.font = '900 ' + size + 'px ' + face; x.textBaseline = 'alphabetic';
-    const lead = size * 0.95, top = H / 2 - (lines.length * lead) / 2 + size * 0.78 - H * 0.03;
-    // each letter on its own, so the thread can sew them one after another
-    const letters = [];
+    const track = 0.42, lineW = (l, h) => [...l].reduce((a, ch) => a + SK[ch].wf * h * 0.86, 0) + track * h * (l.length - 1);
+    const h = Math.min(H * (portrait ? 0.16 : 0.25), ...lines.map((l) => (W * 0.8) / lineW(l, 1)));
+    const lead = h * 1.55, top = H / 2 - (lines.length - 1) * lead / 2 - h * 0.05, out = [];
     lines.forEach((l, li) => {
-      const lw = x.measureText(l).width; let cx = (W - lw) / 2;
-      for (const ch of l) { const cw = x.measureText(ch).width; letters.push({ ch, x: cx, y: top + li * lead, w: cw }); cx += cw; }
+      let cx = (W - lineW(l, h)) / 2; const cy = top + li * lead;
+      for (const ch of l) { const k = SK[ch], wpx = k.wf * h * 0.86, sx = wpx / 0.6, sy = h / 0.7, mx = cx + wpx / 2; for (const st of k.s) out.push(st.map(([x, y]) => [mx + x * sx, cy + y * sy])); cx += wpx + track * h; }
     });
-    const pts = [];                                                   // [x, y, front?, hole?]
-    for (const L of letters) {
-      x.clearRect(0, 0, m.width, m.height); x.fillStyle = '#000'; x.fillText(L.ch, L.x, L.y);
-      const x0 = Math.max(0, Math.floor(L.x - 4)), x1 = Math.min(m.width, Math.ceil(L.x + L.w + 4)), y0 = Math.max(0, Math.floor(L.y - size)), y1 = Math.min(m.height, Math.ceil(L.y + size * 0.1));
-      const d = x.getImageData(x0, y0, x1 - x0, y1 - y0).data, ww = x1 - x0;
-      const inside = (px, py) => d[(py * ww + px) * 4 + 3] > 127;
-      // satin stitch: row after row across the letter; the stitch on the front crosses a span, the thread returns on the back to the next row
-      const slant = P.slant * P.dense * 1.6;
-      for (let ry = 1; ry < y1 - y0 - 1; ry += P.dense) {
-        const py = Math.round(ry); let s = -1;
-        for (let px = 0; px <= ww; px++) {
-          const on = px < ww && inside(px, py);
-          if (on && s < 0) s = px;
-          if (!on && s >= 0) { if (px - s > 1.5) { pts.push([x0 + s, y0 + py - slant / 2, 0, 1], [x0 + px, y0 + py + slant / 2, 1, 1]); } s = -1; }
+    return out;
+  }
+  // a monoline font: render the name, thin it to a one-pixel centre line (Zhang-Suen), and walk that into strokes
+  async function fontStrokes(f) {
+    try { await Promise.race([document.fonts.load(`${f.weight} 100px "${f.family}"`), new Promise((r) => setTimeout(r, 3000))]); } catch (e) { return null; }
+    if (!document.fonts.check(`${f.weight} 100px "${f.family}"`)) return null;
+    const w = Math.ceil(W), h = Math.ceil(H), m = document.createElement('canvas'); m.width = w; m.height = h;
+    const x = m.getContext('2d', { willReadFrequently: true }), font = (px) => `${f.weight} ${px}px "${f.family}"`;
+    const portrait = W / H < 0.8, words = portrait && f.words[1].length > 3 ? [f.words[0], f.words[1].slice(0, 2), f.words[1].slice(2)] : f.words;
+    x.font = font(100); const widest = Math.max(...words.map((t) => x.measureText(t).width));
+    const size = Math.min(W * 0.8 / widest * 100, H * (portrait ? 0.2 : 0.3) * (f.size || 1));
+    x.font = font(size); x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#000';
+    const lead = size * (f.size ? 0.78 : 1.0), top = H / 2 - (words.length - 1) * lead / 2;
+    words.forEach((t, i) => x.fillText(t, W / 2, top + i * lead));
+    const d = x.getImageData(0, 0, w, h).data, img = new Uint8Array(w * h);
+    let x0 = w, y0 = h, x1 = 0, y1 = 0;
+    for (let i = 0; i < w * h; i++) if (d[i * 4 + 3] > 36) { img[i] = 1; const px = i % w, py = (i / w) | 0; if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py; }
+    if (x1 <= x0) return null;
+    x0 = Math.max(1, x0 - 2); y0 = Math.max(1, y0 - 2); x1 = Math.min(w - 2, x1 + 2); y1 = Math.min(h - 2, y1 + 2);
+    for (let changed = true; changed;) {
+      changed = false;
+      for (let pass = 0; pass < 2; pass++) {
+        const del = [];
+        for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+          const i = py * w + px; if (!img[i]) continue;
+          const p2 = img[i - w], p3 = img[i - w + 1], p4 = img[i + 1], p5 = img[i + w + 1], p6 = img[i + w], p7 = img[i + w - 1], p8 = img[i - 1], p9 = img[i - w - 1];
+          const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9; if (B < 2 || B > 6) continue;
+          const A = (!p2 && p3) + (!p3 && p4) + (!p4 && p5) + (!p5 && p6) + (!p6 && p7) + (!p7 && p8) + (!p8 && p9) + (!p9 && p2); if (A !== 1) continue;
+          if (pass === 0 ? (p2 && p4 && p6) || (p4 && p6 && p8) : (p2 && p4 && p8) || (p2 && p6 && p8)) continue;
+          del.push(i);
         }
+        for (const i of del) img[i] = 0; if (del.length) changed = true;
       }
     }
+    // make it one pixel thin on the diagonals too: drop the corner pixel of every staircase step (its two neighbours still touch)
+    for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+      const i = py * w + px; if (!img[i]) continue;
+      const p2 = img[i - w], p3 = img[i - w + 1], p4 = img[i + 1], p5 = img[i + w + 1], p6 = img[i + w], p7 = img[i + w - 1], p8 = img[i - 1], p9 = img[i - w - 1];
+      if (p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 !== 2) continue;
+      if ((p2 && p4) || (p4 && p6) || (p6 && p8) || (p8 && p2)) img[i] = 0;
+    }
+    // walk the centre line into strokes: start from a loose end where there is one, keep going as straight as the line allows
+    const N8 = [-w - 1, -w, -w + 1, -1, 1, w - 1, w, w + 1], DX = [-1, 0, 1, -1, 1, -1, 0, 1], DY = [-1, -1, -1, 0, 0, 1, 1, 1];
+    const used = new Uint8Array(w * h), pix = [];
+    for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) if (img[py * w + px]) pix.push(py * w + px);
+    const free = (i) => { const r = []; for (let k = 0; k < 8; k++) { const j = i + N8[k]; if (img[j] && !used[j]) r.push(k); } return r; };
+    const paths = [];
+    for (;;) {
+      let start = -1;
+      for (const i of pix) if (!used[i] && free(i).length <= 1) { start = i; break; }
+      if (start < 0) for (const i of pix) if (!used[i]) { start = i; break; }
+      if (start < 0) break;
+      const path = [start]; used[start] = 1; let cur = start, dx = 0, dy = 0;
+      for (;;) {
+        const f = free(cur); if (!f.length) break;
+        let best = f[0], bs = -9;
+        for (const k of f) { const sc = (DX[k] * dx + DY[k] * dy) / Math.hypot(DX[k], DY[k]) + (DX[k] && DY[k] ? 0 : 0.05); if (sc > bs) { bs = sc; best = k; } }
+        const nx = cur + N8[best];
+        for (const k of f) used[cur + N8[k]] = 1;                         // the other neighbours here are the same line, a pixel over
+        dx = dx * 0.6 + DX[best] * 0.4; dy = dy * 0.6 + DY[best] * 0.4;
+        path.push(nx); used[nx] = 1; cur = nx;
+      }
+      paths.push(path);
+    }
+    const strokes = [];
+    for (const path of paths) {
+      if (path.length < 5) continue;                                    // the stubs a thinning leaves at junctions
+      let q = path.map((i) => [i % w, (i / w) | 0]);
+      for (let it = 0; it < 2; it++) q = q.map((p, k) => (k === 0 || k === q.length - 1 ? p : [(q[k - 1][0] + 2 * p[0] + q[k + 1][0]) / 4, (q[k - 1][1] + 2 * p[1] + q[k + 1][1]) / 4]));
+      strokes.push(q.filter((_, k) => k % 2 === 0 || k === q.length - 1));
+    }
+    // sew in reading order: by line, then left to right
+    const lineOf = (st) => Math.round(((st[0][1] + st[st.length - 1][1]) / 2 - top) / lead);
+    strokes.sort((a, b) => lineOf(a) - lineOf(b) || Math.min(...a.map((p) => p[0])) - Math.min(...b.map((p) => p[0])));
+    return strokes;
+  }
+  async function build(sewFromStart = false) {
+    dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    let strokes = null;
+    if (face > 0) strokes = await fontStrokes(FACES[face]);
+    if (!strokes || !strokes.length) { face = 0; strokes = skeletonStrokes(); }
+    const pts = [];                                                      // [x, y, front?, hole?]
+    const stitchesAlong = (poly) => {                                     // a running stitch: a dash on the front, a gap behind, along the stroke
+      const L = [0]; for (let i = 1; i < poly.length; i++) L.push(L[i - 1] + Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]));
+      const total = L[L.length - 1], at = (t) => { let i = 1; while (i < L.length - 1 && L[i] < t) i++; const u = (t - L[i - 1]) / ((L[i] - L[i - 1]) || 1); return [poly[i - 1][0] + (poly[i][0] - poly[i - 1][0]) * u, poly[i - 1][1] + (poly[i][1] - poly[i - 1][1]) * u]; };
+      if (total < 2) return;
+      const n = Math.max(1, Math.round((total + P.gap) / (P.stitch + P.gap))), unit = (total + P.gap) / n, dash = unit * P.stitch / (P.stitch + P.gap);
+      const start = at(0); pts.push([start[0], start[1], 0, 1]);           // come up through the cloth at the start of the stroke
+      for (let k = 0; k < n; k++) {
+        const t0 = k * unit, t1 = Math.min(total, t0 + dash), t2 = Math.min(total, t0 + unit);
+        for (let t = t0 + 3; t < t1; t += 3) { const q = at(t); pts.push([q[0], q[1], 1, 0]); }
+        const e = at(t1); pts.push([e[0], e[1], 1, 1]);
+        if (k < n - 1) { const g2 = at(t2); pts.push([g2[0], g2[1], 0, 1]); }
+      }
+    };
+    for (const st of strokes) stitchesAlong(st);
     // the loose end: a little tail of thread off the last stitch, lying on the cloth
     const last = pts[pts.length - 1];
-    for (let i = 1; i <= 26; i++) { const a = 0.9 + i * 0.07; pts.push([last[0] + Math.cos(a) * i * 3.2 + i * 1.2, last[1] + Math.sin(a) * i * 3.0, 1, 0]); }
+    for (let i = 1; i <= 30; i++) { const a = -0.6 + i * 0.09; pts.push([last[0] + Math.cos(a) * i * 2.6 + i * 0.8, last[1] + Math.sin(a) * i * 2.4, 1, 0]); }
     // walk the path into evenly spaced nodes; a segment is on the front if it belongs to a front stitch
     const hx = [], hy = [], front = [], hole = [];
     hx.push(pts[0][0]); hy.push(pts[0][1]); front.push(0); hole.push(1);
@@ -117,21 +214,21 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
     FRONT = Uint8Array.from(front); HOLE = Uint8Array.from(hole); REST = new Float32Array(N); TONE = new Float32Array(N);
     for (let i = 1; i < N; i++) REST[i] = Math.hypot(HX[i] - HX[i - 1], HY[i] - HY[i - 1]);
     holes = []; for (let i = 0; i < N; i++) if (HOLE[i]) holes.push(i);
-    sewn = holes[holes.length - 1] + 1;                               // everything up to the last hole is sewn; the tail is free
+    sewn = sewFromStart ? 0 : holes[holes.length - 1] + 1;           // everything up to the last hole is sewn; the tail is free (or nothing yet, when a new face is being sewn)
     for (let i = 0; i < N; i++) TONE[i] = (HY[i] / H);
-    grab = null; g = -1; gone = Infinity; idle = 0;
+    grab = null; g = -1; gone = sewFromStart ? 0 : Infinity; idle = 0;
   }
 
   // ---------- touch: take the thread (the loose end, or any loose stretch) and pull ----------
   // Like a chain stitch: pull the right end and the whole seam unzips, far faster than you pull. The thread that has passed
   // through your fingers is gone from view; a short tail still hangs beyond them.
   const TAIL = 30;
-  let grab = null, g = -1, gone = Infinity, idle = 0, sparks = [], zipBudget = 0;
+  let grab = null, g = -1, gone = Infinity, idle = 0, sparks = [], zipBudget = 0, phase = 'rest', loading = false;
   const visibleEnd = () => Math.min(N, gone);
   const nearestFree = (px, py, r) => { let best = -1, bd = r * r; for (let i = sewn; i < visibleEnd(); i++) { const d = (X[i] - px) ** 2 + (Y[i] - py) ** 2; if (d < bd) { bd = d; best = i; } } return best; };
   cv.addEventListener('pointerdown', (e) => {
     const i = nearestFree(e.clientX, e.clientY, 34);
-    if (i >= 0) { grab = { x: e.clientX, y: e.clientY, px: e.clientX, py: e.clientY }; g = i; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } }
+    if (i >= 0 && phase === 'rest' || i >= 0 && phase === 'resew') { phase = 'rest'; grab = { x: e.clientX, y: e.clientY, px: e.clientX, py: e.clientY }; g = i; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } }
   });
   cv.addEventListener('pointermove', (e) => {
     if (grab) { grab.x = e.clientX; grab.y = e.clientY; }
@@ -167,15 +264,24 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
       while (g > sewn + 3 && rope(sewn - 1, g) > d * 1.02 + 6) g--;              // (taut, so the next pull pops the next stitch)
       gone = Math.min(N, g + TAIL);
     }
-    // sew it back: the seam closes again, stitch by stitch, from where it was pulled out
-    const resewing = !grab && P.resew && idle > 0.6 && sewn <= lastHole;
-    if (resewing) {
+    // after a pull, once you let go: sew the same seam back, or (a new face every time) pick out what is left and sew the name again in the next face
+    if (!grab && P.resew && idle > 0.6 && phase === 'rest' && sewn <= lastHole) phase = P.newFace ? 'unpick' : 'resew';
+    if (phase === 'resew') {
       let budget = P.sew * 900 * dt;
       while (budget > 0 && sewn <= lastHole) { budget -= REST[sewn] || STEP; X[sewn] = PXo[sewn] = HX[sewn]; Y[sewn] = PYo[sewn] = HY[sewn]; if (HOLE[sewn]) sparks.push({ x: X[sewn], y: Y[sewn], t: 0.18 }); sewn++; }
-      if (sewn > lastHole) { gone = Infinity; for (let i = sewn; i < N; i++) { X[i] = PXo[i] = HX[i]; Y[i] = PYo[i] = HY[i]; } }
-      else if (gone < N && sewn > gone - TAIL) {                       // the thread that went through your fingers comes back as the seam needs it
-        gone = Math.min(N, gone + 1); X[gone - 1] = PXo[gone - 1] = X[gone - 2]; Y[gone - 1] = PYo[gone - 1] = Y[gone - 2];
-      }
+      if (sewn > lastHole) { gone = Infinity; for (let i = sewn; i < N; i++) { X[i] = PXo[i] = HX[i]; Y[i] = PYo[i] = HY[i]; } phase = 'rest'; }
+      else if (gone < N && sewn > gone - TAIL) { gone = Math.min(N, gone + 1); X[gone - 1] = PXo[gone - 1] = X[gone - 2]; Y[gone - 1] = PYo[gone - 1] = Y[gone - 2]; }
+    } else if (phase === 'unpick') {                                     // what is left of the old seam pops out, stitch by stitch, from the end back to the start
+      let budget = P.sew * 1800 * dt;
+      while (budget > 0 && sewn > 0) { sewn--; budget -= REST[sewn] || STEP; if (HOLE[sewn] && sparks.length < 60) sparks.push({ x: X[sewn], y: Y[sewn], t: 0.1 }); }
+      gone = sewn;
+      if (sewn === 0 && !loading) { loading = true; face = (face + 1) % FACES.length; build(true).then(() => { loading = false; phase = 'sew'; showFace(); }); }
+    } else if (phase === 'sew') {                                         // the needle sews the name in the new face
+      const lh = holes[holes.length - 1];
+      let budget = P.sew * 900 * dt;
+      while (budget > 0 && sewn <= lh) { budget -= REST[sewn] || STEP; X[sewn] = PXo[sewn] = HX[sewn]; Y[sewn] = PYo[sewn] = HY[sewn]; sewn++; }
+      gone = sewn;
+      if (sewn > lh) { gone = Infinity; for (let i = sewn; i < N; i++) { X[i] = PXo[i] = HX[i]; Y[i] = PYo[i] = HY[i]; } phase = 'rest'; }
     }
     // the free stretch is a rope
     const end = visibleEnd();
@@ -213,6 +319,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
       if (P.colour) { for (let i = Math.max(1, sewn); i < end; i++) { ctx.strokeStyle = col(i); ctx.beginPath(); ctx.moveTo(X[i - 1], Y[i - 1]); ctx.lineTo(X[i], Y[i]); ctx.stroke(); } }
       else { ctx.strokeStyle = ink; ctx.beginPath(); ctx.moveTo(X[Math.max(0, sewn - 1)], Y[Math.max(0, sewn - 1)]); for (let i = sewn; i < end; i++) ctx.lineTo(X[i], Y[i]); ctx.stroke(); }
     }
+    // the needle, while it sews: a short steel line along the seam, with its eye
+    if (phase === 'sew' && sewn > 2) {
+      const i = sewn - 1, j = Math.max(0, i - 3), ang = Math.atan2(Y[i] - Y[j], X[i] - X[j]), L = 22;
+      ctx.save(); ctx.translate(X[i], Y[i]); ctx.rotate(ang); ctx.strokeStyle = ink; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(-L * 0.2, 0); ctx.lineTo(L, 0); ctx.stroke();
+      ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(L * 0.82, 0, 2.6, 1.1, 0, 0, 7); ctx.stroke(); ctx.restore();
+    }
     // a stitch popping out of the cloth: a tiny puff at the hole
     ctx.lineWidth = 1; ctx.strokeStyle = ink;
     for (const sp of sparks) { const u = sp.t / 0.35; ctx.globalAlpha = (1 - u) * 0.7; ctx.beginPath(); ctx.arc(sp.x, sp.y, 1.5 + u * 6, 0, 7); ctx.stroke(); }
@@ -220,9 +333,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   }
 
   // ---------- settings (for this test only) ----------
-  const fmt = { zip: (v) => '×' + v, dense: (v) => (+v).toFixed(2) + ' px', thread: (v) => (+v).toFixed(1) + ' px', slant: (v) => (+v).toFixed(2), sew: (v) => '×' + (+v).toFixed(1) };
-  for (const key of ['resew', 'colour']) { $(key).checked = !!P[key]; $(key).addEventListener('change', () => { P[key] = $(key).checked; save(); }); }
-  for (const key of Object.keys(fmt)) { $(key).value = P[key]; $(key + 'O').textContent = fmt[key](P[key]); $(key).addEventListener('input', () => { P[key] = +$(key).value; $(key + 'O').textContent = fmt[key](P[key]); save(); if (key === 'dense' || key === 'slant') rebuild(); }); }
+  const fmt = { zip: (v) => '×' + v, stitch: (v) => v + ' px', gap: (v) => v + ' px', thread: (v) => (+v).toFixed(1) + ' px', sew: (v) => '×' + (+v).toFixed(1) };
+  for (const key of ['resew', 'newFace', 'colour']) { $(key).checked = !!P[key]; $(key).addEventListener('change', () => { P[key] = $(key).checked; save(); }); }
+  for (const key of Object.keys(fmt)) { $(key).value = P[key]; $(key + 'O').textContent = fmt[key](P[key]); $(key).addEventListener('input', () => { P[key] = +$(key).value; $(key + 'O').textContent = fmt[key](P[key]); save(); if (key === 'stitch' || key === 'gap') rebuild(); }); }
   $('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });
   $('again').addEventListener('click', () => { idle = 9; const was = P.resew; P.resew = true; setTimeout(() => { P.resew = was; }, 20000); });
   $('copy').addEventListener('click', () => {
@@ -233,7 +346,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   addEventListener('resize', rebuild);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
   new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  readTheme(); build().then(() => requestAnimationFrame(frame));
-  window.__unravel = { state: () => ({ N, sewn, holes: holes.length, tail: [X[N - 1], Y[N - 1]] }) };   // (for testing)
+  const showFace = () => { const f = FACES[face]; $('faceName').textContent = f.family || 'skeleton'; };
+  readTheme(); build().then(() => { showFace(); requestAnimationFrame(frame); });
+  window.__unravel = { state: () => ({ N, sewn, holes: holes.length, face: FACES[face].family || 'skeleton', phase, tail: [X[N - 1], Y[N - 1]] }), setFace: async (k) => { face = k; await build(); showFace(); } };   // (for testing)
 })();
 </script>
