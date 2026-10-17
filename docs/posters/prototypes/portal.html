@@ -1,0 +1,197 @@
+<title>Portal Type</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a full-bleed page with the name cut through it; the world lives behind; a quiet foot line and a test-only settings sheet. */
+:root {
+  --bg: #ffffff; --ink: #000000; --dim: #707070; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(255, 255, 255, 0.96);
+  --display: "Archivo", "Arial Black", "Helvetica Neue", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000000; --ink: #ffffff; --dim: #8c8c8c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #000000; --ink: #ffffff; --dim: #8c8c8c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+canvas:active { cursor: grabbing; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button, select { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+select { border: 1px solid var(--line); padding: 4px 6px; background: var(--bg); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="Idan Segev, cut through the page like windows; another world moves behind them."></canvas>
+<div class="foot"><span><b>Portal type</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row" for="world"><span>The world behind</span><select id="world"><option value="stars">Stars, deep</option><option value="rain">Rain</option><option value="grid">A floor to the horizon</option></select></label>
+  <label class="row tog" for="colour"><span>Colour (the rare easter egg)</span><input type="checkbox" id="colour"></label>
+  <label class="row" for="depth"><span>Thickness of the page (the walls)</span><output id="depthO"></output><input type="range" id="depth" min="0" max="60" step="1" value="22"></label>
+  <label class="row" for="look"><span>How much it follows your eye</span><output id="lookO"></output><input type="range" id="look" min="0" max="2" step="0.05" value="1"></label>
+  <label class="row" for="speed"><span>Speed of the world</span><output id="speedO"></output><input type="range" id="speed" min="0" max="3" step="0.05" value="1"></label>
+  <div class="acts"><button id="copy" type="button">Copy settings</button></div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+  const P = { world: 'stars', colour: false, depth: 22, look: 1, speed: 1 };
+  try { Object.assign(P, JSON.parse(localStorage.getItem('portal') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('portal', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const PAL = { dark: ['#2ee6ff', '#6fe0a0', '#d4f01a', '#ff4fe0', '#ff5a9a', '#ff6b5e'], light: ['#0a7fb5', '#0f9d8a', '#4a9a1a', '#c2185b', '#e0455a', '#e8652e'] };
+
+  let W = 1, H = 1, dpr = 1, mask = null, world = null, wctx = null, tmp = null, tctx = null, page = '#fff', ink = '#000', dark = false;
+  const readTheme = () => { const cs = getComputedStyle(document.documentElement); page = cs.getPropertyValue('--bg').trim(); ink = cs.getPropertyValue('--ink').trim(); dark = page === '#000000'; };
+  const off = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+
+  async function build() {
+    dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    try { await Promise.race([document.fonts.load('900 100px Archivo'), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* fallback */ }
+    mask = off(cv.width, cv.height); world = off(cv.width, cv.height); tmp = off(cv.width, cv.height);
+    wctx = world.getContext('2d'); tctx = tmp.getContext('2d');
+    const m = mask.getContext('2d'); m.scale(dpr, dpr);
+    const face = getComputedStyle(document.documentElement).getPropertyValue('--display');
+    const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    m.font = '900 100px ' + face; const widest = Math.max(...lines.map((l) => m.measureText(l).width));
+    const size = Math.min(W * 0.86 / widest * 100, H * (portrait ? 0.23 : 0.36));
+    m.font = '900 ' + size + 'px ' + face; m.textAlign = 'center'; m.fillStyle = '#000';
+    const lead = size * 0.92, top = H / 2 - (lines.length * lead) / 2 + size * 0.78 - H * 0.02;
+    lines.forEach((l, i) => m.fillText(l, W / 2, top + i * lead));
+    seed();
+  }
+
+  // ---------- the worlds behind the page ----------
+  let stars = [], drops = [];
+  function seed() {
+    stars = Array.from({ length: 3200 }, () => ({ x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2, z: Math.random(), c: Math.random() }));
+    drops = Array.from({ length: 900 }, () => ({ x: Math.random(), y: Math.random(), z: 0.2 + Math.random() * 0.8, c: Math.random() }));
+  }
+  const look = { x: 0, y: 0, tx: 0, ty: 0 };            // where the eye is: shifts the world behind and shows the walls of the cuts
+  const pan = { x: 0, y: 0, vx: 0, vy: 0 };              // a drag slides the world behind the glass
+  let t = 0;
+  const colourAt = (u) => { const p = PAL[dark ? 'dark' : 'light']; return p[Math.min(5, Math.max(0, Math.floor(u * 6)))]; };
+  function drawWorld(dt) {
+    const g = wctx, w = cv.width, h = cv.height, s = Math.min(w, h);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.fillStyle = ink; g.fillRect(0, 0, w, h);                         // the world is the other colour: holes into the night (or into the day)
+    const fg = page, sp = P.speed * (reduced ? 0.25 : 1);
+    const ox = w / 2 + (pan.x - look.x * 60 * P.look) * dpr, oy = h / 2 + (pan.y - look.y * 60 * P.look) * dpr;
+    if (P.world === 'stars') {
+      for (const st of stars) {
+        st.z -= dt * 0.07 * sp; if (st.z <= 0.02) { st.z = 1; st.x = (Math.random() - 0.5) * 2; st.y = (Math.random() - 0.5) * 2; }
+        const k = 1 / st.z, x = ox + st.x * s * 0.5 * k, y = oy + st.y * s * 0.5 * k;
+        if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue;
+        const r = Math.min(4.5, 0.6 * k) * dpr, a = Math.min(1, 0.25 + (1 - st.z) * 1.3);
+        g.globalAlpha = a; g.fillStyle = P.colour ? colourAt(st.c) : fg; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+      }
+    } else if (P.world === 'rain') {
+      g.lineCap = 'round';
+      for (const d of drops) {
+        d.y += dt * (0.35 + d.z * 0.9) * sp; if (d.y > 1.1) { d.y = -0.1; d.x = Math.random(); }
+        const x = (((d.x * w + (pan.x - look.x * 60 * P.look * d.z) * dpr) % w) + w) % w, y = d.y * h + (pan.y - look.y * 60 * P.look * d.z) * dpr;
+        g.globalAlpha = 0.25 + d.z * 0.65; g.strokeStyle = P.colour ? colourAt(d.c) : fg; g.lineWidth = (0.6 + d.z * 1.6) * dpr;
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x - 4 * d.z * dpr, y - (20 + d.z * 46) * dpr); g.stroke();
+      }
+    } else {
+      // a floor of lines to a horizon: it moves toward you; a drag sideways turns it
+      const hor = oy - h * 0.05, scroll = (t * 0.35 * sp) % 1;
+      g.lineWidth = 1 * dpr;
+      for (let i = 0; i < 26; i++) {                                   // lines across, closer together toward the horizon
+        const z = (i + 1 - scroll) / 26, y = hor + (h * 0.9) * Math.pow(1 - z, 2.2) + 2;
+        g.globalAlpha = Math.min(1, (1 - z) * 1.6); g.strokeStyle = P.colour ? colourAt(1 - z) : fg;
+        g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+      }
+      for (let i = -22; i <= 22; i++) {                                // lines running to the vanishing point
+        const x0 = ox + i * w * 0.09 + pan.x * dpr * 0.4;
+        g.globalAlpha = 0.85; g.strokeStyle = P.colour ? colourAt((i + 22) / 44) : fg;
+        g.beginPath(); g.moveTo(ox + (x0 - ox) * 0.02, hor); g.lineTo(ox + (x0 - ox) * 3, hor + h * 2.2); g.stroke();
+      }
+      g.globalAlpha = 1; g.fillStyle = fg; g.fillRect(0, hor - 1 * dpr, w, 1.2 * dpr);   // the horizon
+    }
+    g.globalAlpha = 1;
+  }
+
+  // ---------- the page, cut ----------
+  function frame(now) {
+    const dt = Math.min(0.05, (now - (frame.last || now)) / 1000); frame.last = now; t += dt;
+    look.x += (look.tx - look.x) * Math.min(1, dt * 6); look.y += (look.ty - look.y) * Math.min(1, dt * 6);
+    if (!dragging) { pan.x += pan.vx * dt; pan.y += pan.vy * dt; pan.vx *= Math.exp(-dt * 1.6); pan.vy *= Math.exp(-dt * 1.6); }
+    drawWorld(dt);
+    const w = cv.width, h = cv.height;
+    // the world, through the letters only
+    tctx.setTransform(1, 0, 0, 1, 0, 0); tctx.globalCompositeOperation = 'copy'; tctx.drawImage(world, 0, 0);
+    tctx.globalCompositeOperation = 'destination-in'; tctx.drawImage(mask, 0, 0);
+    // the walls of the cuts: the page has thickness, so on the side away from your eye you see the inside edge of each letter
+    const dx = -look.x * P.depth * P.look * dpr, dy = -look.y * P.depth * P.look * dpr;
+    if (P.depth > 0 && (Math.abs(dx) + Math.abs(dy)) > 0.3) {
+      tctx.globalCompositeOperation = 'source-atop';
+      for (let k = 6; k >= 1; k--) {                                    // a few steps of the wall, lit from the front: lighter near the page, darker deeper in
+        const f = k / 6;
+        tctx.globalAlpha = 1; tctx.fillStyle = shade(0.18 + 0.5 * (1 - f));
+        const band = off2(); band.globalCompositeOperation = 'copy'; band.drawImage(mask, 0, 0);
+        band.globalCompositeOperation = 'destination-out'; band.drawImage(mask, dx * f, dy * f);
+        band.globalCompositeOperation = 'source-in'; band.fillStyle = shade(0.16 + 0.55 * (1 - f)); band.fillRect(0, 0, w, h);
+        tctx.drawImage(bandC, 0, 0);
+      }
+      tctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = page; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(tmp, 0, 0);
+    requestAnimationFrame(frame);
+  }
+  let bandC = null; const off2 = () => { if (!bandC || bandC.width !== cv.width || bandC.height !== cv.height) bandC = off(cv.width, cv.height); const b = bandC.getContext('2d'); b.setTransform(1, 0, 0, 1, 0, 0); return b; };
+  const shade = (v) => { const c = Math.round((dark ? 1 - v : v) * 255); return `rgb(${c},${c},${c})`; };   // greys between the page and the world
+
+  // ---------- touch: your eye, and a drag ----------
+  let dragging = false, last = null;
+  cv.addEventListener('pointermove', (e) => {
+    look.tx = (e.clientX / W - 0.5) * 2; look.ty = (e.clientY / H - 0.5) * 2;
+    if (dragging && last) { const now = performance.now(), dtt = Math.max(8, now - last.t) / 1000; const mx = e.clientX - last.x, my = e.clientY - last.y; pan.x += mx; pan.y += my; pan.vx = mx / dtt; pan.vy = my / dtt; last = { x: e.clientX, y: e.clientY, t: now }; }
+  });
+  cv.addEventListener('pointerdown', (e) => { dragging = true; last = { x: e.clientX, y: e.clientY, t: performance.now() }; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } });
+  const up = () => { dragging = false; last = null; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('pointerleave', () => { if (!dragging) { look.tx = 0; look.ty = 0; } });
+  // on a phone, tilting it is the eye (where the browser allows it)
+  addEventListener('deviceorientation', (e) => { if (e.gamma == null) return; look.tx = Math.max(-1, Math.min(1, e.gamma / 30)); look.ty = Math.max(-1, Math.min(1, (e.beta - 40) / 30)); });
+
+  // ---------- settings (for this test only) ----------
+  $('world').value = P.world; $('world').addEventListener('change', () => { P.world = $('world').value; save(); });
+  $('colour').checked = P.colour; $('colour').addEventListener('change', () => { P.colour = $('colour').checked; save(); });
+  const fmt = { depth: (v) => v + ' px', look: (v) => '×' + (+v).toFixed(2), speed: (v) => '×' + (+v).toFixed(2) };
+  for (const key of Object.keys(fmt)) { $(key).value = P[key]; $(key + 'O').textContent = fmt[key](P[key]); $(key).addEventListener('input', () => { P[key] = +$(key).value; $(key + 'O').textContent = fmt[key](P[key]); save(); }); }
+  $('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });
+  $('copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(JSON.stringify(P, null, 2)).then(() => { $('copy').textContent = 'Copied'; }, () => { $('copy').textContent = 'Copy blocked'; })
+      .finally(() => setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1600));
+  });
+  let rt = 0; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(build, 180); });
+  const mq = matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener('change', readTheme);
+  new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  readTheme(); build().then(() => requestAnimationFrame(frame));
+})();
+</script>
