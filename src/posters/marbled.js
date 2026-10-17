@@ -1,0 +1,225 @@
+// Marbled: the name floats as ink on water, like Japanese suminagashi. Drag to comb it into feathered marbled patterns;
+// tap to drop more ink (it lands as a ring: ink, then clear water into its middle). It never resets by itself, so every
+// visit ends as its own pattern. Double tap on empty water, a beat later, starts again.
+//
+// The ink is vector: the outline of the type is traced once into closed loops of points, and every move is applied to those
+// points, so it stays sharp however far it is pulled. A drop pushes all the ink outward keeping its area (p' = c + (p - c) *
+// sqrt(1 + r^2/|p - c|^2), after "Mathematical Marbling"); a comb stroke drags the ink beside it with a fast falloff, so a
+// long stroke stays local. Curves are kept smooth by putting a point wherever a stretch has opened a gap.
+//
+// Colour (about one showing in twenty, src/colour.js): from the first touch, every drop of ink is a colour from the palette.
+// gestures: tap = a drop, double tap on empty water = start again (REFORM_DELAY_MS after, so a third tap can still mean reveal).
+
+import { colourOf } from '../colour.js';
+import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './reveal.js';
+import { pressTracker, TAP, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
+
+const MAXPTS = 90000;
+const FACE = '900 100px Archivo, "Arial Black", "Helvetica Neue", sans-serif';
+const DEF = { rings: 1, teeth: 1, gap: 46, sharp: 18, pull: 0.85, drop: 54 };
+
+export async function mount(stage) {
+  const canvas = stage.canvas, ctx = canvas.getContext('2d');
+  const dark = stage.theme.name === 'dark';
+  const P = { ...DEF };
+  const col = colourOf(stage);
+  stage.setBackdrop(dark ? 0 : 1);
+  const rgb = (c, a = 1) => `rgba(${c[0] * 255 | 0},${c[1] * 255 | 0},${c[2] * 255 | 0},${a})`;
+  const inkCss = rgb(stage.colors.fg), paperCss = rgb(stage.colors.bg);
+  const offs = [];
+  let W = stage.W, H = stage.H, shapes = [], dirty = true, drops = 0, alive = true, demo = null, touched = false, born = performance.now(), reformT = 0;
+  const timers = new Set(); const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); fn(); }, ms); timers.add(id); return id; };
+  if (col) offs.push(col.wakeOnPress());
+
+  // ---------- the name as ink ----------
+  async function nameShape() {
+    try { await Promise.race([document.fonts.load('900 100px Archivo'), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the fallback face */ }
+    const G = 2, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
+    const m = document.createElement('canvas'); m.width = gw; m.height = gh; const x = m.getContext('2d', { willReadFrequently: true });
+    const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    x.font = FACE; const widest = Math.max(...lines.map((l) => x.measureText(l).width));
+    const size = Math.min(W * 0.82 / widest * 100, H * (portrait ? 0.22 : 0.33)) / G;
+    x.font = FACE.replace('100px', size + 'px'); x.textAlign = 'center'; x.fillStyle = '#000';
+    const lead = size * 0.93, top = gh / 2 - (lines.length * lead) / 2 + size * 0.78 - gh * 0.02;
+    lines.forEach((l, i) => x.fillText(l, gw / 2, top + i * lead));
+    const d = x.getImageData(0, 0, gw, gh).data, on = (i, j) => (i < 0 || j < 0 || i >= gw || j >= gh ? 0 : d[(j * gw + i) * 4 + 3] > 127 ? 1 : 0);
+    const next = new Map(), pt = new Map();
+    const key = (k, i, j) => { const s = k + i + ',' + j; if (!pt.has(s)) pt.set(s, k === 'h' ? [i + 0.5, j] : [i, j + 0.5]); return s; };
+    const link = (a, b) => { (next.get(a) || next.set(a, []).get(a)).push(b); (next.get(b) || next.set(b, []).get(b)).push(a); };
+    for (let j = -1; j < gh; j++) for (let i = -1; i < gw; i++) {
+      const c = on(i, j) * 8 + on(i + 1, j) * 4 + on(i + 1, j + 1) * 2 + on(i, j + 1); if (!c || c === 15) continue;
+      const T = () => key('h', i, j), B = () => key('h', i, j + 1), L = () => key('v', i, j), R = () => key('v', i + 1, j);
+      switch (c) { case 1: case 14: link(L(), B()); break; case 2: case 13: link(B(), R()); break; case 3: case 12: link(L(), R()); break; case 4: case 11: link(T(), R()); break;
+        case 5: link(L(), T()); link(B(), R()); break; case 6: case 9: link(T(), B()); break; case 7: case 8: link(L(), T()); break; case 10: link(L(), B()); link(T(), R()); break; }
+    }
+    const seen = new Set(), loops = [];
+    for (const s of next.keys()) {
+      if (seen.has(s)) continue; const pts = []; let prev = null, cur = s;
+      for (;;) { seen.add(cur); pts.push(pt.get(cur)); const n = (next.get(cur) || []).find((k) => k !== prev && !seen.has(k)); if (n == null) break; prev = cur; cur = n; }
+      if (pts.length < 6) continue;
+      let q = pts.map(([a, b]) => [a * G, b * G]);
+      for (let it = 0; it < 3; it++) q = q.map((p, k) => { const a = q[(k - 1 + q.length) % q.length], b = q[(k + 1) % q.length]; return [(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4]; });
+      loops.push(resample(q.flat(), 2.5));
+    }
+    return { loops, tone: 'ink' };
+  }
+  function resample(a, step) {                                     // even spacing along a closed loop
+    const out = []; let carry = 0; const n = a.length / 2;
+    for (let k = 0; k < n; k++) {
+      const x0 = a[k * 2], y0 = a[k * 2 + 1], x1 = a[((k + 1) % n) * 2], y1 = a[((k + 1) % n) * 2 + 1], len = Math.hypot(x1 - x0, y1 - y0);
+      let t = carry; while (t < len) { out.push(x0 + (x1 - x0) * t / len, y0 + (y1 - y0) * t / len); t += step; } carry = t - len;
+    }
+    return out;
+  }
+  const total = () => shapes.reduce((s, sh) => s + sh.loops.reduce((a, l) => a + l.length / 2, 0), 0);
+
+  // ---------- the moves of marbling ----------
+  const marks = [];                                                 // where ink was dropped, for the reveal
+  function drop(cx, cy, r, tone) {
+    const r2 = r * r;
+    for (const sh of shapes) for (const l of sh.loops) for (let k = 0; k < l.length; k += 2) {
+      const dx = l[k] - cx, dy = l[k + 1] - cy, d2 = dx * dx + dy * dy || 1e-6, f = Math.sqrt(1 + r2 / d2);
+      l[k] = cx + dx * f; l[k + 1] = cy + dy * f;
+    }
+    const n = Math.max(24, Math.round(2 * Math.PI * r / 2.5)), loop = [];
+    for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2; loop.push(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
+    shapes.push({ loops: [loop], tone }); marks.push({ x: cx, y: cy, r, tone });
+    refine(); dirty = true;
+  }
+  function tine(ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy); if (len < 0.5) return;
+    const ux = dx / len, uy = dy / len, nx = -uy, ny = ux, lam = P.sharp, teeth = Math.round(P.teeth);
+    const offs2 = Array.from({ length: teeth }, (_, i) => (i - (teeth - 1) / 2) * P.gap);
+    for (const sh of shapes) for (const l of sh.loops) for (let k = 0; k < l.length; k += 2) {
+      let z = 0;
+      for (const o of offs2) {
+        const px = l[k] - (ax + nx * o), py = l[k + 1] - (ay + ny * o);
+        const along = px * ux + py * uy, across = Math.abs(px * nx + py * ny);
+        const t = along < 0 ? -along : along > len ? along - len : 0;
+        z += P.pull * len * Math.exp(-Math.hypot(across, t) / (lam * 1.8));
+      }
+      l[k] += ux * z; l[k + 1] += uy * z;
+    }
+    refine(); dirty = true;
+  }
+  function refine() {
+    if (total() > MAXPTS) return;
+    for (const sh of shapes) for (let li = 0; li < sh.loops.length; li++) {
+      const l = sh.loops[li], n = l.length / 2, out = [];
+      for (let k = 0; k < n; k++) {
+        const x0 = l[k * 2], y0 = l[k * 2 + 1], x1 = l[((k + 1) % n) * 2], y1 = l[((k + 1) % n) * 2 + 1];
+        out.push(x0, y0);
+        const len = Math.hypot(x1 - x0, y1 - y0); if (len > 4) { const s = Math.min(8, Math.ceil(len / 3)); for (let j = 1; j < s; j++) out.push(x0 + (x1 - x0) * j / s, y0 + (y1 - y0) * j / s); }
+      }
+      sh.loops[li] = out;
+    }
+  }
+
+  // ---------- drawing ----------
+  function draw() {
+    ctx.setTransform(stage.pw / stage.W, 0, 0, stage.ph / stage.H, 0, 0);
+    ctx.fillStyle = paperCss; ctx.fillRect(0, 0, W, H);
+    for (const sh of shapes) {
+      const path = new Path2D();
+      for (const l of sh.loops) { path.moveTo(l[0], l[1]); for (let k = 2; k < l.length; k += 2) path.lineTo(l[k], l[k + 1]); path.closePath(); }
+      ctx.fillStyle = sh.tone === 'water' ? paperCss : sh.tone === 'ink' ? inkCss : sh.tone;
+      ctx.fill(path, 'evenodd');
+    }
+  }
+
+  // ---------- touch ----------
+  const press = pressTracker();
+  let combing = false, last = null, lastTap = 0, pointer = null;
+  const tapDrop = (x, y) => {
+    const tone = col && col.woke ? col.css(stage.rand()) : 'ink';
+    drop(x, y, P.drop, tone);
+    if (P.rings) later(() => { if (alive) drop(x, y, P.drop * 0.62, 'water'); }, 140);   // clear water into the middle: the drop becomes a ring
+  };
+  offs.push(stage.on('down', (q, e) => {
+    if (!press.down(q, e.pointerId)) return;
+    touched = true; demo = null; pointer = e.pointerId; last = { x: q.x, y: q.y }; combing = false;
+  }));
+  offs.push(stage.on('move', (q, e) => {
+    if (e.pointerId !== pointer) return;
+    press.move(q, e.pointerId);
+    if (!combing && press.moved > TAP.px) combing = true;
+    if (combing) { tine(last.x, last.y, q.x, q.y); last = { x: q.x, y: q.y }; }
+  }));
+  offs.push(stage.on('up', (q, e) => {
+    if (e.pointerId !== pointer) return;
+    const r = press.up(q, e.pointerId); pointer = null;
+    if (!r || combing) { combing = false; return; }
+    if (r.tap) {
+      tapDrop(q.x, q.y);
+      const now = performance.now();
+      if (now - lastTap < DOUBLE_MS) {                                // two taps on empty water: start again, a beat later so a third tap can still mean reveal
+        clearTimeout(reformT); reformT = later(() => { if (!stage.revealed) restart(); }, REFORM_DELAY_MS); lastTap = 0;
+      } else lastTap = now;
+    }
+  }));
+  offs.push(stage.on('reveal', () => clearTimeout(reformT)));
+
+  // ---------- the self-demo: until the first touch, once, after a few seconds, a slow comb stroke through the name ----------
+  function startDemo() {
+    const y = H * 0.5, x0 = W * 0.2, x1 = W * 0.8;
+    demo = { t: 0, len: 1.8, x0, y0: y - H * 0.05, x1, y1: y + H * 0.04, px: x0, py: y - H * 0.05 };
+  }
+  function stepDemo(dt) {
+    if (!demo) return;
+    demo.t += dt; const u = Math.min(1, demo.t / demo.len), e = u * u * (3 - 2 * u);
+    const x = demo.x0 + (demo.x1 - demo.x0) * e, y = demo.y0 + (demo.y1 - demo.y0) * e;
+    tine(demo.px, demo.py, x, y); demo.px = x; demo.py = y;
+    if (u >= 1) demo = null;
+  }
+
+  async function restart() {
+    shapes = [await nameShape()]; marks.length = 0; drops = 0; dirty = true;
+  }
+
+  // ---------- reveal: what the ink is made of ----------
+  const rv = createReveal(stage, (c, W_, H_, k) => {
+    const colr = (a) => rvInk(stage, a);
+    grid(c, W_, H_, 24, colr, k); corners(c, W_, H_, 16, colr, k);
+    let pts = 0;
+    c.lineWidth = 1;
+    for (const sh of shapes) for (const l of sh.loops) {
+      pts += l.length / 2;
+      c.strokeStyle = colr(0.7 * k); c.beginPath(); c.moveTo(l[0], l[1]); for (let i = 2; i < l.length; i += 2) c.lineTo(l[i], l[i + 1]); c.closePath(); c.stroke();
+      c.fillStyle = colr(0.9 * k);
+      for (let i = 0; i < l.length; i += 24) c.fillRect(l[i] - 1.5, l[i + 1] - 1.5, 3, 3);
+    }
+    for (const m of marks) {
+      c.strokeStyle = colr(0.9 * k); c.beginPath(); c.arc(m.x, m.y, 3, 0, 7); c.stroke();
+      c.setLineDash([3, 4]); c.beginPath(); c.arc(m.x, m.y, m.r, 0, 7); c.stroke(); c.setLineDash([]);
+    }
+    titleBlock(c, W_, H_, ['MARBLED · STRUCTURE', '■ a point on the ink ○ a drop, and its ring', `${shapes.length} shapes · ${pts} points`], colr, k);
+  });
+
+  // ---------- settings ----------
+  const Ctl = (key, label2, min, max, step) => ({ key, label: label2, min, max, step });
+  const tune = {
+    title: 'Marbled', values: P, defaults: DEF,
+    groups: [
+      { name: 'Comb', items: [Ctl('teeth', 'Teeth', 1, 9, 1), Ctl('gap', 'Space between teeth (px)', 12, 140, 2), Ctl('sharp', 'How sharp the feathering is (px)', 4, 80, 1), Ctl('pull', 'How far a stroke drags the ink', 0.2, 1.6, 0.05)] },
+      { name: 'Drops', items: [Ctl('drop', 'Size of a drop (px)', 10, 160, 2), { key: 'rings', label: 'A drop lands as a ring', type: 'toggle' }] },
+    ],
+    actions: { 'Start again': () => restart() },
+    set(key, v) { P[key] = v; },
+    reset() { Object.assign(P, DEF); },
+  };
+
+  await restart();
+  offs.push(stage.on('resize', () => { W = stage.W; H = stage.H; restart(); }));
+  offs.push(stage.frame((dt) => {
+    if (!touched && !demo && !stage.reduced && performance.now() - born > 3500 && !startDemo.done) { startDemo.done = true; startDemo(); }
+    stepDemo(dt);
+    if (dirty) { dirty = false; draw(); }
+    rv.draw();
+  }));
+
+  return {
+    tune,
+    debug: { tine, drop, shapes: () => shapes, restart },
+    destroy() { alive = false; timers.forEach(clearTimeout); clearTimeout(reformT); rv.destroy(); offs.forEach((f) => f()); stage.setBackdrop(null); },
+  };
+}

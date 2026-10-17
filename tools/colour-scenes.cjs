@@ -14,5 +14,7 @@ const COLOUR_SCENES = {
   fan: async (p) => { await drag(p, wiggle(60, 300, 40, 18), 12); await sleep(300); await p.mouse.up(); await sleep(1500); },                             // a long drag (over about 520 px of path)
   rain: async (p) => { await p.mouse.move(100, 200); await sleep(100); await p.mouse.down(); for (let i = 0; i < 30; i++) { await p.mouse.move(120 + i * 20, 220 + Math.sin(i / 3) * 70); await sleep(40); } await sleep(1200); },   // press: it pours, and the stains pile up on the letters
   fontapalloza: async (p) => { await p.mouse.move(200, 200); await sleep(200); await p.mouse.move(420, 260); await sleep(300); await p.evaluate(() => window.__poster.inst.debug.glow(2)); await sleep(1100); },   // after a touch, now and then a letter takes a colour; here two are forced
+  marbled: async (p) => { await p.mouse.click(260, 380); await sleep(400); await p.mouse.click(620, 220); await sleep(400); await drag(p, wiggle(120, 300, 20, 24), 14); await p.mouse.up(); await sleep(300); },   // from the first touch, every drop is a colour
+  glint: async (p) => { await p.mouse.move(180, 250, { steps: 5 }); await sleep(300); await p.mouse.move(620, 330, { steps: 8 }); await sleep(1200); },   // the light takes the palette from the first move
 };
 module.exports = { COLOUR_SCENES };

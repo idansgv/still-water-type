@@ -11,6 +11,9 @@ const SCENES = {
   rain: async (p) => { await p.mouse.move(420, 330); await p.mouse.down(); for (let i = 0; i <= 30; i++) { await p.mouse.move(300 + i * 14, 300 + Math.sin(i / 4) * 70); await sleep(30); } await p.mouse.up(); await sleep(900); },
   'rain-color': async (p) => { await p.mouse.move(420, 330); await p.mouse.down(); for (let i = 0; i <= 30; i++) { await p.mouse.move(300 + i * 14, 300 + Math.sin(i / 4) * 70); await sleep(30); } await p.mouse.up(); await sleep(900); },
   'slinky-type': async (p) => { await p.evaluate(() => { const d = window.__poster.inst.debug, t = window.__poster.inst.tune; t.set('zoom', 1.75); t.set('panY', 0.065); d.click(1); d.click(6); d.run(14); }); await sleep(1200); await p.evaluate(() => window.__poster.inst.debug.run(1)); },
+  marbled: async (p) => { for (const [x, y] of [[300, 470], [900, 210]]) { await p.mouse.click(x, y); await sleep(260); } await p.mouse.move(180, 300); await p.mouse.down(); for (let i = 0; i <= 30; i++) { await p.mouse.move(180 + i * 24, 300 + Math.sin(i / 3) * 24); await sleep(14); } await p.mouse.up(); await sleep(300); },
+  glint: async (p) => { await p.mouse.move(300, 330, { steps: 6 }); await sleep(900); },
 };
 
-module.exports = { SCENES, sleep };
+const PREVIEW_THEME = { glint: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
+module.exports = { SCENES, PREVIEW_THEME, sleep };

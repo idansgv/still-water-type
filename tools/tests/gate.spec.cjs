@@ -60,6 +60,7 @@ test('gate: reveal draws something of its own', async ({ page }) => {
 
 // Reduced motion: with nothing touched, a poster that has been told to be calm stands still (the taste rule: no idle motion).
 test('gate: calm under reduced motion', async ({ browser }) => {
+  test.setTimeout(60000 + 25000 * LIST.length);                       // one test walks every poster in the set
   const ctx = await browser.newContext({ viewport: { width: 1000, height: 640 }, reducedMotion: 'reduce' });
   const page = await ctx.newPage();
   const rows = [];
@@ -98,6 +99,7 @@ test('gate: background tap, hold and double tap are harmless', async ({ page }) 
 // real colour shows, in both themes.
 const { COLOUR_SCENES } = require('../colour-scenes.cjs');
 test('gate: a coloured version exists, waits for a touch, and shows colour (light and dark)', async ({ page }) => {
+  test.setTimeout(60000 + 15000 * LIST.length * 2);
   await page.setViewportSize({ width: 800, height: 500 });
   const share = async () => {                                       // the share of pixels that are clearly coloured (saturated and not near black)
     const shot = await page.screenshot();

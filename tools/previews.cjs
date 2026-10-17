@@ -7,7 +7,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:8910';
 const OUT = path.join(__dirname, '..', 'assets', 'previews');
 const W = 1200, H = 750;
 
-const { SCENES, sleep } = require('./scenes.cjs');
+const { SCENES, PREVIEW_THEME, sleep } = require('./scenes.cjs');
 
 (async () => {
   const which = process.argv.slice(2), slugs = which.length ? which : Object.keys(SCENES);
@@ -16,7 +16,7 @@ const { SCENES, sleep } = require('./scenes.cjs');
     const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
     const page = await ctx.newPage();
     await page.route('**/assets/fonts/**', (r) => r.abort());                          // the live fonts only
-    await page.goto(`${BASE}/?p=${slug}&theme=light`);
+    await page.goto(`${BASE}/?p=${slug}&theme=${PREVIEW_THEME[slug] || 'light'}`);
     await page.waitForFunction(() => window.__poster && window.__poster.inst, null, { timeout: 30000 });
     await sleep(1500);
     await SCENES[slug](page);

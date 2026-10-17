@@ -83,6 +83,33 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | the thrash slows to about three swaps a second per letter |
 | Multi-touch | one pointer |
 
+## In the pipeline (draft): Marbled
+
+| | Marbled |
+|---|---|
+| Tap / press | a drop of ink: it pushes all the ink outward keeping its area, then clear water into its middle, so it lands as a ring (under 250 ms, 8 px) |
+| Drag | combs the ink: the ink beside the stroke is dragged along it, less the farther away; curves stay smooth |
+| Touch | the same; one pointer |
+| Hold | nothing |
+| Double tap (empty) | start again: the clean name (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | page inverts; every shape's outline and points, and each drop with its ring |
+| Self-demo | one slow comb stroke through the name at 3.5 s, until the first touch; off under reduced motion |
+| Reduced motion | no self-demo; everything else is touch |
+| Colour (rare) | from the first touch, each drop of ink is a colour from the palette |
+
+## In the pipeline (draft): Glint
+
+| | Glint |
+|---|---|
+| Hover / drag | the lamp follows the mouse, or a finger |
+| Tap / hold | nothing more: the lamp is where you put it |
+| Double tap | nothing |
+| Three taps (reveal) | page inverts; the lamp, the rays it throws, its position and height, the bevel and reach |
+| Self-demo | the lamp takes one slow turn through the name at 3.5 s, then stops; off under reduced motion |
+| Light page | the whole picture is inverted (a negative) |
+| Reduced motion | no self-demo; the lamp rests at the left until you take it |
+| Colour (rare) | from the first move, the light takes the palette down the page |
+
 ## In the pipeline (draft)
 
 | | Shadow |
