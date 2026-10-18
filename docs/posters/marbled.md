@@ -1,6 +1,6 @@
 # Marbled type (test)
 
-**Status:** published 2026-10-17.
+**Status:** draft. Published 2026-10-17, pulled from the launch set 2026-10-18: needs more refinement first.
 
 **Brief (Idan, 17 Oct 2026).** Picked from a second round of five ideas ("2"): the name floats as ink on water, like Japanese suminagashi. Drag to comb it into feathered marbled patterns; tap to drop a new ring of ink. It never resets on its own, so each visitor leaves their own pattern.
 

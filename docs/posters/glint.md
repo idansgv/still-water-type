@@ -1,6 +1,6 @@
 # Glint (parked for refinement)
 
-**Status:** published 2026-10-17.
+**Status:** draft. Published 2026-10-17, pulled from the launch set 2026-10-18: needs more refinement first.
 
 **Brief (Idan, 17 Oct 2026).** Picked from five ideas after the PlayCanvas v2.23.0 release ("let's try 3"): solid black type on black, nearly invisible, seen only where a small low lamp catches the edges of the letters, with a bloom. Then: "Can we make volumetric light so strong that it's visible?"
 

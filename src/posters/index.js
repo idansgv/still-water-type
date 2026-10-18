@@ -232,6 +232,7 @@ export const POSTERS = [
     blurb: 'The name floats as ink on water. Drag to comb it into marbled patterns; tap to drop more ink.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    draft: true,               // pulled from the launch set 18 Oct 2026: needs more refinement first
     load: () => import('./marbled.js'),
     prompt: "The name \"Idan Segev\" as ink floating on water, like Japanese suminagashi marbling, as black-and-white vector shapes on a canvas. Trace the outline of the heavy type into closed loops of points and apply every move to those points so the ink stays sharp. A tap drops ink: push all the ink outward around the tap keeping its area (p' = c + (p - c) * sqrt(1 + r^2 / |p - c|^2)), then drop clear water into the middle so it lands as a ring. A drag combs: drag every point beside the stroke along it, less the farther away (an exponential falloff), and keep curves smooth by inserting a point wherever a stretch has opened a gap. Nothing ever resets by itself.",
   },
@@ -243,6 +244,7 @@ export const POSTERS = [
     blurb: 'Black type on black, seen only where a small lamp catches its edges. Move the lamp; the light fills the air.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    draft: true,               // pulled from the launch set 18 Oct 2026: needs more refinement first
     load: () => import('./glint.js'),
     prompt: "The name \"Idan Segev\" as a bevelled slab in black on black, nearly invisible, seen only where a small lamp low over the page catches the edges of the letters, rendered with WebGL2. Build a height field of the type with a smooth bevel, light it with a point lamp (specular on the bevel, a bloom from a blurred copy), and add volumetric light: a screen-space light-scattering pass marched from each pixel toward the lamp that the letters block, so beams spread from the lamp and the letters throw shafts of shadow away from it. The lamp follows the pointer. In the light theme the whole picture is inverted.",
   },

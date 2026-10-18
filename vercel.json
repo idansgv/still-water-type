@@ -21,6 +21,16 @@
       "source": "/p/fan-color/",
       "destination": "/p/fan/",
       "permanent": true
+    },
+    {
+      "source": "/p/marbled/",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/p/glint/",
+      "destination": "/",
+      "permanent": false
     }
   ]
 }
