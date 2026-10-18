@@ -61,8 +61,7 @@ export function mount(stage) {
   let kicks = [], drag = null, last = null, drive = { fan: 0, yaw: 0, pitch: 0, stretch: 0, px: 0, py: 0 }, pivY = 0;
   const press = pressTracker();
   const rc = () => (stage.rand() - 0.5) * 2;                                     // seeded, so a shared link opens on the same view
-  function rollCamera() { Object.assign(P, { camYaw: DEF.camYaw + rc() * 0.4, camPitch: DEF.camPitch + rc() * 0.25, camRoll: DEF.camRoll + rc() * 0.1, panX: DEF.panX + rc() * 0.08, panY: DEF.panY + rc() * 0.05, zoom: DEF.zoom + rc() * 0.08 }); dirty = true; }
-  if (P.randomCam) rollCamera();
+  function rollCamera() { Object.assign(P, { camYaw: DEF.camYaw + rc() * 0.4, camPitch: DEF.camPitch + rc() * 0.25, camRoll: DEF.camRoll + rc() * 0.1, panX: 0, panY: 0, zoom: DEF.zoom + rc() * 0.08 }); fitCamera(); dirty = true; }
   const pa = new Float32Array(MAXN * 4), qa = new Float32Array(MAXN * 4);
 
   function layout() {
@@ -118,6 +117,28 @@ export function mount(stage) {
   }
 
   
+  // Centre the resting word on the page whatever the random orbit: project its outline through the same camera as the shader (z = 0 at rest), then shift it onto the
+  // layout's own centre and, if it spills past the edges or the footer, shrink it. Only the pan and zoom change; the random angles stay.
+  function fitCamera() {
+    if (!block.mid || !(W > 1)) return;
+    const f = P.persp * H, hw = W / 2 - Math.max(14, W * 0.045), ya = H / 2 - block.y0, yb = H / 2 - block.y1, tx = 0, ty = H / 2 - block.mid;
+    const pts = []; for (const x of [-hw, 0, hw]) for (const y of [ya, (ya + yb) / 2, yb]) pts.push([x, y]);
+    for (let it = 0; it < 6; it++) {
+      const cy = Math.cos(P.camYaw), sy = Math.sin(P.camYaw), cp = Math.cos(P.camPitch), sp = Math.sin(P.camPitch), cr = Math.cos(P.camRoll), sr = Math.sin(P.camRoll);
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, pws = 0;
+      for (const [x, y] of pts) {
+        const Z = -sy * x, X = cy * x, Y2 = cp * y - sp * Z, Z2 = sp * y + cp * Z;
+        const X3 = (cr * X - sr * Y2) * P.zoom + P.panX * W, Y3 = (sr * X + cr * Y2) * P.zoom + P.panY * H, pw = (f - Math.min(Z2 * P.zoom, f * 0.8)) / f;
+        const sx = X3 / pw, sY = Y3 / pw; x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sY); y1 = Math.max(y1, sY); pws += pw;
+      }
+      const bw = x1 - x0, bh = y1 - y0, k = Math.min(1, (W * 0.94) / bw, (H - 150) / bh);
+      if (k < 1) P.zoom *= k;
+      const pwm = pws / pts.length;
+      P.panX -= ((x0 + x1) / 2 - tx) * pwm / W; P.panY -= ((y0 + y1) / 2 - ty) * pwm / H;
+    }
+    dirty = true;
+  }
+
   function stab(x, y) {                                                         // a wave of flicks running out from the tap
     const dir = x < W / 2 ? 1 : -1;
     strips.forEach((s) => kicks.push({ s, t: Math.abs(s.y - y) / H * 0.5 + stage.rand() * 0.012, da: dir * (7 + 5 * Math.abs(s.rnd)) * (0.35 + 0.65 * Math.abs(s.u)) * Math.sign(s.u), db: dir * 3 * s.u, dox: dir * W * (1.2 + 2 * Math.abs(s.rnd)) * (s.rnd > 0 ? 1 : -0.8) }));
@@ -160,8 +181,8 @@ export function mount(stage) {
   }
 
   // ---- input ----
-  let pid = null, orbit = null;
-  const onWheel = (e) => { e.preventDefault(); P.zoom = clamp(P.zoom * Math.exp(-e.deltaY * 0.0015), 0.3, 4); touched = true; dirty = true; };
+  let pid = null, orbit = null, userCam = false;
+  const onWheel = (e) => { e.preventDefault(); userCam = true; P.zoom = clamp(P.zoom * Math.exp(-e.deltaY * 0.0015), 0.3, 4); touched = true; dirty = true; };
   stage.root.addEventListener('wheel', onWheel, { passive: false });
   const offs = [];
   offs.push(stage.on('down', (q, e) => {
@@ -172,7 +193,7 @@ export function mount(stage) {
   offs.push(stage.on('move', (q, e) => {
     if (pid !== null && e.pointerId !== pid) return;
     press.move(q, e.pointerId);
-    if (orbit) { const dx = q.x - orbit.x, dy = q.y - orbit.y; orbit.x = q.x; orbit.y = q.y; if (orbit.shift) { P.panX += dx / W; P.panY -= dy / H; } else { P.camYaw += dx * 0.006; P.camPitch += dy * 0.006; } dirty = true; return; }
+    if (orbit) { const dx = q.x - orbit.x, dy = q.y - orbit.y; orbit.x = q.x; orbit.y = q.y; userCam = true; if (orbit.shift) { P.panX += dx / W; P.panY -= dy / H; } else { P.camYaw += dx * 0.006; P.camPitch += dy * 0.006; } dirty = true; return; }
     if (drag) { const dx = (q.x - drag.x0) / (W * 0.5), dy = (q.y - drag.y0) / (H * 0.5); drag.fan = clamp(dx, -1.3, 1.3); drag.yaw = clamp(dx, -1.3, 1.3) * 0.8; drag.pitch = clamp(-dy, -1.2, 1.2); drag.py = clamp(q.y, block.y0, block.y1); dirty = true; }
     else if (q.type === 'mouse' && last) {                                      // hover: a moving mouse nudges the strips it passes
       const vx = q.x - last.x, R = H * 0.14;
@@ -207,9 +228,10 @@ export function mount(stage) {
     titleBlock(c, W_, H_, ['FAN · STRIPS', `${strips.length} quads, 5 springs each`, 'swing · yaw · pitch · length · slide', 'o = pivot (where you pressed)'], col, k);
   });
 
-  function resize() { W = stage.W; H = stage.H; PW = stage.pw; PH = stage.ph; layout(); draw(); }
+  function resize() { W = stage.W; H = stage.H; PW = stage.pw; PH = stage.ph; layout(); if (P.randomCam && !userCam) fitCamera(); draw(); }
   offs.push(stage.on('resize', resize));
   if (document.fonts && document.fonts.load) document.fonts.load('900 100px Archivo', 'IDANSEGEV').then(() => { if (alive) { layout(); draw(); } }, () => {});
+  if (P.randomCam) rollCamera();
   resize();
 
   offs.push(stage.frame((dt) => {
@@ -239,7 +261,7 @@ export function mount(stage) {
         { name: 'Springs', items: [{ key: 'stiff', label: 'Stiffness', min: 30, max: 220, step: 1 }, { key: 'damp', label: 'Damping', min: 0.1, max: 1, step: 0.01 }] },
       ],
       actions: { 'Fan': () => { demoTarget = demoTarget ? 0 : 1; }, 'Stab': () => stab(W / 2, H / 2), 'Scatter': () => scatter(), 'New camera': () => rollCamera(), 'Reset camera': () => { Object.assign(P, { camYaw: DEF.camYaw, camPitch: DEF.camPitch, camRoll: DEF.camRoll, zoom: DEF.zoom, panX: DEF.panX, panY: DEF.panY }); dirty = true; } },
-      set(k, v) { P[k] = +v; if (k === 'rows' || k === 'gap') layout(); dirty = true; },
+      set(k, v) { P[k] = +v; if (/^(cam|pan|zoom)/.test(k)) userCam = true; if (k === 'rows' || k === 'gap') layout(); dirty = true; },
       reset() { Object.assign(P, DEF); layout(); },
     },
     debug: { strips: () => strips, fan: (v) => { demoTarget = v; }, stab, scatter, draw },

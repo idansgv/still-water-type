@@ -164,15 +164,17 @@ body {
 .tune-text textarea { grid-column: 1 / -1; width: 100%; font: inherit; color: #fff; background: #000; border: 1px solid #3a3a3a; padding: 6px; resize: vertical; }
 
 @media (max-width: 720px) {
-  .chrome {                                           /* the name and Shuffle share a baseline; the tagline runs full width beneath */
-    grid-template-columns: 1fr auto;
-    grid-template-areas: "name actions" "role role" "folio folio";
+  .chrome {                                           /* two lines: "Idan Segev. Design leader." then "Building teams of builders." with Shuffle on its right, on the same baseline */
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "name r1 r1" "r2 r2 actions" "folio folio folio";
     align-items: baseline;
-    gap: 0 20px;
+    column-gap: 0.7em;
   }
-  .id, .id .who { display: contents; }
+  .id, .id .who, .id .slot, .id .role { display: contents; }
   .chrome .id .name { grid-area: name; justify-self: start; padding: 8px 0 2px; }
-  .id .slot { grid-area: role; }
+  .id .r1 { grid-area: r1; }
+  .id .r2 { grid-area: r2; }
+  .id .links { grid-area: r2; }                       /* tap the name: the links take the place of the second line */
   .actions { align-self: baseline; }
   .id .folio { grid-area: folio; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .folio .count { display: none; }
@@ -186,14 +188,20 @@ body {
   .chrome .links a { padding-block: 6px; }
 }
 
-/* Shuffle breathes slowly, like an AI "thinking" cursor, so it is not missed. Still on hover/focus. */
-@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-#btn-shuffle { animation: breathe 2.4s ease-in-out infinite; }
-#btn-shuffle:hover, #btn-shuffle:focus-visible, #btn-shuffle:active { animation: none; }
+/* Shuffle: after a few quiet seconds a band of colour sweeps across the word, like the shimmer on text while an AI is "thinking", then rests, then sweeps again.
+   main.js adds .nudge after the visitor has been idle (and takes it away on any input, a shuffle, hover or focus). */
+@keyframes sweep { 0% { background-position: 100% 0; } 38%, 100% { background-position: 0% 0; } }   /* the image is 3x the word: at 100% and 0% the word shows only dim; at 50% the colour band is over it */
+#btn-shuffle.nudge {
+  color: transparent;
+  background: linear-gradient(100deg, var(--dim) 0%, var(--dim) 40%, #ff4fe0 46%, #2ee6ff 50%, #d4f01a 54%, var(--dim) 60%, var(--dim) 100%) 0 0 / 300% 100% no-repeat;
+  -webkit-background-clip: text; background-clip: text;
+  animation: sweep 5.5s ease-in-out infinite;
+}
+#btn-shuffle.nudge:hover, #btn-shuffle.nudge:focus-visible, #btn-shuffle.nudge:active { animation: none; background: none; color: var(--fg); }
 
 @media (prefers-reduced-motion: reduce) {
   .stage, .hint, #toast { transition: none; }
-  #btn-shuffle { animation: none; }
+  #btn-shuffle.nudge { animation: none; background: none; color: inherit; }
 }
 
 noscript .plain {

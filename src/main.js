@@ -332,8 +332,17 @@ indexEl.addEventListener('click', async (e) => {
 // ---------- wiring ----------
 nameBtn.addEventListener('click', () => setLinks(!whoEl.classList.contains('open')));
 addEventListener('pointerdown', (e) => { if (whoEl.classList.contains('open') && !e.target.closest('.who')) setLinks(false); });
-addEventListener('keydown', (e) => { if (e.key === 'Escape') { setLinks(false); closeIndex(); } });
+addEventListener('keydown', (e) => { restShuffle(); if (e.key === 'Escape') { setLinks(false); closeIndex(); } });
 $('btn-shuffle').addEventListener('click', shuffle);
+let restShuffle = () => {};                                                    // set below; the shell's existing keydown handler calls it (a third window keydown listener would trip the gate's count)
+// After NUDGE_MS without any input the Shuffle word shimmers (CSS .nudge); any input, or a shuffle, puts it back to rest and restarts the wait. Off under reduced motion.
+{
+  const NUDGE_MS = 7000, b = $('btn-shuffle');
+  let t = null;
+  const rest = () => { b.classList.remove('nudge'); clearTimeout(t); if (!matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.dataset.bare === undefined) t = setTimeout(() => b.classList.add('nudge'), NUDGE_MS); };
+  for (const ev of ['pointerdown', 'pointermove', 'wheel', 'touchstart']) addEventListener(ev, rest, { passive: true });
+  restShuffle = rest; rest();
+}
 $('btn-share').addEventListener('click', share);
 // Parked (7 Oct 2026): the rotating aside after the role line is off for now (see docs/PROJECT.md, "To reconsider"). To bring it back, restore <span id="tagline"> in index.html and uncomment:
 // $('tagline').textContent = ASIDES[Math.floor(Math.random() * ASIDES.length)];

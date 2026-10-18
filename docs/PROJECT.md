@@ -92,6 +92,8 @@ A poster exports `mount(ctx)` (it may be async) and returns `{ destroy(), tune?,
 
 `/?p=<slug>` forces a poster; `&theme=light|dark` forces a theme; `#s=<seed>` replays a random variation; `?tune` shows the settings panel; `?debug` shows poster errors as an on-screen toast; `?live` makes Still Water mirror a local Wordflow3d server (off by default, because a public page reaching for localhost can trigger Chrome's local-network prompt).
 
+**Shuffle and the footer (18 Oct 2026).** After 7 s without any input the word *Shuffle* shimmers: a band of colour (pink, cyan, lime) sweeps across it for about two seconds, rests, and sweeps again, like the shimmer on text while an AI is thinking (CSS `.nudge`, added and removed by the idle timer in `src/main.js`; any input, hover or focus stops it; off under reduced motion). On a phone the footer is two lines: "Idan Segev  Design leader." and below it "Building teams of builders." with Shuffle on the right of that line, on the same baseline. Colour: a light page uses the same palettes as a dark one. Fan's random start camera is re-centred on the page (`fitCamera` in `src/posters/fan.js`).
+
 **Working offline.** `python3 tools/dev.py` needs nothing from the network once the open fonts are local: run `node tools/fetch-offline-fonts.mjs` once while online (saves them to `assets/fonts/offline/`, git-ignored; `src/local-fonts.js` loads them on localhost), and check with `NODE_PATH=$(npm root -g) node tools/offline-check.cjs <slug>` (blocks every non-localhost request and checks the fonts). Commits work offline; pushing and the live check need a connection.
 
 ## 8. Development and testing

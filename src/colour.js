@@ -8,7 +8,7 @@
 //       the Metal blobs you touched...); the shell adds no overlay. colourOf() gives it the palette, an eased 0..1 `amount`, wake(), and colour lookups for JS and shaders.
 //
 // ?colour=on forces it, ?colour=off forbids it, ?colour=<0..5> forces that palette. The palettes are the shared ones in src/posters/palette.js.
-import { PALETTES, PALETTES_LIGHT } from './posters/palette.js';
+import { PALETTES } from './posters/palette.js';
 
 export const COLOUR_ODDS = 1 / 19;                        // with never two in a row this comes out at one showing in twenty: an easter egg, not a feature
 let lastWasColour = false;                              // never two in a row: rare has to feel rare
@@ -22,7 +22,7 @@ export function rollColour(params = new URLSearchParams(), rand = Math.random, {
   else if (!lastWasColour && rand() < odds) pick = Math.floor(rand() * PALETTES.length);
   if (remember) lastWasColour = pick !== null;
   if (pick === null) return null;
-  const p = (dark ? PALETTES : PALETTES_LIGHT)[pick];                 // the bright set suits a dark page; a light page gets the deeper one
+  const p = PALETTES[pick];                                           // the same bright set on a light page as on a dark one
   return { index: pick, name: p.name, g: p.g };
 }
 export const forgetColour = () => { lastWasColour = false; };

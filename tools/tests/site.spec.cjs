@@ -251,5 +251,5 @@ test('9 colour: about one in twenty, never twice in a row, forced and forbidden 
   expect(rollColour(new URLSearchParams('colour=off'), () => 0)).toBeNull();
   expect(rollColour(new URLSearchParams('colour=3'), () => 0.9).index).toBe(3);
   const dk = rollColour(new URLSearchParams('colour=0'), () => 0.9, { dark: true }), lt = rollColour(new URLSearchParams('colour=0'), () => 0.9, { dark: false });
-  expect(dk.g[0][0]).not.toBe(lt.g[0][0]);                       // a light page gets its own, deeper set
+  expect(dk.g[0][0]).toBe(lt.g[0][0]);                           // a light page gets the same palettes as a dark one (18 Oct 2026)
 });
