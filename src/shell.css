@@ -188,12 +188,12 @@ body {
   .chrome .links a { padding-block: 6px; }
 }
 
-/* Shuffle: after a few quiet seconds a band of colour sweeps across the word, like the shimmer on text while an AI is "thinking", then rests, then sweeps again.
+/* Shuffle: after a few quiet seconds one band of colour sweeps across the word (a different colour each time), like the shimmer on text while an AI is "thinking", then rests, then sweeps again.
    main.js adds .nudge after the visitor has been idle (and takes it away on any input, a shuffle, hover or focus). */
 @keyframes sweep { 0% { background-position: 100% 0; } 38%, 100% { background-position: 0% 0; } }   /* the image is 3x the word: at 100% and 0% the word shows only dim; at 50% the colour band is over it */
 #btn-shuffle.nudge {
   color: transparent;
-  background: linear-gradient(100deg, var(--dim) 0%, var(--dim) 40%, #ff4fe0 46%, #2ee6ff 50%, #d4f01a 54%, var(--dim) 60%, var(--dim) 100%) 0 0 / 300% 100% no-repeat;
+  background: linear-gradient(100deg, var(--dim) 0%, var(--dim) 38%, var(--nc, #ff4fe0) 50%, var(--dim) 62%, var(--dim) 100%) 0 0 / 300% 100% no-repeat;   /* one colour per sweep: main.js sets --nc, a new one each time */
   -webkit-background-clip: text; background-clip: text;
   animation: sweep 5.5s ease-in-out infinite;
 }
@@ -259,9 +259,10 @@ body.index-open .menu-corner .lbl::after { content: "Close"; font-size: 12px; }
   font: 500 clamp(26px, min(6.2vw, calc((100vh - 150px) / (var(--rows, 8) * 1.46))), 68px)/1.08 var(--ui); letter-spacing: -0.02em;
   transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
 }
-.index-list li { position: relative; }
+.index-list li { display: grid; align-items: baseline; }                   /* the row and its Copy prompt share one cell and one baseline, so the prompt sits on the same line as the number */
+.index-list li > a { grid-area: 1 / 1; }
 .index-list .cp {
-  position: absolute; right: 3.2rem; bottom: 0.9rem; padding: 6px 4px; background: none; border: 0; cursor: pointer;
+  grid-area: 1 / 1; justify-self: end; margin-right: 3.2rem; padding: 6px 4px; background: none; border: 0; cursor: pointer;
   font: 400 12px/1 var(--mono); color: var(--dim); opacity: 0; transition: opacity 0.2s ease, color 0.2s ease;
 }
 .index-list li:hover .cp, .index-list .cp:focus-visible, .index-list .cp.done { opacity: 1; }

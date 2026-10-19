@@ -337,9 +337,11 @@ $('btn-shuffle').addEventListener('click', shuffle);
 let restShuffle = () => {};                                                    // set below; the shell's existing keydown handler calls it (a third window keydown listener would trip the gate's count)
 // After NUDGE_MS without any input the Shuffle word shimmers (CSS .nudge); any input, or a shuffle, puts it back to rest and restarts the wait. Off under reduced motion.
 {
-  const NUDGE_MS = 7000, b = $('btn-shuffle');
-  let t = null;
-  const rest = () => { b.classList.remove('nudge'); clearTimeout(t); if (!matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.dataset.bare === undefined) t = setTimeout(() => b.classList.add('nudge'), NUDGE_MS); };
+  const NUDGE_MS = 7000, b = $('btn-shuffle'), COLOURS = ['#ff4fe0', '#2ee6ff', '#d4f01a', '#ff8a2b', '#a66bff'];
+  let t = null, ci = Math.floor(Math.random() * COLOURS.length);
+  const swap = () => { ci = (ci + 1 + Math.floor(Math.random() * (COLOURS.length - 1))) % COLOURS.length; b.style.setProperty('--nc', COLOURS[ci]); };   // one colour per sweep, never the same twice in a row
+  b.addEventListener('animationiteration', swap);
+  const rest = () => { b.classList.remove('nudge'); clearTimeout(t); if (!matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.dataset.bare === undefined) t = setTimeout(() => { swap(); b.classList.add('nudge'); }, NUDGE_MS); };
   for (const ev of ['pointerdown', 'pointermove', 'wheel', 'touchstart']) addEventListener(ev, rest, { passive: true });
   restShuffle = rest; rest();
 }
