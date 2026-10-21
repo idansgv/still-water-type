@@ -1,0 +1,447 @@
+<title>Rigged</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Bungee&family=Bungee+Inline&family=Dela+Gothic+One&family=Bowlby+One&family=Rubik+Mono+One&family=Alfa+Slab+One&display=swap">
+<style>
+/* Layout: the name is cloth held by a hidden rig. A WebGL canvas for the cloth, a 2D canvas above it for the rig drawing,
+   a quiet foot line and a test-only settings sheet. */
+:root {
+  --bg: #ffffff; --ink: #000000; --dim: #707070; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(255, 255, 255, 0.96);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000000; --ink: #ffffff; --dim: #8c8c8c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #000000; --ink: #ffffff; --dim: #8c8c8c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono); margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#rig { pointer-events: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button, select { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+select { border-bottom: 1px solid var(--line); padding: 2px 0; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; flex-wrap: wrap; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="Idan Segev in heavy capitals made of cloth, held in shape by a hidden rig of strings, pulleys and weights. Tap a letter and its strings are cut; the rig hoists it back."></canvas>
+<canvas id="rig" aria-hidden="true"></canvas>
+<div class="foot"><span><b>Rigged</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row" for="font"><span>Face</span><select id="font"></select></label>
+  <label class="row" for="rigMode"><span>The rig</span><select id="rigMode"><option value="hidden">hidden (three taps shows it)</option><option value="working">seen while it works</option><option value="always">always drawn</option></select></label>
+  <label class="row" for="tapMode"><span>A tap drops</span><select id="tapMode"><option value="letter">the whole letter</option><option value="near">the strings near it</option></select></label>
+  <label class="row" for="slack"><span>Spare cloth (slack)</span><output id="slackO"></output><input type="range" id="slack" min="0.96" max="1.2" step="0.01" value="1.1"></label>
+  <label class="row" for="detail"><span>Cloth detail (points)</span><output id="detailO"></output><input type="range" id="detail" min="1000" max="6000" step="100" value="3000"></label>
+  <label class="row" for="gap"><span>String spacing</span><output id="gapO"></output><input type="range" id="gap" min="0.08" max="0.5" step="0.01" value="0.22"></label>
+  <label class="row" for="bend"><span>Fold stiffness</span><output id="bendO"></output><input type="range" id="bend" min="0" max="0.4" step="0.01" value="0.06"></label>
+  <label class="row" for="grav"><span>Gravity</span><output id="gravO"></output><input type="range" id="grav" min="200" max="3000" step="50" value="1300"></label>
+  <label class="row" for="reel"><span>Reel speed</span><output id="reelO"></output><input type="range" id="reel" min="80" max="1600" step="20" value="520"></label>
+  <label class="row" for="hold"><span>Pause before hoisting (s)</span><output id="holdO"></output><input type="range" id="hold" min="0.2" max="4" step="0.1" value="1.2"></label>
+  <label class="row" for="sheen"><span>Fold light</span><output id="sheenO"></output><input type="range" id="sheen" min="0" max="2" step="0.05" value="1"></label>
+  <div class="acts"><button id="drop" type="button">Drop all</button><button id="hoist" type="button">Hoist now</button><button id="copy" type="button">Copy settings</button></div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c'), rc = document.getElementById('rig'), rx = rc.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+  const FONTS = ['Bungee', 'Bungee Inline', 'Dela Gothic One', 'Bowlby One', 'Rubik Mono One', 'Alfa Slab One'];
+  const P = { font: 'Bungee', rigMode: 'hidden', tapMode: 'letter', slack: 1.1, detail: 3000, gap: 0.22, bend: 0.06, grav: 1300, reel: 520, hold: 1.2, sheen: 1 };
+  try { Object.assign(P, JSON.parse(localStorage.getItem('rigged') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('rigged', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W = 1, H = 1, dpr = 1, page = [1, 1, 1], ink = [0, 0, 0], inkCss = '#000', pageCss = '#fff', dark = false;
+  const hex = (h) => { h = h.replace('#', ''); if (h.length === 3) h = [...h].map((c) => c + c).join(''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255); };
+  const readTheme = () => { const cs = getComputedStyle(document.documentElement); pageCss = cs.getPropertyValue('--bg').trim(); inkCss = cs.getPropertyValue('--ink').trim(); page = hex(pageCss); ink = hex(inkCss); dark = page[0] < 0.5; };
+
+  // ---------- WebGL: the cloth ----------
+  const gl = cv.getContext('webgl', { antialias: true, alpha: false });
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, `attribute vec3 p; attribute vec3 n; uniform vec2 res; varying vec3 vn;
+    void main(){ vn = n; gl_Position = vec4(p.x / res.x * 2. - 1., 1. - p.y / res.y * 2., clamp(-p.z / 4000., -1., 1.), 1.); }`));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, `precision mediump float; varying vec3 vn; uniform vec3 ink, page; uniform float dark, fade, amt; uniform vec2 L;
+    void main(){
+      vec3 n = normalize(vn); if (n.z < 0.) n = -n;
+      float v = dot(n.xy, L);
+      float t = (dark > .5 ? max(0., -v) : max(0., v)) * .9 + (1. - n.z) * .35;
+      t = clamp(t * amt, 0., 1.);
+      vec3 c = mix(ink, page, t * .72);
+      gl_FragColor = vec4(mix(c, page, fade), 1.);
+    }`));
+  gl.linkProgram(prog); gl.useProgram(prog);
+  const aP = gl.getAttribLocation(prog, 'p'), aN = gl.getAttribLocation(prog, 'n');
+  const U = (n) => gl.getUniformLocation(prog, n), uRes = U('res'), uInk = U('ink'), uPage = U('page'), uDark = U('dark'), uFade = U('fade'), uAmt = U('amt'), uL = U('L');
+  const bufP = gl.createBuffer(), bufN = gl.createBuffer(), bufI = gl.createBuffer();
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
+
+  // ---------- the cloth and its rig ----------
+  // Each letter is a triangle mesh cut from the glyph, a little too big (slack). Along every outline, ties: a string from
+  // an edge point to a pulley, over it and down to a counterweight. A stop on the string holds the point exactly on the
+  // letter's outline, so the weights pull the edge into shape while the spare cloth folds. Two ties per letter are nails.
+  let N = 0, X, Y, Z, PX, PY, PZ, IM, HX, HY, LAB, CA, CB, CR, CK, NC = 0, TRI, NRM, POS, ties = [], capH = 100, s = 8, letters = [], ready = false;
+  let queue = [], revealed = false, demo = !reduce, grab = null, bendK = P.bend;
+
+  async function build() {
+    ready = false;
+    const fam = P.font, font = (px) => `400 ${px}px "${fam}"`;
+    try { await Promise.race([document.fonts.load(font(100), 'IDANSEGV'), new Promise((r) => setTimeout(r, 3000))]); } catch (e) { /* fallback */ }
+    const w = Math.ceil(W), h = Math.ceil(H), m = document.createElement('canvas'); m.width = w; m.height = h;
+    const x = m.getContext('2d', { willReadFrequently: true });
+    const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], TR = 0.06;
+    x.font = font(100);
+    const adv = {}; for (const ch of 'IDANSEGV') adv[ch] = x.measureText(ch).width / 100;
+    const lw = (l, sz) => [...l].reduce((a, ch) => a + adv[ch] * sz, 0) + TR * sz * (l.length - 1);
+    const cap = x.measureText('H').actualBoundingBoxAscent / 100 || 0.72;
+    let size = Math.min(...lines.map((l) => W * 0.84 / lw(l, 1)));
+    const lead = 1.32, total = (sz) => cap * sz * (1 + (lines.length - 1) * lead);
+    if (total(size) > H * 0.74) size *= H * 0.74 / total(size);
+    capH = cap * size;
+    x.font = font(size); x.textBaseline = 'alphabetic';
+    const base0 = (H - total(size)) / 2 + capH - H * 0.04;
+    let li = 0; letters = [];
+    lines.forEach((l, k) => {
+      let cx = (W - lw(l, size)) / 2; const by = base0 + k * capH * lead;
+      for (const ch of l) { x.fillStyle = `rgb(${(li + 1) * 20},0,0)`; x.fillText(ch, cx, by); letters.push(ch); cx += adv[ch] * size + TR * size; li++; }
+    });
+    const d = x.getImageData(0, 0, w, h).data, A = new Uint8Array(w * h), Lb = new Int8Array(w * h).fill(-1);
+    let area = 0, bx0 = w, by0 = h, bx1 = 0, by1 = 0;
+    for (let i = 0; i < w * h; i++) if (d[i * 4 + 3] > 110) {
+      A[i] = 1; Lb[i] = Math.round(d[i * 4] / 20) - 1; area++;
+      const px = i % w, py = (i / w) | 0; if (px < bx0) bx0 = px; if (px > bx1) bx1 = px; if (py < by0) by0 = py; if (py > by1) by1 = py;
+    }
+    const ins = (px, py) => { px |= 0; py |= 0; return px >= 0 && py >= 0 && px < w && py < h && A[py * w + px] === 1; };
+    const lab = (px, py) => Lb[(py | 0) * w + (px | 0)];
+    const insTol = (px, py, l) => { for (const [ox, oy] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) if (ins(px + ox, py + oy) && lab(px + ox, py + oy) === l) return true; return false; };
+    s = Math.sqrt(area / P.detail);
+    // grid nodes: inside ones stay; ones just outside snap onto the nearest ink pixel, so the mesh edge follows the outline
+    const gx0 = bx0 - s, gy0 = by0 - s, cols = Math.ceil((bx1 - bx0) / s) + 3, rows = Math.ceil((by1 - by0) / s) + 3;
+    const gid = new Int32Array(cols * rows).fill(-1), nx = [], ny = [], nl = [], rr = Math.ceil(s * 0.72);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      let px = gx0 + i * s, py = gy0 + j * s;
+      if (!ins(px, py)) {
+        let best = 1e9, bx = 0, by = 0;
+        for (let oy = -rr; oy <= rr; oy++) for (let ox = -rr; ox <= rr; ox++) { const q = ox * ox + oy * oy; if (q < best && q <= rr * rr && ins(px + ox, py + oy)) { best = q; bx = (px | 0) + ox + 0.5; by = (py | 0) + oy + 0.5; } }
+        if (best === 1e9) continue; px = bx; py = by;
+      }
+      gid[j * cols + i] = nx.length; nx.push(px); ny.push(py); nl.push(lab(px, py));
+    }
+    const tris = [];
+    const tryTri = (a, b, c) => {
+      if (a < 0 || b < 0 || c < 0 || nl[a] !== nl[b] || nl[a] !== nl[c] || nl[a] < 0) return;
+      const ar = Math.abs((nx[b] - nx[a]) * (ny[c] - ny[a]) - (nx[c] - nx[a]) * (ny[b] - ny[a])) / 2;
+      if (ar < 0.12 * s * s) return;
+      const l = nl[a], mid = (p, q) => insTol((nx[p] + nx[q]) / 2, (ny[p] + ny[q]) / 2, l);
+      if (!insTol((nx[a] + nx[b] + nx[c]) / 3, (ny[a] + ny[b] + ny[c]) / 3, l) || !mid(a, b) || !mid(b, c) || !mid(a, c)) return;
+      tris.push(a, b, c);
+    };
+    for (let j = 0; j < rows - 1; j++) for (let i = 0; i < cols - 1; i++) {
+      const a = gid[j * cols + i], b = gid[j * cols + i + 1], c = gid[(j + 1) * cols + i], e = gid[(j + 1) * cols + i + 1];
+      if ((i + j) & 1) { tryTri(a, b, e); tryTri(a, e, c); } else { tryTri(a, b, c); tryTri(b, e, c); }
+    }
+    // keep only used nodes
+    const used = new Int32Array(nx.length).fill(-1); let n = 0;
+    for (const v of tris) if (used[v] < 0) used[v] = n++;
+    N = n; X = new Float32Array(N); Y = new Float32Array(N); Z = new Float32Array(N); PX = new Float32Array(N); PY = new Float32Array(N); PZ = new Float32Array(N);
+    IM = new Float32Array(N).fill(1); HX = new Float32Array(N); HY = new Float32Array(N); LAB = new Int8Array(N);
+    for (let i = 0; i < nx.length; i++) if (used[i] >= 0) { const k = used[i]; HX[k] = X[k] = PX[k] = nx[i]; HY[k] = Y[k] = PY[k] = ny[i]; LAB[k] = nl[i]; Z[k] = PZ[k] = (Math.random() - 0.5) * 0.6; }
+    TRI = new Uint16Array(tris.map((v) => used[v]));
+    // constraints: every triangle edge (stretch) and, across each shared edge, the two far corners (folding)
+    const em = new Map(), key = (a, b) => (a < b ? a * 65536 + b : b * 65536 + a);
+    for (let t = 0; t < TRI.length; t += 3) for (let e = 0; e < 3; e++) {
+      const a = TRI[t + e], b = TRI[t + (e + 1) % 3], o = TRI[t + (e + 2) % 3], k = key(a, b);
+      const r = em.get(k); if (r) r.opp.push(o); else em.set(k, { a, b, opp: [o] });
+    }
+    const ca = [], cb = [], ck = [];
+    for (const r of em.values()) { ca.push(r.a); cb.push(r.b); ck.push(1); if (r.opp.length === 2) { ca.push(r.opp[0]); cb.push(r.opp[1]); ck.push(-1); } }
+    NC = ca.length; CA = new Uint16Array(ca); CB = new Uint16Array(cb); CK = new Float32Array(ck); CR = new Float32Array(NC);
+    for (let c = 0; c < NC; c++) CR[c] = Math.hypot(HX[CB[c]] - HX[CA[c]], HY[CB[c]] - HY[CA[c]]) * P.slack;
+    // outline loops from the edges that belong to one triangle
+    const badj = new Map();
+    for (const r of em.values()) if (r.opp.length === 1) { for (const [p, q] of [[r.a, r.b], [r.b, r.a]]) { if (!badj.has(p)) badj.set(p, []); badj.get(p).push(q); } }
+    const seen = new Set(), loops = [];
+    for (const [v0, nb] of badj) for (const v1 of nb) {
+      if (seen.has(key(v0, v1))) continue;
+      const loop = [v0]; let prev = v0, cur = v1; seen.add(key(v0, v1));
+      while (cur !== v0 && loop.length < 20000) {
+        loop.push(cur);
+        const nxt = (badj.get(cur) || []).find((q) => q !== prev && !seen.has(key(cur, q)));
+        if (nxt === undefined) break;
+        seen.add(key(cur, nxt)); prev = cur; cur = nxt;
+      }
+      if (loop.length > 4) loops.push(loop);
+    }
+    // ties along each loop: at corners, and between them every `gap` (in cap heights)
+    ties = []; const gap = P.gap * capH, rnd = mulberry(7);
+    for (const loop of loops) {
+      const L = loop.length, at = (i) => loop[(i % L + L) % L];
+      const turn = loop.map((_, i) => {
+        const a = at(i - 2), b = at(i), c = at(i + 2);
+        const a1 = Math.atan2(HY[b] - HY[a], HX[b] - HX[a]), a2 = Math.atan2(HY[c] - HY[b], HX[c] - HX[b]);
+        let t = a2 - a1; while (t > Math.PI) t -= 2 * Math.PI; while (t < -Math.PI) t += 2 * Math.PI; return Math.abs(t);
+      });
+      const corner = turn.map((t, i) => t > 0.55 && t >= turn[(i - 1 + L) % L] && t >= turn[(i + 1) % L]);
+      let start = corner.indexOf(true); if (start < 0) start = 0;
+      let run = gap; const first = ties.length, at0 = [];
+      for (let k = 0; k < L; k++) {
+        const i = (start + k) % L, v = loop[i], pv = at(i - 1);
+        run += Math.hypot(HX[v] - HX[pv], HY[v] - HY[pv]);
+        if ((corner[i] && run > gap * 0.4) || run >= gap) {
+          run = 0;
+          const a = at(i - 1), b = at(i + 1); let tx = HX[b] - HX[a], ty = HY[b] - HY[a]; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+          let nX = ty, nY = -tx; if (ins(HX[v] + nX * 3, HY[v] + nY * 3)) { nX = -nX; nY = -nY; }
+          let dx = nX, dy = nY - 0.35; const dl = Math.hypot(dx, dy); dx /= dl; dy /= dl;
+          const D = capH * (0.22 + 0.22 * rnd());
+          ties.push(mkTie(v, HX[v] + dx * D, HY[v] + dy * D, D, LAB[v])); at0.push(i);
+        }
+      }
+      // the bridle: every outline point between two ties hangs from the nearer one, so the string fans out to hold a whole stretch of edge
+      const T = at0.length; if (!T) continue;
+      for (let i = 0; i < L; i++) {
+        let best = 0, bd = 1e9;
+        for (let k = 0; k < T; k++) { const dd = Math.min(Math.abs(i - at0[k]), L - Math.abs(i - at0[k])); if (dd < bd) { bd = dd; best = k; } }
+        ties[first + best].vs.push(loop[i]);
+      }
+    }
+    // the nails: per letter, the highest ties at its left and right; their pulleys sit straight above. Never cut.
+    for (let l = 0; l < letters.length; l++) {
+      const mine = ties.filter((t) => t.label === l); if (!mine.length) continue;
+      const top = Math.min(...mine.map((t) => HY[t.v])), band = mine.filter((t) => HY[t.v] < top + capH * 0.12);
+      band.sort((a, b) => HX[a.v] - HX[b.v]);
+      const pick = [band[0]]; if (band.length > 1 && HX[band[band.length - 1].v] - HX[band[0].v] > capH * 0.12) pick.push(band[band.length - 1]);
+      for (const t of pick) { t.nail = true; const D = capH * 0.3; t.px = HX[t.v]; t.py = HY[t.v] - D; t.L0 = D; }
+    }
+    for (const t of ties) {
+      if (!t.vs.length) t.vs.push(t.v);
+      t.L0s = new Float32Array(t.vs.map((v) => Math.hypot(HX[v] - t.px, HY[v] - t.py)));
+      // the knot where the fan of strings meets the single string to the pulley
+      t.kx = t.px + (HX[t.v] - t.px) * 0.45; t.ky = t.py + (HY[t.v] - t.py) * 0.45;
+    }
+    ties.forEach((t, i) => { t.tag = 'abcdefghiklmnopqrstvxyz'[i % 23]; });
+    POS = new Float32Array(N * 3); NRM = new Float32Array(N * 3);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufI); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, TRI, gl.STATIC_DRAW);
+    queue = []; grab = null; ready = true;
+    window.__rig = { N, NC, ties: ties.length, letters: letters.length, s, capH, step: (k = 1) => { for (let i = 0; i < k; i++) { sim(1 / 60); tickRig(1 / 60); clockOff += 1000 / 60; } }, dropAll, cut: (l) => cut(ties.filter((t) => t.label === l)), hoistAll, frame };
+  }
+  function mulberry(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function mkTie(v, px, py, D, label) {
+    return { v, vs: [], px, py, L0: D, ext: 0, on: true, reel: false, nail: false, label, hang: capH * (0.18 + 0.2 * Math.random()), w: 0, wv: 0, fall: 0, ang: 0, act: 0, tag: 'a' };
+  }
+
+  // ---------- the solver: position-based, in 3D so spare cloth buckles out of the page ----------
+  function sim(dt) {
+    const SUB = 4, h = dt / SUB, g = P.grav * h * h, T = P.grav * 2.2 * h * h, damp = 0.994, floor = H - 3;
+    for (let sI = 0; sI < SUB; sI++) {
+      for (let i = 0; i < N; i++) {
+        if (IM[i] === 0) continue;
+        const vx = (X[i] - PX[i]) * damp, vy = (Y[i] - PY[i]) * damp, vz = (Z[i] - PZ[i]) * damp;
+        PX[i] = X[i]; PY[i] = Y[i]; PZ[i] = Z[i]; X[i] += vx; Y[i] += vy + g; Z[i] += vz;
+      }
+      for (const t of ties) {                                         // the counterweights pull each edge point toward its pulley
+        if (!t.on) continue;
+        if (t.reel) { t.ext = Math.max(0, t.ext - P.reel * h); if (!t.ext) t.reel = false; }
+        const f = T * Math.min(1, 6 / t.vs.length);
+        for (const v of t.vs) { const dx = t.px - X[v], dy = t.py - Y[v], d = Math.hypot(dx, dy) || 1; X[v] += dx / d * f; Y[v] += dy / d * f; }
+      }
+      for (let it = 0; it < 2; it++) {
+        for (let c = 0; c < NC; c++) {
+          const a = CA[c], b = CB[c], wa = IM[a], wb = IM[b], ws = wa + wb; if (!ws) continue;
+          const k = CK[c] < 0 ? bendK : 1;
+          const dx = X[b] - X[a], dy = Y[b] - Y[a], dz = Z[b] - Z[a], d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < 1e-6) continue;
+          const f = (d - CR[c]) / (d * ws) * k;
+          X[a] += dx * f * wa; Y[a] += dy * f * wa; Z[a] += dz * f * wa; X[b] -= dx * f * wb; Y[b] -= dy * f * wb; Z[b] -= dz * f * wb;
+        }
+        for (const t of ties) {                                       // the stop on the string: no farther than L from the pulley
+          if (!t.on) continue;
+          for (let k = 0; k < t.vs.length; k++) {
+            const v = t.vs[k], L = t.L0s[k] + t.ext, dx = X[v] - t.px, dy = Y[v] - t.py, d = Math.hypot(dx, dy);
+            if (d > L && IM[v]) { X[v] = t.px + dx / d * L; Y[v] = t.py + dy / d * L; }
+          }
+        }
+        if (grab) for (const g2 of grab.nodes) { X[g2.i] = grab.x + g2.ox; Y[g2.i] = grab.y + g2.oy; }
+      }
+      for (let i = 0; i < N; i++) if (Y[i] > floor) { Y[i] = floor; PX[i] += (X[i] - PX[i]) * 0.5; }
+    }
+  }
+
+  // ---------- drop and hoist ----------
+  let clockOff = 0; const now = () => performance.now() + clockOff;
+  function cut(list) {
+    for (const t of list) if (!t.nail && t.on) { t.on = false; t.reel = false; t.fall = 0.001; t.wv = 0; t.act = 1; }
+    queue = queue.filter((q) => !list.includes(q.t));
+    const order = list.filter((t) => !t.nail).sort((a, b) => HY[a.v] - HY[b.v] || HX[a.v] - HX[b.v]);
+    const t0 = now() + P.hold * 1000, step = Math.min(22, 900 / Math.max(1, order.length));
+    order.forEach((t, k) => queue.push({ t, at: t0 + k * step }));
+  }
+  function dropAll() { cut(ties); }
+  function hoistAll() { const t0 = now(); queue.forEach((q, k) => { q.at = Math.min(q.at, t0 + k * 12); }); }
+  function attach(t) {
+    let ext = 0; t.vs.forEach((v, k) => { ext = Math.max(ext, Math.hypot(X[v] - t.px, Y[v] - t.py) - t.L0s[k]); });
+    t.on = true; t.ext = ext; t.reel = ext > 0; t.fall = 0; t.act = 1;
+  }
+
+  // ---------- drawing ----------
+  function frame() {
+    for (let i = 0; i < NRM.length; i++) NRM[i] = 0;
+    for (let t = 0; t < TRI.length; t += 3) {
+      const a = TRI[t], b = TRI[t + 1], c = TRI[t + 2];
+      const ux = X[b] - X[a], uy = Y[b] - Y[a], uz = Z[b] - Z[a], vx = X[c] - X[a], vy = Y[c] - Y[a], vz = Z[c] - Z[a];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      for (const k of [a, b, c]) { NRM[k * 3] += nx; NRM[k * 3 + 1] += ny; NRM[k * 3 + 2] += nz; }
+    }
+    for (let i = 0; i < N; i++) { POS[i * 3] = X[i]; POS[i * 3 + 1] = Y[i]; POS[i * 3 + 2] = Z[i]; }
+    gl.viewport(0, 0, cv.width, cv.height);
+    gl.clearColor(page[0], page[1], page[2], 1); gl.clearDepth(1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufP); gl.bufferData(gl.ARRAY_BUFFER, POS, gl.DYNAMIC_DRAW); gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufN); gl.bufferData(gl.ARRAY_BUFFER, NRM, gl.DYNAMIC_DRAW); gl.enableVertexAttribArray(aN); gl.vertexAttribPointer(aN, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufI);
+    const showAll = revealed || P.rigMode === 'always';
+    gl.uniform2f(uRes, W, H); gl.uniform3fv(uInk, ink); gl.uniform3fv(uPage, page); gl.uniform1f(uDark, dark ? 1 : 0);
+    gl.uniform1f(uFade, showAll ? 0.45 : 0); gl.uniform1f(uAmt, P.sheen); gl.uniform2f(uL, -0.6, -0.8);
+    gl.drawElements(gl.TRIANGLES, TRI.length, gl.UNSIGNED_SHORT, 0);
+    drawRig(showAll);
+  }
+
+  // the rig, drawn as a da Vinci study: hairline strings, pulleys on T brackets, teardrop weights, dashed arcs, letter labels
+  function drawRig(showAll) {
+    rx.setTransform(dpr, 0, 0, dpr, 0, 0); rx.clearRect(0, 0, W, H);
+    if (P.rigMode === 'hidden' && !showAll) return;
+    const rp = Math.max(3.5, capH * 0.035);
+    rx.lineCap = 'round'; rx.lineJoin = 'round'; rx.font = `italic ${Math.max(9, capH * 0.07)}px Georgia, "Times New Roman", serif`;
+    for (const t of ties) {
+      const al = showAll ? 1 : t.act; if (al < 0.02) continue;
+      rx.globalAlpha = al * 0.8; rx.strokeStyle = inkCss; rx.fillStyle = pageCss; rx.lineWidth = 0.8;
+      const nxp = X[t.v], nyp = Y[t.v], side = nxp < t.px ? 1 : -1;
+      // bracket: a short post up from the axle and a cross bar
+      rx.beginPath(); rx.moveTo(t.px, t.py); rx.lineTo(t.px, t.py - rp * 2.6); rx.moveTo(t.px - rp * 1.2, t.py - rp * 2.6); rx.lineTo(t.px + rp * 1.2, t.py - rp * 2.6); rx.stroke();
+      // pulley with an axle and two spokes that turn with the string
+      rx.beginPath(); rx.arc(t.px, t.py, rp, 0, Math.PI * 2); rx.fill(); rx.stroke();
+      rx.beginPath(); for (let k = 0; k < 2; k++) { const a = t.ang + k * Math.PI / 2; rx.moveTo(t.px - Math.cos(a) * rp, t.py - Math.sin(a) * rp); rx.lineTo(t.px + Math.cos(a) * rp, t.py + Math.sin(a) * rp); } rx.stroke();
+      // the string to the cloth (gone once cut), and down the far side to its weight
+      const wx = t.px + side * rp, wy = t.py + t.w;
+      rx.beginPath();
+      if (t.on) {
+        // the knot rides between the pulley and the middle of its stretch of edge; a fan of strings runs from it to the cloth
+        const kx = t.px + (nxp - t.px) * 0.45, ky = t.py + (nyp - t.py) * 0.45, a = Math.atan2(ky - t.py, kx - t.px);
+        rx.moveTo(kx, ky); rx.lineTo(t.px + Math.cos(a - side * 0.6) * rp, t.py + Math.sin(a - side * 0.6) * rp);
+        const st = Math.max(1, Math.round(t.vs.length / 5));
+        for (let k = 0; k < t.vs.length; k += st) { rx.moveTo(kx, ky); rx.lineTo(X[t.vs[k]], Y[t.vs[k]]); }
+      }
+      rx.moveTo(wx, t.py); rx.lineTo(wx, wy); rx.stroke();
+      if (wy < H + 20) { rx.beginPath(); rx.moveTo(wx, wy); rx.bezierCurveTo(wx + rp * 1.1, wy + rp * 0.6, wx + rp * 1.1, wy + rp * 2.4, wx, wy + rp * 2.6); rx.bezierCurveTo(wx - rp * 1.1, wy + rp * 2.4, wx - rp * 1.1, wy + rp * 0.6, wx, wy); rx.fill(); rx.stroke(); }
+      if (t.nail) { rx.setLineDash([2, 3]); rx.beginPath(); rx.arc(t.px, t.py, t.L0, Math.PI / 2 - 0.7, Math.PI / 2 + 0.7); rx.stroke(); rx.setLineDash([]); }
+      if (t.on && Math.hypot(nxp - HX[t.v], nyp - HY[t.v]) < 2) { rx.beginPath(); rx.arc(nxp, nyp, 1.4, 0, Math.PI * 2); rx.fillStyle = inkCss; rx.fill(); }
+      if (ties.indexOf(t) % 5 === 0) { rx.fillStyle = inkCss; rx.fillText(t.tag, t.px + rp * 1.6, t.py - rp * 0.4); }
+    }
+    rx.globalAlpha = 1;
+  }
+
+  function tickRig(dt) {
+    const tn = now();
+    for (let k = queue.length - 1; k >= 0; k--) if (queue[k].at <= tn) { attach(queue[k].t); queue.splice(k, 1); }
+    for (const t of ties) {
+      const d = Math.hypot(X[t.v] - t.px, Y[t.v] - t.py);
+      if (t.on) {
+        const target = Math.max(rpMin(), t.hang + (t.L0 - d) - t.ext * 0.25);
+        t.w += (target - t.w) * 0.35; t.ang = d / Math.max(3.5, capH * 0.035);
+        const busy = t.reel || d < t.L0 - 2 || (grab && grab.label === t.label);
+        t.act = busy ? 1 : Math.max(0, t.act - dt / 1.4);
+      } else { t.wv += P.grav * 0.6 * dt; t.w += t.wv * dt; t.act = 1; }
+    }
+  }
+  const rpMin = () => Math.max(3.5, capH * 0.035) * 1.5;
+
+  // ---------- input: tap drops, double tap drops all, three taps shows the rig, hold or drag pulls the cloth ----------
+  const TAP = { ms: 250, px: 8 }, HOLD_MS = 250, DOUBLE_MS = 380;
+  let press = null, taps = [], tapTimer = 0;
+  const pt = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  function nearest(q, r) { let bi = -1, bd = r * r; for (let i = 0; i < N; i++) { const d = (X[i] - q.x) ** 2 + (Y[i] - q.y) ** 2; if (d < bd) { bd = d; bi = i; } } return bi; }
+  function startGrab(q) {
+    const i = nearest(q, Math.max(28, s * 3)); if (i < 0) return;
+    const r = Math.max(s * 1.7, 12), nodes = [];
+    for (let k = 0; k < N; k++) if (LAB[k] === LAB[i] && (X[k] - X[i]) ** 2 + (Y[k] - Y[i]) ** 2 < r * r) { nodes.push({ i: k, ox: X[k] - q.x, oy: Y[k] - q.y }); IM[k] = 0; }
+    grab = { x: q.x, y: q.y, nodes, label: LAB[i] };
+  }
+  function endGrab() { if (!grab) return; for (const g2 of grab.nodes) { IM[g2.i] = 1; PX[g2.i] = X[g2.i]; PY[g2.i] = Y[g2.i]; } grab = null; }
+  cv.addEventListener('pointerdown', (e) => {
+    if (press || !ready) return; demo = false; cv.setPointerCapture(e.pointerId);
+    const q = pt(e); press = { id: e.pointerId, x: q.x, y: q.y, t: now(), moved: 0 };
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!press || e.pointerId !== press.id) return; const q = pt(e);
+    press.moved = Math.max(press.moved, Math.hypot(q.x - press.x, q.y - press.y));
+    if (!grab && press.moved >= TAP.px) startGrab({ x: press.x, y: press.y });
+    if (grab) { grab.x = q.x; grab.y = q.y; }
+  });
+  const up = (e) => {
+    if (!press || e.pointerId !== press.id) return;
+    const ms = now() - press.t, tap = press.moved < TAP.px && ms < TAP.ms, q = { x: press.x, y: press.y };
+    press = null; endGrab();
+    if (!tap) return;
+    taps.push(q); clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => {
+      const n = taps.length, at = taps[0]; taps = [];
+      if (n >= 3) { revealed = !revealed; return; }
+      if (n === 2) { dropAll(); return; }
+      const i = nearest(at, Math.max(30, s * 3)); if (i < 0) return;
+      if (P.tapMode === 'letter') cut(ties.filter((t) => t.label === LAB[i]));
+      else { const r = capH * 0.45; cut(ties.filter((t) => t.label === LAB[i] && (HX[t.v] - at.x) ** 2 + (HY[t.v] - at.y) ** 2 < r * r)); }
+    }, DOUBLE_MS);
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  setInterval(() => { if (press && !grab && press.moved < TAP.px && now() - press.t >= HOLD_MS) startGrab({ x: press.x, y: press.y }); }, 30);
+
+  // ---------- loop ----------
+  let last = now();
+  function loop() {
+    const tn = now(), dt = Math.min(1 / 30, (tn - last) / 1000); last = tn;
+    if (ready) { sim(1 / 60); tickRig(dt); frame(); }
+    requestAnimationFrame(loop);
+  }
+  async function resize() {
+    dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+    cv.width = rc.width = Math.round(W * dpr); cv.height = rc.height = Math.round(H * dpr);
+    readTheme(); await build();
+    if (demo) {                                                      // the one self-demo: the name opens hanging from its nails and is hoisted
+      dropAll(); queue.forEach((q) => { q.at += 1e9; }); sim(1 / 60); for (let k = 0; k < 150; k++) sim(1 / 60);
+      const t0 = now() + 700; queue.forEach((q, k) => { q.at = t0 + k * Math.min(22, 900 / queue.length); });
+      for (const t of ties) if (!t.on) t.w = H * 2;
+    }
+  }
+  let rt = 0; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(resize, 200); });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+
+  // ---------- settings (test only) ----------
+  const fsel = $('font'); FONTS.forEach((f) => { const o = document.createElement('option'); o.value = o.textContent = f; fsel.appendChild(o); });
+  const fmt = { slack: (v) => v.toFixed(2), detail: (v) => v, gap: (v) => v.toFixed(2), bend: (v) => v.toFixed(2), grav: (v) => v, reel: (v) => v, hold: (v) => v.toFixed(1), sheen: (v) => v.toFixed(2) };
+  const rebuildOn = new Set(['font', 'slack', 'detail', 'gap']);
+  for (const k of ['font', 'rigMode', 'tapMode']) { $(k).value = P[k]; $(k).addEventListener('change', () => { P[k] = $(k).value; save(); if (rebuildOn.has(k)) build(); }); }
+  for (const k of Object.keys(fmt)) {
+    const el = $(k), o = $(k + 'O'); el.value = P[k]; o.textContent = fmt[k](+P[k]);
+    el.addEventListener('input', () => { P[k] = +el.value; o.textContent = fmt[k](P[k]); if (k === 'bend') bendK = P.bend; save(); });
+    if (rebuildOn.has(k)) el.addEventListener('change', () => build());
+  }
+  $('gear').addEventListener('click', () => { const sht = $('sheet'); sht.hidden = !sht.hidden; $('gear').setAttribute('aria-expanded', String(!sht.hidden)); });
+  $('drop').addEventListener('click', dropAll); $('hoist').addEventListener('click', hoistAll);
+  $('copy').addEventListener('click', () => { const t = JSON.stringify(P); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1200); }).catch(() => prompt('Settings', t)); });
+
+  document.fonts.ready.then(() => { resize(); requestAnimationFrame(loop); });
+})();
+</script>

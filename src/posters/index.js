@@ -248,6 +248,16 @@ export const POSTERS = [
     load: () => import('./glint.js'),
     prompt: "The name \"Idan Segev\" as a bevelled slab in black on black, nearly invisible, seen only where a small lamp low over the page catches the edges of the letters, rendered with WebGL2. Build a height field of the type with a smooth bevel, light it with a point lamp (specular on the bevel, a bloom from a blurred copy), and add volumetric light: a screen-space light-scattering pass marched from each pixel toward the lamp that the letters block, so beams spread from the lamp and the letters throw shafts of shadow away from it. The lamp follows the pointer. In the light theme the whole picture is inverted.",
   },
+  {
+    slug: 'rigged',
+    title: 'Rigged',
+    words: ['Idan', 'Segev'],
+    blurb: 'The name as cloth, held by a few ropes, pulleys and weights drawn like a Leonardo study. Cut a rope; pull the cloth.',
+    hint: null,
+    themes: { dark: 0.5, light: 0.5 },
+    load: () => import('./rigged.js'),
+    prompt: "The name \"Idan Segev\" in Alfa Slab One as cloth, held by a sparse rig drawn like a page of Leonardo da Vinci's mechanical studies, rendered with WebGL. Cut each letter from the glyph as a triangle mesh and step it with a position-based cloth solver in 3D (stretch and fold constraints, plus a few long weak ties across each letter like battens in a sail), so spare cloth folds out of the page. Rig only the outer corners: a corner facing up hangs on a rope that rises to a pulley on a thin rail above the line and drops to a counterweight resting on a small ledge (rope length = cloth to pulley + pulley to weight, so pulling the cloth lifts the weight); a corner facing down carries a swinging plumb bob. Draw the rig in pale hairlines behind the cloth. Tap a rope to cut it: the corner sags and the rope is tied again and reeled in after a pause. Drag to pull the cloth against the weights. Black and white only.",
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

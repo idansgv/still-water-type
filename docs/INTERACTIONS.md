@@ -83,6 +83,21 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | the thrash slows to about three swaps a second per letter |
 | Multi-touch | one pointer |
 
+## Rigged (published 21 Oct 2026)
+
+| | Rigged |
+|---|---|
+| Hover (mouse) | nothing |
+| Tap | cuts the nearest rope (a hoist or a plumb): the corner sags, the weight stays on its ledge or the bob falls; after a pause the rope is tied again and reeled in (under 250 ms, 8 px) |
+| Tap on background | nothing, unless a rope is within about a third of a cap height |
+| Hold | takes hold of the cloth (250 ms) |
+| Drag | pulls the cloth against the weights: counterweights lift off their ledges, bobs swing; release and it settles back |
+| Double tap | ties every cut rope now (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | the whole rig at full strength, and the runs the cloth hides (the bridles, ropes behind arms), dashed |
+| Intro | the ropes start slack and the rig hoists the name once on load; none under reduced motion |
+| Colour | the framework's colour pass, on the first press |
+| Multi-touch | one pointer |
+
 ## In the pipeline (draft): Marbled
 
 | | Marbled |
