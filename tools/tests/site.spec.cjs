@@ -141,6 +141,7 @@ test('5 performance: frame time per poster', async ({ page }) => {
 });
 
 // 6. Black and white: the shell alternates black-on-white and white-on-black on every shuffle, and every poster follows it.
+const darkOnly = (slug) => { const p = LIST.find((q) => q.slug === slug); return !!(p && p.themes && p.themes.light === 0); };
 test('6 theme sequence: alternates, and every poster follows it', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const corner = () => page.evaluate(() => {   // brightness of the poster's top-left pixels, 0..255
@@ -151,19 +152,22 @@ test('6 theme sequence: alternates, and every poster follows it', async ({ page 
   const rows = [];
   await page.goto('/', { waitUntil: 'load' });
   for (let i = 0; i < 10; i++) {
-    await page.waitForFunction(() => window.__poster && window.__poster.stage, null, { timeout: 20000 });
+    const was = rows.length ? rows[rows.length - 1].slug : null;           // a shuffle never repeats the poster, so wait for a new one to mount (a heavy one is slow)
+    await page.waitForFunction((w) => window.__poster && window.__poster.stage && window.__poster.slug !== w, was, { timeout: 30000 });
     await page.waitForTimeout(1200);
     rows.push({ n: i, slug: await page.evaluate(() => window.__poster.slug), theme: await page.evaluate(() => document.documentElement.dataset.theme), flip: await page.evaluate(() => window.__poster.stage.flip), corner: await corner() });
     await page.click('#btn-shuffle'); await page.waitForTimeout(500);
   }
   console.table(rows);
   rows.forEach((r, i) => {
-    expect.soft(r.theme, `shuffle ${i}`).toBe(i % 2 === 0 ? 'light' : 'dark');
-    expect.soft(r.flip).toBe(i % 2 === 1);
+    const only = darkOnly(r.slug), prev = i ? rows[i - 1].theme : 'dark';          // a black-only poster is always dark; the sequence carries on from it
+    expect.soft(r.theme, `shuffle ${i}`).toBe(only ? 'dark' : prev === 'light' ? 'dark' : 'light');
+    expect.soft(r.flip).toBe(r.theme === 'dark');
     if (r.theme === 'light') expect.soft(r.corner, `${r.slug} should be white`).toBeGreaterThan(200); else expect.soft(r.corner, `${r.slug} should be black`).toBeLessThan(55);
   });
   const miss = [];
   for (const p of LIST) for (const theme of ['light', 'dark']) {
+    if (theme === 'light' && darkOnly(p.slug)) continue;
     await open(page, p.slug, `&theme=${theme}`);
     const c = await corner();
     if (theme === 'light' ? c < 200 : c > 55) miss.push(`${p.slug} ${theme} corner=${c}`);

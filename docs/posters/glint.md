@@ -6,6 +6,6 @@
 
 **Test page:** https://claude.ai/artifact/RJ6YeuNsxcbNHm9e7sNP2z (source: `docs/posters/prototypes/glint.html`, WebGL2, no library). The name is a bevelled height field; the lamp follows the pointer (it drifts on its own until then); the edges facing it glint, with a bloom; the air is lit by a screen-space light-scattering pass, so beams spread from the lamp and the letters throw shafts of shadow away from it. Settings: light in the air, lamp height, reach, glint sharpness, bloom, bevel, how much the face shows, and the colour easter egg.
 
-**Open:** a light-page version (the site alternates black and white); whether the lamp is the cursor or something you place; touch on a phone (the lamp follows the finger).
+**Decided (21 Oct 2026):** black only, no light version (the inverted negative was the weakest look); the shell skips the white slot for it. **Open:** whether the lamp is the cursor or something you place; touch on a phone (the lamp follows the finger).
 
 **Parked for refinement (17 Oct 2026).** Idan: "Looks amazing. Park it for refinement."

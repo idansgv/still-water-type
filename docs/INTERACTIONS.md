@@ -98,14 +98,15 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Colour | the framework's colour pass, on the first press |
 | Multi-touch | one pointer |
 
-## In the pipeline (draft): Marbled
+## Marbled (published 21 Oct 2026)
 
 | | Marbled |
 |---|---|
 | Tap / press | a drop of ink: it pushes all the ink outward keeping its area, then clear water into its middle, so it lands as a ring (under 250 ms, 8 px) |
 | Drag | combs the ink: the ink beside the stroke is dragged along it, less the farther away; curves stay smooth |
+| Hover (mouse) | gently stirs the ink: it is drawn displaced by a springy field the mouse pushes, swings back with a small bounce and settles exactly where it was; the shapes are never changed. Counts as the first touch (no self-demo after) |
 | Touch | the same; one pointer |
-| Hold | nothing |
+| Hold | the ink under the finger gives a few pixels, in a soft ring, and springs back on release (drawn only) |
 | Double tap (empty) | start again: the clean name (a beat later, so a third tap can still mean reveal) |
 | Three taps (reveal) | page inverts; every shape's outline and points, and each drop with its ring |
 | Face | "Idan Segev" in Arial Black (Helvetica Bold where it is missing) |
@@ -113,17 +114,16 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | no self-demo; everything else is touch |
 | Colour (rare) | from the first touch, each drop of ink is a colour from the palette |
 
-## In the pipeline (draft): Glint
+## Glint (published 21 Oct 2026)
 
 | | Glint |
 |---|---|
 | Hover / drag | the lamp follows the mouse, or a finger |
 | Tap / hold | nothing more: the lamp is where you put it |
 | Double tap | nothing |
-| Hover (mouse) | gently stirs the ink: it is drawn displaced by a springy field the mouse pushes, swings back with a small bounce and settles exactly where it was; the shapes are never changed. Counts as the first touch (no self-demo after) |
 | Three taps (reveal) | page inverts; the lamp, the rays it throws, its position and height, the bevel and reach |
 | Self-demo | the lamp takes one slow turn through the name at 3.5 s, then stops; off under reduced motion |
-| Light page | the whole picture is inverted (a negative) |
+| Theme | black only (`themes: { dark: 1, light: 0 }`): the shell always shows it dark and the black/white sequence carries on from it; `?theme=light` is ignored. A lamp in the dark has no white version (the inverted negative was the weakest look) |
 | Reduced motion | no self-demo; the lamp rests at the left until you take it |
 | Colour (rare) | from the first move, the light takes the palette down the page |
 
@@ -135,7 +135,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Tap on a fin | it grows or shrinks once and settles, its shadow with it (under 250 ms, 8 px) |
 | Drag on background | orbits the camera; the light holds still |
 | Tap on background | nothing |
-| Hold | the ink under the finger gives a few pixels, in a soft ring, and springs back on release (drawn only) |
+| Hold | nothing |
 | Keys | 1 front, 2 side, 3 top, 4 from the light; L shows the light |
 | Double tap (empty) | a new plan (a beat later) |
 | Three taps (reveal) | page inverts; the far edge of every run and a ray along each shadow, the light and its slant |

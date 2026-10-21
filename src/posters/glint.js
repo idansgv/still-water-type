@@ -4,7 +4,8 @@
 // (a finger, or the mouse). On the light page the whole picture is inverted.
 //
 // Under the picture (WebGL2): a height field of the type with a smooth bevel; a light pass (specular on the bevel, a small
-// diffuse term); a bloom from a blurred copy; the rays; and a composite with the lamp itself.
+// diffuse term); a bloom from a blurred copy; the rays; and a composite with the lamp itself. Optional: the light in a cone (a lamp
+// with a shade, aimed at the name or at a fixed angle), and a flat look that cuts the picture to two tones.
 //
 // Colour (about one showing in twenty, src/colour.js): from the first touch, the light takes the palette along the page.
 // gestures: n/a (the lamp follows the pointer; nothing else is pressable). Self-demo: once, after 3.5 s untouched, the lamp
@@ -15,13 +16,24 @@ import { colourOf, GLSL_PAGE_GRADIENT } from '../colour.js';
 import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './reveal.js';
 
 const FACE = '900 100px Archivo, "Arial Black", "Helvetica Neue", sans-serif';
-const DEF = { haze: 0.45, height: 80, reach: 1150, sharp: 28, bloom: 1.4, bevel: 8, face: 0.01 };
+const DEF = { haze: 1.9, height: 80, reach: 300, sharp: 120, bloom: 1.4, bevel: 2, face: 0,
+  cone: 0, coneW: 35, coneSoft: 0.35, aim: 0, aimName: 1,      // the cone: a lamp with a shade, aimed at the name or at a fixed angle
+  flat: 0, cut: 0.3 };                                         // flat: the picture cut to two tones, no greys
 
+const CONE = `uniform float uCone, uConeW, uConeSoft; uniform vec2 uAim;
+float coneAt(vec2 px, vec2 lamp) {
+  if (uCone < 0.5) return 1.0;
+  vec2 d = px - lamp; float l = length(d);
+  float a = acos(clamp(dot(d / max(l, 1e-3), uAim), -1.0, 1.0));
+  float s = max(uConeSoft * uConeW, 0.004);
+  return mix(1.0, smoothstep(uConeW + s * 0.5, uConeW - s * 0.5, a), smoothstep(4.0, 28.0, l));
+}`;
 const VS = `#version 300 es
 out vec2 uv; void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); uv = p; gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
 const LIGHT = `#version 300 es
 precision highp float;
 in vec2 uv; uniform sampler2D uH; uniform vec2 uCss, uTex; uniform vec3 uLamp; uniform float uSharp, uReach, uFace, uDepth;
+${CONE}
 out vec4 o;
 void main() {
   float h = texture(uH, uv).r;
@@ -33,7 +45,7 @@ void main() {
   vec3 N = normalize(vec3(-hx * scale.x, hy * scale.y, 1.0));
   vec3 L = vec3(uLamp.xy - px, uLamp.z - h * uDepth); float dist = length(L); L /= dist;
   vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
-  float fall = pow(clamp(1.0 - dist / uReach, 0.0, 1.0), 1.5);
+  float fall = pow(clamp(1.0 - dist / uReach, 0.0, 1.0), 1.5) * coneAt(px, uLamp.xy);
   float spec = pow(max(dot(N, H), 0.0), uSharp) * 4.0 * fall;
   float diff = max(dot(N, L), 0.0) * fall * 0.10 * smoothstep(0.02, 0.2, abs(hx) + abs(hy));
   o = vec4((spec + diff) * mask + uFace * mask, h, 0.0, 1.0);
@@ -46,26 +58,29 @@ void main() { float w[5] = float[5](0.227, 0.195, 0.122, 0.054, 0.016); float s 
 const RAYS = `#version 300 es
 precision highp float;
 in vec2 uv; uniform sampler2D uH; uniform vec2 uLampUV, uCss; uniform float uReach; out vec4 o;
+${CONE}
 void main() {
   vec2 d = (uv - uLampUV) / 72.0; vec2 p = uv; float lit = 0.0, w = 1.0, sum = 0.0;
   for (int i = 0; i < 72; i++) { p -= d; lit += (1.0 - texture(uH, p).g) * w; sum += w; w *= 0.985; }
   lit /= sum;
   float dist = length((uv - uLampUV) * uCss);
   float fall = pow(clamp(1.0 - dist / (uReach * 1.15), 0.0, 1.0), 2.8) + 0.25 * exp(-dist / 60.0);
+  fall *= coneAt(vec2(uv.x, 1.0 - uv.y) * uCss, vec2(uLampUV.x, 1.0 - uLampUV.y) * uCss);
   o = vec4(lit * lit * fall, 0.0, 0.0, 1.0);
 }`;
 const COMP = `#version 300 es
 precision highp float;
-in vec2 uv; uniform sampler2D uL, uB, uR; uniform float uBloom, uHaze, uCol, uInv; uniform vec2 uCss; uniform vec3 uLamp;
+in vec2 uv; uniform sampler2D uL, uB, uR; uniform float uBloom, uHaze, uCol, uInv, uFlat, uCut; uniform vec2 uCss; uniform vec3 uLamp;
 ${GLSL_PAGE_GRADIENT}
 out vec4 o;
 void main() {
   float v = texture(uL, uv).r + texture(uB, uv).r * uBloom + texture(uR, uv).r * uHaze * 0.55;
   vec2 px = vec2(uv.x, 1.0 - uv.y) * uCss; float d2 = dot(px - uLamp.xy, px - uLamp.xy);
   float lamp = exp(-d2 / 18.0) + 0.16 * exp(-d2 / 900.0);
-  vec3 c = vec3(pow(clamp(v, 0.0, 1.0), 1.0 / 1.4));
-  c = mix(c, c * gradientAt(1.0 - uv.y) * 1.25, uCol);
-  c += lamp;
+  vec3 c;
+  if (uFlat > 0.5) { float t = v + lamp; float fw = max(fwidth(t), 1e-3); c = vec3(smoothstep(uCut - fw, uCut + fw, t)); }   // two tones
+  else { c = vec3(pow(clamp(v, 0.0, 1.0), 1.0 / 1.4)); c += lamp; }
+  c = mix(c, c * gradientAt(1.0 - uv.y) * (uFlat > 0.5 ? 1.0 : 1.25), uCol);
   o = vec4(mix(c, vec3(1.0) - c, uInv), 1.0);
 }`;
 
@@ -107,8 +122,8 @@ export async function mount(stage) {
     lines.forEach((l, i) => x.fillText(l, texW / 2, top + i * lead));
     const src = x.getImageData(0, 0, texW, texH).data, n = texW * texH, mask = new Float32Array(n);
     for (let i = 0; i < n; i++) mask[i] = src[i * 4 + 3] / 255;
-    let a = mask.slice(), b = new Float32Array(n); const r = Math.max(1, Math.round(P.bevel * k));
-    for (let pass = 0; pass < 3; pass++) {                              // three box blurs make a gaussian: the bevel
+    let a = mask.slice(), b = new Float32Array(n); const r = Math.round(P.bevel * k);   // 0: no bevel, a hard edge
+    for (let pass = 0; pass < (r > 0 ? 3 : 0); pass++) {                              // three box blurs make a gaussian: the bevel
       for (let y = 0; y < texH; y++) { let s = 0; const o = y * texW; for (let i = -r; i <= r; i++) s += a[o + Math.min(texW - 1, Math.max(0, i))];
         for (let xx = 0; xx < texW; xx++) { b[o + xx] = s / (2 * r + 1); s += a[o + Math.min(texW - 1, xx + r + 1)] - a[o + Math.max(0, xx - r)]; } }
       for (let xx = 0; xx < texW; xx++) { let s = 0; for (let i = -r; i <= r; i++) s += b[Math.min(texH - 1, Math.max(0, i)) * texW + xx];
@@ -147,7 +162,11 @@ export async function mount(stage) {
   const Ctl = (key, label2, min, max, step) => ({ key, label: label2, min, max, step });
   const tune = {
     title: 'Glint', values: P, defaults: DEF,
-    groups: [{ name: 'Light', items: [Ctl('haze', 'Light in the air (beams)', 0, 2, 0.02), Ctl('height', 'Lamp height (low: grazing)', 20, 400, 5), Ctl('reach', 'How far the lamp reaches', 300, 2400, 20), Ctl('sharp', 'Glint (soft to sharp)', 4, 120, 1), Ctl('bloom', 'Bloom', 0, 3, 0.05), Ctl('bevel', 'Bevel width (px)', 2, 24, 1), Ctl('face', 'The face, seen at all', 0, 0.12, 0.002)] }],
+    groups: [
+      { name: 'Light', items: [Ctl('haze', 'Light in the air (beams)', 0, 3, 0.02), Ctl('height', 'Lamp height (low: grazing)', 20, 400, 5), Ctl('reach', 'How far the lamp reaches', 100, 2400, 20), Ctl('sharp', 'Glint (soft to sharp)', 4, 300, 1), Ctl('bloom', 'Bloom', 0, 3, 0.05), Ctl('bevel', 'Bevel width (px)', 0, 24, 0.5), Ctl('face', 'The face, seen at all', 0, 0.12, 0.002)] },
+      { name: 'Cone', items: [{ key: 'cone', label: 'Light in a cone', type: 'toggle' }, Ctl('coneW', 'Cone width (half angle, deg)', 3, 90, 1), Ctl('coneSoft', 'Cone edge (hard to soft)', 0, 1, 0.01), { key: 'aimName', label: 'Aim at the name', type: 'toggle' }, Ctl('aim', 'Aim (deg, when not at the name)', 0, 360, 1)] },
+      { name: 'Look', items: [{ key: 'flat', label: 'Flat black and white', type: 'toggle' }, Ctl('cut', 'Where white begins', 0.01, 0.9, 0.01)] },
+    ],
     set(key, v) { P[key] = v; if (key === 'bevel') build(); },
     reset() { Object.assign(P, DEF); build(); },
   };
@@ -164,11 +183,14 @@ export async function mount(stage) {
     }
     lamp.x += (lamp.tx - lamp.x) * Math.min(1, dt * 9); lamp.y += (lamp.ty - lamp.y) * Math.min(1, dt * 9);
     const lampZ = P.height;
+    let ax = Math.cos(P.aim * Math.PI / 180), ay = Math.sin(P.aim * Math.PI / 180);   // the cone's direction, on the page (y down)
+    if (P.aimName) { const dx = W / 2 - lamp.x, dy = H / 2 - lamp.y, l = Math.hypot(dx, dy); if (l > 1) { ax = dx / l; ay = dy / l; } }
+    const cone = (pp) => { gl.uniform1f(pp.u('uCone'), P.cone ? 1 : 0); gl.uniform1f(pp.u('uConeW'), P.coneW * Math.PI / 180); gl.uniform1f(pp.u('uConeSoft'), P.coneSoft); gl.uniform2f(pp.u('uAim'), ax, ay); };
     gl.disable(gl.BLEND); gl.bindVertexArray(vao);
     gl.bindFramebuffer(gl.FRAMEBUFFER, TL.f); gl.viewport(0, 0, TL.w, TL.h); gl.useProgram(pL.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, hTex); gl.uniform1i(pL.u('uH'), 0);
     gl.uniform2f(pL.u('uCss'), W, H); gl.uniform2f(pL.u('uTex'), 1 / texW, 1 / texH); gl.uniform3f(pL.u('uLamp'), lamp.x, lamp.y, lampZ);
-    gl.uniform1f(pL.u('uSharp'), P.sharp); gl.uniform1f(pL.u('uReach'), P.reach); gl.uniform1f(pL.u('uFace'), P.face); gl.uniform1f(pL.u('uDepth'), 30 * (W / texW) / 2);
+    gl.uniform1f(pL.u('uSharp'), P.sharp); gl.uniform1f(pL.u('uReach'), P.reach); gl.uniform1f(pL.u('uFace'), P.face); gl.uniform1f(pL.u('uDepth'), 30 * (W / texW) / 2); cone(pL);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.useProgram(pB.p);                                                // bloom: a quarter-size blur, there and back, twice
     for (let pass = 0; pass < 2; pass++) {
@@ -177,13 +199,14 @@ export async function mount(stage) {
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, TR.f); gl.viewport(0, 0, TR.w, TR.h); gl.useProgram(pR.p);   // the air
     gl.bindTexture(gl.TEXTURE_2D, hTex); gl.uniform1i(pR.u('uH'), 0);
-    gl.uniform2f(pR.u('uLampUV'), lamp.x / W, 1 - lamp.y / H); gl.uniform2f(pR.u('uCss'), W, H); gl.uniform1f(pR.u('uReach'), P.reach);
+    gl.uniform2f(pR.u('uLampUV'), lamp.x / W, 1 - lamp.y / H); gl.uniform2f(pR.u('uCss'), W, H); gl.uniform1f(pR.u('uReach'), P.reach); cone(pR);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, stage.pw, stage.ph); gl.useProgram(pC.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, TL.t); gl.uniform1i(pC.u('uL'), 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, TB.t); gl.uniform1i(pC.u('uB'), 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, TR.t); gl.uniform1i(pC.u('uR'), 2); gl.activeTexture(gl.TEXTURE0);
     gl.uniform1f(pC.u('uBloom'), P.bloom); gl.uniform1f(pC.u('uHaze'), P.haze); gl.uniform1f(pC.u('uCol'), col ? col.amount : 0); gl.uniform1f(pC.u('uInv'), dark ? 0 : 1);
+    gl.uniform1f(pC.u('uFlat'), P.flat ? 1 : 0); gl.uniform1f(pC.u('uCut'), P.cut);
     gl.uniform2f(pC.u('uCss'), W, H); gl.uniform3f(pC.u('uLamp'), lamp.x, lamp.y, lampZ); gl.uniform3fv(pC.u('uG[0]'), gUni);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     rv.draw(now);
