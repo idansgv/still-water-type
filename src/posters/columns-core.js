@@ -65,7 +65,7 @@ out float vDmg;
 out float vTint;
 vec3 rot(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
 void main() {
-  vTint = 0.0;
+  vTint = 1.0;                                                   // a piece of a shattered letter: in colour, these are the coloured ones
   int i = int(aShard + 0.5);
   int k = i * 2;
   vec4 a = texelFetch(uXf, ivec2(k % 2048, k / 2048), 0), q = texelFetch(uXf, ivec2((k + 1) % 2048, (k + 1) / 2048), 0);
@@ -597,14 +597,14 @@ export async function mountColumns(stage, mode) {
   }
 
   // ---------- drawing ----------
-  // Colour (Collapse only, about one showing in twenty): after the first press, a column that has been touched (it has moved from where it stood, or been hit) is drawn in the gradient and stays so; the rest stay black and white.
-  const col = EXPLODE ? null : colourOf(stage);
+  // Colour (about one showing in twenty): after the first press, a column that has been touched (it has moved from where it stood, or been hit) is drawn in the gradient and stays so; the rest stay black and white.
+  const col = colourOf(stage);                                             // Shatter: only the pieces of the letters that shattered take the gradient; Collapse: the columns touched
   const gUni = col ? col.uniform() : new Float32Array(18);
   if (col) offs.push(col.wakeOnPress());
   function trackTouched() {
     if (!col) return;
     col.update(1 / 60);
-    if (!col.woke) return;
+    if (EXPLODE || !col.woke) return;                              // (Shatter's pieces are tinted in their own shader)
     for (const b of solids) {
       if (b.isShard || b.touched) continue;
       const p = b.position, q = b.quaternion;
@@ -676,6 +676,7 @@ export async function mountColumns(stage, mode) {
       progS.use();
       gl.uniformMatrix4fv(progS.u.uVP, false, vp);
       gl.uniform1f(progS.u.uFade, fade); gl.uniform1f(progS.u.uFg, P.fg); gl.uniform1f(progS.u.uBg, P.bg);
+      gl.uniform1f(progS.u.uAmt, col ? col.amount : 0); gl.uniform2f(progS.u.uRes, stage.pw, stage.ph); gl.uniform3fv(progS.u['uG[0]'], gUni);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, xfTex); gl.uniform1i(progS.u.uXf, 0);
       gl.bindVertexArray(vaoS);
       gl.drawArrays(gl.TRIANGLES, 0, shardVerts);

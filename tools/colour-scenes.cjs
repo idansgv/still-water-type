@@ -8,7 +8,7 @@ const COLOUR_SCENES = {
   'still-water': async (p) => { await drag(p, wiggle(120, 240)); await sleep(500); await p.mouse.up(); await sleep(300); },                              // ripples from a drag
   'soft-type': async (p) => { await p.evaluate(() => { const d = window.__poster.inst.debug; d.burst(2); d.burst(6); }); await sleep(500); },               // two balloons burst
   collapse: async (p) => { await p.mouse.click(300, 200); await sleep(1500); },                                                                           // the pass wakes on a press
-  explode: async (p) => { await p.mouse.click(420, 200); await sleep(1500); },
+  explode: async (p) => { await p.mouse.click(300, 175); await sleep(1800); },                                                                       // the letter that shatters (and the ones it sets off) take the gradient
   metal: async (p) => { await drag(p, wiggle(150, 200, 20, 18)); await p.mouse.up(); await sleep(1500); },                                                // the blobs you pulled
   'slinky-type': async (p) => { await p.evaluate(() => { const d = window.__poster.inst.debug; d.click(1); d.click(6); d.run(14); }); await sleep(250); },   // a click: the coils open as the letter goes
   fan: async (p) => { await drag(p, wiggle(60, 300, 40, 18), 12); await sleep(300); await p.mouse.up(); await sleep(1500); },                             // a long drag (over about 520 px of path)

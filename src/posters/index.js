@@ -65,6 +65,7 @@ export const POSTERS = [
   },
   {
     slug: 'explode',
+    colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
     prompt: "The name \"Idan Segev\" as flat black-and-white type that is secretly a field of solid anchored columns, seen straight down through an orthographic camera. Use a 3D rigid-body engine (Rapier, WASM) and render with WebGL. Tap a letter and its column blows into triangular slabs; slabs that hit another letter hard enough set that one off too, a little weaker each time, so a chain reaction spreads. At rest it must look like plain flat type.",
     title: 'Shatter',
     words: ['Idan', 'Segev'],
