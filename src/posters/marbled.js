@@ -15,7 +15,8 @@ import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './
 import { pressTracker, TAP, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 
 const MAXPTS = 90000;
-const FACE = '900 100px Archivo, "Arial Black", "Helvetica Neue", sans-serif';
+const FACE = '900 100px "Arial Black", Helvetica, "Helvetica Neue", Arial, sans-serif';
+const STIR = { cell: 10, sigma: 32, kick: 14, cap: 10, max: 20, k: 85, c: 7 };   // hover stir: a springy field under the ink, so it is drawn displaced and settles back; the shape is never changed
 const DEF = { rings: 1, teeth: 1, gap: 46, sharp: 18, pull: 0.85, drop: 54 };
 
 export async function mount(stage) {
@@ -33,10 +34,9 @@ export async function mount(stage) {
 
   // ---------- the name as ink ----------
   async function nameShape() {
-    try { await Promise.race([document.fonts.load('900 100px Archivo'), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the fallback face */ }
     const G = 2, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     const m = document.createElement('canvas'); m.width = gw; m.height = gh; const x = m.getContext('2d', { willReadFrequently: true });
-    const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    const portrait = W / H < 0.8, lines = portrait ? ['Idan', 'Se', 'gev'] : ['Idan', 'Segev'];
     x.font = FACE; const widest = Math.max(...lines.map((l) => x.measureText(l).width));
     const size = Math.min(W * 0.82 / widest * 100, H * (portrait ? 0.22 : 0.33)) / G;
     x.font = FACE.replace('100px', size + 'px'); x.textAlign = 'center'; x.fillStyle = '#000';
@@ -115,13 +115,69 @@ export async function mount(stage) {
     }
   }
 
+  // ---------- give: a held finger makes the ink yield a little and spring back, drawn only, the shape itself is never changed ----------
+  const GIVE_R = 95, GIVE_PX = 4.5;
+  const gv = { x: 0, y: 0, a: 0, v: 0, to: 0 };
+  let giving = false;
+  let sg = null, stirring = false;
+  function field() {
+    const gw = Math.ceil(W / STIR.cell) + 2, gh = Math.ceil(H / STIR.cell) + 2;
+    if (!sg || sg.gw !== gw || sg.gh !== gh) sg = { gw, gh, d: new Float32Array(gw * gh * 2), v: new Float32Array(gw * gh * 2) };
+    return sg;
+  }
+  function stir(ax, ay, bx, by) {                                     // a push into the field: velocity, so the ink swings out and comes back
+    const f = field(), dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy); if (len < 0.3) return;
+    const m = Math.min(len, STIR.cap) / len, ux = dx * m, uy = dy * m, C = STIR.cell, R = STIR.sigma * 2.2, s2 = STIR.sigma * STIR.sigma;
+    const i0 = Math.max(0, Math.floor((bx - R) / C)), i1 = Math.min(f.gw - 1, Math.ceil((bx + R) / C)), j0 = Math.max(0, Math.floor((by - R) / C)), j1 = Math.min(f.gh - 1, Math.ceil((by + R) / C));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const ex = i * C - bx, ey = j * C - by, w = Math.exp(-(ex * ex + ey * ey) / s2) * STIR.kick, o = (j * f.gw + i) * 2;
+      f.v[o] += ux * w; f.v[o + 1] += uy * w;
+    }
+    stirring = true;
+  }
+  function stepStir(dt) {
+    if (!stirring || !sg) return;
+    const h = Math.min(dt, 1 / 30), { d, v } = sg; let live = 0;
+    for (let k = 0; k < d.length; k++) {
+      v[k] += (-STIR.k * d[k] - STIR.c * v[k]) * h; d[k] += v[k] * h;
+      if (d[k] > STIR.max) d[k] = STIR.max; else if (d[k] < -STIR.max) d[k] = -STIR.max;
+      live = Math.max(live, Math.abs(d[k]) + Math.abs(v[k]) * 0.05);
+    }
+    if (live < 0.02) { d.fill(0); v.fill(0); stirring = false; }
+    dirty = true;
+  }
+  function lift(px, py) {                                             // the field under a point, bilinear
+    const C = STIR.cell, fx = px / C, fy = py / C, i = Math.floor(fx), j = Math.floor(fy);
+    if (i < 0 || j < 0 || i >= sg.gw - 1 || j >= sg.gh - 1) return [px, py];
+    const tx = fx - i, ty = fy - j, a = (j * sg.gw + i) * 2, b = a + 2, c = a + sg.gw * 2, e = c + 2, d = sg.d;
+    const w0 = (1 - tx) * (1 - ty), w1 = tx * (1 - ty), w2 = (1 - tx) * ty, w3 = tx * ty;
+    return [px + d[a] * w0 + d[b] * w1 + d[c] * w2 + d[e] * w3, py + d[a + 1] * w0 + d[b + 1] * w1 + d[c + 1] * w2 + d[e + 1] * w3];
+  }
+  function give(px, py) {
+    const dx = px - gv.x, dy = py - gv.y, d2 = dx * dx + dy * dy;
+    if (d2 > GIVE_R * GIVE_R * 6) return [px, py];
+    const d = Math.sqrt(d2) || 1, w = Math.exp(-d2 / (GIVE_R * GIVE_R)), z = gv.a * w * Math.cos(d / 26);   // a soft ring-shaped swell, like a ripple in gel
+    return [px + dx / d * z, py + dy / d * z];
+  }
+  function stepGive(dt) {
+    if (stage.reduced) return;
+    const h = Math.min(dt, 1 / 30);
+    gv.v += (170 * (gv.to - gv.a) - 7.5 * gv.v) * h; gv.a += gv.v * h;
+    const was = giving; giving = Math.abs(gv.a) > 0.02 || Math.abs(gv.v) > 0.2 || gv.to !== 0;
+    if (giving || was) dirty = true;
+  }
+
   // ---------- drawing ----------
   function draw() {
     ctx.setTransform(stage.pw / stage.W, 0, 0, stage.ph / stage.H, 0, 0);
     ctx.fillStyle = paperCss; ctx.fillRect(0, 0, W, H);
     for (const sh of shapes) {
       const path = new Path2D();
-      for (const l of sh.loops) { path.moveTo(l[0], l[1]); for (let k = 2; k < l.length; k += 2) path.lineTo(l[k], l[k + 1]); path.closePath(); }
+      for (const l of sh.loops) {
+        if (!giving && !stirring) { path.moveTo(l[0], l[1]); for (let k = 2; k < l.length; k += 2) path.lineTo(l[k], l[k + 1]); path.closePath(); continue; }
+        for (let k = 0; k < l.length; k += 2) { let q = giving ? give(l[k], l[k + 1]) : [l[k], l[k + 1]]; if (stirring) q = lift(q[0], q[1]); k ? path.lineTo(q[0], q[1]) : path.moveTo(q[0], q[1]); }
+        path.closePath();
+      }
       ctx.fillStyle = sh.tone === 'water' ? paperCss : sh.tone === 'ink' ? inkCss : sh.tone;
       ctx.fill(path, 'evenodd');
     }
@@ -129,7 +185,7 @@ export async function mount(stage) {
 
   // ---------- touch ----------
   const press = pressTracker();
-  let combing = false, last = null, lastTap = 0, pointer = null;
+  let hov = null, combing = false, last = null, lastTap = 0, pointer = null;
   const tapDrop = (x, y) => {
     const tone = col && col.woke ? col.css(stage.rand()) : 'ink';
     drop(x, y, P.drop, tone);
@@ -137,17 +193,22 @@ export async function mount(stage) {
   };
   offs.push(stage.on('down', (q, e) => {
     if (!press.down(q, e.pointerId)) return;
-    touched = true; demo = null; pointer = e.pointerId; last = { x: q.x, y: q.y }; combing = false;
+    touched = true; demo = null; pointer = e.pointerId; last = { x: q.x, y: q.y }; combing = false; gv.x = q.x; gv.y = q.y; gv.to = GIVE_PX;
   }));
   offs.push(stage.on('move', (q, e) => {
+    if (pointer === null) {                                           // a mouse moving over the ink, no button: stir it gently
+      if (e.pointerType !== 'mouse' || demo || stage.reduced || e.buttons) { hov = null; return; }
+      if (hov) { const mv = Math.hypot(q.x - hov.x, q.y - hov.y); if (mv < 90) { stir(hov.x, hov.y, q.x, q.y); touched = true; } }
+      hov = { x: q.x, y: q.y }; return;
+    }
     if (e.pointerId !== pointer) return;
     press.move(q, e.pointerId);
-    if (!combing && press.moved > TAP.px) combing = true;
+    if (!combing && press.moved > TAP.px) { combing = true; gv.to = 0; }
     if (combing) { tine(last.x, last.y, q.x, q.y); last = { x: q.x, y: q.y }; }
   }));
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pointer) return;
-    const r = press.up(q, e.pointerId); pointer = null;
+    const r = press.up(q, e.pointerId); pointer = null; gv.to = 0;
     if (!r || combing) { combing = false; return; }
     if (r.tap) {
       tapDrop(q.x, q.y);
@@ -212,7 +273,7 @@ export async function mount(stage) {
   offs.push(stage.on('resize', () => { W = stage.W; H = stage.H; restart(); }));
   offs.push(stage.frame((dt) => {
     if (!touched && !demo && !stage.reduced && performance.now() - born > 3500 && !startDemo.done) { startDemo.done = true; startDemo(); }
-    stepDemo(dt);
+    stepDemo(dt); stepGive(dt); stepStir(dt);
     if (dirty) { dirty = false; draw(); }
     rv.draw();
   }));

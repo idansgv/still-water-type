@@ -158,28 +158,47 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   }
 
   // ---------- drawing ----------
+  // give: a held finger makes the ink yield a little and spring back (drawn only)
+  const GIVE_R = 95, GIVE_PX = 4.5, gv = { x: 0, y: 0, a: 0, v: 0, to: 0 }; let giving = false, lastT = performance.now();
+  function give(px, py) {
+    const dx = px - gv.x, dy = py - gv.y, d2 = dx * dx + dy * dy;
+    if (d2 > GIVE_R * GIVE_R * 6) return [px, py];
+    const d = Math.sqrt(d2) || 1, z = gv.a * Math.exp(-d2 / (GIVE_R * GIVE_R)) * Math.cos(d / 26);
+    return [px + dx / d * z, py + dy / d * z];
+  }
+  function stepGive() {
+    const now = performance.now(), h = Math.min((now - lastT) / 1000, 1 / 30); lastT = now;
+    gv.v += (170 * (gv.to - gv.a) - 7.5 * gv.v) * h; gv.a += gv.v * h;
+    const was = giving; giving = Math.abs(gv.a) > 0.02 || Math.abs(gv.v) > 0.2 || gv.to !== 0;
+    if (giving || was) dirty = true;
+  }
   function draw() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = page; ctx.fillRect(0, 0, W, H);
     const pal = PAL[dark ? 'dark' : 'light'];
     for (const sh of shapes) {
       const path = new Path2D();
-      for (const l of sh.loops) { path.moveTo(l[0], l[1]); for (let k = 2; k < l.length; k += 2) path.lineTo(l[k], l[k + 1]); path.closePath(); }
+      for (const l of sh.loops) {
+        if (!giving) { path.moveTo(l[0], l[1]); for (let k = 2; k < l.length; k += 2) path.lineTo(l[k], l[k + 1]); path.closePath(); continue; }
+        for (let k = 0; k < l.length; k += 2) { const q = give(l[k], l[k + 1]); k ? path.lineTo(q[0], q[1]) : path.moveTo(q[0], q[1]); }
+        path.closePath();
+      }
       ctx.fillStyle = sh.tone === 'water' ? page : sh.tone === 'ink' || !P.colour ? ink : pal[sh.tone % 6];
       ctx.fill(path, 'evenodd');
     }
   }
-  function frame() { if (dirty) { dirty = false; draw(); } requestAnimationFrame(frame); }
+  function frame() { stepGive(); if (dirty) { dirty = false; draw(); } requestAnimationFrame(frame); }
 
   // ---------- touch: a tap drops ink; a drag combs ----------
   let down = null, last = null, combing = false;
-  cv.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; last = { x: e.clientX, y: e.clientY }; combing = false; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } });
+  cv.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; last = { x: e.clientX, y: e.clientY }; combing = false; gv.x = e.clientX; gv.y = e.clientY; gv.to = GIVE_PX; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } });
   cv.addEventListener('pointermove', (e) => {
     if (!down) return;
-    if (!combing && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) combing = true;
+    if (!combing && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) { combing = true; gv.to = 0; }
     if (combing) { tine(last.x, last.y, e.clientX, e.clientY); last = { x: e.clientX, y: e.clientY }; }
   });
   cv.addEventListener('pointerup', (e) => {
+    gv.to = 0;
     if (down && !combing && performance.now() - down.t < 400) {
       const tone = P.colour ? drops % 6 : 'ink'; drops++;
       drop(e.clientX, e.clientY, P.drop, tone);
@@ -187,7 +206,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
     }
     down = null; combing = false;
   });
-  cv.addEventListener('pointercancel', () => { down = null; combing = false; });
+  cv.addEventListener('pointercancel', () => { gv.to = 0; down = null; combing = false; });
 
   // ---------- settings (for this test only) ----------
   const fmt = { teeth: (v) => v, gap: (v) => v + ' px', sharp: (v) => v + ' px', pull: (v) => '×' + (+v).toFixed(2), drop: (v) => v + ' px' };

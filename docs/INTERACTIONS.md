@@ -93,7 +93,8 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Hold | nothing |
 | Double tap (empty) | start again: the clean name (a beat later, so a third tap can still mean reveal) |
 | Three taps (reveal) | page inverts; every shape's outline and points, and each drop with its ring |
-| Self-demo | one slow comb stroke through the name at 3.5 s, until the first touch; off under reduced motion |
+| Face | "Idan Segev" in Arial Black (Helvetica Bold where it is missing) |
+| Self-demo | one slow comb stroke through the name at 3.5 s, until the first touch or hover; off under reduced motion |
 | Reduced motion | no self-demo; everything else is touch |
 | Colour (rare) | from the first touch, each drop of ink is a colour from the palette |
 
@@ -104,6 +105,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Hover / drag | the lamp follows the mouse, or a finger |
 | Tap / hold | nothing more: the lamp is where you put it |
 | Double tap | nothing |
+| Hover (mouse) | gently stirs the ink: it is drawn displaced by a springy field the mouse pushes, swings back with a small bounce and settles exactly where it was; the shapes are never changed. Counts as the first touch (no self-demo after) |
 | Three taps (reveal) | page inverts; the lamp, the rays it throws, its position and height, the bevel and reach |
 | Self-demo | the lamp takes one slow turn through the name at 3.5 s, then stops; off under reduced motion |
 | Light page | the whole picture is inverted (a negative) |
@@ -118,7 +120,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Tap on a fin | it grows or shrinks once and settles, its shadow with it (under 250 ms, 8 px) |
 | Drag on background | orbits the camera; the light holds still |
 | Tap on background | nothing |
-| Hold | nothing |
+| Hold | the ink under the finger gives a few pixels, in a soft ring, and springs back on release (drawn only) |
 | Keys | 1 front, 2 side, 3 top, 4 from the light; L shows the light |
 | Double tap (empty) | a new plan (a beat later) |
 | Three taps (reveal) | page inverts; the far edge of every run and a ray along each shadow, the light and its slant |
