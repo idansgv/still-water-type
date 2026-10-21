@@ -34,7 +34,7 @@ export async function mount(stage) {
 
   // ---------- the name as ink ----------
   async function nameShape() {
-    const G = 2, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
+    const G = 1, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     const m = document.createElement('canvas'); m.width = gw; m.height = gh; const x = m.getContext('2d', { willReadFrequently: true });
     const portrait = W / H < 0.8, lines = portrait ? ['Idan', 'Se', 'gev'] : ['Idan', 'Segev'];
     x.font = FACE; const widest = Math.max(...lines.map((l) => x.measureText(l).width));
@@ -42,9 +42,10 @@ export async function mount(stage) {
     x.font = FACE.replace('100px', size + 'px'); x.textAlign = 'center'; x.fillStyle = '#000';
     const lead = size * 0.93, top = gh / 2 - (lines.length * lead) / 2 + size * 0.78 - gh * 0.02;
     lines.forEach((l, i) => x.fillText(l, gw / 2, top + i * lead));
-    const d = x.getImageData(0, 0, gw, gh).data, on = (i, j) => (i < 0 || j < 0 || i >= gw || j >= gh ? 0 : d[(j * gw + i) * 4 + 3] > 127 ? 1 : 0);
+    const d = x.getImageData(0, 0, gw, gh).data, av = (i, j) => (i < 0 || j < 0 || i >= gw || j >= gh ? 0 : d[(j * gw + i) * 4 + 3] / 255), on = (i, j) => (av(i, j) > 0.5 ? 1 : 0);
+    const cross = (a, b) => (Math.abs(b - a) < 1e-4 ? 0.5 : Math.min(1, Math.max(0, (0.5 - a) / (b - a))));   // where the edge of the type crosses between two samples, from the antialiasing: a smooth outline, not a staircase
     const next = new Map(), pt = new Map();
-    const key = (k, i, j) => { const s = k + i + ',' + j; if (!pt.has(s)) pt.set(s, k === 'h' ? [i + 0.5, j] : [i, j + 0.5]); return s; };
+    const key = (k, i, j) => { const s = k + i + ',' + j; if (!pt.has(s)) pt.set(s, k === 'h' ? [i + cross(av(i, j), av(i + 1, j)), j] : [i, j + cross(av(i, j), av(i, j + 1))]); return s; };
     const link = (a, b) => { (next.get(a) || next.set(a, []).get(a)).push(b); (next.get(b) || next.set(b, []).get(b)).push(a); };
     for (let j = -1; j < gh; j++) for (let i = -1; i < gw; i++) {
       const c = on(i, j) * 8 + on(i + 1, j) * 4 + on(i + 1, j + 1) * 2 + on(i, j + 1); if (!c || c === 15) continue;
@@ -58,7 +59,7 @@ export async function mount(stage) {
       for (;;) { seen.add(cur); pts.push(pt.get(cur)); const n = (next.get(cur) || []).find((k) => k !== prev && !seen.has(k)); if (n == null) break; prev = cur; cur = n; }
       if (pts.length < 6) continue;
       let q = pts.map(([a, b]) => [a * G, b * G]);
-      for (let it = 0; it < 3; it++) q = q.map((p, k) => { const a = q[(k - 1 + q.length) % q.length], b = q[(k + 1) % q.length]; return [(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4]; });
+      for (let it = 0; it < 4; it++) q = q.map((p, k) => { const a = q[(k - 1 + q.length) % q.length], b = q[(k + 1) % q.length]; return [(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4]; });
       loops.push(resample(q.flat(), 2.5));
     }
     return { loops, tone: 'ink' };
