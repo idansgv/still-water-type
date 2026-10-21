@@ -65,10 +65,11 @@ out float vDmg;
 out float vTint;
 vec3 rot(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
 void main() {
-  vTint = 1.0;                                                   // a piece of a shattered letter: in colour, these are the coloured ones
   int i = int(aShard + 0.5);
   int k = i * 2;
   vec4 a = texelFetch(uXf, ivec2(k % 2048, k / 2048), 0), q = texelFetch(uXf, ivec2((k + 1) % 2048, (k + 1) / 2048), 0);
+  vTint = a.w > 1.5 ? 1.0 : 0.0;                                 // a piece of the letter you clicked (the damage is stored +2 for those): in colour, these are the coloured ones
+  a.w = a.w > 1.5 ? a.w - 2.0 : a.w;
   float crack = smoothstep(0.12, 1.0, a.w);                      // a damaged piece shrinks a little about its centre, which opens a dark seam round it
   vec3 p = rot(q, aPos * (1.0 - 0.2 * crack)) + a.xyz;
   vN = rot(q, aNrm);
@@ -351,7 +352,8 @@ export async function mountColumns(stage, mode) {
   // hit letter shows a web of cracks. A fragment with full damage breaks away. Fragments that break away together
   // are grouped into chunks, and only chunks are rigid bodies (one convex hull each), which is what keeps the physics
   // cheap however fine the fragments are. When most of a box has gone the rest of it lets go too.
-  const setXf = (i, x, y, z, d, qx, qy, qz, qw) => { const o = i * 8; xf[o] = x; xf[o + 1] = y; xf[o + 2] = z; xf[o + 3] = d; xf[o + 4] = qx; xf[o + 5] = qy; xf[o + 6] = qz; xf[o + 7] = qw; };
+  const shardLetter = [];                                                                   // which letter each piece belongs to, so the one you clicked can be told from the ones it set off
+  const setXf = (i, x, y, z, d, qx, qy, qz, qw) => { const o = i * 8; xf[o] = x; xf[o + 1] = y; xf[o + 2] = z; xf[o + 3] = d + (shardLetter[i] && shardLetter[i].clicked ? 2 : 0); xf[o + 4] = qx; xf[o + 5] = qy; xf[o + 6] = qz; xf[o + 7] = qw; };
 
   function fracture(letter) {
     if (letter.fr) return letter.fr;
@@ -362,7 +364,7 @@ export async function mountColumns(stage, mode) {
       for (const pc of parts) {
         const nv = pc.tris.length / 6;
         if (shardCount >= MAX_SHARDS || shardVerts + nv > MAX_SHARD_VERTS) break;
-        const idx = shardCount++, buf = new Float32Array(nv * 7);
+        const idx = shardCount++, buf = new Float32Array(nv * 7); shardLetter[idx] = letter;
         for (let k = 0; k < nv; k++) { buf.set(pc.tris.subarray(k * 6, k * 6 + 6), k * 7); buf[k * 7 + 6] = idx; }
         gl.bindBuffer(gl.ARRAY_BUFFER, shardBuf); gl.bufferSubData(gl.ARRAY_BUFFER, shardVerts * 28, buf);
         const x = letter.position.x + f.x + ca * pc.c[0] - sa * pc.c[1], y = letter.position.y + f.y + sa * pc.c[0] + ca * pc.c[1], z = letter.position.z + pc.c[2];
@@ -407,7 +409,7 @@ export async function mountColumns(stage, mode) {
       let ok = mx < 0.07 && my < 0.07 && mz < 0.07 ? sim.box(sb, [Math.max(0.02, mx * 0.85), Math.max(0.02, my * 0.85), Math.max(0.02, mz * 0.85)], { density: 0.6 }) : sim.hull(sb, Float32Array.from(pts), { density: 0.6 });   // the tiniest chunks are boxes: cheaper
       if (!ok) ok = sim.box(sb, [Math.max(0.03, mx * 0.85), Math.max(0.03, my * 0.85), Math.max(0.03, mz * 0.85)], { density: 0.6 });
       const idx = shardCount++;
-      sb.isShard = true; sb.gen = o.gen || 0; sb.sidx = idx;
+      sb.isShard = true; sb.gen = o.gen || 0; sb.sidx = idx; shardLetter[idx] = letter;                  // a chunk belongs to the letter it came from
       setXf(idx, bx, by, bz, 0.55, 0, 0, 0, 1);
       for (const g of list) {                                              // the fragments now belong to the chunk: their vertices are rewritten in its frame
         const ca = Math.cos(g.a), sa = Math.sin(g.a), buf = new Float32Array(g.nv * 7);
@@ -566,7 +568,7 @@ export async function mountColumns(stage, mode) {
       if (now - lastEmptyTap < 380) { clearTimeout(reformT); reformT = setTimeout(() => { build(); resize2(); }, 420); } lastEmptyTap = now;   // a double tap on empty space re-forms the letters (a beat later, so a third tap can still mean reveal)
       return;
     }
-    if (EXPLODE) { detonate(hit.body, hit.point.x, hit.point.y, 0); pid = null; return; }   // a tap sets it off at once
+    if (EXPLODE) { hit.body.clicked = true; detonate(hit.body, hit.point.x, hit.point.y, 0); pid = null; return; }   // a tap sets it off at once (and its pieces are the ones that take colour)
     wake(hit.body);
     press = { body: hit.body, local: hit.body.toLocal(hit.point), point: hit.point, x: q.x, y: q.y, t: 0, mode: 'pending', tx: q.x, ty: q.y };
   }));
@@ -598,7 +600,7 @@ export async function mountColumns(stage, mode) {
 
   // ---------- drawing ----------
   // Colour (about one showing in twenty): after the first press, a column that has been touched (it has moved from where it stood, or been hit) is drawn in the gradient and stays so; the rest stay black and white.
-  const col = colourOf(stage);                                             // Shatter: only the pieces of the letters that shattered take the gradient; Collapse: the columns touched
+  const col = colourOf(stage);                                             // Shatter: only the pieces of the letter you clicked take the gradient (not the ones it sets off); Collapse: the columns touched
   const gUni = col ? col.uniform() : new Float32Array(18);
   if (col) offs.push(col.wakeOnPress());
   function trackTouched() {
