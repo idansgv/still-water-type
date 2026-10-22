@@ -123,7 +123,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Double tap | nothing |
 | Three taps (reveal) | page inverts; the lamp, the rays it throws, its position and height, the bevel and reach |
 | Self-demo | the lamp takes one slow turn through the name at 3.5 s, then stops; off under reduced motion |
-| Theme | black only (`themes: { dark: 1, light: 0 }`): the shell always shows it dark and the black/white sequence carries on from it; `?theme=light` is ignored. A lamp in the dark has no white version (the inverted negative was the weakest look) |
+| Theme | black only (`darkOnly: true` in the registry): the shell always shows it dark and the black/white sequence carries on from it; `?theme=light` is ignored. A lamp in the dark has no white version (the inverted negative was the weakest look) |
 | Reduced motion | no self-demo; the lamp rests at the left until you take it |
 | Colour (rare) | from the first move, the light takes the palette down the page |
 

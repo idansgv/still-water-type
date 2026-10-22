@@ -141,7 +141,7 @@ test('5 performance: frame time per poster', async ({ page }) => {
 });
 
 // 6. Black and white: the shell alternates black-on-white and white-on-black on every shuffle, and every poster follows it.
-const darkOnly = (slug) => { const p = LIST.find((q) => q.slug === slug); return !!(p && p.themes && p.themes.light === 0); };
+const darkOnly = (slug) => { const p = LIST.find((q) => q.slug === slug); return !!(p && p.darkOnly); };
 test('6 theme sequence: alternates, and every poster follows it', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const corner = () => page.evaluate(() => {   // brightness of the poster's top-left pixels, 0..255

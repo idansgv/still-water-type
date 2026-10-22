@@ -243,7 +243,8 @@ export const POSTERS = [
     words: ['Idan', 'Segev'],
     blurb: 'Black type on black, seen only where a small lamp catches its edges. Move the lamp; the light fills the air.',
     hint: null,
-    themes: { dark: 1, light: 0 },        // black only: a lamp in the dark has no white version
+    themes: { dark: 1, light: 0 },
+    darkOnly: true,              // black only: a lamp in the dark has no white version; the shell always shows it dark (themes alone is only a hint for previews)
     load: () => import('./glint.js'),
     prompt: "The name \"Idan Segev\" as a bevelled slab in black on black, nearly invisible, seen only where a small lamp low over the page catches the edges of the letters, rendered with WebGL2. Build a height field of the type with a smooth bevel, light it with a point lamp (specular on the bevel, a bloom from a blurred copy), and add volumetric light: a screen-space light-scattering pass marched from each pixel toward the lamp that the letters block, so beams spread from the lamp and the letters throw shafts of shadow away from it. The lamp follows the pointer.",
   },

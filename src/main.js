@@ -179,7 +179,7 @@ function armHint(poster, stage) {
 
 async function show(poster, { seed = randomSeed(), themeName } = {}) {
   busy = true;
-  const darkOnly = poster.themes && poster.themes.light === 0;       // a poster that only exists on black (Glint): always dark, and the sequence carries on from there
+  const darkOnly = poster.darkOnly === true;                          // a poster that only exists on black (Glint): always dark, and the sequence carries on from there
   if (darkOnly && shuffles % 2 === 0) shuffles++;
   const theme = THEMES[darkOnly ? 'dark' : (themeName || chooseTheme())];
 
