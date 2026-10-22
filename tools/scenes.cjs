@@ -12,6 +12,7 @@ const SCENES = {
   'rain-color': async (p) => { await p.mouse.move(420, 330); await p.mouse.down(); for (let i = 0; i <= 30; i++) { await p.mouse.move(300 + i * 14, 300 + Math.sin(i / 4) * 70); await sleep(30); } await p.mouse.up(); await sleep(900); },
   'slinky-type': async (p) => { await p.evaluate(() => { const d = window.__poster.inst.debug, t = window.__poster.inst.tune; t.set('zoom', 1.75); t.set('panY', 0.065); d.click(1); d.click(6); d.run(14); }); await sleep(1200); await p.evaluate(() => window.__poster.inst.debug.run(1)); },
   marbled: async (p) => { for (const [x, y] of [[300, 470], [900, 210]]) { await p.mouse.click(x, y); await sleep(260); } await p.mouse.move(180, 300); await p.mouse.down(); for (let i = 0; i <= 30; i++) { await p.mouse.move(180 + i * 24, 300 + Math.sin(i / 3) * 24); await sleep(14); } await p.mouse.up(); await sleep(300); },
+  'splat-type': async (p) => { await p.mouse.click(330, 300); await sleep(120); await p.mouse.move(620, 380); await p.mouse.down(); for (let i = 0; i <= 14; i++) { await p.mouse.move(620 + i * 14, 380 - i * 6); await sleep(14); } await p.mouse.up(); await sleep(260); },   // a burst, a push, the dust mid-flight
   glint: async (p) => { await p.mouse.move(300, 330, { steps: 6 }); await sleep(900); },
   rigged: async (p) => { await sleep(2600); },                               // the intro hoist, settled: the name on its rig
 };

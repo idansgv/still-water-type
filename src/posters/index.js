@@ -249,6 +249,17 @@ export const POSTERS = [
     prompt: "The name \"Idan Segev\" as a bevelled slab in black on black, nearly invisible, seen only where a small lamp low over the page catches the edges of the letters, rendered with WebGL2. Build a height field of the type with a smooth bevel, light it with a point lamp (specular on the bevel, a bloom from a blurred copy), and add volumetric light: a screen-space light-scattering pass marched from each pixel toward the lamp that the letters block, so beams spread from the lamp and the letters throw shafts of shadow away from it. The lamp follows the pointer.",
   },
   {
+    slug: 'splat-type',
+    colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
+    title: 'Splat type',
+    words: ['Idan', 'Segev'],
+    blurb: 'The name as thousands of soft splats. Press to scatter them, drag to push them along; they drift home.',
+    hint: null,
+    themes: { dark: 0.5, light: 0.5 },
+    load: () => import('./splat-type.js'),
+    prompt: "The name \"Idan Segev\" in heavy Archivo as thousands of soft, translucent splats, rendered with WebGL2: sample about 40,000 to 110,000 points inside the letters; each is an instanced quad drawn as a gaussian (exp(-4.2 r^2)), premultiplied alpha over the page, sized to fit inside the letter (the radius is capped by its distance to the nearest edge, so nothing reaches past it), with a random rest angle and aspect so the body looks grainy and painterly. A press throws the splats near it outward (the push falls off as (1 - d/R)^1.3, most grains a little and a few far, with a little jitter and a slight lift); a drag pushes them along the stroke; a mouse moving over it only breathes on it. Each splat is a spring toward its home with damping, so the letters close up again; while it flies, stretch its quad along its velocity and fade it a little. Draw nothing while everything is at rest. Black and white only.",
+  },
+  {
     slug: 'rigged',
     title: 'Rigged',
     words: ['Idan', 'Segev'],

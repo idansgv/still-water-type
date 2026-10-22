@@ -141,8 +141,10 @@ test('5 performance: frame time per poster', async ({ page }) => {
 });
 
 // 6. Black and white: the shell alternates black-on-white and white-on-black on every shuffle, and every poster follows it.
-const darkOnly = (slug) => { const p = LIST.find((q) => q.slug === slug); return !!(p && p.darkOnly); };
+let DARK_ONLY = null;                                           // the whole registry, not just the SLUGS under test: a shuffle can land on any published poster
+const darkOnly = (slug) => { const p = DARK_ONLY && DARK_ONLY.find((q) => q.slug === slug); return !!(p && p.darkOnly); };
 test('6 theme sequence: alternates, and every poster follows it', async ({ page }) => {
+  DARK_ONLY = (await import('../../src/posters/index.js')).POSTERS;
   await page.setViewportSize({ width: 1280, height: 800 });
   const corner = () => page.evaluate(() => {   // brightness of the poster's top-left pixels, 0..255
     const c = document.querySelector('#stage canvas.poster-canvas'), t = document.createElement('canvas'); t.width = 8; t.height = 8;

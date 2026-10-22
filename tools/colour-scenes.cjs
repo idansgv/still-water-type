@@ -16,6 +16,7 @@ const COLOUR_SCENES = {
   fontapalloza: async (p) => { await p.mouse.move(200, 200); await sleep(200); await p.mouse.move(420, 260); await sleep(300); await p.evaluate(() => window.__poster.inst.debug.glow(2)); await sleep(1100); },   // after a touch, now and then a letter takes a colour; here two are forced
   marbled: async (p) => { await p.mouse.click(260, 380); await sleep(400); await p.mouse.click(620, 220); await sleep(400); await drag(p, wiggle(120, 300, 20, 24), 14); await p.mouse.up(); await sleep(300); },   // from the first touch, every drop is a colour
   rigged: async (p) => { await p.mouse.click(400, 250); await sleep(1500); },  // the pass wakes on a press (it also cuts a rope)
+  'splat-type': async (p) => { await p.mouse.click(300, 300); await sleep(500); },   // the pass wakes on a press; the splats take the palette down the page
   glint: async (p) => { await p.mouse.move(180, 250, { steps: 5 }); await sleep(300); await p.mouse.move(620, 330, { steps: 8 }); await sleep(1200); },   // the light takes the palette from the first move
 };
 module.exports = { COLOUR_SCENES };

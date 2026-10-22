@@ -127,6 +127,21 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | no self-demo; the lamp rests at the left until you take it |
 | Colour (rare) | from the first move, the light takes the palette down the page |
 
+## Splat type (published 21 Oct 2026)
+
+| | Splat type |
+|---|---|
+| Tap / press | a burst: the splats near it are thrown outward, most a little and a few far (reach 115 px; under 250 ms, 8 px is a tap) |
+| Drag | pushes the dust along the stroke; it stretches into streaks while it flies |
+| Hover (mouse) | a breath: a light push from a passing pointer; nothing on touch |
+| Hold | nothing more than the press |
+| Double tap (empty) | pulls everything home now (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | page inverts; a sample of the grains at home, and where the thrown ones are |
+| Settling | every splat is a spring toward its home, so the letters close up by themselves |
+| Reduced motion | fewer splats (40,000 at most) and a weaker burst |
+| Colour (rare) | from the first press, the splats take the palette down the page |
+| Multi-touch | one pointer |
+
 ## In the pipeline (draft)
 
 | | Shadow |
