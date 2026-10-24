@@ -10,6 +10,7 @@
 // ?colour=on forces it, ?colour=off forbids it, ?colour=<0..5> forces that palette. The palettes are the shared ones in src/posters/palette.js.
 import { PALETTES } from './posters/palette.js';
 
+export const COLOUR_ENABLED = false;                      // the colour easter egg is switched off (24 Oct 2026: distracting). Set true to bring it back; ?colour=on|0..5 still forces it for testing
 export const COLOUR_ODDS = 1 / 19;                        // with never two in a row this comes out at one showing in twenty: an easter egg, not a feature
 let lastWasColour = false;                              // never two in a row: rare has to feel rare
 
@@ -19,7 +20,7 @@ export function rollColour(params = new URLSearchParams(), rand = Math.random, {
   let pick = null;
   if (ask === 'off' || ask === 'no') pick = null;
   else if (ask !== null && ask !== '') pick = /^[0-5]$/.test(ask) ? +ask : Math.floor(rand() * PALETTES.length);       // on, or a palette number
-  else if (!lastWasColour && rand() < odds) pick = Math.floor(rand() * PALETTES.length);
+  else if (COLOUR_ENABLED && !lastWasColour && rand() < odds) pick = Math.floor(rand() * PALETTES.length);
   if (remember) lastWasColour = pick !== null;
   if (pick === null) return null;
   const p = PALETTES[pick];                                           // the same bright set on a light page as on a dark one
