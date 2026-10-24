@@ -156,7 +156,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Colour (rare) | the framework's colour pass, on the first press |
 | Multi-touch | one pointer |
 
-## In the pipeline (draft)
+## Brandbook (published 24 Oct 2026)
 
 | | Brandbook |
 |---|---|
@@ -169,6 +169,8 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Self-demo | once, about 2 s after the next brand is ready and only if untouched: a third of a morph and back; off under reduced motion |
 | Reduced motion | no demo; the morph runs faster |
 | Colour | the framework's pass on a press |
+
+## In the pipeline (draft)
 
 | | Wash script |
 |---|---|

@@ -1,6 +1,6 @@
 # Brandbook
 
-**Status:** draft poster (24 Oct 2026): `src/posters/brandbook.js`, `?p=brandbook` (settings: `&tune`). The Artifact test page stays as the reference: `docs/posters/prototypes/brandbook.html`, https://claude.ai/artifact/GqMCi8hGVLzm6zg2BFg26W.
+**Status:** published 2026-10-24. Test at `/?p=brandbook`.
 
 **Brief (Idan, 24 Oct 2026).** A fake black-and-white brandbook: each refresh shows a new "brand", inspired by other things. The inspiration stays invisible (no source credit on the page).
 

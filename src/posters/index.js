@@ -285,10 +285,9 @@ export const POSTERS = [
     slug: 'brandbook',
     title: 'Brandbook',
     words: ['Idan', 'Segev'],
-    blurb: 'A black-and-white brand book for a venture that does not exist. Hold to rebrand it; drag a don’t to break the rule.',
+    blurb: 'A black-and-white brand book for a venture that does not exist. Click to rebrand it; drag a don’t to break the rule.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
-    draft: true,
     load: () => import('./brandbook.js'),
   },
   {
