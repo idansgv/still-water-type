@@ -1,0 +1,334 @@
+<title>Brandbook</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;800&family=Archivo+Black&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;1,6..96,700&family=Chivo+Mono:wght@400;500&family=Courier+Prime&family=DM+Serif+Display&family=Hanken+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&family=Jost:wght@300;500&family=Libre+Caslon+Text:ital@0;1&family=Michroma&family=Shippori+Mincho:wght@400;700&display=swap">
+<style>
+/* Layout: one open book on a desk; every size in cqw of a page so the spread scales as one object. */
+:root {
+  --desk: #e6e6e6;
+  --paper: #ffffff;
+  --ink: #000000;
+  --k70: #4a4a4a;
+  --k25: #bfbfbf;
+  --k08: #ececec;
+  --ui: ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--desk); color: var(--ink);
+  display: grid; place-items: center;
+  padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box; overflow-x: hidden;
+}
+.spread {
+  --w: min(calc(100vw - 48px), calc((100vh - 72px) / 0.7071));
+  width: var(--w); display: grid; grid-template-columns: 1fr 1fr;
+  box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 18px 40px -18px rgba(0,0,0,.28);
+}
+.page {
+  container-type: inline-size; aspect-ratio: 1 / 1.4142; position: relative; overflow: hidden;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--text); font-size: 2cqw; line-height: 1.35;
+}
+.page.left::after { /* gutter shade */
+  content: ""; position: absolute; inset: 0 0 0 auto; width: 6cqw; pointer-events: none;
+  background: linear-gradient(to left, rgba(0,0,0,.07), transparent);
+}
+.page.right::before {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 4cqw; pointer-events: none; z-index: 2;
+  background: linear-gradient(to right, rgba(0,0,0,.05), transparent);
+}
+@media (max-width: 720px) {
+  .spread { --w: 100%; grid-template-columns: 1fr; gap: 16px; box-shadow: none; }
+  .page { box-shadow: 0 10px 30px -14px rgba(0,0,0,.3); }
+  .page.left::after, .page.right::before { display: none; }
+}
+svg.mark { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* ---------- system page (right), shared structure, school tokens ---------- */
+.sys { position: absolute; inset: 7cqw 7cqw 6cqw 8cqw; display: grid; grid-template-rows: auto 1fr auto; gap: 3cqw; }
+.run { display: flex; justify-content: space-between; font-size: 1.5cqw; letter-spacing: var(--lab-track, .04em); text-transform: var(--lab-case, none); color: var(--k70); }
+.blocks { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto; column-gap: 5cqw; row-gap: 2.6cqw; align-content: start; }
+.blk { min-width: 0; display: grid; gap: 1.4cqw; align-content: start; }
+.blk.wide { grid-column: 1 / -1; }
+.lab { display: flex; gap: 1.2cqw; align-items: baseline; font-size: 1.55cqw; text-transform: var(--lab-case, none); letter-spacing: var(--lab-track, .04em); font-weight: var(--lab-weight, 500); padding-bottom: .9cqw; border-bottom: var(--rule); }
+.lab .n { color: var(--k70); font-variant-numeric: tabular-nums; }
+.markbox { position: relative; aspect-ratio: 1; width: 58%; justify-self: var(--mark-justify, start); }
+.markbox .clear { position: absolute; inset: 0; border: .25cqw dashed var(--k25); }
+.markbox .clear::before, .markbox .clear::after { content: "x"; position: absolute; font-size: 1.3cqw; color: var(--k70); font-family: var(--ui); }
+.markbox .clear::before { top: 1cqw; left: 50%; transform: translateX(-50%); }
+.markbox .clear::after { left: 1cqw; top: 50%; transform: translateY(-50%); }
+.markbox .m { position: absolute; inset: 20%; color: var(--ink); }
+.cap { font-size: 1.35cqw; color: var(--k70); }
+.aa { font-family: var(--disp); font-size: 13cqw; line-height: .9; font-weight: var(--disp-weight, 400); font-style: var(--disp-style, normal); letter-spacing: -.02em; }
+.facename { font-size: 1.6cqw; }
+.chars { font-family: var(--disp); font-size: 1.8cqw; line-height: 1.3; letter-spacing: .02em; color: var(--k70); font-weight: var(--disp-weight, 400); font-style: var(--disp-style, normal); word-break: break-all; }
+.textchars { font-size: 1.45cqw; color: var(--k70); }
+.greys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.6cqw; }
+.sw { display: grid; gap: .8cqw; }
+.sw .chip { aspect-ratio: 2.4; border: .2cqw solid var(--k08); }
+.sw .swn { font-size: 1.55cqw; }
+.sw .v { font-size: 1.25cqw; color: var(--k70); font-family: var(--ui); }
+.gridtile { aspect-ratio: 1 / 1.4142; width: 40%; border: .2cqw solid var(--k25); position: relative; padding: 9%; box-sizing: border-box; display: grid; gap: 4%; }
+.gridtile .cols { position: absolute; inset: 9%; display: grid; gap: 4%; }
+.gridtile .cols i { background: var(--k08); }
+.gridtile .ln { position: relative; background: var(--ink); height: 4%; }
+.voice { font-family: var(--disp); font-size: 3.1cqw; line-height: 1.08; font-weight: var(--disp-weight, 400); font-style: var(--disp-style, normal); text-transform: var(--voice-case, none); letter-spacing: var(--voice-track, -.01em); text-wrap: balance; }
+.donts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.4cqw; }
+.dont { display: grid; gap: .9cqw; }
+.dont .tile { aspect-ratio: 2; background: var(--paper); border: .2cqw solid var(--k08); position: relative; overflow: hidden; display: grid; place-items: center; }
+.dont .tile .m { width: 26%; aspect-ratio: 1; }
+.dont .tile::after { /* the cross */
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(to top right, transparent calc(50% - .12cqw), var(--ink) calc(50% - .12cqw), var(--ink) calc(50% + .12cqw), transparent calc(50% + .12cqw));
+}
+.dont .cap { color: var(--ink); }
+.foot { display: flex; justify-content: space-between; font-size: 1.4cqw; color: var(--k70); text-transform: var(--lab-case, none); letter-spacing: var(--lab-track, .04em); }
+
+/* ---------- covers (left) ---------- */
+.cover { position: absolute; inset: 0; }
+.cover .gl { font-family: var(--text); }
+
+/* swiss: band, lowercase, flush left */
+.s-swiss { --disp: "Archivo", "Helvetica Neue", Arial, sans-serif; --text: "Archivo", "Helvetica Neue", Arial, sans-serif; --disp-weight: 800; --lab-case: lowercase; --lab-track: 0; --rule: .5cqw solid var(--ink); --voice-case: lowercase; }
+.s-swiss .band { position: absolute; inset: 0 0 auto 0; height: 21%; background: var(--ink); color: var(--paper); }
+.s-swiss .band .nm { position: absolute; left: 8cqw; bottom: 3cqw; font: 800 13.5cqw/0.82 var(--disp); letter-spacing: -.045em; }
+.s-swiss .cols { position: absolute; inset: 21% 7cqw 0 8cqw; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.6cqw; }
+.s-swiss .cols i { border-left: .15cqw solid var(--k08); }
+.s-swiss .meta { position: absolute; left: 8cqw; bottom: 8cqw; display: grid; gap: 2cqw; }
+.s-swiss .meta .m { width: 12cqw; height: 12cqw; }
+.s-swiss .meta .t { font: 500 2.4cqw/1.15 var(--text); }
+.s-swiss .vol { position: absolute; right: 7cqw; bottom: 8cqw; font: 800 11cqw/1 var(--disp); letter-spacing: -.04em; }
+
+/* seal: vast white, vertical name, square seal */
+.s-seal { --disp: "Shippori Mincho", "Hiragino Mincho ProN", Georgia, serif; --text: "Shippori Mincho", Georgia, serif; --disp-weight: 400; --lab-track: .3em; --lab-case: uppercase; --rule: .12cqw solid var(--k25); --mark-justify: center; }
+.s-seal .vert { position: absolute; right: 13cqw; top: 13cqw; writing-mode: vertical-rl; text-orientation: upright; font: 700 6.2cqw/1 var(--disp); letter-spacing: .32em; }
+.s-seal .vert2 { position: absolute; right: 23cqw; top: 13cqw; writing-mode: vertical-rl; font: 400 1.8cqw/1 var(--text); letter-spacing: .4em; color: var(--k70); text-transform: uppercase; }
+.s-seal .cover .m { position: absolute; left: 14cqw; bottom: 17cqw; width: 13cqw; height: 13cqw; }
+.s-seal .no { position: absolute; left: 14cqw; bottom: 10cqw; font: 400 1.6cqw/1 var(--text); letter-spacing: .3em; color: var(--k70); }
+
+/* agency: wide caps between heavy rules, centred mark */
+.s-agency { --disp: "Michroma", "Eurostile", sans-serif; --text: "Chivo Mono", ui-monospace, monospace; --lab-case: uppercase; --lab-track: .18em; --rule: .9cqw solid var(--ink); --voice-case: uppercase; --voice-track: .06em; --mark-justify: center; }
+.s-agency .cover .m { position: absolute; left: 50%; top: 18%; width: 34cqw; height: 34cqw; transform: translateX(-50%); }
+.s-agency .bar { position: absolute; left: 8cqw; right: 8cqw; height: 1.4cqw; background: var(--ink); }
+.s-agency .nm { position: absolute; left: 8cqw; right: 8cqw; top: 66%; text-align: center; font: 400 6.4cqw/1 var(--disp); letter-spacing: .14em; }
+.s-agency .sub { position: absolute; left: 8cqw; right: 8cqw; bottom: 8cqw; display: flex; justify-content: space-between; font: 400 1.6cqw/1 var(--text); letter-spacing: .14em; text-transform: uppercase; }
+.s-agency .voice { font-size: 2.6cqw; }
+
+/* zine: inverted page, cropped huge caps, tape */
+.s-zine { --disp: "Archivo Black", Impact, sans-serif; --text: "Courier Prime", "Courier New", monospace; --lab-case: uppercase; --lab-track: .02em; --rule: .5cqw solid var(--ink); --voice-case: uppercase; --voice-track: -.01em; }
+.s-zine .page.left { background: var(--ink); color: var(--paper); }
+.s-zine .big { position: absolute; left: -3cqw; top: 9cqw; font: 400 33cqw/.8 var(--disp); letter-spacing: -.04em; transform: rotate(-5deg); transform-origin: 0 0; white-space: nowrap; }
+.s-zine .cover .m { position: absolute; right: 4cqw; bottom: 18cqw; width: 36cqw; height: 36cqw; color: var(--paper); }
+.s-zine .tape { position: absolute; left: 8cqw; bottom: 12cqw; background: var(--paper); color: var(--ink); font: 400 2.6cqw/1 var(--text); padding: 1.4cqw 2.4cqw; transform: rotate(3deg); }
+.s-zine .issue { position: absolute; left: 8cqw; bottom: 6cqw; font: 400 1.8cqw/1 var(--text); color: var(--k25); }
+
+/* bauhaus: primitives as composition, lowercase stack */
+.s-bauhaus { --disp: "Jost", Futura, sans-serif; --text: "Jost", Futura, sans-serif; --disp-weight: 500; --lab-case: lowercase; --lab-track: .02em; --rule: .3cqw solid var(--ink); --voice-case: lowercase; }
+.s-bauhaus .comp { position: absolute; right: -16cqw; top: -10cqw; width: 92cqw; height: 92cqw; }
+.s-bauhaus .nm { position: absolute; left: 8cqw; bottom: 15cqw; font: 500 15cqw/.86 var(--disp); letter-spacing: -.03em; }
+.s-bauhaus .sub { position: absolute; left: 8cqw; bottom: 8cqw; font: 300 2.2cqw/1 var(--text); }
+
+/* press: framed, centred, ornaments */
+.s-press { --disp: "DM Serif Display", "Bodoni 72", Georgia, serif; --text: "Libre Caslon Text", Georgia, serif; --lab-case: uppercase; --lab-track: .22em; --lab-weight: 400; --rule: .45cqw double var(--ink); --mark-justify: center; }
+.s-press .frame { position: absolute; inset: 6cqw; border: .9cqw double var(--ink); }
+.s-press .inner { position: absolute; inset: 6cqw; display: grid; justify-items: center; align-content: center; gap: 3cqw; text-align: center; padding: 6cqw; }
+.s-press .orn { font: 400 3cqw/1 var(--text); letter-spacing: .6em; }
+.s-press .nm { font: 400 13cqw/.92 var(--disp); }
+.s-press .rl { width: 40%; border-top: .3cqw solid var(--ink); }
+.s-press .gl { font: italic 400 3cqw/1.2 var(--text); }
+.s-press .vol { font: 400 1.8cqw/1 var(--text); letter-spacing: .35em; text-transform: uppercase; }
+.s-press .cover .m { width: 22cqw; height: 15cqw; }
+
+/* dossier: typewritten file, redactions, stamp */
+.s-dossier { --disp: "IBM Plex Mono", ui-monospace, monospace; --text: "IBM Plex Mono", ui-monospace, monospace; --disp-weight: 600; --lab-case: uppercase; --lab-track: .08em; --rule: .2cqw dashed var(--ink); --voice-case: uppercase; }
+.s-dossier .hd { position: absolute; left: 8cqw; right: 8cqw; top: 8cqw; display: flex; justify-content: space-between; font: 400 1.7cqw/1.5 var(--text); text-transform: uppercase; border-bottom: .3cqw solid var(--ink); padding-bottom: 2cqw; }
+.s-dossier .nm { position: absolute; left: 8cqw; top: 22cqw; font: 600 8.6cqw/1 var(--disp); letter-spacing: -.02em; }
+.s-dossier .lines { position: absolute; left: 8cqw; right: 8cqw; top: 36cqw; display: grid; gap: 2.2cqw; font: 400 1.8cqw/1.3 var(--text); }
+.s-dossier .lines b { background: var(--ink); color: var(--ink); font-weight: 400; }
+.s-dossier .cover .m { position: absolute; right: 9cqw; bottom: 14cqw; width: 44cqw; height: 26cqw; transform: rotate(-8deg); }
+.s-dossier .ft { position: absolute; left: 8cqw; bottom: 8cqw; font: 400 1.6cqw/1 var(--text); text-transform: uppercase; }
+
+/* modern: masthead serif, hairline sans */
+.s-modern { --disp: "Bodoni Moda", "Didot", Georgia, serif; --text: "Hanken Grotesk", "Helvetica Neue", sans-serif; --disp-weight: 700; --disp-style: italic; --lab-case: uppercase; --lab-track: .28em; --lab-weight: 400; --rule: .1cqw solid var(--ink); }
+.s-modern .top { position: absolute; left: 7cqw; right: 7cqw; top: 7cqw; display: flex; justify-content: space-between; font: 400 1.5cqw/1 var(--text); letter-spacing: .3em; text-transform: uppercase; }
+.s-modern .nm { position: absolute; left: 6cqw; top: 26cqw; font: italic 700 31cqw/.8 var(--disp); letter-spacing: -.035em; }
+.s-modern .cover .m { position: absolute; right: 7cqw; bottom: 7cqw; width: 11cqw; height: 11cqw; }
+.s-modern .sub { position: absolute; left: 7cqw; bottom: 7cqw; font: 400 1.5cqw/1.6 var(--text); letter-spacing: .3em; text-transform: uppercase; }
+
+/* test-only switcher */
+.test { position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; font: 11px/1 var(--ui); z-index: 5; }
+.test button, .test select { font: inherit; color: #555; background: rgba(255,255,255,.8); border: 1px solid #ccc; border-radius: 3px; padding: 6px 8px; cursor: pointer; }
+.test button:focus-visible, .test select:focus-visible { outline: 2px solid #000; outline-offset: 1px; }
+</style>
+
+<div class="spread" id="book" aria-live="polite"></div>
+<div class="test" aria-label="Test controls">
+  <select id="pick" aria-label="School"></select>
+  <button id="roll" type="button">New brand</button>
+</div>
+
+<script>
+(() => {
+  // ---------- tiny seeded random ----------
+  let seed = (Math.random() * 2 ** 32) >>> 0;
+  const rnd = () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  const range = (a, b) => a + rnd() * (b - a);
+  const roman = n => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][n];
+  const svg = (inner, vb = '0 0 100 100') => `<svg class="mark" viewBox="${vb}" aria-hidden="true">${inner}</svg>`;
+
+  // ---------- marks: drawn from each school's construction rule ----------
+  const marks = {
+    swiss() {
+      const v = pick(['bar', 'arrow', 'split']);
+      if (v === 'bar') return svg(`<circle cx="50" cy="50" r="50" fill="currentColor"/><rect x="18" y="41" width="64" height="18" fill="#fff"/>`);
+      if (v === 'arrow') return svg(`<circle cx="50" cy="50" r="50" fill="currentColor"/><path d="M22 44h38V30l22 20-22 20V56H22z" fill="#fff"/>`);
+      return svg(`<circle cx="50" cy="50" r="50" fill="currentColor"/><rect x="0" y="34" width="100" height="10" fill="#fff"/><rect x="0" y="56" width="100" height="10" fill="#fff"/>`);
+    },
+    seal() {
+      const r = pick([2, 6, 10]);
+      return svg(`<rect x="0" y="0" width="100" height="100" rx="${r}" fill="currentColor"/><rect x="7" y="7" width="86" height="86" rx="${r * .6}" fill="none" stroke="#fff" stroke-width="2.4"/>
+        <text x="50" y="47" text-anchor="middle" font-family="Shippori Mincho, serif" font-weight="700" font-size="36" fill="#fff">I</text>
+        <text x="50" y="82" text-anchor="middle" font-family="Shippori Mincho, serif" font-weight="700" font-size="36" fill="#fff">S</text>`);
+    },
+    agency() {
+      const tilt = pick([-18, -28, 0]), ring = rnd() > .4;
+      return svg(`${ring ? `<ellipse cx="50" cy="50" rx="49" ry="20" fill="none" stroke="currentColor" stroke-width="3" transform="rotate(${tilt} 50 50)"/>` : ''}
+        <path d="M30 28v44" stroke="currentColor" stroke-width="11" stroke-linecap="round" fill="none"/>
+        <path d="M74 32c-4-4-9-5-14-5-8 0-13 5-13 11 0 13 27 9 27 23 0 7-6 12-14 12-6 0-11-2-15-6" stroke="currentColor" stroke-width="11" stroke-linecap="round" fill="none"/>`);
+    },
+    zine() {
+      const n = pick([7, 9, 11, 13]); let d = '';
+      for (let i = 0; i < n * 2; i++) {
+        const a = (i / (n * 2)) * Math.PI * 2, r = i % 2 ? range(18, 26) : range(42, 50);
+        d += (i ? 'L' : 'M') + (50 + Math.cos(a) * r).toFixed(1) + ' ' + (50 + Math.sin(a) * r).toFixed(1);
+      }
+      return svg(`<path d="${d}Z" fill="currentColor"/>`);
+    },
+    bauhaus(big) {
+      const order = pick([0, 1, 2]);
+      const parts = [
+        `<circle cx="34" cy="34" r="30" fill="currentColor"/><rect x="52" y="52" width="44" height="44" fill="none" stroke="currentColor" stroke-width="${big ? 2 : 5}"/><path d="M4 96L28 54 52 96z" fill="#9a9a9a"/>`,
+        `<rect x="4" y="4" width="46" height="46" fill="currentColor"/><circle cx="68" cy="68" r="28" fill="none" stroke="currentColor" stroke-width="${big ? 2 : 5}"/><path d="M56 4L96 4 96 44z" fill="#9a9a9a"/>`,
+        `<path d="M50 4L96 84H4z" fill="currentColor"/><circle cx="50" cy="62" r="18" fill="#fff"/><rect x="40" y="88" width="20" height="8" fill="#9a9a9a"/>`
+      ];
+      return svg(parts[order]);
+    },
+    press() {
+      const st = pick(['✦', '❧', '·']);
+      return svg(`<ellipse cx="75" cy="50" rx="72" ry="46" fill="none" stroke="currentColor" stroke-width="2.2"/><ellipse cx="75" cy="50" rx="65" ry="39" fill="none" stroke="currentColor" stroke-width="1"/>
+        <text x="75" y="60" text-anchor="middle" font-family="DM Serif Display, serif" font-size="34" fill="currentColor">I${st === '·' ? '·' : ' '}S</text>
+        <text x="75" y="24" text-anchor="middle" font-family="Libre Caslon Text, serif" font-size="8" letter-spacing="2" fill="currentColor">${st} EST. ${st}</text>`, '0 0 150 100');
+    },
+    dossier() {
+      const no = String(Math.floor(range(10, 99))).padStart(4, '0');
+      return svg(`<rect x="2" y="2" width="166" height="96" fill="none" stroke="currentColor" stroke-width="3.5"/><rect x="9" y="9" width="152" height="82" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="85" y="52" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="600" font-size="30" fill="currentColor">IS-${no}</text>
+        <text x="85" y="76" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="3" fill="currentColor">APPROVED</text>`, '0 0 170 100');
+    },
+    modern() {
+      return svg(`<circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" stroke-width="1"/>
+        <text x="50" y="68" text-anchor="middle" font-family="Bodoni Moda, serif" font-style="italic" font-weight="700" font-size="52" fill="currentColor" letter-spacing="-6">IS</text>`);
+    }
+  };
+
+  // ---------- schools: rules only, never a source's look ----------
+  const S = {
+    swiss:   { face: ['Archivo ExtraBold', 'Archivo Regular'], greys: ['Signal', 'Platform', 'Concrete', 'Paper'], num: i => `0${i}`, voice: ['Say where. Say when. Say nothing else.', 'One sign, one message.', 'Arrive on time.'], cols: 4, sec: ['mark', 'typeface', 'greys', 'grid', 'voice', 'misuse'] },
+    seal:    { face: ['Shippori Mincho Bold', 'Shippori Mincho Regular'], greys: ['Sumi', 'Slate', 'Smoke', 'Washi'], num: i => '一二三四五六'[i - 1], voice: ['Less, wrapped well.', 'Made slowly, given quickly.', 'The paper matters.'], cols: 2, sec: ['Mark', 'Letters', 'Greys', 'Margin', 'Voice', 'Avoid'] },
+    agency:  { face: ['Michroma', 'Chivo Mono'], greys: ['Void', 'Orbit', 'Dust', 'Hull'], num: i => `${i}.0`, voice: ['Plan the work. Work the plan.', 'Clear for launch.', 'Every mission starts on a grid.'], cols: 6, sec: ['Insignia', 'Typography', 'Tones', 'Format', 'Voice', 'Prohibited'] },
+    zine:    { face: ['Archivo Black', 'Courier Prime'], greys: ['Toner', 'Smudge', 'Xerox', 'Bond'], num: i => `#${i}`, voice: ['Loud on purpose.', 'Cut. Paste. Copy. Repeat.', 'No one asked. Here it is.'], cols: 3, sec: ['The thing', 'Letters', 'Ink', 'Layout', 'Mouth', 'Never'] },
+    bauhaus: { face: ['Jost Medium', 'Jost Light'], greys: ['Black', 'Iron', 'Chalk', 'White'], num: i => ['●', '■', '▲', '●', '■', '▲'][i - 1], voice: ['Everything is a shape.', 'Circle, square, triangle. Done.', 'Form follows the brief.'], cols: 3, sec: ['form', 'type', 'tone', 'grid', 'voice', 'not'] },
+    press:   { face: ['DM Serif Display', 'Libre Caslon Text'], greys: ['Ink', 'Lead', 'Proof', 'Stock'], num: i => roman(i), voice: ['Set by hand, read by eye.', 'Printed with care since this morning.', 'Established today.'], cols: 2, sec: ['The Device', 'Founts', 'Inks', 'The Forme', 'Manner', 'Errata'] },
+    dossier: { face: ['IBM Plex Mono SemiBold', 'IBM Plex Mono'], greys: ['Redacted', 'Carbon', 'Onion', 'Bond'], num: i => `${String.fromCharCode(64 + i)}.`, voice: ['Need to know.', 'Redacted by design.', 'This page does not exist.'], cols: 12, sec: ['Stamp', 'Typeface', 'Values', 'Form', 'Tone', 'Breaches'] },
+    modern:  { face: ['Bodoni Moda Bold Italic', 'Hanken Grotesk'], greys: ['Noir', 'Ash', 'Silk', 'Blanc'], num: i => `${i}`, voice: ['Contrast is the message.', 'Thick, thin, nothing else.', 'Seen once, kept.'], cols: 5, sec: ['Monogram', 'Typeface', 'Tones', 'Grid', 'Voice', 'Never'] }
+  };
+
+  const DONTS = [
+    ['stretch', 'transform:scaleX(1.7)'],
+    ['tilt', 'transform:rotate(17deg)'],
+    ['outline', 'color:transparent;-webkit-text-stroke:0;filter:drop-shadow(0 0 0 #000);'],
+    ['fade', 'opacity:.18'],
+    ['shadow', 'filter:drop-shadow(1.2cqw 1.2cqw 0 #9a9a9a)'],
+    ['crowd', 'transform:translate(42%,30%)'],
+    ['squash', 'transform:scaleY(.45)'],
+    ['mirror', 'transform:scaleX(-1)']
+  ];
+  const dontCap = { swiss: n => `don't ${n}`, seal: n => `Do not ${n}`, agency: n => `No ${n}`, zine: n => `NO ${n.toUpperCase()}ING`, bauhaus: n => `no ${n}`, press: n => `Never ${n}`, dossier: n => `${n.toUpperCase()}: DENIED`, modern: n => `Never ${n}` };
+
+  // ---------- covers ----------
+  const covers = {
+    swiss: (m, v) => `<div class="band"><div class="nm">idan segev</div></div><div class="cols"><i></i><i></i><i></i><i></i></div>
+      <div class="meta"><div class="m">${m}</div><div class="t">brand<br>guidelines</div></div><div class="vol">${String(v).padStart(2, '0')}</div>`,
+    seal: (m, v) => `<div class="vert">IDAN SEGEV</div><div class="vert2">brand guidelines</div><div class="m">${m}</div><div class="no">No. ${v}</div>`,
+    agency: (m, v) => `<div class="m">${m}</div><div class="bar" style="top:62%"></div><div class="nm">IDAN SEGEV</div><div class="bar" style="top:73%"></div>
+      <div class="sub"><span>Graphics standards manual</span><span>Vol ${String(v).padStart(2, '0')}</span></div>`,
+    zine: (m, v) => `<div class="big">IDAN<br>SEGEV</div><div class="m">${m}</div><div class="tape">brand guidelines (sort of)</div><div class="issue">issue #${v} · free · photocopy this</div>`,
+    bauhaus: (m, v) => `<div class="comp">${marks.bauhaus(true)}</div><div class="nm">idan<br>segev</div><div class="sub">brand guidelines · book ${v}</div>`,
+    press: (m, v) => `<div class="frame"></div><div class="inner"><div class="orn">✦ ✦ ✦</div><div class="nm">Idan<br>Segev</div><div class="rl"></div><div class="gl">A Book of Brand Guidelines</div><div class="m">${m}</div><div class="vol">Volume ${roman(v)}</div></div>`,
+    dossier: (m, v) => `<div class="hd"><span>File no. 00${v}42<br>Classification: public</span><span>Copy 1 of 1<br>Do not remove</span></div>
+      <div class="nm">IDAN SEGEV</div>
+      <div class="lines"><span>SUBJECT: BRAND GUIDELINES</span><span>ISSUED TO: <b>XXXXXXXXXXXX</b></span><span>PURPOSE: <b>XXXXXXX</b> AND <b>XXXXXXXXXX</b></span><span>PAGES: 2 (TWO)</span></div>
+      <div class="m">${m}</div><div class="ft">Destroy after reading</div>`,
+    modern: (m, v) => `<div class="top"><span>Brand guidelines</span><span>No. ${String(v).padStart(2, '0')}</span></div><div class="nm">Idan<br>Segev</div><div class="m">${m}</div><div class="sub">Autumn / Winter<br>2026</div>`
+  };
+
+  function greyset(names) {
+    const vals = [100, Math.round(range(62, 78)), Math.round(range(18, 32)), 0];
+    return names.map((n, i) => {
+      const k = vals[i], g = Math.round(255 * (1 - k / 100));
+      return `<div class="sw"><div class="chip" style="background:rgb(${g},${g},${g})"></div><div class="swn">${n}</div><div class="v">K ${k} · #${g.toString(16).padStart(2, '0').repeat(3)}</div></div>`;
+    }).join('');
+  }
+
+  function gridTile(cols) {
+    const lines = [[0, 1, 9], [0, .7, 5], [0, .5, 3], [.5, 1, 3]];
+    const c = Math.min(cols, 12);
+    return `<div class="gridtile"><div class="cols" style="grid-template-columns:repeat(${c},1fr)">${'<i></i>'.repeat(c)}</div>
+      ${lines.map(([a, b, h]) => `<div class="ln" style="margin-left:${a * 100}%;width:${(b - a) * 100}%;height:${h}%"></div>`).join('')}</div>`;
+  }
+
+  function render(id) {
+    const s = S[id], v = 1 + Math.floor(rnd() * 12);
+    const m = marks[id]();
+    const donts = [...DONTS].sort(() => rnd() - .5).slice(0, 3);
+    const n = s.num, sec = s.sec;
+    const lab = (i) => `<div class="lab"><span class="n">${n(i + 1)}</span><span>${sec[i]}</span></div>`;
+    document.body.className = 's-' + id;
+    book.innerHTML = `
+      <section class="page left" aria-label="Cover"><div class="cover">${covers[id](m, v)}</div></section>
+      <section class="page right" aria-label="System">
+        <div class="sys">
+          <div class="run"><span>Idan Segev</span><span>Brand guidelines</span></div>
+          <div class="blocks">
+            <div class="blk">${lab(0)}<div class="markbox"><div class="clear"></div><div class="m">${m}</div></div><div class="cap">Clear space equals x on every side.</div></div>
+            <div class="blk">${lab(1)}<div class="aa">Aa</div><div class="facename">${s.face[0]} / ${s.face[1]}</div><div class="chars">ABCDEFGHIJKLM<br>abcdefghijklm 0123456789</div></div>
+            <div class="blk wide">${lab(2)}<div class="greys">${greyset(s.greys)}</div></div>
+            <div class="blk">${lab(3)}${gridTile(s.cols)}<div class="cap">${s.cols} columns, margins equal to one gutter.</div></div>
+            <div class="blk">${lab(4)}<div class="voice">${pick(s.voice)}</div></div>
+            <div class="blk wide">${lab(5)}<div class="donts">${donts.map(([nm, st]) => `<div class="dont"><div class="tile"><div class="m" style="${st}">${nm === 'outline' ? m.replace(/fill="currentColor"/g, 'fill="none" stroke="currentColor" stroke-width="2"') : m}</div></div><div class="cap">${dontCap[id](nm)}</div></div>`).join('')}</div></div>
+          </div>
+          <div class="foot"><span>${id === 'press' ? roman(v) : v}</span><span>2</span></div>
+        </div>
+      </section>`;
+  }
+
+  // ---------- roll: never the same school twice in a row ----------
+  const ids = Object.keys(S);
+  const pickEl = document.getElementById('pick'), book = document.getElementById('book');
+  pickEl.innerHTML = ids.map(i => `<option value="${i}">${i}</option>`).join('');
+  let last = null; try { last = localStorage.getItem('brandbook:last'); } catch (e) {}
+  function roll(id) {
+    if (!id) { const pool = ids.filter(i => i !== last); id = pool[Math.floor(Math.random() * pool.length)]; }
+    last = id; try { localStorage.setItem('brandbook:last', id); } catch (e) {}
+    pickEl.value = id; render(id);
+  }
+  pickEl.addEventListener('change', () => roll(pickEl.value));
+  document.getElementById('roll').addEventListener('click', () => roll());
+  document.addEventListener('keydown', e => { if (e.key === ' ' && e.target === document.body) { e.preventDefault(); roll(); } });
+  roll();
+})();
+</script>

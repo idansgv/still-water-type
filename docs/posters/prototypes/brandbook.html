@@ -1,0 +1,743 @@
+<title>Brandbook</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Archivo:wght@400;600&family=Big+Shoulders+Display:wght@800&family=Bodoni+Moda:ital,opsz,wght@1,6..96,700&family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Climate+Crisis&family=Dela+Gothic+One&family=Fraunces:ital,opsz,wght@1,9..144,900&family=Hanken+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Libre+Caslon+Text&family=Michroma&family=Rubik+Mono+One&family=Six+Caps&family=Syne:wght@800&family=Unbounded:wght@800&display=swap">
+<style>
+/* Layout: a wall of 16:9 guideline slides, cover and closing full width; every size inside a slide is in cqw of that slide. */
+:root {
+  --desk: #d6d6d6;
+  --paper: #ffffff;
+  --ink: #000000;
+  --k70: #555555;
+  --k40: #9a9a9a;
+  --k12: #e2e2e2;
+  --surface: #cfcfcf;
+  --ui: ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+html, body { min-height: 100%; }
+body {
+  margin: 0; background: var(--desk); color: var(--ink);
+  padding-block: 20px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box; overflow-x: hidden;
+}
+.wall { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.wall.loading { visibility: hidden; }
+@media (max-width: 760px) { .wall { grid-template-columns: 1fr; gap: 10px; } }
+
+.sl {
+  --i: var(--ink); --p: var(--paper); --g: var(--k70); --l: var(--k12);
+  container-type: inline-size; aspect-ratio: 16 / 9; position: relative; overflow: hidden;
+  background: var(--p); color: var(--i); font-family: var(--text); font-size: 1.15cqw; line-height: 1.35;
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+}
+.sl.inv { --i: var(--paper); --p: var(--ink); --g: var(--k40); --l: #2a2a2a; }
+.sl.full { grid-column: 1 / -1; }
+.sl.surface { --p: var(--surface); --i: #000; --g: #444; --l: #bdbdbd; }
+.sl * { box-sizing: border-box; }
+canvas.dev { display: block; width: 100%; height: 100%; }
+
+/* display type, sized by the fit pass */
+.D { font-family: var(--disp); font-weight: var(--dw); font-style: var(--ds); text-transform: var(--dc); letter-spacing: var(--dt); line-height: var(--dl); white-space: nowrap; display: inline-block; }
+.huge { position: absolute; z-index: 1; }
+.sl[data-crop="bl"] > .huge { left: -.03em; bottom: -.16em; }
+.sl[data-crop="br"] > .huge { right: -.03em; bottom: -.16em; text-align: right; }
+.sl[data-crop="tl"] > .huge { left: -.03em; top: -.1em; }
+.sl[data-crop="tr"] > .huge { right: -.03em; top: -.1em; text-align: right; }
+.ca { position: absolute; z-index: 2; left: 4cqw; right: 4cqw; top: 5cqw; height: 27cqw; }
+.sl[data-crop="tl"] > .ca, .sl[data-crop="tr"] > .ca { top: auto; bottom: 5cqw; }
+
+/* running heads and small type */
+.rh { position: absolute; z-index: 3; left: 4cqw; right: 4cqw; display: flex; justify-content: space-between; font-size: 1cqw; letter-spacing: .06em; text-transform: uppercase; color: var(--g); }
+.rh.top { top: 2.2cqw; } .rh.bot { bottom: 2cqw; }
+.sl[data-crop="bl"] > .rh.bot, .sl[data-crop="br"] > .rh.bot { display: none; }
+.sl[data-crop="tl"] > .rh.top, .sl[data-crop="tr"] > .rh.top { display: none; }
+.lab { font-size: 1cqw; letter-spacing: .08em; text-transform: uppercase; color: var(--g); }
+.p { font-size: 1.25cqw; line-height: 1.4; max-width: 34cqw; }
+.mono { font-family: var(--ui); }
+
+/* cover */
+.cover .name { position: absolute; left: -.02em; bottom: -.13em; z-index: 2; }
+.cover .devbox { position: absolute; z-index: 1; }
+.cover .meta { position: absolute; top: 2.4cqw; left: 3cqw; right: 3cqw; display: flex; justify-content: space-between; font-size: .8cqw; letter-spacing: .1em; text-transform: uppercase; z-index: 3; }
+.cover .what { position: absolute; z-index: 3; font-size: .95cqw; max-width: 24cqw; line-height: 1.35; }
+
+/* idea */
+.idea .slogan { position: absolute; left: 4cqw; top: 7cqw; z-index: 2; }
+.idea .body { position: absolute; left: 4cqw; bottom: 4cqw; display: grid; grid-template-columns: 1fr 1fr; gap: 3cqw; width: 54cqw; z-index: 2; }
+.idea .devbox { position: absolute; right: -6cqw; top: -4cqw; width: 46cqw; height: 64cqw; z-index: 1; }
+
+/* contents */
+.toc { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6cqw 3cqw; align-content: start; }
+.toc div { display: grid; grid-template-columns: 4cqw 1fr; border-top: .12cqw solid var(--i); padding-top: .8cqw; font-size: 1.5cqw; }
+.toc span:first-child { font-family: var(--ui); font-size: 1cqw; color: var(--g); padding-top: .3cqw; }
+
+/* logo */
+.logo .stage { position: absolute; inset: 0; display: grid; grid-template-columns: 1.7fr 1fr 1fr; gap: 1.2cqw; }
+.logo .cell { position: relative; background: var(--l); display: grid; place-items: center; overflow: hidden; }
+.logo .cell.k { background: var(--ink); color: var(--paper); }
+.logo .cell.w { background: var(--paper); color: var(--ink); }
+.logo .cell .lab { position: absolute; left: 1cqw; bottom: .9cqw; color: inherit; opacity: .6; }
+.clear { position: absolute; inset: 14%; border: .12cqw dashed currentColor; opacity: .45; }
+.mark { display: grid; place-items: center; aspect-ratio: 1; font-family: var(--disp); font-weight: var(--dw); font-style: var(--ds); line-height: 1; }
+.mark.circle { border-radius: 50%; background: currentColor; }
+.mark.square { background: currentColor; }
+.mark.circle b, .mark.square b { color: var(--mk-bg); font-weight: inherit; }
+.mark.ring { border-radius: 50%; border: .06em solid currentColor; }
+.lockup { display: grid; gap: .6cqw; justify-items: start; }
+.lockup.center { justify-items: center; text-align: center; }
+.lockup .sub { font-family: var(--text); font-size: .9cqw; letter-spacing: .3em; text-transform: uppercase; }
+
+/* misuse */
+.donts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2cqw; height: 100%; }
+.dont { display: grid; grid-template-rows: 1fr auto; gap: .7cqw; min-height: 0; }
+.dont .t { position: relative; background: var(--l); overflow: hidden; display: grid; place-items: center; }
+.dont .t::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top right, transparent calc(50% - .1cqw), var(--i) calc(50% - .1cqw), var(--i) calc(50% + .1cqw), transparent calc(50% + .1cqw)); }
+.dont .c { font-size: 1.05cqw; }
+.dont .t { touch-action: none; cursor: grab; }
+.dont.drag .t { cursor: grabbing; }
+.dont .t::after { transition: opacity .35s; }
+.dont.ok .t::after { opacity: 0; }
+.dont .dl { pointer-events: none; }
+.dont[data-kind="outline"] .dl { color: color-mix(in srgb, var(--i) var(--of, 100%), transparent); -webkit-text-stroke: calc(var(--ov, 0) * .09cqw) var(--i); }
+.dont[data-kind="outline"] .dl .mark { box-shadow: inset 0 0 0 calc(var(--ov, 0) * .14cqw) var(--i); }
+
+/* type */
+.type .grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 3cqw; height: 100%; }
+.type .spec { font-family: var(--disp); font-weight: var(--dw); font-style: var(--ds); font-size: 2.4cqw; line-height: 1.12; word-break: break-all; text-transform: var(--dc); }
+.type .hier { display: grid; gap: 1cqw; align-content: start; }
+.type .hier .h1 { font-family: var(--disp); font-weight: var(--dw); font-style: var(--ds); text-transform: var(--dc); letter-spacing: var(--dt); font-size: 3cqw; line-height: .95; }
+.type .hier .h2 { font-family: var(--disp); font-weight: var(--dw); font-style: var(--ds); text-transform: var(--dc); font-size: 1.7cqw; line-height: 1; }
+
+/* tone */
+.tone .cols { position: absolute; inset: 0; display: grid; }
+.tone .col { position: relative; padding: 2.4cqw 1.6cqw; display: flex; flex-direction: column; gap: .4cqw; font-size: 1.1cqw; }
+.tone .col .n { font-family: var(--disp); font-weight: var(--dw); font-style: var(--ds); text-transform: var(--dc); font-size: 2.6cqw; line-height: 1; }
+.tone .col .v { font-family: var(--ui); font-size: .9cqw; opacity: .75; }
+
+/* device */
+.device .main { position: absolute; left: 0; top: 0; bottom: 0; width: 58%; }
+.device .vars { position: absolute; right: 3cqw; top: 3cqw; bottom: 3cqw; width: 36%; display: grid; grid-template-rows: repeat(3, 1fr); gap: 1.2cqw; }
+.device .v { position: relative; display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.2cqw; align-items: end; }
+.device .v .box { height: 100%; background: var(--l); }
+
+/* imagery */
+.imagery .row { position: absolute; inset: 0; display: grid; grid-template-columns: 1.6fr 1fr; grid-template-rows: 1fr 1fr; gap: .8cqw; }
+.imagery .row > div { position: relative; overflow: hidden; background: var(--l); }
+.imagery .row > div:first-child { grid-row: 1 / -1; }
+.imagery .cap { position: absolute; left: 1cqw; bottom: .9cqw; font-family: var(--ui); font-size: .85cqw; background: var(--p); color: var(--i); padding: .3cqw .6cqw; }
+
+/* in use */
+.use .lab.title { position: absolute; left: 3cqw; top: 2.4cqw; color: var(--i); z-index: 3; }
+.obj { position: absolute; box-shadow: 0 .6cqw 1.6cqw -.6cqw rgba(0,0,0,.45); overflow: hidden; }
+.poster { aspect-ratio: 1 / 1.4142; }
+.poster .pn { position: absolute; left: 6%; bottom: 4%; }
+.poster .ps { position: absolute; left: 6%; top: 5%; right: 6%; font-size: .9cqw; display: flex; justify-content: space-between; text-transform: uppercase; letter-spacing: .1em; }
+.tote { background: #f4f4f2; color: #000; overflow: visible; box-shadow: none; }
+.tote .bag { position: absolute; inset: 0; background: inherit; box-shadow: 0 .6cqw 1.6cqw -.6cqw rgba(0,0,0,.45); }
+.tote .h { position: absolute; width: 36%; height: 30%; top: -24%; border: 1.1cqw solid #e6e6e2; border-bottom: none; border-radius: 50% 50% 0 0; }
+.card { aspect-ratio: 85 / 55; }
+.ticket { aspect-ratio: 2.4; }
+.sleeve { aspect-ratio: 1; }
+.disc { position: absolute; border-radius: 50%; background: radial-gradient(circle, #ddd 0 15%, #111 15.5% 17%, #050505 17.5% 100%); box-shadow: 0 .6cqw 1.6cqw -.6cqw rgba(0,0,0,.5); }
+.sticker { border-radius: 50%; aspect-ratio: 1; }
+.board { aspect-ratio: 3 / 1; }
+.pole { position: absolute; background: #777; width: .7cqw; }
+.cup { aspect-ratio: .78; clip-path: polygon(0 0, 100% 0, 88% 100%, 12% 100%); box-shadow: none; }
+
+/* end */
+.end .name { position: absolute; left: -.02em; top: 50%; transform: translateY(-50%); z-index: 2; }
+.end .foot { position: absolute; left: 3cqw; right: 3cqw; bottom: 2.4cqw; display: flex; justify-content: space-between; font-size: .85cqw; letter-spacing: .1em; text-transform: uppercase; z-index: 3; }
+
+/* the morph: next brand waits in an overlay, revealed through its own texture */
+.wall { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: pan-y; }
+.ov { position: absolute; inset: 0; z-index: 20; pointer-events: none; -webkit-mask-image: var(--mk); mask-image: var(--mk); -webkit-mask-size: var(--ms); mask-size: var(--ms); }
+.ov > .sl { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; box-shadow: none; }
+.g.b { font-family: var(--disp2); font-weight: var(--dw2); font-style: var(--ds2); text-transform: var(--dc2); }
+.sl.tb { --text: var(--text2); }
+
+/* three-tap reveal: construction lines, drawn in, readable on black, white and grey */
+.cons { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 15; pointer-events: none; mix-blend-mode: difference; transition: opacity .3s; }
+.cons.out { opacity: 0; }
+.cons line, .cons rect, .cons circle, .cons path { fill: none; stroke: #fff; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.cons .gc { opacity: .2; } .cons .gm { opacity: .4; } .cons .ty { opacity: .8; } .cons .tx { opacity: .45; }
+.cons .dash { stroke-dasharray: 3 3; opacity: .6; }
+.cons .a { stroke-dasharray: 1; stroke-dashoffset: 1; animation: cons-draw .75s cubic-bezier(.6, 0, .2, 1) forwards; animation-delay: var(--d, 0s); }
+.cons .f { opacity: 0; animation: cons-fade .4s forwards; animation-delay: var(--d, 0s); }
+.cons text { fill: #fff; stroke: none; font: 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .04em; }
+@keyframes cons-draw { to { stroke-dashoffset: 0; } }
+@keyframes cons-fade { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cons .a, .cons .f { animation: none; stroke-dashoffset: 0; opacity: 1; } }
+
+/* test-only */
+.test { position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; align-items: center; font: 11px/1 var(--ui); z-index: 5; }
+.test button { font: inherit; color: #222; background: rgba(255,255,255,.9); border: 1px solid #bbb; border-radius: 3px; padding: 8px 10px; cursor: pointer; }
+.test span { color: #555; background: rgba(255,255,255,.8); padding: 8px; border-radius: 3px; }
+.test button:focus-visible { outline: 2px solid #000; outline-offset: 1px; }
+</style>
+
+<main class="wall loading" id="wall" aria-live="polite"></main>
+<div class="test"><span id="info"></span><button id="roll" type="button">New brand</button></div>
+
+<script>
+(() => {
+  // ---------- seeded random ----------
+  let seed = 1;
+  const rnd = () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  const rr = (a, b) => a + rnd() * (b - a);
+  const shuffle = a => a.map(v => [rnd(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
+
+  // ---------- the world: a venture named after Idan, a type system, a device ----------
+  const CONCEPTS = [
+    { v: 'Records', what: 'an independent record label for music that is too loud for the radio', slogans: ['Pressed loud.', 'Side A only.', 'Turn it up. Then once more.'], item: 'sleeve', tags: ['Vinyl', 'Tape', 'Live'] },
+    { v: 'Swimming Club', what: 'a members-only outdoor pool, open from the first heatwave to the last', slogans: ['Lane four, forever.', 'Cold water. Warm people.', 'Jump in.'], item: 'ticket', tags: ['Members', 'Lanes', 'Summer'] },
+    { v: 'Hardware', what: 'a hardware store for people who want to do it properly, once', slogans: ['Measure twice.', 'Tools for doing it right.', 'Built to be fixed.'], item: 'sign', tags: ['Tools', 'Timber', 'Advice'] },
+    { v: 'Observatory', what: 'a public observatory on a hill outside the city, open after dark', slogans: ['Open after dark.', 'Look up.', 'Clear skies only.'], item: 'ticket', tags: ['Night', 'Stars', 'Talks'] },
+    { v: 'Bakery', what: 'a neighbourhood bakery that sells out by ten', slogans: ['Out of the oven at six.', 'Sold out by ten.', 'Flour, water, time.'], item: 'cup', tags: ['Bread', 'Coffee', 'Early'] },
+    { v: 'Radio 88.4', what: 'a late-night radio station run by people who like talking too much', slogans: ['On air, off script.', 'Nobody sleeps.', 'Stay tuned.'], item: 'sleeve', tags: ['Night', 'Talk', 'Static'] },
+    { v: 'Transit', what: 'a fictional city transit authority with one line that goes everywhere', slogans: ['Next stop: everywhere.', 'Mind the gap.', 'Always on time. Mostly.'], item: 'sign', tags: ['Lines', 'Stops', 'Tickets'] },
+    { v: 'Type Foundry', what: 'a small type foundry that draws letters for hire', slogans: ['Letters for hire.', 'Every glyph, by hand.', 'Kerned with love.'], item: 'sleeve', tags: ['Fonts', 'Custom', 'Lettering'] },
+    { v: 'Boxing Gym', what: 'a basement boxing gym with one rule: show up', slogans: ['Show up.', 'Hit back.', 'Round twelve.'], item: 'ticket', tags: ['Rounds', 'Ring', 'Sweat'] },
+    { v: 'Hotel', what: 'a twelve-room hotel by the sea with no televisions', slogans: ['Check in. Slow down.', 'Twelve rooms. One sea.', 'Do not disturb.'], item: 'card', tags: ['Rooms', 'Sea', 'Quiet'] }
+  ];
+  // display face, weight, style, case, tracking, leading, text face
+  const TYPES = [
+    ['Anton', 400, 'normal', 'uppercase', '0', .86, 'Archivo'],
+    ['Archivo Black', 400, 'normal', 'uppercase', '-.03em', .84, 'IBM Plex Mono'],
+    ['Big Shoulders Display', 800, 'normal', 'uppercase', '0', .82, 'IBM Plex Mono'],
+    ['Unbounded', 800, 'normal', 'uppercase', '-.03em', .9, 'Hanken Grotesk'],
+    ['Syne', 800, 'normal', 'lowercase', '-.04em', .86, 'Hanken Grotesk'],
+    ['Instrument Serif', 400, 'italic', 'none', '-.02em', .86, 'Libre Caslon Text'],
+    ['Fraunces', 900, 'italic', 'none', '-.03em', .86, 'Hanken Grotesk'],
+    ['Rubik Mono One', 400, 'normal', 'uppercase', '-.05em', .92, 'IBM Plex Mono'],
+    ['Dela Gothic One', 400, 'normal', 'uppercase', '-.02em', .95, 'Hanken Grotesk'],
+    ['Climate Crisis', 400, 'normal', 'uppercase', '-.02em', .88, 'IBM Plex Mono'],
+    ['Bodoni Moda', 700, 'italic', 'none', '-.04em', .84, 'Hanken Grotesk'],
+    ['Bricolage Grotesque', 800, 'normal', 'lowercase', '-.05em', .84, 'Archivo'],
+    ['Six Caps', 400, 'normal', 'uppercase', '0', .84, 'IBM Plex Mono'],
+    ['Michroma', 400, 'normal', 'uppercase', '.02em', 1, 'IBM Plex Mono']
+  ];
+  const FIELDS = ['sphere', 'letter', 'waves', 'burst', 'rings', 'letter', 'sphere'];
+  const RENDERS = ['halftone', 'lines', 'dither', 'contour', 'pixels'];
+  const RENDER_NAMES = { halftone: '45° halftone', lines: 'engraved line screen', dither: 'ordered dither', contour: 'contour bands', pixels: 'coarse bitmap' };
+  const GREYS = [['Ink', 'Graphite', 'Fog', 'Paper'], ['Night', 'Smoke', 'Mist', 'Chalk'], ['Coal', 'Iron', 'Ash', 'Salt'], ['Black', 'Lead', 'Concrete', 'Bone'], ['Tar', 'Slate', 'Dust', 'Milk']];
+
+  function makeBrand() {
+    const c = pick(CONCEPTS), t = pick(TYPES);
+    const field = pick(FIELDS), render = pick(RENDERS);
+    return {
+      c, t, field, render,
+      alt: shuffle(RENDERS.filter(r => r !== render)).slice(0, 3),
+      letter: pick(['S', 'IS', 'I', 'S', 'IS']),
+      light: [rr(-.8, .8), rr(-.9, -.2)],
+      cell: Math.round(rr(30, 70)),
+      vol: 1 + Math.floor(rnd() * 12),
+      slogan: pick(c.slogans),
+      mark: pick(['circle', 'square', 'ring', 'none']),
+      markText: pick(['IS', 'S', 'I·S']),
+      lock: pick(['stack', 'line', 'stack']),
+      crop: () => pick(['bl', 'br', 'tl', 'tr', 'bl']),
+      inv: rnd() < .5 ? [0, 2, 5, 7, 11] : [1, 3, 4, 8],
+      greys: pick(GREYS), gv: [100, Math.round(rr(66, 80)), Math.round(rr(18, 34)), 0],
+      cover: pick(['right', 'top']),
+      ratio: pick(['6fr 3fr 1fr 1.4fr', '4fr 3fr 2fr 2fr', '5fr 1.4fr 1.4fr 3fr'])
+    };
+  }
+
+  // ---------- fields: darkness 0..1 over a box ----------
+  let maskCache = {};
+  function letterMask(B) {
+    const key = B.letter + B.t[0];
+    if (maskCache[key]) return maskCache[key];
+    const S = 360, cv = document.createElement('canvas'); cv.width = cv.height = S;
+    const g = cv.getContext('2d'); g.fillStyle = '#000'; g.textAlign = 'center';
+    let fs = S * .9; g.font = `${B.t[2]} ${B.t[1]} ${fs}px "${B.t[0]}"`;
+    const m = g.measureText(B.letter), h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+    fs *= Math.min(S * .86 / m.width, S * .86 / h); g.font = `${B.t[2]} ${B.t[1]} ${fs}px "${B.t[0]}"`;
+    const m2 = g.measureText(B.letter), y = S / 2 + (m2.actualBoundingBoxAscent - m2.actualBoundingBoxDescent) / 2;
+    g.filter = 'blur(7px)'; g.fillText(B.letter, S / 2, y);
+    const d = g.getImageData(0, 0, S, S).data, a = new Float32Array(S * S);
+    for (let i = 0; i < S * S; i++) a[i] = d[i * 4 + 3] / 255;
+    return (maskCache[key] = { S, a });
+  }
+  function hash(x, y) { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); }
+  function vnoise(x, y) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi; const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf); const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+  function fbm(x, y) { let s = 0, a = .5; for (let i = 0; i < 4; i++) { s += a * vnoise(x, y); x *= 2; y *= 2; a *= .5; } return s; }
+
+  // f(u,v) with u,v in 0..1 of the box; aspect = w/h
+  function field(kind, B, aspect, opt = {}) {
+    const L = B.light, ll = Math.hypot(L[0], L[1], .8), lx = L[0] / ll, ly = L[1] / ll, lz = .8 / ll;
+    const cx = opt.cx ?? .5, cy = opt.cy ?? .5, R = opt.r ?? .42, k1 = Math.min(aspect, 1);
+    const shade = (x, y) => { const q = x * x + y * y; if (q > 1) return -1; const z = Math.sqrt(1 - q); return Math.min(1, .1 + (1 - Math.max(0, x * lx + y * ly + z * lz)) * .95); };
+    if (kind === 'sphere') return (u, v) => Math.max(0, shade((u - cx) * aspect / (R * 2 * k1), (v - cy) / (R * 2 * k1)));
+    if (kind === 'letter') { const M = letterMask(B), z = (opt.zoom || 1) * k1; return (u, v) => {
+      const xx = (u - cx) * aspect / z + .5, yy = (v - cy) / z + .5;
+      if (xx < 0 || yy < 0 || xx >= 1 || yy >= 1) return 0; return M.a[Math.floor(yy * M.S) * M.S + Math.floor(xx * M.S)];
+    }; }
+    if (kind === 'waves') { const k = 6 + B.cell % 5; return (u, v) => { const x = u * aspect; return .5 + .5 * Math.sin(k * x + 2.4 * Math.sin(k * .6 * v + x * 2)) * (.35 + .65 * v); }; }
+    if (kind === 'burst') { const n = 9 + 2 * (B.vol % 5); return (u, v) => { const x = (u - cx) * aspect / k1, y = (v - cy) / k1; const r = Math.hypot(x, y), a = Math.atan2(y, x); const edge = R * 1.05 * (.74 + .26 * Math.cos(a * n)); return Math.max(0, Math.min(1, (edge - r) * 14 + .5)) * (1 - r * .5); }; }
+    if (kind === 'rings') return (u, v) => { const x = (u - cx) * aspect / k1, y = (v - cy) / k1; return Math.max(0, 1 - Math.hypot(x, y) * 1.3); };
+    if (kind === 'horizon') { const sy = .32 + (B.vol % 4) * .05, sx = .3 + (B.cell % 5) * .1; return (u, v) => {
+      const x = (u - sx) * aspect, y = v - sy; if (Math.hypot(x, y) < .15) return .04;
+      if (v > .62 + .05 * Math.sin(u * 9) * fbm(u * 3, 1)) return .5 + .45 * fbm(u * 8, v * 30);
+      return .12 + v * .6; }; }
+    if (kind === 'spheres') { const S = [[.32, .52, .3], [.74, .4, .18], [.56, .8, .11]]; return (u, v) => {
+      for (const [sx, sy, r] of S) { const s = shade((u - sx) * aspect / r, (v - sy) / r); if (s >= 0) return s; }
+      return .06 + .12 * v; }; }
+    if (kind === 'folds') return (u, v) => .5 + .45 * Math.sin(u * aspect * 7 + Math.sin(v * 5) * 2.2 + fbm(u * 2, v * 2) * 3);
+    return (u, v) => Math.min(1, Math.max(0, (fbm(u * aspect * 3, v * 3) - .25) * 1.8));
+  }
+
+  // ---------- renderers ----------
+  const BAYER = [0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26, 12, 44, 4, 36, 14, 46, 6, 38, 60, 28, 52, 20, 62, 30, 54, 22, 3, 35, 11, 43, 1, 33, 9, 41, 51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7, 39, 13, 45, 5, 37, 63, 31, 55, 23, 61, 29, 53, 21].map(v => (v + .5) / 64);
+  function draw(cv, kind, f, n, fast) {
+    const q = fast ? 2 : 1, dpr = fast ? 1 : Math.min(2, devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
+    if (!w || !h) return;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    g.fillStyle = getComputedStyle(cv).color;
+    const s = Math.max(w, h) / n; // cell size in css px
+    if (kind === 'halftone') {
+      const c = Math.SQRT1_2, Dg = Math.hypot(w, h);
+      for (let a = -Dg; a < Dg; a += s) for (let b = -Dg; b < Dg; b += s) {
+        const x = w / 2 + (a - b) * c, y = h / 2 + (a + b) * c; if (x < -s || y < -s || x > w + s || y > h + s) continue;
+        const d = f(x / w, y / h); if (d < .02) continue;
+        g.beginPath(); g.arc(x, y, Math.sqrt(d) * s * .72, 0, 6.2832); g.fill();
+      }
+    } else if (kind === 'lines') {
+      const st = s * .8;
+      for (let y = st / 2; y < h; y += st) for (let x = 0; x < w; x += 1.5 * q) { const d = f(x / w, y / h); if (d > .03) g.fillRect(x, y - d * st * .48, 1.6 * q, d * st * .96); }
+    } else if (kind === 'dither') {
+      const p = Math.max(1.5, s / 5) * q;
+      for (let y = 0, j = 0; y < h; y += p, j++) for (let x = 0, i = 0; x < w; x += p, i++) if (f(x / w, y / h) > BAYER[(j & 7) * 8 + (i & 7)]) g.fillRect(x, y, p + .3, p + .3);
+    } else if (kind === 'contour') {
+      const p = 1.25 * q, bands = 8;
+      for (let y = 0; y < h; y += p) for (let x = 0; x < w; x += p) { const d = f(x / w, y / h); if (d > .03 && ((d * bands) % 1) < .5) g.fillRect(x, y, p + .2, p + .2); }
+    } else {
+      const p = s * .9;
+      for (let y = 0; y < h; y += p) for (let x = 0; x < w; x += p) { const d = f((x + p / 2) / w, (y + p / 2) / h); if (d > .45) g.fillRect(x, y, p - .5, p - .5); }
+    }
+  }
+
+
+  // ---------- misuse: each rule, and how a drag (x, y in tile widths) breaks it ----------
+  const DONT = {
+    stretch: { c: 'Don’t stretch it', rest: [.3, 0] },
+    squash: { c: 'Don’t squash it', rest: [0, .3] },
+    tilt: { c: 'Don’t tilt it', rest: [-.18, 0] },
+    fade: { c: 'Don’t fade it', rest: [.4, 0] },
+    shadow: { c: 'Don’t add a shadow', rest: [.05, .05] },
+    outline: { c: 'Don’t outline it', rest: [.34, 0] },
+    crowd: { c: 'Don’t crowd it', rest: [.3, .24] }
+  };
+  function dontStyle(k, x, y) {
+    const hyp = Math.hypot(x, y), cl = (v, a, b) => Math.max(a, Math.min(b, v));
+    if (k === 'stretch') return `transform:scaleX(${cl(1 + x * 2.2, .2, 4).toFixed(3)})`;
+    if (k === 'squash') return `transform:scaleY(${cl(1 - y * 1.6, .1, 3).toFixed(3)})`;
+    if (k === 'tilt') return `transform:rotate(${(x * 80 + y * 40).toFixed(2)}deg)`;
+    if (k === 'fade') return `opacity:${cl(1 - hyp * 2, 0, 1).toFixed(3)}`;
+    if (k === 'shadow') return `filter:drop-shadow(${(x * 12).toFixed(2)}cqw ${(y * 12).toFixed(2)}cqw 0 #8a8a8a)`;
+    if (k === 'outline') { const v = cl(hyp * 3, 0, 1); return `--ov:${v.toFixed(3)};--of:${((1 - v) * 100).toFixed(1)}%`; }
+    if (k === 'crowd') return `transform:translate(${(x * 100).toFixed(1)}%,${(y * 100).toFixed(1)}%) scale(${(1 + hyp * 1.2).toFixed(3)})`;
+    return '';
+  }
+  // ---------- HTML helpers ----------
+  const NAME = 'Idan Segev';
+  const D = (txt, fit, maxh, style = '') => `<div class="D" data-fit="${fit}" data-maxh="${maxh}" style="${style}">${txt}</div>`;
+  const dev = (fieldKind, render, opt = {}) => `<canvas class="dev" data-field="${fieldKind}" data-render="${render}" data-opt='${JSON.stringify(opt)}'></canvas>`;
+  const nameText = (B, mode) => (mode || B.lock) === 'stack' ? 'Idan<br>Segev' : NAME;
+  function markHTML(B, size, bg) {
+    if (B.mark === 'none') return `<div class="mark" style="width:${size}cqw;font-size:${size * .62}cqw">${B.markText}</div>`;
+    const fs = B.mark === 'ring' ? size * .42 : size * .46;
+    return `<div class="mark ${B.mark}" style="width:${size}cqw;font-size:${fs}cqw;--mk-bg:${bg}"><b>${B.markText}</b></div>`;
+  }
+  const lockup = (B, w, center, bg = 'var(--p)') => `<div class="lockup ${center ? 'center' : ''}">${markHTML(B, w * .22, bg)}${D(nameText(B), 0, 0, `font-size:${w / 4.6}cqw`)}<div class="sub">${B.c.v}</div></div>`;
+  const rh = (B, n, title) => `<div class="rh top"><span>${NAME} ${B.c.v}</span><span>${n} — ${title}</span></div><div class="rh bot"><span>Brand guidelines Vol. ${B.vol}</span><span>${n}</span></div>`;
+  const slide = (B, idx, cls, inner, crop) => `<section class="sl ${cls} ${B.inv.includes(idx) ? 'inv' : ''}" ${crop ? `data-crop="${crop}"` : ''}>${inner}</section>`;
+  const big = (txt, style = '') => `<div class="huge">${D(txt, 1.18, .42, style)}</div>`;
+
+  // ---------- slides ----------
+  function build(B) {
+    const S = [];
+    // 0 cover
+    {
+      const lay = B.cover;
+      const box = lay === 'right' ? 'right:-6cqw;top:-4cqw;width:56cqw;height:64cqw' : 'right:-8cqw;top:-14cqw;width:58cqw;height:46cqw';
+      const what = 'left:3cqw;top:5.4cqw';
+      S.push(slide(B, 0, 'full cover', `
+        <div class="meta"><span>${NAME} ${B.c.v}</span><span>Brand guidelines</span><span>Vol. ${String(B.vol).padStart(2, '0')}</span><span>2026</span></div>
+        <div class="devbox" style="${box}">${dev(B.field, B.render, { r: .46 })}</div>
+        <div class="what" style="${what}">${NAME} ${B.c.v} is ${B.c.what}.</div>
+        <div class="name">${D(nameText(B, 'stack'), 1.04, .76)}</div>`));
+    }
+    // 1 idea
+    S.push(slide(B, 1, 'idea', `${rh(B, '01', 'The idea')}
+      <div class="devbox">${dev(B.field, B.alt[0], { r: .5 })}</div>
+      <div class="slogan">${D(B.slogan.replace(/\. /g, '.<br>').replace(/: /g, ':<br>'), .6, .48)}</div>
+      <div class="body"><p class="p" style="margin:0">${NAME} ${B.c.v} is ${B.c.what}. Everything we make should feel like it came from the same place: one device, one face, ${B.t[3] === 'lowercase' ? 'all lowercase' : B.t[3] === 'uppercase' ? 'all capitals' : 'set in sentence case'}, and nothing in colour.</p>
+      <div style="display:grid;gap:.6cqw;align-content:start">${B.c.tags.map(t => `<div class="lab" style="color:var(--i);border-top:.1cqw solid var(--i);padding-top:.5cqw">${t}</div>`).join('')}</div></div>`));
+    // 2 contents
+    const SECT = ['The idea', 'Contents', 'Logo', 'Misuse', 'Typography', 'Tone', 'Device', 'Imagery', 'In use', 'In use, again'];
+    { const c = B.crop(); S.push(slide(B, 2, 'contents', `${rh(B, '02', 'Contents')}${big('Contents')}
+      <div class="ca"><div class="toc">${SECT.map((t, i) => `<div><span>${String(i + 1).padStart(2, '0')}</span><span>${t}</span></div>`).join('')}</div></div>`, c)); }
+    // 3 logo
+    S.push(slide(B, 3, 'logo', `<div class="stage">
+      <div class="cell" style="background:var(--p)"><div class="clear"></div>${lockup(B, 22, true)}<div class="lab">03 — Primary lockup · clear space = height of the mark</div></div>
+      <div class="cell k" style="--p:#000">${lockup(B, 13, true, '#000')}<div class="lab">On black</div></div>
+      <div class="cell w" style="--p:#fff">${markHTML(B, 9, '#fff')}<div class="lab">Mark alone · min 16 px</div></div></div>`));
+    // 4 misuse
+    { const c = B.crop(); const bad = shuffle(Object.keys(DONT)).slice(0, 4);
+      S.push(slide(B, 4, 'misuse', `${rh(B, '04', 'Misuse')}${big('Don’t')}<div class="ca"><div class="donts">${bad.map(k => `<div class="dont" data-kind="${k}"><div class="t"><div class="dl" style="${dontStyle(k, ...DONT[k].rest)}">${lockup(B, 9, true, 'var(--l)')}</div></div><div class="c" data-c="${DONT[k].c}">${DONT[k].c}</div></div>`).join('')}</div></div>`, c)); }
+    // 5 typography
+    { const c = B.crop(); S.push(slide(B, 5, 'type', `${rh(B, '05', 'Typography')}${big(B.t[3] === 'lowercase' ? 'aa' : 'Ag', 'text-transform:none')}
+      <div class="ca"><div class="grid">
+        <div><div class="lab">Display · ${B.t[0]}</div><div class="spec">ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789 &!?</div></div>
+        <div class="hier"><div class="lab">Hierarchy</div><div class="h1">${B.slogan}</div><div class="h2">${B.c.tags.join(' / ')}</div><p class="p" style="margin:0">Body copy is set in ${B.t[6]}, ${B.t[6].includes('Mono') ? 'a monospace that keeps everything feeling filed and counted' : 'quiet enough to let the display face shout'}.</p></div>
+        <div class="hier"><div class="lab">Text · ${B.t[6]}</div><div style="font-size:2cqw;line-height:1.15">Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm Nn Oo Pp Qq Rr Ss Tt</div><div class="lab" style="margin-top:1cqw">Tracking ${B.t[4] === '0' ? 'neutral' : B.t[4]} · leading ${B.t[5]}</div></div>
+      </div></div>`, c)); }
+    // 6 tone
+    S.push(slide(B, 6, 'tone', `<div class="cols" style="grid-template-columns:${B.ratio}">
+      ${B.greys.map((n, i) => { const k = B.gv[i], g = Math.round(255 * (1 - k / 100)), fg = k > 45 ? '#fff' : '#000';
+        return `<div class="col" style="background:rgb(${g},${g},${g});color:${fg}"><div class="n">${n}</div><div class="v">K ${k}</div><div class="v">#${g.toString(16).padStart(2, '0').repeat(3)}</div></div>`; }).join('')}
+      </div><div class="rh bot" style="color:#fff;display:flex"><span>06 — Tone · no colour, ever</span><span>${['60 / 30 / 10', '70 / 20 / 10', '50 / 40 / 10'][B.vol % 3]}</span></div>`));
+    // 7 device
+    S.push(slide(B, 7, 'device', `<div class="main">${dev(B.field, B.render, { r: .44 })}</div>
+      <div class="vars">${B.alt.map(r => `<div class="v"><div class="box">${dev(B.field, r, { r: .42 })}</div><div><div class="lab" style="color:var(--i)">${RENDER_NAMES[r]}</div><div class="lab">Allowed for secondary use</div></div></div>`).join('')}</div>
+      <div style="position:absolute;left:2cqw;bottom:1.8cqw;z-index:2" class="lab">07 — The device · ${B.field === 'letter' ? `the ${B.letter.length > 1 ? 'monogram' : 'letter ' + B.letter}` : 'a ' + B.field}, ${RENDER_NAMES[B.render]}, ${B.cell} cells across</div>`));
+    // 8 imagery
+    { const F = shuffle(['horizon', 'spheres', 'folds', 'noise']); S.push(slide(B, 8, 'imagery', `<div class="row">
+      ${F.slice(0, 3).map((f, i) => `<div>${dev(f, B.render, {})}<div class="cap">${i === 0 ? `08 — All imagery: ${RENDER_NAMES[B.render]}` : ['', 'Crop tight', 'Never full tone'][i]}</div></div>`).join('')}</div>`)); }
+    // 9 in use: poster, tote, cards
+    S.push(slide(B, 9, 'use surface', `<div class="lab title">09 — In use</div>
+      <div class="obj poster" style="left:5cqw;top:6cqw;width:24cqw;background:#000;color:#fff">${dev(B.field, B.render, { r: .48 })}<div class="ps"><span>${B.c.tags[0]}</span><span>${B.c.tags[1]}</span></div><div class="pn">${D(nameText(B, 'stack'), 0, 0, 'font-size:5cqw')}</div></div>
+      <div class="obj tote" style="left:36cqw;top:16cqw;width:26cqw;height:32cqw"><div class="h" style="left:32%"></div><div class="bag"></div><div style="position:absolute;inset:8% 12% 30%">${dev(B.field, B.alt[1], { r: .46 })}</div><div style="position:absolute;left:12%;right:12%;bottom:7%">${D(B.slogan, 0, 0, 'font-size:2cqw;white-space:normal')}</div></div>
+      <div class="obj card" style="left:68cqw;top:10cqw;width:26cqw;background:#fff;color:#000;transform:rotate(-4deg)"><div style="position:absolute;left:8%;top:12%">${lockup(B, 9, false, '#fff')}</div><div class="mono" style="position:absolute;right:8%;bottom:10%;font-size:.8cqw;line-height:1.4;text-align:right">Idan Segev<br>idansegev.com</div></div>
+      <div class="obj card" style="left:72cqw;top:31cqw;width:22cqw;background:#000;color:#fff;transform:rotate(5deg)">${dev(B.field, B.render, { r: .5 })}</div>`));
+    // 10 in use, again: the venture's own object, sticker, banner
+    { const it = B.c.item; let item = '';
+      if (it === 'sleeve') item = `<div class="disc" style="left:20cqw;top:9cqw;width:28cqw;height:28cqw"></div><div class="obj sleeve" style="left:5cqw;top:8cqw;width:30cqw;background:#fff;color:#000">${dev(B.field, B.render, { r: .5 })}<div style="position:absolute;left:5%;bottom:4%">${D(nameText(B, 'stack'), 0, 0, 'font-size:4.2cqw')}</div></div>`;
+      else if (it === 'ticket') item = `<div class="obj ticket" style="left:4cqw;top:14cqw;width:46cqw;background:#fff;color:#000"><div style="position:absolute;left:0;top:0;bottom:0;width:74%;border-right:.2cqw dashed #999"><div style="position:absolute;inset:0;width:44%">${dev(B.field, B.render, { r: .5 })}</div><div style="position:absolute;left:48%;top:14%">${D(NAME, 0, 0, 'font-size:2.3cqw')}<div class="lab" style="margin-top:1cqw;color:#000">${B.c.v} · Admit one</div></div></div><div class="mono" style="position:absolute;right:4%;top:22%;font-size:1cqw;line-height:1.6">No. ${100 + B.cell * 7}<br>Row ${String.fromCharCode(65 + B.vol)}<br>Seat ${B.vol + 3}</div></div>`;
+      else if (it === 'cup') item = `<div class="obj cup" style="left:12cqw;top:8cqw;width:24cqw;background:#fff;color:#000"><div style="position:absolute;inset:14% 10% 34%">${dev(B.field, B.render, { r: .5 })}</div><div style="position:absolute;left:0;right:0;bottom:12%;text-align:center">${D(NAME, 0, 0, 'font-size:2.2cqw')}</div></div>`;
+      else if (it === 'card') item = `<div class="obj card" style="left:6cqw;top:12cqw;width:38cqw;background:#000;color:#fff;transform:rotate(-3deg)"><div style="position:absolute;inset:0 52% 0 0">${dev(B.field, B.render, { r: .5 })}</div><div style="position:absolute;left:54%;top:12%">${D('Room<br>' + (B.vol + 1), 0, 0, 'font-size:5cqw')}</div><div class="lab" style="position:absolute;left:54%;bottom:12%;color:#fff">Key card · ${B.c.v}</div></div>`;
+      else item = `<div class="pole" style="left:21cqw;top:20cqw;bottom:0"></div><div class="obj board" style="left:4cqw;top:8cqw;width:38cqw;background:#000;color:#fff"><div style="position:absolute;inset:0 auto 0 0;width:33%">${dev(B.field, B.render, { r: .5 })}</div><div style="position:absolute;left:38%;top:50%;transform:translateY(-50%)">${D(B.c.tags[0] + '<br>' + B.c.tags[1], 0, 0, 'font-size:3.4cqw')}</div></div>`;
+      S.push(slide(B, 10, 'use surface', `<div class="lab title">10 — In use, again</div>${item}
+        <div class="obj sticker" style="left:54cqw;top:5cqw;width:15cqw;background:#fff;color:#000;display:grid;place-items:center">${markHTML(B, 8, '#fff')}</div>
+        <div class="obj" style="left:55cqw;top:24cqw;width:40cqw;aspect-ratio:2.6;background:#000;color:#fff"><div style="position:absolute;inset:0 auto 0 0;width:40%">${dev(B.field, B.alt[2], { r: .5 })}</div><div style="position:absolute;left:44%;top:12%;right:4%">${D(B.slogan.replace(/\. /g, '.<br>'), 0, 0, 'font-size:2.6cqw;white-space:normal')}</div><div class="lab" style="position:absolute;left:44%;bottom:10%;color:#bbb">${NAME} ${B.c.v}</div></div>`)); }
+    // 11 end
+    S.push(slide(B, 11, 'full end', `<div class="name">${D(NAME, 1.06, .8)}</div>
+      <div class="foot"><span>${NAME} ${B.c.v}</span><span>${B.slogan}</span><span>idansegev.com</span></div>`));
+    return S.join('');
+  }
+
+  // ---------- fit pass: size display lines to a share of the slide ----------
+  function fit(root) {
+    root.querySelectorAll('[data-fit]').forEach(el => {
+      const f = +el.dataset.fit, mh = +el.dataset.maxh; if (!f) return;
+      const sl = el.closest('.sl'), W = sl.clientWidth, H = sl.clientHeight; if (!W) return;
+      el.style.fontSize = '100px'; const r = el.getBoundingClientRect();
+      let fs = 100 * (f * W) / r.width; if (mh) fs = Math.min(fs, 100 * (mh * H) / r.height);
+      el.style.fontSize = (fs / W * 100) + 'cqw';
+    });
+  }
+  const cellsFor = (B, w, h) => Math.max(16, Math.round(B.cell * Math.max(w, h) / 900));
+  function paint(cvs, B) {
+    cvs.forEach(cv => {
+      const opt = JSON.parse(cv.dataset.opt || '{}'), w = cv.clientWidth, h = cv.clientHeight; if (!w) return;
+      draw(cv, cv.dataset.render, field(cv.dataset.field, B, w / h, opt), cellsFor(B, w, h));
+    });
+  }
+  const vars = (B, k = '') => `--disp${k}:"${B.t[0]}", Impact, sans-serif; --dw${k}:${B.t[1]}; --ds${k}:${B.t[2]}; --dc${k}:${B.t[3]}; --text${k}:"${B.t[6]}", "Helvetica Neue", Arial, sans-serif;` + (k ? '' : ` --dt:${B.t[4]}; --dl:${B.t[5]};`);
+  const loadFonts = B => Promise.all([document.fonts.load(`${B.t[2]} ${B.t[1]} 100px "${B.t[0]}"`, 'IdanSegv'), document.fonts.load(`400 16px "${B.t[6]}"`)]).catch(() => {});
+
+  const wall = document.getElementById('wall'), info = document.getElementById('info'), html = document.documentElement;
+  const slides = () => [...wall.children];
+  const own = sl => [...sl.querySelectorAll('canvas.dev')].filter(cv => !cv.closest('.ov'));
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let B, N = null, job = 0;
+
+  // ---------- show a brand at once (first load, test button) ----------
+  async function show(s) {
+    stop(); const my = ++job;
+    seed = s ?? ((Math.random() * 2 ** 32) >>> 0); const nb = makeBrand();
+    await loadFonts(nb); if (my !== job) return;
+    B = nb; N = null; revealed = false;
+    wall.classList.add('loading'); html.style.cssText = vars(B);
+    wall.innerHTML = build(B); fit(wall); wall.classList.remove('loading');
+    slides().forEach(sl => paint(own(sl), B));
+    info.textContent = `${B.c.v} · ${B.t[0]} · ${B.field} / ${B.render}`;
+    prepareNext();
+  }
+
+  // ---------- the next brand waits in an overlay inside each slide ----------
+  async function prepareNext() {
+    const my = job;
+    let nb; do { seed = (Math.random() * 2 ** 32) >>> 0; nb = makeBrand(); } while (nb.c.v === B.c.v || nb.t[0] === B.t[0]); const markup = build(nb);
+    await loadFonts(nb); await new Promise(r => setTimeout(r, 300));
+    if (my !== job) return;
+    html.style.cssText = vars(B) + vars(nb, '2');
+    const tmp = document.createElement('div'); tmp.innerHTML = markup;
+    const mine = slides();
+    [...tmp.children].forEach((sec, i) => {
+      sec.style.cssText += vars(nb);
+      const ov = document.createElement('div'); ov.className = 'ov'; ov.appendChild(sec); mine[i].appendChild(ov);
+      setMask(ov, nb, 0);
+    });
+    fit(wall);
+    wall.querySelectorAll('.ov').forEach(ov => paint([...ov.querySelectorAll('canvas.dev')], nb));
+    N = nb; armed = false;
+    if (!touched && !reduced && !demoDone) demoTimer = setTimeout(startDemo, 2600);
+  }
+
+  // texture reveal: the new brand shows through growing dots, or thickening lines, of its own screen
+  function setMask(ov, nb, r) {
+    if (r >= 1) { ov.style.setProperty('--mk', 'none'); return; }
+    const c = Math.max(6, ov.clientWidth / 58);
+    if (nb.render === 'lines' || nb.render === 'contour') {
+      ov.style.setProperty('--mk', `repeating-linear-gradient(0deg, #000 0 ${r * c}px, transparent ${r * c}px ${c}px)`); ov.style.setProperty('--ms', 'auto');
+    } else {
+      const rad = r * c * .75;
+      ov.style.setProperty('--mk', rad <= 0 ? 'linear-gradient(transparent, transparent)' : `radial-gradient(circle, #000 ${rad}px, transparent ${rad + .6}px)`); ov.style.setProperty('--ms', `${c}px ${c}px`);
+    }
+  }
+
+  // ---------- glyphs: every display letter gets its own moment to change face ----------
+  function arm() {
+    if (armed) return; armed = true;
+    slides().forEach(sl => {
+      sl.querySelectorAll('.D').forEach(el => {
+        if (el.closest('.ov') || el.dataset.split) return; el.dataset.split = 1;
+        const walk = n => [...n.childNodes].forEach(c => {
+          if (c.nodeType === 3) { const f = document.createDocumentFragment(); [...c.textContent].forEach(ch => { const s = document.createElement('span'); s.className = 'g'; s.textContent = ch; s.dataset.th = (.04 + Math.random() * .5).toFixed(3); f.appendChild(s); }); c.replaceWith(f); }
+          else if (c.nodeType === 1 && c.tagName !== 'BR') walk(c);
+        });
+        walk(el);
+      });
+      sl._g = [...sl.querySelectorAll('.g')].filter(g => !g.closest('.ov'));
+      sl._ov = sl.querySelector(':scope > .ov');
+      sl._cv = own(sl).map(cv => {
+        const opt = JSON.parse(cv.dataset.opt || '{}'), w = cv.clientWidth, h = cv.clientHeight, k = cv.dataset.field;
+        return { cv, fa: field(k, B, w / h, opt), fb: field(k === B.field ? N.field : k, N, w / h, opt), n: cellsFor(B, w, h), m: 0 };
+      });
+    });
+  }
+
+  // ---------- timeline: t runs 0..1 while held; every effect is a pure function of t ----------
+  let t = 0, dir = 0, speed = 0, raf = 0, last = 0, ox = innerWidth / 2, oy = 0, armed = false;
+  let touched = false, demo = 0, demoDone = false, demoTimer = 0;
+  const clamp = v => Math.max(0, Math.min(1, v));
+  const ease = v => v * v * (3 - 2 * v);
+  function apply() {
+    const diag = Math.hypot(innerWidth, innerHeight * 2);
+    slides().forEach(sl => {
+      const r = sl.getBoundingClientRect();
+      const d = Math.min(1, Math.hypot(r.left + r.width / 2 - ox, r.top + r.height / 2 - oy) / diag) * .35;
+      const p = clamp((t - d) / .65);
+      sl._g.forEach(g => g.classList.toggle('b', p > +g.dataset.th));
+      sl.classList.toggle('tb', p > .3);
+      const vis = r.bottom > 0 && r.top < innerHeight;
+      sl._cv.forEach(o => {
+        const m = ease(clamp(p / .6)); if (m === o.m) return;
+        if (!vis && m > 0) return;
+        o.m = m;
+        draw(o.cv, o.cv.dataset.render, m === 0 ? o.fa : (u, v) => o.fa(u, v) * (1 - m) + o.fb(u, v) * m, o.n, m > 0);
+      });
+      if (sl._ov) setMask(sl._ov, N, clamp((p - .42) / .58));
+    });
+  }
+  function frame(now) {
+    const dt = Math.min(50, now - last); last = now;
+    if (demo === 1) { t += dt / 1500; if (t >= .3) demo = 2; }
+    else if (demo === 2) { t -= dt / 900; if (t <= 0) { t = 0; demo = 0; demoDone = true; } }
+    else t += dir * dt / speed;
+    t = clamp(t); apply();
+    if (t >= 1) return commit();
+    if (t <= 0 && dir <= 0 && !demo) { raf = 0; return; }
+    raf = requestAnimationFrame(frame);
+  }
+  const run = () => { if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+  function stop() { cancelAnimationFrame(raf); raf = 0; t = 0; dir = 0; demo = 0; clearTimeout(demoTimer); }
+
+  function commit() {
+    raf = 0; t = 0; dir = 0;
+    slides().forEach(sl => { const sec = sl.querySelector(':scope > .ov > .sl'); sl.replaceWith(sec); });
+    B = N; N = null; job++; revealed = false; html.style.cssText = vars(B);
+    info.textContent = `${B.c.v} · ${B.t[0]} · ${B.field} / ${B.render}`;
+    prepareNext();
+  }
+
+  function startDemo() {
+    if (touched || !N) return;
+    const c = wall.firstElementChild.getBoundingClientRect(); ox = c.left + c.width * .7; oy = c.top + c.height * .3;
+    arm(); demo = 1; run();
+  }
+
+  // ---------- live don'ts: drag breaks the rule, letting go snaps it back into line ----------
+  const PRAISE = ['Better.', 'Thank you.', 'Much better.', 'That’s the one.'];
+  let dg = null;
+  wall.addEventListener('pointerdown', e => {
+    const tile = e.target.closest('.dont .t'); if (!tile || tile.closest('.ov')) return;
+    const d = tile.parentElement, k = d.dataset.kind, inner = tile.querySelector('.dl');
+    cancelAnimationFrame(d._raf);
+    const st = d._s || { x: DONT[k].rest[0], y: DONT[k].rest[1], vx: 0, vy: 0 }; d._s = st;
+    dg = { d, k, inner, st, sx: e.clientX, sy: e.clientY, x0: st.x, y0: st.y, w: tile.clientWidth, id: e.pointerId };
+    tile.setPointerCapture(e.pointerId);
+    d.classList.add('drag'); d.classList.remove('ok'); d.querySelector('.c').textContent = d.querySelector('.c').dataset.c;
+  });
+  wall.addEventListener('pointermove', e => {
+    if (!dg || e.pointerId !== dg.id) return;
+    dg.st.x = dg.x0 + (e.clientX - dg.sx) / dg.w; dg.st.y = dg.y0 + (e.clientY - dg.sy) / dg.w;
+    dg.inner.style.cssText = dontStyle(dg.k, dg.st.x, dg.st.y);
+  });
+  const letGo = e => {
+    if (!dg || (e && e.pointerId !== dg.id)) return;
+    const { d, k, inner, st } = dg; dg = null; d.classList.remove('drag');
+    let lt = performance.now();
+    const step = now => {
+      const dt = Math.min(.032, (now - lt) / 1000); lt = now;
+      st.vx += (-260 * st.x - 15 * st.vx) * dt; st.vy += (-260 * st.y - 15 * st.vy) * dt;
+      st.x += st.vx * dt; st.y += st.vy * dt;
+      inner.style.cssText = dontStyle(k, st.x, st.y);
+      if (Math.hypot(st.x, st.y) < .002 && Math.hypot(st.vx, st.vy) < .02) {
+        st.x = st.y = st.vx = st.vy = 0; inner.style.cssText = dontStyle(k, 0, 0);
+        d.classList.add('ok'); d.querySelector('.c').textContent = PRAISE[Math.floor(Math.random() * PRAISE.length)]; return;
+      }
+      d._raf = requestAnimationFrame(step);
+    };
+    d._raf = requestAnimationFrame(step);
+  };
+  addEventListener('pointerup', letGo); addEventListener('pointercancel', letGo);
+
+  // ---------- three quick taps: the construction behind the brand ----------
+  let revealed = false;
+  const measure = document.createElement('canvas').getContext('2d');
+  function construct(sl) {
+    const R = sl.getBoundingClientRect(), W = R.width, H = R.height, cq = W / 100, out = [];
+    const d = () => `--d:${(Math.random() * .45).toFixed(2)}s`;
+    const ln = (x1, y1, x2, y2, c = '') => out.push(`<line class="a ${c}" style="${d()}" pathLength="1" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`);
+    const rc = (x, y, w, h, c = '') => out.push(`<rect class="${c.includes('dash') ? 'f' : 'a'} ${c}" style="${d()}" pathLength="1" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"/>`);
+    const ci = (x, y, r, c = '') => out.push(`<circle class="${c.includes('dash') ? 'f' : 'a'} ${c}" style="${d()}" pathLength="1" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.max(0, r).toFixed(1)}"/>`);
+    const tx = (x, y, t, anchor = 'start') => out.push(`<text class="f" style="${d()}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}">${t}</text>`);
+    const skip = el => el.closest('.ov') || el.closest('.dont');
+    const rel = el => { const r = el.getBoundingClientRect(); return { x: r.left - R.left, y: r.top - R.top, w: r.width, h: r.height }; };
+
+    // the grid: 12 columns inside the margins, margin lines top and bottom
+    const m = 4 * cq, g = 1.2 * cq, cw = (W - 2 * m - 11 * g) / 12;
+    for (let i = 0; i < 12; i++) { const x = m + i * (cw + g); ln(x, 0, x, H, 'gc'); ln(x + cw, 0, x + cw, H, 'gc'); }
+    ln(0, m, W, m, 'gm'); ln(0, H - m, W, H - m, 'gm'); ln(m, 0, m, H, 'gm'); ln(W - m, 0, W - m, H, 'gm');
+    tx(m + 3, m - 4, `12 col · gutter ${(g).toFixed(0)}px · margin ${m.toFixed(0)}px`);
+
+    // display type: baselines, cap heights, x-heights on the big lines
+    sl.querySelectorAll('.D').forEach(el => {
+      if (skip(el)) return;
+      const cs = getComputedStyle(el), fs = parseFloat(cs.fontSize), b = rel(el);
+      if (fs < 3.5 * cq) { rc(b.x, b.y, b.w, b.h, 'tx'); return; }
+      const marks = [];
+      el.querySelectorAll(':scope > br').forEach(br => { const i = document.createElement('i'); i.style.cssText = 'display:inline-block;width:0;height:0'; br.before(i); marks.push(i); });
+      const e = document.createElement('i'); e.style.cssText = 'display:inline-block;width:0;height:0'; el.appendChild(e); marks.push(e);
+      const bases = marks.map(i => i.getBoundingClientRect().bottom - R.top); marks.forEach(i => i.remove());
+      measure.font = `${cs.fontStyle} ${cs.fontWeight} ${fs}px ${cs.fontFamily}`;
+      const cap = measure.measureText('H').actualBoundingBoxAscent, xh = measure.measureText('x').actualBoundingBoxAscent;
+      bases.forEach((y, k) => {
+        if (y < -fs || y > H + fs) return;
+        ln(0, y, W, y, 'ty'); ln(0, y - cap, W, y - cap, 'ty');
+        if (cs.textTransform !== 'uppercase') ln(0, y - xh, W, y - xh, 'dash');
+        if (k === 0) { const lx = b.x + b.w + 6 < W - 60 ? b.x + b.w + 6 : W - m; const an = lx === W - m ? 'end' : 'start';
+          tx(lx, y - 4, 'baseline', an); tx(lx, y - cap - 4, `cap ${(cap / fs).toFixed(2)} em`, an); }
+      });
+    });
+
+    // the mark: its box, centre, inscribed circle, diagonals, clear space of one mark height
+    sl.querySelectorAll('.mark').forEach(el => {
+      if (skip(el)) return;
+      const r = rel(el), cx = r.x + r.w / 2, cy = r.y + r.h / 2, s = r.w;
+      rc(r.x, r.y, r.w, r.h); ci(cx, cy, s / 2); ci(cx, cy, s / 2 * Math.SQRT1_2, 'tx');
+      ln(r.x, r.y, r.x + r.w, r.y + r.h, 'tx'); ln(r.x + r.w, r.y, r.x, r.y + r.h, 'tx');
+      ln(cx - s * .7, cy, cx + s * .7, cy, 'tx'); ln(cx, cy - s * .7, cx, cy + s * .7, 'tx');
+      rc(r.x - s / 2, r.y - s / 2, s * 2, s * 2, 'dash'); tx(r.x - s / 2, r.y - s / 2 - 4, 'x = ½ mark');
+    });
+
+    // the device: the geometry its field is built from
+    sl.querySelectorAll('canvas.dev').forEach(cv => {
+      if (skip(cv)) return;
+      const r = rel(cv), opt = JSON.parse(cv.dataset.opt || '{}'), k = cv.dataset.field;
+      const asp = r.w / r.h, k1 = Math.min(asp, 1), cx = r.x + r.w * (opt.cx ?? .5), cy = r.y + r.h * (opt.cy ?? .5), Rr = opt.r ?? .42;
+      ln(cx - 10, cy, cx + 10, cy); ln(cx, cy - 10, cx, cy + 10);
+      if (k === 'sphere') {
+        const rad = 2 * Rr * k1 * r.h; ci(cx, cy, rad);
+        const L = B.light, ll = Math.hypot(L[0], L[1]); const ex = cx + L[0] / ll * rad * .9, ey = cy + L[1] / ll * rad * .9;
+        ln(cx, cy, ex, ey, 'ty'); ci(ex, ey, 4); tx(ex + 8, ey, 'light');
+        tx(cx + rad * .72, cy + rad * .72, `r ${(2 * Rr).toFixed(2)} h`);
+      } else if (k === 'burst') {
+        const ro = Rr * 1.05 * r.h * k1; ci(cx, cy, ro, 'dash'); ci(cx, cy, ro * .74, 'dash');
+        const n = 9 + 2 * (B.vol % 5); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; ln(cx, cy, cx + Math.cos(a) * ro, cy + Math.sin(a) * ro, 'tx'); }
+        tx(cx + ro * .75, cy - ro * .75, `${n} rays`);
+      } else if (k === 'rings') {
+        const ro = r.h * k1 / 1.3; for (let i = 1; i <= 8; i++) ci(cx, cy, ro * i / 8, i === 8 ? '' : 'tx');
+        tx(cx + ro * .72, cy - ro * .72, '8 bands');
+      } else if (k === 'letter') {
+        const z = (opt.zoom || 1) * k1 * r.h; rc(cx - z / 2, cy - z / 2, z, z, 'dash'); rc(cx - z * .43, cy - z * .43, z * .86, z * .86);
+        tx(cx - z * .43, cy - z * .43 - 4, `${B.letter} · 86% of the square`);
+      } else if (k === 'waves') {
+        const kk = 6 + B.cell % 5, path = []; for (let x = 0; x <= r.w; x += 6) { const u = x / r.w; path.push(`${(r.x + x).toFixed(1)},${(r.y + r.h * (.5 - .35 * Math.sin(kk * u * asp))).toFixed(1)}`); }
+        out.push(`<path class="a ty" style="${d()}" pathLength="1" d="M${path.join('L')}"/>`); tx(r.x + 8, r.y + 14, `k ${kk}`);
+      } else rc(r.x, r.y, r.w, r.h, 'tx');
+    });
+    return `<svg class="cons" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}" aria-hidden="true">${out.join('')}</svg>`;
+  }
+  function reveal(on) {
+    revealed = on;
+    slides().forEach(sl => {
+      const old = sl.querySelector(':scope > .cons');
+      if (old) { old.classList.add('out'); setTimeout(() => old.remove(), 320); }
+      if (on) sl.insertAdjacentHTML('beforeend', construct(sl));
+    });
+  }
+  let taps = [], tdown = null;
+  wall.addEventListener('pointerdown', e => { tdown = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  addEventListener('pointerup', e => {
+    if (!tdown) return;
+    const now = performance.now(), ok = now - tdown.t < 250 && Math.hypot(e.clientX - tdown.x, e.clientY - tdown.y) < 8; tdown = null;
+    if (!ok) { taps = []; return; }
+    if (taps.length && now - taps[taps.length - 1] > 380) taps = [];
+    taps.push(now);
+    if (taps.length === 3) { taps = []; reveal(!revealed); }
+  });
+
+  // ---------- gesture: hold 250 ms, 8 px slop ----------
+  let down = null, holdT = 0, holding = false;
+  wall.addEventListener('pointerdown', e => {
+    touched = true; clearTimeout(demoTimer);
+    if (e.target.closest('.dont .t')) return; // tiles are for breaking the rules, not for morphing
+    if (demo) { demo = 0; dir = -1; speed = 500; run(); }
+    down = { x: e.clientX, y: e.clientY };
+    holdT = setTimeout(() => {
+      if (!down || !N) return;
+      holding = true; ox = down.x; oy = down.y; if (revealed) reveal(false); arm(); demo = 0;
+      dir = 1; speed = reduced ? 900 : 2200; run();
+    }, 250);
+  });
+  wall.addEventListener('pointermove', e => { if (down && !holding && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) { clearTimeout(holdT); down = null; } });
+  const release = () => {
+    clearTimeout(holdT); down = null;
+    if (!holding) return; holding = false;
+    if (t >= .5) { dir = 1; speed = 700; } else { dir = -1; speed = 600; }
+    run();
+  };
+  addEventListener('pointerup', release); addEventListener('pointercancel', release);
+  wall.addEventListener('contextmenu', e => e.preventDefault());
+
+  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => {
+    if (raf) return; fit(wall); slides().forEach(sl => paint(own(sl), B));
+    if (N) wall.querySelectorAll('.ov').forEach(ov => paint([...ov.querySelectorAll('canvas.dev')], N));
+    armed = false; slides().forEach(sl => { delete sl._cv; });
+    if (revealed) reveal(true);
+  }, 150); });
+  document.getElementById('roll').addEventListener('click', () => show());
+  document.addEventListener('keydown', e => { if (e.key === ' ' && e.target === document.body) { e.preventDefault(); show(); } });
+  window.__reveal = reveal; window.__show = show; window.__state = () => ({ B, N, t });
+  window.__setT = (v, x = 900, y = 300) => { if (!N) return 'no next'; arm(); ox = x; oy = y; t = v; apply(); if (t >= 1) commit(); return t; };
+  show();
+})();
+</script>

@@ -16,6 +16,7 @@ const SCENES = {
   glint: async (p) => { await p.mouse.move(300, 330, { steps: 6 }); await sleep(900); },
   rigged: async (p) => { await sleep(2600); },                               // the intro hoist, settled: the name on its rig
   'wash-script': async (p) => { await sleep(9000); await p.mouse.move(200, 330); await p.mouse.down(); for (let i = 0; i <= 40; i++) { await p.mouse.move(200 + i * 22, 330 + Math.sin(i / 6) * 50); await sleep(16); } await p.mouse.up(); await sleep(1500); },   // written, then one coloured drag through it
+  brandbook: async (p) => { await sleep(3200); },                            // the cover of a rolled brand, its device and the name
 };
 
 const PREVIEW_THEME = { glint: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
