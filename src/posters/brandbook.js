@@ -12,7 +12,7 @@
 // Layout (settings): 0 a wall you scroll inside the poster, 1 the whole book on one screen, 2 one slide at a time.
 // Prototype and history: docs/posters/brandbook.md, docs/posters/prototypes/brandbook.html.
 
-import { pressTracker } from '../gestures.js';
+import { pressTracker, REFORM_DELAY_MS } from '../gestures.js';
 import { createReveal, ink, label } from './reveal.js';
 
 // ---------- the world ----------
@@ -483,7 +483,7 @@ export function mount(stage) {
   const fontsFor = (B) => Promise.all([ensureFont(B.t[0], `${B.t[2]} ${B.t[1]} 100px "${B.t[0]}"`), ensureFont(B.t[6], `400 16px "${B.t[6]}"`)]);
 
   // ---------- settings ----------
-  const DEF = { layout: 0 };
+  const DEF = { layout: 1 };                         // Idan's pick (24 Oct 2026): the whole book on one screen
   const P = { ...DEF };
   try { const s = JSON.parse(localStorage.getItem('tune:brandbook') || 'null'); if (s && typeof s.layout === 'number') P.layout = s.layout; } catch (e) { /* defaults */ }
 
@@ -593,7 +593,8 @@ export function mount(stage) {
   let down = null, panning = false, swipe = 0, vy = 0, holding = false;
   offs.push(stage.on('down', (q, e) => {
     if (!press.down(q, e.pointerId)) return;
-    demo = 0; demoDone = true;
+    if (demo) { demo = 0; dir = -1; speed = 500; }                          // the self-demo stops at the first touch and rewinds
+    demoDone = true;
     const t = tileAt(q);
     down = { x: q.x, y: q.y, sy, tile: t };
     if (t) {
@@ -616,11 +617,21 @@ export function mount(stage) {
   }));
   offs.push(stage.on('up', (q, e) => {
     const r = press.up(q, e.pointerId); if (!r) return;
+    const onTile = !!(down && down.tile);
     if (tileDrag) { springs.add(tileDrag.k); tileDrag = null; }
+    if (r.tap && !onTile) tapped(q);
     if (holding) { holding = false; dir = morphT >= 0.5 ? 1 : -1; speed = morphT >= 0.5 ? 700 : 600; }
     if (panning && Math.round(P.layout) === 2) { if (Math.abs(slideX) > Math.min(80, stage.W * 0.12)) step(slideX < 0 ? 1 : -1); slideX = 0; layout(); dirty = true; }
     panning = false; down = null;
   }));
+  // a tap: the brand turns into the next one, played through. A beat later, so two or three quick taps (reveal) never start it
+  let lastTap = 0, tapT = 0;
+  function tapped(q) {
+    const now = performance.now(), quick = now - lastTap < REFORM_DELAY_MS; lastTap = now;
+    clearTimeout(tapT);
+    if (quick) return;
+    tapT = later(() => { if (stage.revealed || !N || dir > 0 || holding) return; ox = q.x; oy = q.y; dir = 1; speed = stage.reduced ? 900 : 1700; demo = 0; demoDone = true; dirty = true; }, REFORM_DELAY_MS);
+  }
   function step(d) { cur = clamp(cur + d, 0, 11); slideX = 0; layout(); dirty = true; }
   let wheelAcc = 0, wheelT = 0;
   const onWheel = (e) => {

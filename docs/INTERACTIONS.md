@@ -146,11 +146,11 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 
 | | Brandbook |
 |---|---|
-| Layout | settings (`&tune`): 0 a wall of twelve slides you scroll inside the poster (wheel or drag, one column on a phone), 1 the whole book on one screen, 2 one slide at a time (wheel, swipe or arrow keys) |
+| Layout | the whole book on one screen (default, Idan's pick); settings (`&tune`) also offer 0 a wall you scroll inside the poster and 2 one slide at a time |
+| Tap (click) | after a 420 ms beat (so two or three quick taps never start it), the brand turns into the next one, played through from where you tapped |
 | Hold (250 ms, still, not on a misuse tile) | the brand morphs into the next one: each display letter changes face at its own moment, the device melts into the next shape, the new brand shows through growing dots or thickening lines of its own screen; ripples out from the finger; let go before halfway and it rewinds |
 | Drag on a misuse tile | breaks that rule by hand (stretch, squash, tilt, fade, shadow, outline, crowd); let go and it springs back corrected, the cross goes and the caption says thank you |
 | Drag elsewhere | scrolls the wall (layout 0) or swipes to the next slide (layout 2) |
-| Tap | nothing |
 | Three taps (reveal) | page inverts; the 12-column grid and margins, baselines, cap and x-heights, each mark's box, circles, diagonals and clear space, and how each device is built (sphere and light, burst rays, ring bands, the letter's square, the wave) |
 | Self-demo | once, about 2 s after the next brand is ready and only if untouched: a third of a morph and back; off under reduced motion |
 | Reduced motion | no demo; the morph runs faster |
