@@ -1,6 +1,6 @@
 # Rigged
 
-**Status:** published 21 Oct 2026 (`src/posters/rigged.js`, `?p=rigged`). The test page `docs/posters/prototypes/rigged.html` stays as the tuning bench.
+**Status:** draft (archived). Published 21 Oct 2026, taken back out on 24 Oct 2026 at Idan's request: not ready for publishing yet. Still reachable at `?p=rigged`; `/p/rigged/` goes to the home page. The test page `docs/posters/prototypes/rigged.html` stays as the tuning bench.
 
 **Brief (Idan, 19 Oct 2026).** The name in one of the non-default faces we have used, as cloth: shaped and held in place by a hidden, intricate set of pulleys, strings and axes laid out in a 2D plane, pulling the cloth perfectly into the letters. Use a physics engine like the other posters. Added mid-build: "think of Leonardo da Vinci mechanical sketches" (his folio of pulleys, hanging weights and quarter-circle construction arcs).
 

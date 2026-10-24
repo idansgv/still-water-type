@@ -83,7 +83,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | the thrash slows to about three swaps a second per letter |
 | Multi-touch | one pointer |
 
-## Rigged (published 21 Oct 2026)
+## In the pipeline (draft): Rigged (published 21 Oct 2026, back to draft 24 Oct)
 
 | | Rigged |
 |---|---|

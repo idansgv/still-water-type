@@ -266,6 +266,7 @@ export const POSTERS = [
     blurb: 'The name as cloth, held by a few ropes, pulleys and weights drawn like a Leonardo study. Cut a rope; pull the cloth.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    draft: true,               // back in the archive 24 Oct 2026: not ready for publishing yet
     load: () => import('./rigged.js'),
     prompt: "The name \"Idan Segev\" in Alfa Slab One as cloth, held by a sparse rig drawn like a page of Leonardo da Vinci's mechanical studies, rendered with WebGL. Cut each letter from the glyph as a triangle mesh and step it with a position-based cloth solver in 3D (stretch and fold constraints, plus a few long weak ties across each letter like battens in a sail), so spare cloth folds out of the page. Rig only the outer corners: a corner facing up hangs on a rope that rises to a pulley on a thin rail above the line and drops to a counterweight resting on a small ledge (rope length = cloth to pulley + pulley to weight, so pulling the cloth lifts the weight); a corner facing down carries a swinging plumb bob. Draw the rig in pale hairlines behind the cloth. Tap a rope to cut it: the corner sags and the rope is tied again and reeled in after a pause. Drag to pull the cloth against the weights. Black and white only.",
   },
