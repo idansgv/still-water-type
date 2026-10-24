@@ -291,6 +291,16 @@ export const POSTERS = [
     draft: true,
     load: () => import('./brandbook.js'),
   },
+  {
+    slug: 'crystallize',
+    title: 'Crystallize',
+    words: ['Idan', 'Segev'],
+    blurb: 'A Voronoi crackle where the name is never drawn: cells split inside the letters until it shows. Stir it; tap to knock a hole.',
+    hint: null,
+    themes: { dark: 0.5, light: 0.5 },
+    load: () => import('./crystallize.js'),
+    prompt: "The name \"Idan Segev\" condensing out of a Voronoi diagram, on a 2D canvas with d3-delaunay. Never draw the type: render it once (Fraunces 900, two lines) into a hidden mask. Start with about 160 random seeds and draw only the Voronoi cell edges as thin lines. Every frame do one weighted Lloyd step: sample points over the page, kept with a probability equal to the density (1 inside the letters, 0.28 outside); move each seed to the centroid of the samples in its cell, and split any cell holding more than 1.6 times its share (a second seed beside it), up to about 9000 cells. The letters fill with fine cells while the field stays coarse, so the name appears. Drag stirs the seeds, a tap clears a disk down to a few big cells that refine back, hold jitters the cells under the finger, double tap starts over.",
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

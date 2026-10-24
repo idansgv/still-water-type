@@ -1,0 +1,796 @@
+<title>Voronoi type</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="fontcss" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Alfa+Slab+One&family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Fraunces:opsz,wght@9..144,900&display=swap">
+<style>
+/* One full-bleed Voronoi field; test-only direction tabs and settings sheet in the corners. */
+:root {
+  --page: #ffffff; --ink: #000000; --muted: #6b6b6b; --line: #d9d9d9; --panel: rgba(255,255,255,0.94);
+  --ui: ui-sans-serif, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #000000; --ink: #ffffff; --muted: #9a9a9a; --line: #333333; --panel: rgba(0,0,0,0.92); color-scheme: dark } }
+:root[data-theme="dark"] { --page: #000000; --ink: #ffffff; --muted: #9a9a9a; --line: #333333; --panel: rgba(0,0,0,0.92); color-scheme: dark }
+body[data-poster="light"] { --page: #ffffff; --ink: #000000; --muted: #6b6b6b; --line: #d9d9d9; --panel: rgba(255,255,255,0.94) }
+body[data-poster="dark"] { --page: #000000; --ink: #ffffff; --muted: #9a9a9a; --line: #333333; --panel: rgba(0,0,0,0.92) }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--page); color: var(--ink); overflow: hidden; font: 12px/1.4 var(--ui); }
+#stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: default; }
+.chrome {
+  background: none; border: 0; color: var(--muted); font: inherit; letter-spacing: 0.06em; text-transform: uppercase; font-size: 10px;
+  padding: 6px; cursor: pointer; opacity: 0.7;
+}
+.chrome:hover, .chrome:focus-visible { opacity: 1; outline: 1px solid var(--line); }
+.chrome[aria-pressed="true"] { color: var(--ink); opacity: 1; }
+#gear { position: fixed; right: calc(14px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+#dirs { position: fixed; left: calc(10px + env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; gap: 2px; max-width: calc(100vw - 110px); }
+#sheet {
+  position: fixed; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+  width: min(300px, calc(100vw - 24px)); max-height: calc(100% - 70px); overflow: auto; box-sizing: border-box;
+  background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; display: grid; gap: 8px;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+#sheet h2 { margin: 6px 0 0; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+#sheet h2:first-child { margin-top: 0; }
+#rows { display: grid; gap: 8px; }
+.row { display: grid; grid-template-columns: 96px 1fr 38px; align-items: center; gap: 8px; }
+.row label { color: var(--ink); }
+.row output { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.row input[type=range] { width: 100%; accent-color: var(--ink); min-width: 0; }
+.row select { grid-column: 2 / 4; font: inherit; background: var(--page); color: var(--ink); border: 1px solid var(--line); padding: 3px 4px; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.btns button { font: inherit; background: none; color: var(--ink); border: 1px solid var(--line); padding: 5px 9px; cursor: pointer; }
+.btns button:hover, .btns button:focus-visible { border-color: var(--ink); outline: none; }
+#copied { color: var(--muted); align-self: center; }
+</style>
+
+<canvas id="stage" role="img" aria-label="Idan Segev, emerging from a Voronoi diagram"></canvas>
+<nav id="dirs" aria-label="Direction"></nav>
+<button id="gear" class="chrome" type="button" aria-expanded="false" aria-controls="sheet">Settings</button>
+<div id="sheet" hidden>
+  <div id="rows"></div>
+  <div class="btns">
+    <button type="button" id="b-replay">Replay</button>
+    <button type="button" id="b-copy">Copy settings</button>
+    <button type="button" id="b-reset">Defaults</button>
+    <span id="copied" aria-live="polite"></span>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3-delaunay@6.0.4/dist/d3-delaunay.min.js"></script>
+<script>
+(() => {
+'use strict';
+
+// ---------- settings ----------------------------------------------------------------
+const FONTS = {
+  'Archivo Black': { css: '"Archivo Black", "Arial Black", sans-serif', w: 400 },
+  'Alfa Slab One': { css: '"Alfa Slab One", Rockwell, serif', w: 400 },
+  'Bricolage Grotesque': { css: '"Bricolage Grotesque", "Arial Black", sans-serif', w: 800 },
+  'Fraunces': { css: 'Fraunces, Georgia, serif', w: 900 },
+};
+const NAMES = { crystallize: 'Crystallize', develop: 'Develop', fault: 'Fault line', wave: 'Wave' };
+const DEF = {
+  dir: 'crystallize', theme: 'light', font: 'Fraunces',
+  c_cells: 9000, c_out: 0.28, c_speed: 0.35, c_render: 'lines', c_line: 1.3, c_dot: 1,   // Idan's tuned values, 24 Oct 2026
+  d_start: 70, d_brush: 70, d_rate: 1, d_edges: 'lines',
+  f_size: 12, f_line: 2.2, f_grid: 0.1, f_fill: 'none', f_spring: 1.1, f_push: 1,
+  w_size: 18, w_speed: 1100, w_front: 'cells', w_flip: 'turn', w_gap: 1, w_dur: 0.4, w_heal: 1.4,
+};
+const SPEC = {
+  common: [
+    ['theme', 'Theme', 'select', ['light', 'dark']],
+    ['font', 'Typeface', 'select', Object.keys(FONTS)],
+  ],
+  crystallize: [
+    ['c_cells', 'Cells', 2000, 30000, 250],
+    ['c_out', 'Outside density', 0.005, 0.3, 0.005],
+    ['c_speed', 'Growth speed', 0.1, 2, 0.05],
+    ['c_render', 'Render', 'select', ['lines', 'dots', 'tone', 'lines + dots']],
+    ['c_line', 'Line', 0.2, 2.5, 0.05],
+    ['c_dot', 'Dot', 0.4, 3, 0.05],
+  ],
+  develop: [
+    ['d_start', 'Start cells', 10, 400, 5],
+    ['d_brush', 'Brush', 20, 220, 1],
+    ['d_rate', 'Rate', 0.2, 4, 0.05],
+    ['d_edges', 'Edges', 'select', ['lines', 'gaps', 'none']],
+  ],
+  fault: [
+    ['f_size', 'Cell size', 6, 30, 0.5],
+    ['f_line', 'Fault line', 0.5, 6, 0.1],
+    ['f_grid', 'Grid', 0, 0.5, 0.01],
+    ['f_fill', 'Fill', 'select', ['none', 'solid']],
+    ['f_spring', 'Spring', 0.3, 3, 0.05],
+    ['f_push', 'Push', 0, 3, 0.05],
+  ],
+  wave: [
+    ['w_size', 'Cell size', 8, 50, 0.5],
+    ['w_speed', 'Wave speed', 200, 3000, 10],
+    ['w_front', 'Front', 'select', ['cells', 'ring']],
+    ['w_flip', 'Flip', 'select', ['turn', 'shrink']],
+    ['w_dur', 'Flip time', 0.1, 1.2, 0.01],
+    ['w_gap', 'Gap', 0, 3, 0.05],
+    ['w_heal', 'Brush heals', 0.3, 5, 0.05],
+  ],
+};
+const REBUILD = new Set(['font', 'c_cells', 'd_start', 'f_size', 'w_size']);
+const KEY = 'voronoi-type-v1';
+let P = { ...DEF };
+try { Object.assign(P, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+if (!FONTS[P.font]) P.font = DEF.font;
+if (!NAMES[P.dir]) P.dir = DEF.dir;
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} };
+
+const cv = document.getElementById('stage');
+const ctx = cv.getContext('2d');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let W = 0, H = 0, DPR = 1, now = 0, dirty = true;
+const INK = () => P.theme === 'dark' ? '#fff' : '#000';
+const PAGE = () => P.theme === 'dark' ? '#000' : '#fff';
+const areaScale = () => Math.max(0.35, Math.min(2, W * H / (1440 * 900)));
+
+function resize() {
+  const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight), d = Math.min(2, devicePixelRatio || 1);
+  if (w === W && h === H && d === DPR) return false;
+  W = w; H = h; DPR = d;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  return true;
+}
+
+// ---------- the name: a mask the cells sample, never drawn ---------------------------
+const mcv = document.createElement('canvas');
+const mctx = mcv.getContext('2d', { willReadFrequently: true });
+let mask = new Uint8Array(1), mw = 1, mh = 1;
+function buildMask() {
+  mw = Math.ceil(W / 2); mh = Math.ceil(H / 2);
+  mcv.width = mw; mcv.height = mh;
+  const f = FONTS[P.font];
+  mctx.setTransform(1, 0, 0, 1, 0, 0);
+  mctx.clearRect(0, 0, mw, mh);
+  mctx.font = `${f.w} 100px ${f.css}`;
+  const m1 = mctx.measureText('Idan'), m2 = mctx.measureText('Segev');
+  const wmax = Math.max(m1.width, m2.width) / 100;
+  const asc = m1.actualBoundingBoxAscent / 100, desc = m2.actualBoundingBoxDescent / 100, lh = 0.92;
+  const total = asc + lh + desc;
+  const fs = Math.min(W * 0.84 / wmax, H * 0.70 / total);
+  const top = (H - total * fs) / 2;
+  const b1 = top + asc * fs, b2 = b1 + lh * fs;
+  mctx.scale(0.5, 0.5);
+  mctx.font = `${f.w} ${fs}px ${f.css}`;
+  mctx.textAlign = 'center'; mctx.fillStyle = '#000';
+  mctx.fillText('Idan', W / 2, b1); mctx.fillText('Segev', W / 2, b2);
+  const d = mctx.getImageData(0, 0, mw, mh).data;
+  mask = new Uint8Array(mw * mh);
+  for (let i = 0; i < mask.length; i++) mask[i] = d[i * 4 + 3];
+}
+const maskAt = (x, y) => {
+  const i = x >> 1, j = y >> 1;
+  return (i < 0 || j < 0 || i >= mw || j >= mh) ? 0 : mask[j * mw + i] / 255;
+};
+const inName = (x, y) => maskAt(x, y) > 0.5;
+
+// ---------- shared geometry -----------------------------------------------------------
+// A growable point set: seeds live in one Float64Array that d3.Delaunay reads in place.
+function makeSet(cap) { return { pts: new Float64Array(cap * 2), n: 0, cap, del: null }; }
+function rebuild(S) { S.del = new d3.Delaunay(S.pts.subarray(0, S.n * 2)); }
+function jitterGrid(S, s, jit) {
+  S.n = 0;
+  const rh = s * 0.866;
+  for (let r = 0, y = rh / 2 - s; y < H + s; r++, y += rh) {
+    for (let x = (r & 1 ? s / 2 : 0) - s; x < W + s; x += s) {
+      if (S.n >= S.cap) return;
+      S.pts[2 * S.n] = x + (Math.random() - 0.5) * jit * s;
+      S.pts[2 * S.n + 1] = y + (Math.random() - 0.5) * jit * s;
+      S.n++;
+    }
+  }
+}
+// Samples over the page for Lloyd steps: positions and weights, scanned in a serpentine
+// so each find() walks from its neighbour.
+// With thin, a sample is kept with probability equal to its weight and counts as 1, so
+// light regions cost few samples.
+function hash2(i, j) {
+  let h = Math.imul(i, 374761393) + Math.imul(j, 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function samples(weight, target, thin) {
+  const s = Math.max(1.5, Math.sqrt(W * H / target));
+  const xs = [], ys = [], ws = [];
+  let row = 0;
+  for (let y = s / 2; y < H; y += s, row++) {
+    const xsRow = [];
+    for (let x = s / 2, col = 0; x < W; x += s, col++) {
+      const w = weight(x, y);
+      if (!thin) xsRow.push([x, w]);
+      else if (hash2(col, row) < w) xsRow.push([x + (hash2(row, col) - 0.5) * s, 1]);
+    }
+    if (row & 1) xsRow.reverse();
+    for (const [x, w] of xsRow) { xs.push(x); ys.push(y); ws.push(w); }
+  }
+  return { x: Float32Array.from(xs), y: Float32Array.from(ys), w: Float32Array.from(ws), area: s * s };
+}
+// One weighted Lloyd step: each seed moves toward the weighted centroid of its cell.
+// Leaves per-seed mass in acc[3i+2].
+function lloyd(S, smp, amt, acc) {
+  acc.fill(0, 0, S.n * 3);
+  let k = 0;
+  const del = S.del;
+  for (let s = 0; s < smp.x.length; s++) {
+    const x = smp.x[s], y = smp.y[s], w = smp.w[s];
+    k = del.find(x, y, k);
+    const o = 3 * k;
+    acc[o] += w * x; acc[o + 1] += w * y; acc[o + 2] += w;
+  }
+  let mx = 0;
+  for (let i = 0; i < S.n; i++) {
+    const w = acc[3 * i + 2];
+    if (w <= 0) continue;
+    const dx = (acc[3 * i] / w - S.pts[2 * i]) * amt, dy = (acc[3 * i + 1] / w - S.pts[2 * i + 1]) * amt;
+    S.pts[2 * i] += dx; S.pts[2 * i + 1] += dy;
+    const m = dx * dx + dy * dy;
+    if (m > mx) mx = m;
+  }
+  return Math.sqrt(mx);
+}
+function polyArea(poly) {
+  let a = 0;
+  for (let i = 0; i < poly.length - 1; i++) a += poly[i][0] * poly[i + 1][1] - poly[i + 1][0] * poly[i][1];
+  return Math.abs(a) / 2;
+}
+
+// ---------- 1. Crystallize --------------------------------------------------------------
+// Starts as an even, coarse crackle. Each frame the cells relax toward their weighted
+// centroids and any cell holding too much "name" splits, so the letters refine and the
+// field around them stays coarse.
+const Crystallize = (() => {
+  let S, smp, acc, target = 0, still = 0, cap = 0;
+  function seedCoarse() {
+    const n0 = Math.round(160 * areaScale());
+    S.n = 0;
+    for (let i = 0; i < n0; i++) add(Math.random() * W, Math.random() * H);
+    rebuild(S); still = 0;
+  }
+  function add(x, y) { if (S.n >= S.cap) return; S.pts[2 * S.n] = x; S.pts[2 * S.n + 1] = y; S.n++; }
+  function weights() {
+    smp = samples((x, y) => P.c_out + (1 - P.c_out) * maskAt(x, y), 520000, true);
+    let tot = 0;
+    for (let i = 0; i < smp.w.length; i++) tot += smp.w[i];
+    target = tot / cap; // mass per cell at full growth, in sample units
+  }
+  function remove(test) {
+    let j = 0;
+    for (let i = 0; i < S.n; i++) {
+      const x = S.pts[2 * i], y = S.pts[2 * i + 1];
+      if (test(x, y)) continue;
+      S.pts[2 * j] = x; S.pts[2 * j + 1] = y; j++;
+    }
+    S.n = j;
+  }
+  return {
+    init() {
+      cap = Math.round(P.c_cells * areaScale());
+      S = makeSet(cap + 64); acc = new Float64Array((cap + 64) * 3);
+      weights(); seedCoarse();
+    },
+    changed(k) { if (k === 'c_out') { weights(); still = 0; } if (k === 'c_speed') still = 0; },
+    replay() { seedCoarse(); },
+    step(dt) {
+      if (still > 40) return false;
+      const iters = reduced ? 1 : Math.max(1, Math.round(P.c_speed));
+      let mx = 0, split = 0;
+      for (let it = 0; it < iters; it++) {
+        mx = lloyd(S, smp, 1, acc);
+        // split the heaviest cells
+        const budget = Math.max(6, Math.round(S.n * 0.05 * Math.min(1, P.c_speed)));
+        const heavy = [];
+        for (let i = 0; i < S.n; i++) if (acc[3 * i + 2] > target * 1.6) heavy.push(i);
+        heavy.sort((a, b) => acc[3 * b + 2] - acc[3 * a + 2]);
+        for (let h = 0; h < heavy.length && h < budget && S.n < S.cap; h++) {
+          const i = heavy[h], r = Math.sqrt(acc[3 * i + 2] / target) * 0.6 + 0.5;
+          const a = Math.random() * Math.PI * 2;
+          add(S.pts[2 * i] + Math.cos(a) * r, S.pts[2 * i + 1] + Math.sin(a) * r);
+          S.pts[2 * i] -= Math.cos(a) * r; S.pts[2 * i + 1] -= Math.sin(a) * r;
+          split++;
+        }
+        rebuild(S);
+      }
+      still = (mx < 0.04 && split === 0) ? still + 1 : 0;
+      return true;
+    },
+    settle() { for (let i = 0; i < 400 && still <= 40; i++) this.step(0); },
+    info() { return { n: S.n, target, still, cap, samples: smp.x.length }; },
+    draw() {
+      const v = S.del.voronoi([0, 0, W, H]);
+      const r = P.c_render;
+      if (r === 'tone') {
+        // darker for smaller cells, bucketed into a few fills
+        const ref = target * smp.area;
+        const buckets = Array.from({ length: 8 }, () => new Path2D());
+        for (let i = 0; i < S.n; i++) {
+          const poly = v.cellPolygon(i);
+          if (!poly) continue;
+          const t = Math.min(1, Math.pow(ref / Math.max(1, polyArea(poly)), 0.9));
+          const b = Math.round(t * 7);
+          if (b === 0) continue;
+          const p = buckets[b];
+          p.moveTo(poly[0][0], poly[0][1]);
+          for (let k = 1; k < poly.length; k++) p.lineTo(poly[k][0], poly[k][1]);
+          p.closePath();
+        }
+        ctx.fillStyle = INK();
+        for (let b = 1; b < 8; b++) { ctx.globalAlpha = b / 7; ctx.fill(buckets[b]); }
+        ctx.globalAlpha = 1;
+        ctx.beginPath(); v.render(ctx);
+        ctx.strokeStyle = PAGE(); ctx.lineWidth = P.c_line * 0.6; ctx.stroke();
+        return;
+      }
+      if (r === 'lines' || r === 'lines + dots') {
+        ctx.beginPath(); v.render(ctx);
+        ctx.strokeStyle = INK(); ctx.lineWidth = P.c_line; ctx.lineJoin = 'round'; ctx.stroke();
+      }
+      if (r === 'dots' || r === 'lines + dots') {
+        ctx.beginPath();
+        const rd = P.c_dot;
+        for (let i = 0; i < S.n; i++) { const x = S.pts[2 * i], y = S.pts[2 * i + 1]; ctx.moveTo(x + rd, y); ctx.arc(x, y, rd, 0, Math.PI * 2); }
+        ctx.fillStyle = INK(); ctx.fill();
+      }
+    },
+    move(x, y, vx, vy) {
+      // stir: seeds near the pointer are carried along with it
+      const R = 80, R2 = R * R;
+      for (let i = 0; i < S.n; i++) {
+        const dx = S.pts[2 * i] - x, dy = S.pts[2 * i + 1] - y, d2 = dx * dx + dy * dy;
+        if (d2 > R2) continue;
+        const f = (1 - Math.sqrt(d2) / R) ** 2 * 0.045;
+        S.pts[2 * i] += vx * f; S.pts[2 * i + 1] += vy * f;
+      }
+      S.del.update(); still = 0;
+    },
+    tap(x, y) {
+      // knock a coarse hole: the refined cells go, a few big ones take their place
+      const R = Math.min(W, H) * 0.2;
+      remove((px, py) => (px - x) ** 2 + (py - y) ** 2 < R * R);
+      for (let i = 0; i < 6; i++) { const a = Math.random() * 6.283, r = R * Math.sqrt(Math.random()); add(x + Math.cos(a) * r, y + Math.sin(a) * r); }
+      rebuild(S); still = 0;
+    },
+    hold(x, y, dt) {
+      const R = 60;
+      for (let i = 0; i < S.n; i++) {
+        const dx = S.pts[2 * i] - x, dy = S.pts[2 * i + 1] - y;
+        if (dx * dx + dy * dy < R * R) { S.pts[2 * i] += (Math.random() - 0.5) * 10; S.pts[2 * i + 1] += (Math.random() - 0.5) * 10; }
+      }
+      remove((px, py) => (px - x) ** 2 + (py - y) ** 2 < 400 && Math.random() < 0.2);
+      rebuild(S); still = 0;
+    },
+    dbl() { seedCoarse(); },
+    demo: null,
+  };
+})();
+
+// ---------- 2. Develop ------------------------------------------------------------------
+// A few big cells, each inked if its seed sits in a letter. Where the pointer goes it
+// drops new seeds, so the name sharpens there.
+const Develop = (() => {
+  let S, ink, cap = 0;
+  function bestCandidate(n) {
+    S.n = 0;
+    for (let i = 0; i < n; i++) {
+      let bx = 0, by = 0, bd = -1;
+      for (let c = 0; c < 12; c++) {
+        const x = Math.random() * W, y = Math.random() * H;
+        let md = Infinity;
+        for (let j = 0; j < S.n; j++) { const d = (S.pts[2 * j] - x) ** 2 + (S.pts[2 * j + 1] - y) ** 2; if (d < md) md = d; }
+        if (md > bd) { bd = md; bx = x; by = y; }
+      }
+      add(bx, by);
+    }
+    rebuild(S);
+  }
+  function add(x, y) {
+    if (S.n >= S.cap) return false;
+    S.pts[2 * S.n] = x; S.pts[2 * S.n + 1] = y; ink[S.n] = inName(x, y) ? 1 : 0; S.n++;
+    return true;
+  }
+  let pending = false;
+  function spray(x, y, count, R) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * 6.283, r = R * Math.random();
+      if (!add(x + Math.cos(a) * r, y + Math.sin(a) * r)) break;
+    }
+    pending = true;
+  }
+  let demoT = -1;
+  return {
+    init() {
+      cap = Math.round(16000 * areaScale());
+      S = makeSet(cap); ink = new Uint8Array(cap); demoT = -1;
+      bestCandidate(Math.round(P.d_start * areaScale()));
+    },
+    changed() {},
+    replay() { bestCandidate(Math.round(P.d_start * areaScale())); },
+    step() { if (pending) { rebuild(S); pending = false; return true; } return false; },
+    draw() {
+      const v = S.del.voronoi([0, 0, W, H]);
+      ctx.beginPath();
+      for (let i = 0; i < S.n; i++) if (ink[i]) v.renderCell(i, ctx);
+      ctx.fillStyle = INK(); ctx.fill();
+      if (P.d_edges === 'none') return;
+      ctx.beginPath(); v.render(ctx);
+      if (P.d_edges === 'gaps') { ctx.strokeStyle = PAGE(); ctx.lineWidth = 1; ctx.stroke(); }
+      else { ctx.strokeStyle = INK(); ctx.globalAlpha = 0.22; ctx.lineWidth = 0.6; ctx.stroke(); ctx.globalAlpha = 1; }
+    },
+    move(x, y, vx, vy, dist) {
+      const count = Math.round(dist * 0.4 * P.d_rate + Math.random());
+      if (count > 0) spray(x, y, count, P.d_brush);
+    },
+    tap(x, y) { spray(x, y, Math.round(140 * P.d_rate), P.d_brush * 1.4); },
+    hold(x, y, dt) { spray(x, y, Math.round(500 * dt * P.d_rate), P.d_brush * 0.6); },
+    dbl() { bestCandidate(Math.round(P.d_start * areaScale())); },
+    // self-demo: one stroke across the name
+    demo(t) {
+      if (t < 0.6) return true;
+      const u = (t - 0.6) / 2.2;
+      if (u > 1) return false;
+      const x = W * (0.08 + 0.84 * u), y = H * (0.5 + 0.16 * Math.sin(u * Math.PI * 3));
+      if (demoT >= 0) this.move(x, y, 0, 0, Math.hypot(x - this._dx, y - this._dy));
+      this._dx = x; this._dy = y; demoT = t;
+      return true;
+    },
+  };
+})();
+
+// ---------- 3. Fault line ---------------------------------------------------------------
+// A fine mesh of springy seeds. Each seed carries its letter-ness; only the borders
+// between a letter cell and a non-letter cell are inked.
+const Fault = (() => {
+  let S, rx, ry, vx, vy, ink, energy = 1;
+  return {
+    init() {
+      const s = P.f_size;
+      const cap = Math.ceil((W / s + 3) * (H / (s * 0.866) + 3)) + 8;
+      S = makeSet(cap);
+      jitterGrid(S, s, 0.55);
+      rx = new Float64Array(S.n); ry = new Float64Array(S.n); vx = new Float64Array(S.n); vy = new Float64Array(S.n); ink = new Uint8Array(S.n);
+      for (let i = 0; i < S.n; i++) { rx[i] = S.pts[2 * i]; ry[i] = S.pts[2 * i + 1]; ink[i] = inName(rx[i], ry[i]) ? 1 : 0; }
+      rebuild(S); energy = 1;
+    },
+    changed() { energy = 1; },
+    replay() { this.dbl(); },
+    step(dt) {
+      if (energy < 0.0005) return false;
+      const w = Math.PI * 2 * P.f_spring, k = w * w, c = 2 * 0.32 * w;
+      let e = 0;
+      const h = Math.min(dt, 1 / 30) / 2;
+      for (let sub = 0; sub < 2; sub++) {
+        for (let i = 0; i < S.n; i++) {
+          const dx = S.pts[2 * i] - rx[i], dy = S.pts[2 * i + 1] - ry[i];
+          vx[i] += (-k * dx - c * vx[i]) * h; vy[i] += (-k * dy - c * vy[i]) * h;
+          S.pts[2 * i] += vx[i] * h; S.pts[2 * i + 1] += vy[i] * h;
+        }
+      }
+      for (let i = 0; i < S.n; i++) { const dx = S.pts[2 * i] - rx[i], dy = S.pts[2 * i + 1] - ry[i]; e += dx * dx + dy * dy + (vx[i] * vx[i] + vy[i] * vy[i]) * 0.01; }
+      energy = e / S.n;
+      if (energy < 0.0005) for (let i = 0; i < S.n; i++) { S.pts[2 * i] = rx[i]; S.pts[2 * i + 1] = ry[i]; vx[i] = vy[i] = 0; }
+      S.del.update();
+      return true;
+    },
+    draw() {
+      const s = P.f_size;
+      const v = S.del.voronoi([-s * 4, -s * 4, W + s * 4, H + s * 4]);
+      if (P.f_fill === 'solid') {
+        ctx.beginPath();
+        for (let i = 0; i < S.n; i++) if (ink[i]) v.renderCell(i, ctx);
+        ctx.fillStyle = INK(); ctx.fill();
+      }
+      if (P.f_grid > 0) {
+        ctx.beginPath(); v.render(ctx);
+        ctx.strokeStyle = INK(); ctx.globalAlpha = P.f_grid; ctx.lineWidth = 0.6; ctx.stroke(); ctx.globalAlpha = 1;
+      }
+      const { halfedges, triangles } = S.del, cc = v.circumcenters;
+      ctx.beginPath();
+      for (let e = 0; e < halfedges.length; e++) {
+        const j = halfedges[e];
+        if (j < e) continue;
+        const a = triangles[e], b = triangles[e % 3 === 2 ? e - 2 : e + 1];
+        if (ink[a] === ink[b]) continue;
+        const t1 = (e / 3) | 0, t2 = (j / 3) | 0;
+        ctx.moveTo(cc[2 * t1], cc[2 * t1 + 1]); ctx.lineTo(cc[2 * t2], cc[2 * t2 + 1]);
+      }
+      ctx.strokeStyle = P.f_fill === 'solid' ? PAGE() : INK();
+      ctx.lineWidth = P.f_fill === 'solid' ? Math.max(0.5, P.f_line * 0.4) : P.f_line;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    },
+    move(x, y, pvx, pvy) {
+      // smear: seeds near the pointer take on its velocity
+      const R = P.f_size * 8, R2 = R * R, g = 0.5 * P.f_push;
+      for (let i = 0; i < S.n; i++) {
+        const dx = S.pts[2 * i] - x, dy = S.pts[2 * i + 1] - y, d2 = dx * dx + dy * dy;
+        if (d2 > R2) continue;
+        const f = (1 - Math.sqrt(d2) / R) ** 2 * g;
+        vx[i] += (pvx - vx[i]) * f; vy[i] += (pvy - vy[i]) * f;
+      }
+      energy = 1;
+    },
+    tap(x, y) {
+      const L = Math.min(W, H) * 0.3;
+      for (let i = 0; i < S.n; i++) {
+        const dx = S.pts[2 * i] - x, dy = S.pts[2 * i + 1] - y, d = Math.hypot(dx, dy) + 1e-3;
+        const f = 900 * P.f_push * Math.exp(-d / L) * Math.min(1, d / 30);
+        vx[i] += dx / d * f; vy[i] += dy / d * f;
+      }
+      energy = 1;
+    },
+    hold(x, y, dt) {
+      const R = Math.min(W, H) * 0.28;
+      for (let i = 0; i < S.n; i++) {
+        const dx = S.pts[2 * i] - x, dy = S.pts[2 * i + 1] - y, d = Math.hypot(dx, dy);
+        if (d > R) continue;
+        const f = (1 - d / R) * 2400 * P.f_push * dt;
+        vx[i] += -dy / (d + 1) * f; vy[i] += dx / (d + 1) * f;
+      }
+      energy = 1;
+    },
+    dbl() {
+      for (let i = 0; i < S.n; i++) { const a = Math.random() * 6.283, f = (300 + Math.random() * 900) * P.f_push; vx[i] += Math.cos(a) * f; vy[i] += Math.sin(a) * f; }
+      energy = 1;
+    },
+    demo(t) { if (t >= 0.7) { this.tap(W / 2, H / 2); return false; } return true; },
+  };
+})();
+
+// ---------- 4. Wave ---------------------------------------------------------------------
+// A mosaic, letters solid. A tap sends a wave cell by cell; each cell turns like a card
+// and the page inverts behind it.
+const Wave = (() => {
+  let S, polys, base, nbr, waves = [], extras = new Map(), lastCell = -1, spacing = 1;
+  function arrivals(x, y) {
+    const n = S.n, arr = new Float32Array(n);
+    if (P.w_front === 'ring') {
+      for (let i = 0; i < n; i++) arr[i] = Math.hypot(S.pts[2 * i] - x, S.pts[2 * i + 1] - y) / P.w_speed;
+    } else {
+      const hop = new Int32Array(n).fill(-1), q = new Int32Array(n);
+      const k = S.del.find(x, y);
+      let h = 0, t = 0; q[t++] = k; hop[k] = 0;
+      while (h < t) { const i = q[h++]; for (const j of nbr[i]) if (hop[j] < 0) { hop[j] = hop[i] + 1; q[t++] = j; } }
+      for (let i = 0; i < n; i++) arr[i] = Math.max(0, hop[i]) * spacing * 0.9 / P.w_speed;
+    }
+    let mx = 0;
+    for (let i = 0; i < n; i++) if (arr[i] > mx) mx = arr[i];
+    return { arr, span: mx };
+  }
+  // ink shown for cell i at time t: { ink: bool, s: scale 0..1 }
+  function state(i, t) {
+    let p = base[i], last = -1;
+    for (const w of waves) { const a = w.t0 + w.arr[i]; if (t >= a) { p ^= 1; if (a > last) last = a; } }
+    const ex = extras.get(i);
+    if (ex) for (const a of ex) if (t >= a) { p ^= 1; if (a > last) last = a; }
+    const u = last >= 0 ? (t - last) / P.w_dur : 1;
+    if (u >= 1) return p ? 1 : 0;
+    const c = Math.cos(Math.PI * u); // 1 -> -1
+    return c > 0 ? (p ? 0 : c) : (p ? -c : 0); // first half: old colour shrinking, second: new growing
+  }
+  return {
+    init() {
+      const s = P.w_size;
+      const cap = Math.ceil((W / s + 3) * (H / (s * 0.866) + 3)) + 8;
+      S = makeSet(cap);
+      jitterGrid(S, s, 0.9);
+      rebuild(S);
+      const acc = new Float64Array(S.n * 3), smp = samples(() => 1, 90000);
+      for (let it = 0; it < 3; it++) { lloyd(S, smp, 1, acc); S.del.update(); }
+      const v = S.del.voronoi([0, 0, W, H]);
+      polys = []; base = new Uint8Array(S.n); nbr = [];
+      for (let i = 0; i < S.n; i++) {
+        polys.push(v.cellPolygon(i));
+        const x = S.pts[2 * i], y = S.pts[2 * i + 1];
+        base[i] = (x >= 0 && y >= 0 && x <= W && y <= H && inName(x, y)) ? 1 : 0;
+        nbr.push(Array.from(S.del.neighbors(i)));
+      }
+      spacing = s; waves = []; extras.clear(); lastCell = -1;
+    },
+    changed() {},
+    replay() { this.init(); },
+    step() {
+      const t = now;
+      // fold finished waves into the base so their parity is kept
+      waves = waves.filter(w => { if (t > w.t0 + w.span + P.w_dur) { for (let i = 0; i < S.n; i++) base[i] ^= 1; return false; } return true; });
+      for (const [i, ex] of extras) if (t > ex[ex.length - 1] + P.w_dur) extras.delete(i);
+      return waves.length > 0 || extras.size > 0;
+    },
+    draw() {
+      const t = now, turn = P.w_flip === 'turn';
+      ctx.beginPath();
+      for (let i = 0; i < S.n; i++) {
+        const poly = polys[i];
+        if (!poly) continue;
+        const s = state(i, t);
+        if (s <= 0.002) continue;
+        const cx = S.pts[2 * i], cy = S.pts[2 * i + 1];
+        const sy = turn ? 1 : s;
+        ctx.moveTo(cx + (poly[0][0] - cx) * s, cy + (poly[0][1] - cy) * sy);
+        for (let k = 1; k < poly.length; k++) ctx.lineTo(cx + (poly[k][0] - cx) * s, cy + (poly[k][1] - cy) * sy);
+        ctx.closePath();
+      }
+      ctx.fillStyle = INK(); ctx.fill();
+      if (P.w_gap > 0) {
+        ctx.beginPath();
+        for (const poly of polys) {
+          if (!poly) continue;
+          ctx.moveTo(poly[0][0], poly[0][1]);
+          for (let k = 1; k < poly.length; k++) ctx.lineTo(poly[k][0], poly[k][1]);
+        }
+        ctx.strokeStyle = PAGE(); ctx.lineWidth = P.w_gap; ctx.stroke();
+      }
+    },
+    move(x, y) {
+      const k = S.del.find(x, y, lastCell < 0 ? 0 : lastCell);
+      if (k === lastCell) return;
+      lastCell = k;
+      if (extras.has(k)) return;
+      extras.set(k, [now, now + P.w_heal]);
+    },
+    tap(x, y) { const { arr, span } = arrivals(x, y); waves.push({ t0: now, arr, span }); },
+    hold() {},
+    dbl() {},
+    demo(t) {
+      if (!this._d1 && t >= 0.7) { this._d1 = 1; this.tap(W * 0.5, H * 0.5); }
+      if (!this._d2 && t >= 2.9) { this._d2 = 1; this.tap(W * 0.5, H * 0.5); return false; }
+      return true;
+    },
+  };
+})();
+
+const DIRS = { crystallize: Crystallize, develop: Develop, fault: Fault, wave: Wave };
+let D = DIRS[P.dir];
+
+// ---------- loop -------------------------------------------------------------------------
+let demoOn = !reduced, demoStart = 0;
+function start() {
+  D = DIRS[P.dir];
+  Wave._d1 = Wave._d2 = 0; Develop._dx = Develop._dy = 0;
+  D.init();
+  if (reduced && D.settle) D.settle();
+  demoOn = !reduced && !!D.demo; demoStart = now; dirty = true;
+}
+let down = null, lastTap = -1, held = false, lastMove = null;
+let tPrev = performance.now();
+function frame(t) {
+  const dt = Math.min(0.05, (t - tPrev) / 1000); tPrev = t; now += dt;
+  if (demoOn) demoOn = D.demo(now - demoStart);
+  if (down && !down.moved && now - down.t > 0.25) { held = true; D.hold(down.x, down.y, dt); }
+  const busy = D.step(dt);
+  if (busy || dirty) {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = PAGE(); ctx.fillRect(0, 0, W, H);
+    D.draw();
+    dirty = false;
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------- gestures: tap, hold, double tap, drag (mouse hover counts as a drag) -------
+function pos(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+cv.addEventListener('pointerdown', e => {
+  demoOn = false;
+  const [x, y] = pos(e);
+  down = { x, y, t: now, moved: false, id: e.pointerId };
+  held = false; lastMove = { x, y, t: now };
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+});
+cv.addEventListener('pointermove', e => {
+  const [x, y] = pos(e);
+  if (e.pointerType !== 'mouse' && !down) return;
+  if (demoOn && e.pointerType === 'mouse') { if (!lastMove) { lastMove = { x, y, t: now }; return; } }
+  demoOn = false;
+  if (down) { if (Math.hypot(x - down.x, y - down.y) > 8) down.moved = true; down.x = x; down.y = y; }
+  if (!lastMove) { lastMove = { x, y, t: now }; return; }
+  const ddt = Math.max(1 / 240, now - lastMove.t), dx = x - lastMove.x, dy = y - lastMove.y;
+  lastMove = { x, y, t: now };
+  if (down && !down.moved) return;
+  D.move(x, y, dx / ddt, dy / ddt, Math.hypot(dx, dy));
+  dirty = true;
+});
+function release(e) {
+  if (!down) return;
+  const tapped = !down.moved && !held && now - down.t < 0.25;
+  const x = down.x, y = down.y;
+  down = null; held = false;
+  if (e.pointerType !== 'mouse') lastMove = null;
+  if (!tapped) return;
+  D.tap(x, y);
+  if (lastTap >= 0 && now - lastTap < 0.38) { D.dbl(x, y); lastTap = -1; } else lastTap = now;
+  dirty = true;
+}
+cv.addEventListener('pointerup', release);
+cv.addEventListener('pointercancel', release);
+cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') lastMove = null; });
+
+// ---------- direction tabs + settings sheet (test only) -----------------------------
+const nav = document.getElementById('dirs');
+function buildNav() {
+  nav.innerHTML = '';
+  Object.keys(NAMES).forEach((k, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chrome'; b.textContent = `${i + 1} ${NAMES[k]}`;
+    b.setAttribute('aria-pressed', String(P.dir === k));
+    b.addEventListener('click', () => setDir(k));
+    nav.appendChild(b);
+  });
+}
+function setDir(k) { if (P.dir === k) { start(); return; } P.dir = k; save(); buildNav(); buildRows(); start(); }
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('#sheet')) return;
+  const k = Object.keys(NAMES)[+e.key - 1];
+  if (k) setDir(k);
+});
+
+const rows = document.getElementById('rows');
+const sheet = document.getElementById('sheet'), gear = document.getElementById('gear');
+function applyTheme() { document.body.dataset.poster = P.theme; dirty = true; }
+function addRow(parent, [k, label, a, b, step]) {
+  const row = document.createElement('div'); row.className = 'row';
+  const id = 'set-' + k;
+  const lab = document.createElement('label'); lab.htmlFor = id; lab.textContent = label; row.appendChild(lab);
+  if (a === 'select') {
+    const s = document.createElement('select'); s.id = id;
+    for (const v of b) { const op = document.createElement('option'); op.value = op.textContent = v; s.appendChild(op); }
+    s.value = P[k];
+    s.addEventListener('change', () => { P[k] = s.value; save(); changed(k); });
+    row.appendChild(s);
+  } else {
+    const dec = step < 0.05 ? 3 : step < 1 ? 2 : 0;
+    const r = document.createElement('input'); r.type = 'range'; r.id = id; r.min = a; r.max = b; r.step = step; r.value = P[k];
+    const out = document.createElement('output'); out.htmlFor = id; out.textContent = (+P[k]).toFixed(dec);
+    r.addEventListener('input', () => { P[k] = +r.value; out.textContent = (+r.value).toFixed(dec); save(); changed(k); });
+    row.appendChild(r); row.appendChild(out);
+  }
+  parent.appendChild(row);
+}
+function buildRows() {
+  rows.innerHTML = '';
+  const h1 = document.createElement('h2'); h1.textContent = 'Test settings'; rows.appendChild(h1);
+  for (const s of SPEC.common) addRow(rows, s);
+  const h2 = document.createElement('h2'); h2.textContent = NAMES[P.dir]; rows.appendChild(h2);
+  for (const s of SPEC[P.dir]) addRow(rows, s);
+}
+let rbt = 0;
+function changed(k) {
+  if (k === 'theme') { applyTheme(); return; }
+  if (k === 'font') { loadFont().then(() => { buildMask(); start(); }); return; }
+  if (REBUILD.has(k)) { clearTimeout(rbt); rbt = setTimeout(start, 150); return; }
+  D.changed(k);
+  dirty = true;
+}
+gear.addEventListener('click', () => { sheet.hidden = !sheet.hidden; gear.setAttribute('aria-expanded', String(!sheet.hidden)); });
+document.getElementById('b-replay').addEventListener('click', () => start());
+document.getElementById('b-reset').addEventListener('click', () => {
+  const dir = P.dir; P = { ...DEF, dir }; save(); buildRows(); applyTheme();
+  loadFont().then(() => { buildMask(); start(); });
+});
+document.getElementById('b-copy').addEventListener('click', () => {
+  const txt = JSON.stringify(P, null, 2), note = document.getElementById('copied');
+  const done = m => { note.textContent = m; setTimeout(() => note.textContent = '', 1800); };
+  try { navigator.clipboard.writeText(txt).then(() => done('Copied'), () => done('Copy failed')); } catch (e) { done('Copy failed'); }
+});
+
+// ---------- start -------------------------------------------------------------------------
+function loadFont() {
+  const f = FONTS[P.font];
+  const fam = f.css.split(',')[0].replace(/"/g, '');
+  return document.fonts.load(`${f.w} 100px "${fam}"`, 'Idan Segev').catch(() => {}).then(() => document.fonts.ready);
+}
+let rt = 0;
+addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (resize()) { buildMask(); start(); } }, 200); });
+applyTheme(); buildNav(); buildRows();
+const css = document.getElementById('fontcss');
+const cssReady = new Promise(res => { if (css.sheet) res(); else { css.addEventListener('load', res); css.addEventListener('error', res); setTimeout(res, 2500); } });
+cssReady.then(loadFont).then(() => {
+  resize(); buildMask(); start();
+  requestAnimationFrame(frame);
+  window.__vor = { P, DIRS, get D() { return D; }, start, setDir, step: s => { now += s; if (demoOn) demoOn = D.demo(now - demoStart); D.step(s); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = PAGE(); ctx.fillRect(0, 0, W, H); D.draw(); } };
+});
+})();
+</script>

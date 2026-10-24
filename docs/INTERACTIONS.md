@@ -142,6 +142,20 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Colour (rare) | from the first press, the splats take the palette down the page |
 | Multi-touch | one pointer |
 
+## Crystallize (published 24 Oct 2026)
+
+| | Crystallize |
+|---|---|
+| Intro | a coarse, even crackle; the cells inside the letters keep splitting until the name shows (a few seconds); under reduced motion it opens settled |
+| Hover / drag | stirs the cells near the pointer; they relax back |
+| Tap | knocks a coarse hole (a fifth of the short side): the fine cells there go, a few big ones take their place and refine back (under 250 ms, 8 px) |
+| Hold | melts the cells under the finger (250 ms) |
+| Double tap | starts over from the coarse crackle (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | page inverts; every seed as a dot, the cell count and the density outside the letters |
+| Face | Fraunces 900 (Google Fonts, the name's letters only) |
+| Colour (rare) | the framework's colour pass, on the first press |
+| Multi-touch | one pointer |
+
 ## In the pipeline (draft)
 
 | | Brandbook |
