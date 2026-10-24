@@ -19,13 +19,17 @@ import { createReveal, grid, corners, titleBlock, ink as rvInk } from './reveal.
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 
 const DEF = { brush: 8.5, speed: 650, water: 0.9, pigment: 0.86, bleed: 0.095, rim: 1.5, dry: 1.2, gran: 0.68, reach: 0.9, lift: 0.013, colour: true, colourAmt: 0.7, newFace: true };   // Idan's tuned values, 24 Oct 2026
-const FACES = [
-  { family: 'Sacramento', weight: 400, size: 1.12 },
-  { family: 'Great Vibes', weight: 400, size: 1.0 },
-  { family: 'Allura', weight: 400, size: 1.05 },
-  { family: 'Parisienne', weight: 400, size: 0.95 },
-  { family: 'Pinyon Script', weight: 400, size: 0.9 },
-  { family: 'Dancing Script', weight: 400, size: 0.95 },
+const FACES = [                                                  // Idan's picks from the face catalog, 24 Oct 2026, in his order
+  { family: 'Parisienne', weight: 400, size: 1 },
+  { family: 'WindSong', weight: 400, size: 1 },
+  { family: 'Dancing Script', weight: 400, size: 1 },
+  { family: 'Mr Dafoe', weight: 400, size: 1 },
+  { family: 'Comforter', weight: 400, size: 1 },
+  { family: 'Zeyada', weight: 400, size: 1 },
+  { family: 'Nothing You Could Do', weight: 400, size: 1 },
+  { family: 'Reenie Beanie', weight: 400, size: 1 },
+  { family: 'Caveat', weight: 400, size: 1 },
+  { family: 'Gloria Hallelujah', weight: 400, size: 1 },
 ];
 const PAL = { dark: ['#2ee6ff', '#6fe0a0', '#d4f01a', '#ff4fe0', '#ff5a9a', '#ff6b5e'], light: ['#0a7fb5', '#0f9d8a', '#4a9a1a', '#c2185b', '#e0455a', '#e8652e'] };
 const SUB = 3;
@@ -427,7 +431,7 @@ export async function mount(stage) {
 
   return {
     tune,
-    debug: { P, get writing() { return writing; }, get steps() { return steps; }, blot: () => { blotting = 34; } },
+    debug: { P, face: (n) => { face = ((n % FACES.length) + FACES.length) % FACES.length; return build(false); }, get faceName() { return FACES[face].family; }, get writing() { return writing; }, get steps() { return steps; }, blot: () => { blotting = 34; } },
     destroy() {
       alive = false; timers.forEach(clearTimeout); clearTimeout(reformT); rv.destroy(); offs.forEach((f) => f());
       free(); for (const p of [pVel, pState, pDraw]) gl.deleteProgram(p.p); shaders.forEach((s) => gl.deleteShader(s)); gl.deleteBuffer(vb);

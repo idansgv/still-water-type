@@ -1,6 +1,6 @@
 <title>Wash script</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sacramento&family=Great+Vibes&family=Allura&family=Parisienne&family=Pinyon+Script&family=Dancing+Script:wght@400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Parisienne&family=WindSong&family=Dancing+Script&family=Mr+Dafoe&family=Comforter&family=Zeyada&family=Nothing+You+Could+Do&family=Reenie+Beanie&family=Caveat&family=Gloria+Hallelujah&display=swap">
 <style>
 /* Layout: the page is wet paper; a brush writes the name along the centre line of a script face. A quiet foot line and a test-only settings sheet. */
 :root {
@@ -237,13 +237,17 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   let brushColour = [0, 0, 0];
 
   // ---------- the name's centre line ----------
-  const FACES = [
-    { family: 'Sacramento', weight: 400, size: 1.12 },
-    { family: 'Great Vibes', weight: 400, size: 1.0 },
-    { family: 'Allura', weight: 400, size: 1.05 },
-    { family: 'Parisienne', weight: 400, size: 0.95 },
-    { family: 'Pinyon Script', weight: 400, size: 0.9 },
-    { family: 'Dancing Script', weight: 400, size: 0.95 },
+  const FACES = [                                                  // Idan's picks from the face catalog, 24 Oct 2026, in his order
+    { family: 'Parisienne', weight: 400, size: 1 },
+    { family: 'WindSong', weight: 400, size: 1 },
+    { family: 'Dancing Script', weight: 400, size: 1 },
+    { family: 'Mr Dafoe', weight: 400, size: 1 },
+    { family: 'Comforter', weight: 400, size: 1 },
+    { family: 'Zeyada', weight: 400, size: 1 },
+    { family: 'Nothing You Could Do', weight: 400, size: 1 },
+    { family: 'Reenie Beanie', weight: 400, size: 1 },
+    { family: 'Caveat', weight: 400, size: 1 },
+    { family: 'Gloria Hallelujah', weight: 400, size: 1 },
   ];
   let face = 0, W = 1, H = 1;
   async function fontStrokes(f) {

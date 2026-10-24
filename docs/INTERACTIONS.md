@@ -158,13 +158,13 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 
 | | Wash script |
 |---|---|
-| Intro | a wet brush writes the name in black watercolour along the centre line of a script face, once on load; it dries with a darker rim |
+| Intro | a wet brush writes the name in black watercolour along the centre line of a script or handwriting face, once on load; it dries with a darker rim |
 | Drag | a brush of clear water with a colour on it: it lifts the ink and drags it along, the colour running into it; it dries with its own rim |
 | Touch | the same; one pointer |
 | Hold | floods: the brush grows and lays more water, so the ink spreads |
 | Double tap | blots it all up and writes it again in the next script face (a beat later, so a third tap can still mean reveal) |
 | Three taps (reveal) | page inverts; the centre line the brush follows and where each stroke starts |
-| Face | Sacramento, then Great Vibes, Allura, Parisienne, Pinyon Script, Dancing Script (Google Fonts, the name's letters only) |
+| Face | Parisienne, then WindSong, Dancing Script, Mr Dafoe, Comforter, Zeyada, Nothing You Could Do, Reenie Beanie, Caveat, Gloria Hallelujah: Idan's picks (Google Fonts, the name's letters only) |
 | Self-demo | none beyond the writing |
 | Reduced motion | the name is written and dried in one go; nothing moves until touched |
 | Colour | its own, on every drag (each press the next colour of the page's palette); the writing stays black |
