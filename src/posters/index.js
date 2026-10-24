@@ -269,6 +269,18 @@ export const POSTERS = [
     load: () => import('./rigged.js'),
     prompt: "The name \"Idan Segev\" in Alfa Slab One as cloth, held by a sparse rig drawn like a page of Leonardo da Vinci's mechanical studies, rendered with WebGL. Cut each letter from the glyph as a triangle mesh and step it with a position-based cloth solver in 3D (stretch and fold constraints, plus a few long weak ties across each letter like battens in a sail), so spare cloth folds out of the page. Rig only the outer corners: a corner facing up hangs on a rope that rises to a pulley on a thin rail above the line and drops to a counterweight resting on a small ledge (rope length = cloth to pulley + pulley to weight, so pulling the cloth lifts the weight); a corner facing down carries a swinging plumb bob. Draw the rig in pale hairlines behind the cloth. Tap a rope to cut it: the corner sags and the rope is tied again and reeled in after a pause. Drag to pull the cloth against the weights. Black and white only.",
   },
+  {
+    slug: 'wash-script',
+    colour: 'native',            // its own colour, always, on your brush; the writing is black. The shell adds no overlay
+    title: 'Wash script',
+    words: ['Idan', 'Segev'],
+    blurb: 'A wet brush writes the name in watercolour. Drag through it with a brush of coloured water; double tap to blot.',
+    hint: null,
+    themes: { dark: 0.5, light: 0.5 },
+    draft: true,
+    load: () => import('./wash-script.js'),
+    prompt: "The name \"Idan Segev\" written by a wet brush in black watercolour, with WebGL2. Render the name in a script face (Sacramento), thin it to a one-pixel centre line (Zhang-Suen) and walk that into strokes; a brush follows them in reading order, pressing in at the start of each stroke and heavier on downstrokes. The paper is a GPU simulation with ping-pong float textures: water, ink floating in the water, ink settled into the paper. Water bleeds into dry paper where a paper-fibre noise lets it; floating ink flows to shallower water (a conservative flux between neighbours) so strokes dry with a dark rim and a pale middle; ink settles more in the paper's valleys (granulation). The visitor's finger is a brush of clear water carrying a colour (stored as absorbance per channel so it mixes like paint): it lifts the ink, drags it along and dries with its own rim. Hold to flood; double tap to blot and write it again in another script.",
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

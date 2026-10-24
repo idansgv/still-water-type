@@ -15,6 +15,7 @@ const SCENES = {
   'splat-type': async (p) => { await p.mouse.click(330, 300); await sleep(120); await p.mouse.move(620, 380); await p.mouse.down(); for (let i = 0; i <= 14; i++) { await p.mouse.move(620 + i * 14, 380 - i * 6); await sleep(14); } await p.mouse.up(); await sleep(260); },   // a burst, a push, the dust mid-flight
   glint: async (p) => { await p.mouse.move(300, 330, { steps: 6 }); await sleep(900); },
   rigged: async (p) => { await sleep(2600); },                               // the intro hoist, settled: the name on its rig
+  'wash-script': async (p) => { await sleep(9000); await p.mouse.move(200, 330); await p.mouse.down(); for (let i = 0; i <= 40; i++) { await p.mouse.move(200 + i * 22, 330 + Math.sin(i / 6) * 50); await sleep(16); } await p.mouse.up(); await sleep(1500); },   // written, then one coloured drag through it
 };
 
 const PREVIEW_THEME = { glint: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
