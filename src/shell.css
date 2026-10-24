@@ -168,10 +168,10 @@ body {
     grid-template-columns: auto 1fr auto;
     grid-template-areas: "name r1 r1" "r2 r2 actions" "folio folio folio";
     align-items: baseline;
-    column-gap: 0.7em;
+    column-gap: 0.7em; row-gap: 0;
   }
   .id, .id .who, .id .slot, .id .role { display: contents; }
-  .chrome .id .name { grid-area: name; justify-self: start; padding: 8px 0 2px; }
+  .chrome .id .name { grid-area: name; justify-self: start; padding: 8px 0 0; }   /* no extra space under the name: the two lines sit as one, not as two paragraphs */
   .id .r1 { grid-area: r1; }
   .id .r2 { grid-area: r2; }
   .id .links { grid-area: r2; }                       /* tap the name: the links take the place of the second line */
@@ -184,7 +184,7 @@ body {
 @media (pointer: coarse) {
   .chrome a, .chrome button { padding-block: 13px; }
   .actions button { margin-block: -13px; }
-  .chrome .id .name { padding-top: 14px; }
+  .chrome .id .name { padding-top: 14px; padding-bottom: 0; }
   .chrome .links a { padding-block: 6px; }
 }
 

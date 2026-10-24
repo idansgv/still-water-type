@@ -92,6 +92,7 @@ function pickOther(slug) {
   if (!pool.length) return PUBLISHED[0];            // only one poster is published: shuffle just reloads it
   return pool[Math.floor(Math.random() * pool.length)];
 }
+const STILL_WATER_FIRST = 0.55;                                                   // the chance that a visit opens on Still Water
 function pickFirst() {
   const fixed = document.documentElement.dataset.poster || params.get('p');
   if (fixed && bySlug(fixed)) return bySlug(fixed);
@@ -99,10 +100,10 @@ function pickFirst() {
   try { last = localStorage.getItem('swt:last'); } catch (e) { /* private mode */ }
   const pool = PUBLISHED.filter((p) => p.slug !== last);
   if (!pool.length) return PUBLISHED[0];
-  const w = (p) => (p.slug === 'still-water' ? 2.5 : 1);                          // Still Water opens the site 2.5 times as often as each of the others
-  let r = Math.random() * pool.reduce((a, p) => a + w(p), 0);
-  for (const p of pool) { r -= w(p); if (r < 0) return p; }
-  return pool[pool.length - 1];
+  const still = pool.find((p) => p.slug === 'still-water');
+  if (still && Math.random() < STILL_WATER_FIRST) return still;                    // Still Water opens the site more than half the time (not twice in a row: the pool leaves out the last one)
+  const rest = pool.filter((p) => p !== still);
+  return (rest.length ? rest : pool)[Math.floor(Math.random() * (rest.length || pool.length))];
 }
 function seedFromHash() {
   const m = /[#&]s=([0-9a-z]+)/i.exec(location.hash);
