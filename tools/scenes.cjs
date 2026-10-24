@@ -18,7 +18,9 @@ const SCENES = {
   'wash-script': async (p) => { await sleep(9000); await p.mouse.move(200, 330); await p.mouse.down(); for (let i = 0; i <= 40; i++) { await p.mouse.move(200 + i * 22, 330 + Math.sin(i / 6) * 50); await sleep(16); } await p.mouse.up(); await sleep(1500); },   // written, then one coloured drag through it
   brandbook: async (p) => { await sleep(3200); },                            // the cover of a rolled brand, its device and the name
   crystallize: async (p) => { await sleep(6000); },                          // the name, crystallized out of the crackle
+  glitter: async (p) => { await p.mouse.move(520, 300, { steps: 4 }); for (let i = 0; i <= 18; i++) { await p.mouse.move(380 + i * 24, 360 - Math.sin(i / 5) * 60); await sleep(20); } await sleep(500); },   // the moon drawn across the name, its wake glittering
+  lace: async (p) => { await p.mouse.click(470, 280); await sleep(200); await p.mouse.move(380, 470); await p.mouse.down(); for (let i = 0; i <= 24; i++) { await p.mouse.move(380 + i * 18, 470 - Math.sin(i / 6) * 40); await sleep(20); } await p.mouse.up(); await sleep(2500); },   // a patch of lace and a pulled stroke
 };
 
-const PREVIEW_THEME = { glint: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
+const PREVIEW_THEME = { glint: 'dark', glitter: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
 module.exports = { SCENES, PREVIEW_THEME, sleep };

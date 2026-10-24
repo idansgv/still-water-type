@@ -1,0 +1,298 @@
+<title>Lace</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@200..900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one full-bleed poster, the name in sea foam; a quiet mono line at the foot; a settings sheet for this test only. Black page by default, white in the light slot. */
+:root {
+  --bg: #000000; --ink: #ffffff; --dim: #7c7c7c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+:root.light { --bg: #ffffff; --ink: #000000; --dim: #8a8a8a; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(252, 252, 252, 0.96); color-scheme: light; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="Idan Segev in solid sea foam. Touched, the foam ages and opens into lace."></canvas>
+<div class="foot"><span><b>Lace</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row tog" for="light"><span>Light page (black foam)</span><input type="checkbox" id="light" checked></label>
+  <label class="row" for="big"><span>Big bubbles (px)</span><output id="bigO"></output><input type="range" id="big" min="8" max="60" step="1" value="8"></label>
+  <label class="row" for="small"><span>Small bubbles (px)</span><output id="smallO"></output><input type="range" id="small" min="3" max="20" step="0.5" value="15"></label>
+  <label class="row" for="rate"><span>How fast foam ages</span><output id="rateO"></output><input type="range" id="rate" min="0.2" max="4" step="0.05" value="0.2"></label>
+  <label class="row" for="floor"><span>How much lace survives</span><output id="floorO"></output><input type="range" id="floor" min="0" max="0.6" step="0.01" value="0.11"></label>
+  <label class="row" for="pull"><span>Pull (drag strength)</span><output id="pullO"></output><input type="range" id="pull" min="0" max="3" step="0.05" value="1.25"></label>
+  <label class="row" for="brush"><span>Touch size (px)</span><output id="brushO"></output><input type="range" id="brush" min="20" max="200" step="5" value="65"></label>
+  <label class="row" for="weight"><span>Type weight</span><output id="weightO"></output><input type="range" id="weight" min="300" max="900" step="10" value="840"></label>
+  <div class="acts"><button id="copy" type="button">Copy settings</button><button id="reset" type="button">Reset</button></div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c');
+  const gl = cv.getContext('webgl2', { antialias: false, alpha: false });
+  if (!gl) { document.querySelector('.foot span').textContent = 'This needs WebGL2.'; return; }
+  const $ = (id) => document.getElementById(id);
+  const DEF = { light: true, big: 8, small: 15, rate: 0.2, floor: 0.11, pull: 1.25, brush: 65, weight: 840 };
+  const P = { ...DEF };
+  try { Object.assign(P, JSON.parse(localStorage.getItem('lace-3') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('lace-3', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const f32 = !!gl.getExtension('EXT_color_buffer_float');
+  if (!f32 && !gl.getExtension('EXT_color_buffer_half_float')) { document.querySelector('.foot span').textContent = 'This needs float render targets.'; return; }
+  gl.getExtension('OES_texture_float_linear');
+
+  const VS = `#version 300 es
+  void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+  const NOISE = `
+  float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+  vec2 hash2(vec2 p) { return vec2(hash(p), hash(p + 17.31)); }
+  float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }`;
+
+  // wind: the drag pushes the foam; a gale blows it along in rows
+  const VEL = `#version 300 es
+  precision highp float;
+  uniform sampler2D uV; uniform vec2 uRes, uCss; uniform float uDt, uGale, uT;
+  uniform vec4 uP[8]; uniform vec2 uPv[8]; uniform int uNP;
+  out vec4 o;
+  ${NOISE}
+  void main() {
+    vec2 uv = gl_FragCoord.xy / uRes, x = uv * uCss;
+    vec2 v = texture(uV, uv - texture(uV, uv).xy * uDt / uCss).xy * exp(-uDt / 0.25);
+    for (int i = 0; i < 8; i++) { if (i >= uNP) break;
+      vec2 d = x - uP[i].xy; v = mix(v, uPv[i], 0.35 * exp(-dot(d, d) / (0.3 * uP[i].z * uP[i].z))); }
+    float rowN = vnoise(vec2(x.x * 0.004 - uT * 0.3, x.y * 0.02));
+    v = mix(v, vec2(uCss.x * 0.22 * (0.4 + 1.2 * rowN), (vnoise(x * 0.01 + uT) - 0.5) * 40.0), min(1.0, uGale * uDt * 2.0));
+    float l = length(v); if (l > 1500.0) v *= 1500.0 / l;
+    v *= smoothstep(3.0, 8.0, l);                                      // still water stays still, so the letters do not blur
+    o = vec4(v, 0.0, 1.0);
+  }`;
+
+  // foam: R density, G how fast it is ageing, BA where this bit of foam started (so the bubble pattern travels with it)
+  const FOAM = `#version 300 es
+  precision highp float;
+  uniform sampler2D uS, uV, uMask; uniform vec2 uRes, uCss; uniform float uDt, uRate, uFloor, uGale, uRefroth, uSweep, uT;
+  uniform vec4 uP[8]; uniform int uNP;
+  out vec4 o;
+  ${NOISE}
+  void main() {
+    vec2 uv = gl_FragCoord.xy / uRes, x = uv * uCss, px = 1.0 / uRes;
+    vec2 src = uv - texture(uV, uv).xy * uDt / uCss;
+    vec4 s = texture(uS, src);
+    float F = s.r, A = s.g; vec2 X = s.ba;
+    float An = 0.25 * (texture(uS, src + vec2(px.x, 0)).g + texture(uS, src - vec2(px.x, 0)).g + texture(uS, src + vec2(0, px.y)).g + texture(uS, src - vec2(0, px.y)).g);
+    A = mix(A, An, 0.06) * exp(-uDt / 2.5);
+    for (int i = 0; i < 8; i++) { if (i >= uNP) break;
+      vec2 d = x - uP[i].xy; A += uP[i].w * exp(-dot(d, d) / (uP[i].z * uP[i].z)); }
+    A = min(A + uGale * uDt * 0.6, 3.0);
+    float floorF = uFloor * (1.0 - uGale) * (0.7 + 0.6 * vnoise(X * 0.05));
+    F = F > floorF ? max(floorF, F - uDt * uRate * A * (0.25 + F)) : F - uDt * 0.05;
+    F = max(F, 0.0);
+    float m = texture(uMask, uv).r;
+    float fresh = uRefroth;
+    if (uSweep > -1.0) fresh = max(fresh, smoothstep(70.0, 0.0, abs(x.x - uSweep)));
+    if (fresh > 0.0) { F = mix(F, m * 1.12, fresh); X = mix(X, x, fresh); A *= 1.0 - fresh; }
+    o = vec4(F, A, X);
+  }`;
+
+  // drawing: foam shows where a bubble-raft pattern lies below the density; bubble middles open first, the films between them last
+  const DRAW = `#version 300 es
+  precision highp float;
+  uniform sampler2D uS; uniform vec2 uRes, uCss; uniform float uBig, uSmall, uLight;
+  out vec4 o;
+  ${NOISE}
+  float edge(vec2 p) {
+    vec2 c = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0;
+    for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(i, j), r = g + 0.15 + 0.7 * hash2(c + g) - f; float d = dot(r, r);
+      if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d; }
+    return sqrt(d2) - sqrt(d1);
+  }
+  void main() {
+    vec2 uv = gl_FragCoord.xy / uRes;
+    vec4 s = texture(uS, uv); float F = s.r; vec2 X = s.ba;
+    float r1 = clamp(edge(X / uBig) * 2.4, 0.0, 1.0), r2 = clamp(edge(X / uSmall + 9.7) * 2.4, 0.0, 1.0);
+    float r = max(max(r1 * 0.97, r2 * 0.72) + (vnoise(X * 0.35) - 0.5) * 0.08, 0.02);
+    float e = F - r, a = clamp(e / max(fwidth(e), 0.01) + 0.5, 0.0, 1.0) * step(0.004, F);
+    float body = mix(0.74, 1.0, smoothstep(0.0, 0.12, e));            // thin films a little dimmer than the cores
+    float c = a * body;
+    c = uLight > 0.5 ? 1.0 - c : c;
+    o = vec4(vec3(c), 1.0);
+  }`;
+
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const prog = (fs) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++) { const name = gl.getActiveUniform(p, i).name.replace(/\[0\]$/, ''); u[name] = gl.getUniformLocation(p, name); }
+    return { p, u }; };
+  const velP = prog(VEL), foamP = prog(FOAM), drawP = prog(DRAW);
+  gl.bindVertexArray(gl.createVertexArray());
+
+  const target = (w, h, init) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, f32 ? gl.RGBA32F : gl.RGBA16F, w, h, 0, gl.RGBA, gl.FLOAT, init || null);
+    const lin = f32 ? (gl.getExtension('OES_texture_float_linear') ? gl.LINEAR : gl.NEAREST) : gl.LINEAR;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, lin); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, lin);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    if (!init) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
+    return { t, f }; };
+  const free = (x) => { if (x) { gl.deleteTexture(x.t); gl.deleteFramebuffer(x.f); } };
+
+  // the name: Idan over Segev, fitted like the other posters (top of the d to the bottom of the g)
+  const mc = document.createElement('canvas'), mx = mc.getContext('2d'), maskT = gl.createTexture();
+  let W = 0, H = 0, sw = 0, shh = 0, S = [], V = [], si = 0, vi = 0, maskData = null;
+  const drawName = (w, h) => {
+    mc.width = w; mc.height = h; mx.fillStyle = '#000'; mx.fillRect(0, 0, w, h);
+    const font = (s) => `${P.weight} ${s}px Bitter, Georgia, serif`;
+    mx.font = font(100);
+    const a = mx.measureText('Idan'), b = mx.measureText('Segev'), lead = 92;
+    const blockH = a.actualBoundingBoxAscent + lead + b.actualBoundingBoxDescent, blockW = Math.max(a.width, b.width);
+    const k = w / W, m = Math.max(24, Math.min(W, H) * 0.07) * k, foot = 48 * k;
+    const s = Math.min((w - 2 * m) / blockW, (h - 2 * m - foot) / blockH) * 100;
+    mx.font = font(s); mx.fillStyle = '#fff'; mx.textAlign = 'center';
+    const top = (h - foot - blockH * s / 100) / 2 + a.actualBoundingBoxAscent * s / 100;
+    mx.fillText('Idan', w / 2, top); mx.fillText('Segev', w / 2, top + lead * s / 100);
+  };
+  const resize = () => {
+    W = Math.max(1, innerWidth); H = Math.max(1, innerHeight);
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    sw = Math.max(64, Math.round(W)); shh = Math.max(64, Math.round(H));
+    drawName(sw, shh);
+    const img = mx.getImageData(0, 0, sw, shh).data;
+    maskData = new Float32Array(sw * shh * 4);
+    for (let y = 0; y < shh; y++) for (let x = 0; x < sw; x++) {
+      const i = ((shh - 1 - y) * sw + x) * 4, o = (y * sw + x) * 4, m = img[i] / 255;
+      maskData[o] = m * 1.12; maskData[o + 1] = 0; maskData[o + 2] = (x + 0.5) / sw * W; maskData[o + 3] = (y + 0.5) / shh * H;
+    }
+    S.forEach(free); V.forEach(free);
+    S = [target(sw, shh, maskData), target(sw, shh)]; V = [target(sw, shh), target(sw, shh)]; si = 0; vi = 0;
+    const mk = new Float32Array(sw * shh * 4); for (let i = 0; i < sw * shh; i++) mk[i * 4] = maskData[i * 4] / 1.12;
+    gl.bindTexture(gl.TEXTURE_2D, maskT);
+    gl.texImage2D(gl.TEXTURE_2D, 0, f32 ? gl.RGBA32F : gl.RGBA16F, sw, shh, 0, gl.RGBA, gl.FLOAT, mk);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  };
+
+  // input
+  let puffs = [], gale = 0, refroth = 0, sweep = -1e9;
+  const touch = (x, y, age, vx, vy, rad = P.brush) => puffs.push([x, H - y, rad, age, vx, -vy]);
+  let demo = !reduced, demoT = 0;
+  let down = null, last = null, taps = [], tapTimer = 0;
+  cv.addEventListener('pointerdown', (e) => {
+    demo = false; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* synthetic */ }
+    down = { x: e.clientX, y: e.clientY, t: performance.now(), far: 0 }; last = { x: e.clientX, y: e.clientY, t: performance.now() };
+  });
+  cv.addEventListener('pointermove', (e) => {
+    const now = performance.now();
+    if (e.pointerType !== 'mouse' && !down) return;
+    if (down) down.far = Math.max(down.far, Math.hypot(e.clientX - down.x, e.clientY - down.y));
+    if (!last) { last = { x: e.clientX, y: e.clientY, t: now }; return; }
+    const dx = e.clientX - last.x, dy = e.clientY - last.y, d = Math.hypot(dx, dy), dt = Math.max(8, now - last.t) / 1000;
+    if (d < 2) return;
+    demo = false;
+    const drag = !!down, vx = Math.max(-700, Math.min(700, dx / dt)), vy = Math.max(-700, Math.min(700, dy / dt));
+    touch(e.clientX, e.clientY, drag ? 0.35 : 0.06, vx * P.pull * (drag ? 0.14 : 0.03), vy * P.pull * (drag ? 0.14 : 0.03), drag ? P.brush : P.brush * 0.8);
+    last = { x: e.clientX, y: e.clientY, t: now };
+  });
+  const up = (e) => {
+    if (!down) return;
+    const now = performance.now(), quick = now - down.t < 250 && down.far < 8;
+    if (quick) {
+      taps = taps.filter((t) => now - t < 760); taps.push(now);
+      const n = taps.length; clearTimeout(tapTimer);
+      if (n === 1) touch(e.clientX, e.clientY, 1.2, 0, 0, P.brush * 0.9);
+      else if (n === 2) tapTimer = setTimeout(() => { refroth = 1; taps = []; }, 380);
+      else { taps = []; sweep = -80; }                 // reveal: a breaker rolls across and lays fresh foam
+    }
+    down = null; if (e.pointerType !== 'mouse') last = null;
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+
+  const pass = (p, tgt, w, h) => { gl.bindFramebuffer(gl.FRAMEBUFFER, tgt ? tgt.f : null); gl.viewport(0, 0, w, h); gl.useProgram(p.p); };
+  const bindT = (unit, t, loc) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(loc, unit); };
+
+  let prev = performance.now(), t = 0, started = 0;
+  const frame = (now) => {
+    const dt = Math.min(0.033, (now - prev) / 1000); prev = now; t += dt;
+    if (!started) started = now;
+    // the self-demo: one slow breath of wind across the middle, once
+    if (demo && now - started > 900) {
+      demoT += dt; const f = demoT / 2.4;
+      if (f > 1) demo = false; else touch(W * (0.1 + 0.8 * f), H * (0.45 + 0.08 * Math.sin(f * 6)), 0.025, 30, 0, P.brush * 1.2);
+    }
+    const holding = down && now - down.t > 250 && down.far < 24;
+    gale = holding ? Math.min(1, gale + dt / 3.5) : Math.max(0, gale - dt / 2);
+    if (sweep > -1e8) { sweep += dt * W / 1.1; if (sweep > W + 100) sweep = -1e9; }
+
+    const pp = puffs.slice(-8); puffs = [];
+    const PA = new Float32Array(32), PV = new Float32Array(16);
+    pp.forEach((q, i) => { PA.set([q[0], q[1], q[2], q[3] * Math.min(1, dt * 30)], i * 4); PV.set([q[4], q[5]], i * 2); });
+
+    pass(velP, V[1 - vi], sw, shh); let u = velP.u;
+    bindT(0, V[vi].t, u.uV); gl.uniform2f(u.uRes, sw, shh); gl.uniform2f(u.uCss, W, H); gl.uniform1f(u.uDt, dt);
+    gl.uniform1f(u.uGale, gale * (reduced ? 0.5 : 1)); gl.uniform1f(u.uT, t);
+    gl.uniform4fv(u.uP, PA); gl.uniform2fv(u.uPv, PV); gl.uniform1i(u.uNP, pp.length);
+    gl.drawArrays(gl.TRIANGLES, 0, 3); vi = 1 - vi;
+
+    pass(foamP, S[1 - si], sw, shh); u = foamP.u;
+    bindT(0, S[si].t, u.uS); bindT(1, V[vi].t, u.uV); bindT(2, maskT, u.uMask);
+    gl.uniform2f(u.uRes, sw, shh); gl.uniform2f(u.uCss, W, H); gl.uniform1f(u.uDt, dt); gl.uniform1f(u.uRate, P.rate);
+    gl.uniform1f(u.uFloor, P.floor); gl.uniform1f(u.uGale, gale); gl.uniform1f(u.uRefroth, refroth > 0 ? Math.min(1, dt * 4) : 0);
+    gl.uniform1f(u.uSweep, sweep > -1e8 ? sweep : -2); gl.uniform1f(u.uT, t);
+    gl.uniform4fv(u.uP, PA); gl.uniform1i(u.uNP, pp.length);
+    gl.drawArrays(gl.TRIANGLES, 0, 3); si = 1 - si;
+    if (refroth > 0) refroth -= dt * 0.9;
+
+    pass(drawP, null, cv.width, cv.height); u = drawP.u;
+    bindT(0, S[si].t, u.uS); gl.uniform2f(u.uRes, cv.width, cv.height); gl.uniform2f(u.uCss, W, H);
+    gl.uniform1f(u.uBig, P.big); gl.uniform1f(u.uSmall, P.small); gl.uniform1f(u.uLight, P.light ? 1 : 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    requestAnimationFrame(frame);
+  };
+
+  // settings (this test only)
+  const fmt = { big: 0, small: 1, rate: 2, floor: 2, pull: 2, brush: 0, weight: 0 };
+  const theme = () => document.documentElement.classList.toggle('light', !!P.light);
+  const sync = () => { Object.keys(fmt).forEach((k) => { $(k).value = P[k]; $(k + 'O').textContent = (+P[k]).toFixed(fmt[k]); }); $('light').checked = !!P.light; theme(); };
+  Object.keys(fmt).forEach((k) => $(k).addEventListener('input', () => { P[k] = +$(k).value; $(k + 'O').textContent = P[k].toFixed(fmt[k]); save();
+    if (k === 'weight') document.fonts.load(`${P.weight} 100px Bitter`).then(resize, resize); }));
+  $('light').addEventListener('change', () => { P.light = $('light').checked; theme(); save(); });
+  $('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });
+  $('copy').addEventListener('click', () => { const txt = JSON.stringify(P);
+    navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1200); },
+      () => { $('copy').textContent = txt; }); });
+  $('reset').addEventListener('click', () => { Object.assign(P, DEF); save(); sync(); resize(); });
+  sync();
+
+  addEventListener('resize', resize);
+  (document.fonts ? document.fonts.load(`${P.weight} 100px Bitter`) : Promise.resolve()).catch(() => {}).then(() => { resize(); requestAnimationFrame(frame); });
+})();
+</script>

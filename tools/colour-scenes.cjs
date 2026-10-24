@@ -21,5 +21,7 @@ const COLOUR_SCENES = {
   glint: async (p) => { await p.mouse.move(180, 250, { steps: 5 }); await sleep(300); await p.mouse.move(620, 330, { steps: 8 }); await sleep(1200); },   // the light takes the palette from the first move
   brandbook: async (p) => { await sleep(2500); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press
   crystallize: async (p) => { await sleep(1500); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press (it also knocks a hole)
+  glitter: async (p) => { await sleep(1500); await p.mouse.click(600, 330); await sleep(1500); },
+  lace: async (p) => { await sleep(1500); await p.mouse.click(600, 330); await sleep(1500); },
 };
 module.exports = { COLOUR_SCENES };

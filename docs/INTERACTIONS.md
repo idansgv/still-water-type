@@ -172,6 +172,31 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 
 ## In the pipeline (draft)
 
+| | Glitter |
+|---|---|
+| Hover / drag | the moon follows the pointer (or a finger); the move leaves a wake of ripples, so the glitter flares behind it and settles |
+| Tap | a splash of ripples (under 250 ms, 8 px) |
+| Hold | wind over every letter (250 ms, still): the glitter spreads across the whole name; let go and it calms |
+| Double tap | calm water (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | the moon climbs high and a breeze crosses every letter, so the whole name blazes; drawn over it: the moon, how far its glints reach |
+| Self-demo | once, after 3.5 s untouched: the moon crosses low trailing a breeze, then rests high above the middle; off under reduced motion |
+| Theme | black only (`darkOnly: true`), like Glint |
+| Reduced motion | no demo; ripples at half strength |
+| Face | Bitter 700 (Google Fonts, the name's letters only) |
+
+| | Lace |
+|---|---|
+| Hover (mouse) | a breath: the foam under the pointer ages a little |
+| Drag | ages the foam faster and pulls it a little along the stroke |
+| Tap | opens a patch of lace (under 250 ms, 8 px) |
+| Hold | a gale (250 ms, still): all the foam ages and is blown along in rows; it can thin away entirely |
+| Double tap | a breaker rolls across from the left and lays fresh foam (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | page inverts; the touch's reach and the bubble sizes the lace follows |
+| Self-demo | once, after 3.5 s untouched: a slow breath crosses the middle and opens some lace; off under reduced motion |
+| Theme | both: black foam on white (Idan's pick, the likelier draw), white foam on black |
+| Reduced motion | no demo; touches at half strength |
+| Face | Bitter 840 (Google Fonts, the name's letters only) |
+
 | | Wash script |
 |---|---|
 | Intro | a wet brush writes the name in black watercolour along the centre line of a script or handwriting face, once on load; it dries with a darker rim |
