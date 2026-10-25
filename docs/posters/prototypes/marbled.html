@@ -172,6 +172,48 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
     const was = giving; giving = Math.abs(gv.a) > 0.02 || Math.abs(gv.v) > 0.2 || gv.to !== 0;
     if (giving || was) dirty = true;
   }
+  // stir: a springy field under the ink; the ink is drawn displaced by it and settles back (the shapes never change)
+  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const STIR = { cell: 10, sigma: 32, kick: 14, cap: 10, max: 20, k: 85, c: 7 };
+  let sg = null, stirring = false;
+  function field() { const gw = Math.ceil(W / STIR.cell) + 2, gh = Math.ceil(H / STIR.cell) + 2; if (!sg || sg.gw !== gw || sg.gh !== gh) sg = { gw, gh, d: new Float32Array(gw * gh * 2), v: new Float32Array(gw * gh * 2) }; return sg; }
+  function stir(ax, ay, bx, by) {                                     // a push along a move: the ink swings out and comes back
+    const f = field(), dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy); if (len < 0.3) return;
+    const m = Math.min(len, STIR.cap) / len, ux = dx * m, uy = dy * m, C = STIR.cell, R = STIR.sigma * 2.2, s2 = STIR.sigma * STIR.sigma;
+    const i0 = Math.max(0, Math.floor((bx - R) / C)), i1 = Math.min(f.gw - 1, Math.ceil((bx + R) / C)), j0 = Math.max(0, Math.floor((by - R) / C)), j1 = Math.min(f.gh - 1, Math.ceil((by + R) / C));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const ex = i * C - bx, ey = j * C - by, w = Math.exp(-(ex * ex + ey * ey) / s2) * STIR.kick, o = (j * f.gw + i) * 2;
+      f.v[o] += ux * w; f.v[o + 1] += uy * w;
+    }
+    stirring = true;
+  }
+  function ripple(x, y, kick) {                                       // a ring of push from a touch: outward, springy, settles back
+    const f = field(), C = STIR.cell, R = STIR.sigma * 2.6, s2 = STIR.sigma * STIR.sigma;
+    const i0 = Math.max(0, Math.floor((x - R) / C)), i1 = Math.min(f.gw - 1, Math.ceil((x + R) / C)), j0 = Math.max(0, Math.floor((y - R) / C)), j1 = Math.min(f.gh - 1, Math.ceil((y + R) / C));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const ex = i * C - x, ey = j * C - y, d = Math.hypot(ex, ey) || 1e-3, w = Math.exp(-(d * d) / s2) * kick, o = (j * f.gw + i) * 2;
+      f.v[o] += (ex / d) * w; f.v[o + 1] += (ey / d) * w;
+    }
+    stirring = true;
+  }
+  function stepStir(dt) {
+    if (!stirring || !sg) return;
+    const h = Math.min(dt, 1 / 30), { d, v } = sg; let live = 0;
+    for (let k = 0; k < d.length; k++) {
+      v[k] += (-STIR.k * d[k] - STIR.c * v[k]) * h; d[k] += v[k] * h;
+      if (d[k] > STIR.max) d[k] = STIR.max; else if (d[k] < -STIR.max) d[k] = -STIR.max;
+      live = Math.max(live, Math.abs(d[k]) + Math.abs(v[k]) * 0.05);
+    }
+    if (live < 0.02) { d.fill(0); v.fill(0); stirring = false; }
+    dirty = true;
+  }
+  function lift(px, py) {                                             // the field under a point, bilinear
+    const C = STIR.cell, fx = px / C, fy = py / C, i = Math.floor(fx), j = Math.floor(fy);
+    if (i < 0 || j < 0 || i >= sg.gw - 1 || j >= sg.gh - 1) return [px, py];
+    const tx = fx - i, ty = fy - j, a = (j * sg.gw + i) * 2, b = a + 2, c = a + sg.gw * 2, e = c + 2, d = sg.d;
+    const w0 = (1 - tx) * (1 - ty), w1 = tx * (1 - ty), w2 = (1 - tx) * ty, w3 = tx * ty;
+    return [px + d[a] * w0 + d[b] * w1 + d[c] * w2 + d[e] * w3, py + d[a + 1] * w0 + d[b + 1] * w1 + d[c + 1] * w2 + d[e + 1] * w3];
+  }
   function draw() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = page; ctx.fillRect(0, 0, W, H);
@@ -179,23 +221,47 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
     for (const sh of shapes) {
       const path = new Path2D();
       for (const l of sh.loops) {
-        if (!giving) { path.moveTo(l[0], l[1]); for (let k = 2; k < l.length; k += 2) path.lineTo(l[k], l[k + 1]); path.closePath(); continue; }
-        for (let k = 0; k < l.length; k += 2) { const q = give(l[k], l[k + 1]); k ? path.lineTo(q[0], q[1]) : path.moveTo(q[0], q[1]); }
+        for (let k = 0; k < l.length; k += 2) {
+          let q = giving ? give(l[k], l[k + 1]) : [l[k], l[k + 1]];
+          if (stirring) q = lift(q[0], q[1]);
+          k ? path.lineTo(q[0], q[1]) : path.moveTo(q[0], q[1]);
+        }
         path.closePath();
       }
       ctx.fillStyle = sh.tone === 'water' ? page : sh.tone === 'ink' || !P.colour ? ink : pal[sh.tone % 6];
       ctx.fill(path, 'evenodd');
     }
   }
-  function frame() { stepGive(); if (dirty) { dirty = false; draw(); } requestAnimationFrame(frame); }
+  // idle breathing: after 2.5 s untouched, a faint shiver at a random point on the ink, every 3.5 to 6 s; visual only
+  let lastInput = -1e9, breathT = 0, lastFrame = performance.now();
+  function breathe() {
+    const l = shapes.length && shapes[0].loops.length ? shapes[0].loops[Math.floor(Math.random() * shapes[0].loops.length)] : null;
+    if (!l || l.length < 4) return;
+    const k = 2 * Math.floor(Math.random() * (l.length / 2)), a = Math.random() * Math.PI * 2;
+    stir(l[k], l[k + 1], l[k] + Math.cos(a) * 5, l[k + 1] + Math.sin(a) * 5);
+  }
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
+    stepGive(); stepStir(dt);
+    if (!REDUCED && performance.now() - lastInput > 2500 && (breathT -= dt) <= 0) { breathe(); breathT = 3.5 + Math.random() * 2.5; }
+    if (dirty) { dirty = false; draw(); }
+    requestAnimationFrame(frame);
+  }
 
   // ---------- touch: a tap drops ink; a drag combs ----------
-  let down = null, last = null, combing = false;
-  cv.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; last = { x: e.clientX, y: e.clientY }; combing = false; gv.x = e.clientX; gv.y = e.clientY; gv.to = GIVE_PX; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } });
+  let down = null, last = null, combing = false, hov = null, lastRipple = 0;
+  cv.addEventListener('pointerdown', (e) => { lastInput = performance.now(); down = { x: e.clientX, y: e.clientY, t: performance.now() }; last = { x: e.clientX, y: e.clientY }; combing = false; gv.x = e.clientX; gv.y = e.clientY; gv.to = GIVE_PX; if (!REDUCED) ripple(e.clientX, e.clientY, STIR.kick * 1.2); try { cv.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } });
   cv.addEventListener('pointermove', (e) => {
-    if (!down) return;
+    lastInput = performance.now();
+    if (!down) {                                                      // a mouse moving over the ink, no button: a gentle stir
+      if (e.pointerType === 'mouse' && !e.buttons && !REDUCED) { if (hov && Math.hypot(e.clientX - hov.x, e.clientY - hov.y) < 90) stir(hov.x, hov.y, e.clientX, e.clientY); hov = { x: e.clientX, y: e.clientY }; }
+      return;
+    }
     if (!combing && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) { combing = true; gv.to = 0; }
-    if (combing) { tine(last.x, last.y, e.clientX, e.clientY); last = { x: e.clientX, y: e.clientY }; }
+    if (combing) {
+      tine(last.x, last.y, e.clientX, e.clientY); last = { x: e.clientX, y: e.clientY };
+      if (!REDUCED && performance.now() - lastRipple > 140) { ripple(e.clientX, e.clientY, STIR.kick * 0.5); lastRipple = performance.now(); }   // a drag keeps sending ripples, a few a second
+    }
   });
   cv.addEventListener('pointerup', (e) => {
     gv.to = 0;
