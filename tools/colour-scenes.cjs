@@ -18,6 +18,7 @@ const COLOUR_SCENES = {
   rigged: async (p) => { await p.mouse.click(400, 250); await sleep(1500); },  // the pass wakes on a press (it also cuts a rope)
   'splat-type': async (p) => { await p.mouse.click(300, 300); await sleep(500); },   // the pass wakes on a press; the splats take the palette down the page
   'wash-script': async (p) => { await sleep(1500); await drag(p, wiggle(160, 330, 30, 20), 16); await p.mouse.up(); await sleep(400); },   // its own colour on your brush, from the first drag
+  torn: async (p) => { await sleep(2600); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press
   glint: async (p) => { await p.mouse.move(180, 250, { steps: 5 }); await sleep(300); await p.mouse.move(620, 330, { steps: 8 }); await sleep(1200); },   // the light takes the palette from the first move
   brandbook: async (p) => { await sleep(2500); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press
   crystallize: async (p) => { await sleep(1500); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press (it also knocks a hole)

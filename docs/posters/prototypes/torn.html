@@ -1,0 +1,426 @@
+<title>Torn</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Bungee&family=Bungee+Inline&family=Dela+Gothic+One&family=Bowlby+One&family=Rubik+Mono+One&family=Alfa+Slab+One&display=swap">
+<style>
+/* Layout: the name is cloth hung from a few pegs. A WebGL canvas for the cloth, a 2D canvas above it for the pegs and the
+   reveal drawing, a quiet foot line and a test-only settings sheet. */
+:root {
+  --bg: #ffffff; --ink: #000000; --dim: #707070; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(255, 255, 255, 0.96);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000000; --ink: #ffffff; --dim: #8c8c8c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #000000; --ink: #ffffff; --dim: #8c8c8c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono); margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#top { pointer-events: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button, select { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+select { border-bottom: 1px solid var(--line); padding: 2px 0; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; flex-wrap: wrap; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+.colour-pass { position: fixed; inset: 0; pointer-events: none; }   /* test copy of the shell's colour pass (src/colour.js) */
+.colour-dark canvas { filter: brightness(1.9); }
+</style>
+
+<canvas id="c" aria-label="Idan Segev in heavy capitals cut from cloth, hung from a few pegs. Drag to pull the cloth; pull hard and it tears. Tap to unpin a peg; double tap hangs a fresh set."></canvas>
+<canvas id="top" aria-hidden="true"></canvas>
+<div class="foot"><span><b>Torn</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row" for="theme"><span>Page (test)</span><select id="theme"><option value="">follow the system</option><option value="light">light</option><option value="dark">dark</option></select></label>
+  <label class="row" for="colourSel"><span>Colour pass (test)</span><select id="colourSel"><option value="">off</option><option value="0">North Sea</option><option value="1">Hot</option><option value="2">Sunset</option><option value="3">Acid</option><option value="4">Violet</option><option value="5">Ember</option></select></label>
+  <label class="row" for="font"><span>Face</span><select id="font"></select></label>
+  <label class="row" for="pegs"><span>Pegs per letter</span><output id="pegsO"></output><input type="range" id="pegs" min="1" max="6" step="1" value="6"></label>
+  <label class="row" for="tear"><span>How easily it tears (stretch before a rip)</span><output id="tearO"></output><input type="range" id="tear" min="1.15" max="3" step="0.05" value="2.25"></label>
+  <label class="row" for="slack"><span>Spare cloth (slack)</span><output id="slackO"></output><input type="range" id="slack" min="0.96" max="1.25" step="0.01" value="1.05"></label>
+  <label class="row" for="bend"><span>Fold stiffness</span><output id="bendO"></output><input type="range" id="bend" min="0" max="0.4" step="0.01" value="0.05"></label>
+  <label class="row" for="grav"><span>Gravity</span><output id="gravO"></output><input type="range" id="grav" min="200" max="3000" step="50" value="1650"></label>
+  <label class="row" for="air"><span>Air from the pointer</span><output id="airO"></output><input type="range" id="air" min="0" max="3" step="0.05" value="0.6"></label>
+  <label class="row" for="detail"><span>Cloth detail (points)</span><output id="detailO"></output><input type="range" id="detail" min="1000" max="6000" step="100" value="5200"></label>
+  <label class="row" for="sheen"><span>Fold light</span><output id="sheenO"></output><input type="range" id="sheen" min="0" max="2" step="0.05" value="0.15"></label>
+  <div class="acts"><button id="again" type="button">Hang a fresh set</button><button id="copy" type="button">Copy settings</button></div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c'), tc = document.getElementById('top'), tx = tc.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+  const FONTS = ['Bungee', 'Bungee Inline', 'Dela Gothic One', 'Bowlby One', 'Rubik Mono One', 'Alfa Slab One'];
+  const P = { font: 'Alfa Slab One', pegs: 6, tear: 2.25, slack: 1.05, bend: 0.05, grav: 1650, air: 0.6, detail: 5200, sheen: 0.15 };   // Idan's tuned values (21 Oct 2026)
+  try { Object.assign(P, JSON.parse(localStorage.getItem('torn') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('torn', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W = 1, H = 1, dpr = 1, page = [1, 1, 1], ink = [0, 0, 0], inkCss = '#000', pageCss = '#fff', dark = false;
+  const hex = (h) => { h = h.replace('#', ''); if (h.length === 3) h = [...h].map((c) => c + c).join(''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255); };
+  const readTheme = () => { const cs = getComputedStyle(document.documentElement); pageCss = cs.getPropertyValue('--bg').trim(); inkCss = cs.getPropertyValue('--ink').trim(); page = hex(pageCss); ink = hex(inkCss); dark = page[0] < 0.5; };
+
+  // ---------- WebGL: the cloth ----------
+  const gl = cv.getContext('webgl', { antialias: true, alpha: false });
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, `attribute vec3 p; attribute vec3 n; uniform vec2 res; varying vec3 vn;
+    void main(){ vn = n; gl_Position = vec4(p.x / res.x * 2. - 1., 1. - p.y / res.y * 2., clamp(-p.z / 4000., -1., 1.), 1.); }`));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, `precision mediump float; varying vec3 vn; uniform vec3 ink, page; uniform float dark, amt; uniform vec2 L;
+    void main(){
+      vec3 n = normalize(vn); if (n.z < 0.) n = -n;
+      float v = dot(n.xy, L);
+      float t = (dark > .5 ? max(0., -v) : max(0., v)) * .9 + (1. - n.z) * .35;
+      t = clamp(t * amt, 0., 1.);
+      gl_FragColor = vec4(mix(ink, page, t * .72), 1.);
+    }`));
+  gl.linkProgram(prog); gl.useProgram(prog);
+  const aP = gl.getAttribLocation(prog, 'p'), aN = gl.getAttribLocation(prog, 'n');
+  const U = (n) => gl.getUniformLocation(prog, n), uRes = U('res'), uInk = U('ink'), uPage = U('page'), uDark = U('dark'), uAmt = U('amt'), uL = U('L');
+  const bufP = gl.createBuffer(), bufN = gl.createBuffer(), bufI = gl.createBuffer();
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
+
+  // ---------- the cloth ----------
+  // Each letter is a triangle mesh cut from the glyph, a little too big, hung from a few pegs along its top edge.
+  // Every triangle edge is a thread that snaps when stretched past `tear` times its length; a snapped thread takes
+  // its triangles with it, so a hard pull rips the cloth along the line of most stress.
+  let N = 0, X, Y, Z, PX, PY, PZ, IM, HX, HY, LAB, CA, CB, CR, CK, NC = 0, TRI, ALIVE, TRIC, ECNT, EBEND, IDX, nIdx = 0, idxDirty = true;
+  let NRM, POS, pegs = [], capH = 100, s = 8, letters = [], ready = false, floorOn = true, lower = null;
+  let revealed = false, demo = !reduce, grab = null, air = null, tears = 0;
+  const now = () => performance.now();
+
+  async function build() {
+    ready = false;
+    const fam = P.font, font = (px) => `400 ${px}px "${fam}"`;
+    try { await Promise.race([document.fonts.load(font(100), 'IDANSEGV'), new Promise((r) => setTimeout(r, 3000))]); } catch (e) { /* fallback */ }
+    const w = Math.ceil(W), h = Math.ceil(H), m = document.createElement('canvas'); m.width = w; m.height = h;
+    const x = m.getContext('2d', { willReadFrequently: true });
+    const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], TR = 0.07;
+    x.font = font(100);
+    const adv = {}; for (const ch of 'IDANSEGV') adv[ch] = x.measureText(ch).width / 100;
+    const lw = (l, sz) => [...l].reduce((a, ch) => a + adv[ch] * sz, 0) + TR * sz * (l.length - 1);
+    const cap = x.measureText('H').actualBoundingBoxAscent / 100 || 0.72;
+    let size = Math.min(...lines.map((l) => W * 0.84 / lw(l, 1)));
+    const lead = 1.45, total = (sz) => cap * sz * (1 + (lines.length - 1) * lead);
+    if (total(size) > H * 0.66) size *= H * 0.66 / total(size);
+    capH = cap * size;
+    x.font = font(size); x.textBaseline = 'alphabetic';
+    const base0 = (H - total(size)) / 2 + capH - H * 0.07;
+    let li = 0; letters = [];
+    lines.forEach((l, k) => {
+      let cx = (W - lw(l, size)) / 2; const by = base0 + k * capH * lead;
+      for (const ch of l) { x.fillStyle = `rgb(${(li + 1) * 20},0,0)`; x.fillText(ch, cx, by); letters.push(ch); cx += adv[ch] * size + TR * size; li++; }
+    });
+    const d = x.getImageData(0, 0, w, h).data, A = new Uint8Array(w * h), Lb = new Int8Array(w * h).fill(-1);
+    let area = 0, bx0 = w, by0 = h, bx1 = 0, by1 = 0;
+    for (let i = 0; i < w * h; i++) if (d[i * 4 + 3] > 110) {
+      A[i] = 1; Lb[i] = Math.round(d[i * 4] / 20) - 1; area++;
+      const px = i % w, py = (i / w) | 0; if (px < bx0) bx0 = px; if (px > bx1) bx1 = px; if (py < by0) by0 = py; if (py > by1) by1 = py;
+    }
+    const ins = (px, py) => { px |= 0; py |= 0; return px >= 0 && py >= 0 && px < w && py < h && A[py * w + px] === 1; };
+    const lab = (px, py) => Lb[(py | 0) * w + (px | 0)];
+    const insTol = (px, py, l) => { for (const [ox, oy] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) if (ins(px + ox, py + oy) && lab(px + ox, py + oy) === l) return true; return false; };
+    s = Math.sqrt(area / P.detail);
+    const gx0 = bx0 - s, gy0 = by0 - s, cols = Math.ceil((bx1 - bx0) / s) + 3, rows = Math.ceil((by1 - by0) / s) + 3;
+    const gid = new Int32Array(cols * rows).fill(-1), nx = [], ny = [], nl = [], rr = Math.ceil(s * 0.72);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      let px = gx0 + i * s, py = gy0 + j * s;
+      if (!ins(px, py)) {
+        let best = 1e9, bx = 0, by = 0;
+        for (let oy = -rr; oy <= rr; oy++) for (let ox = -rr; ox <= rr; ox++) { const q = ox * ox + oy * oy; if (q < best && q <= rr * rr && ins(px + ox, py + oy)) { best = q; bx = (px | 0) + ox + 0.5; by = (py | 0) + oy + 0.5; } }
+        if (best === 1e9) continue; px = bx; py = by;
+      }
+      gid[j * cols + i] = nx.length; nx.push(px); ny.push(py); nl.push(lab(px, py));
+    }
+    const tris = [];
+    const tryTri = (a, b, c) => {
+      if (a < 0 || b < 0 || c < 0 || nl[a] !== nl[b] || nl[a] !== nl[c] || nl[a] < 0) return;
+      const ar = Math.abs((nx[b] - nx[a]) * (ny[c] - ny[a]) - (nx[c] - nx[a]) * (ny[b] - ny[a])) / 2;
+      if (ar < 0.12 * s * s) return;
+      const l = nl[a], mid = (p, q) => insTol((nx[p] + nx[q]) / 2, (ny[p] + ny[q]) / 2, l);
+      if (!insTol((nx[a] + nx[b] + nx[c]) / 3, (ny[a] + ny[b] + ny[c]) / 3, l) || !mid(a, b) || !mid(b, c) || !mid(a, c)) return;
+      tris.push(a, b, c);
+    };
+    for (let j = 0; j < rows - 1; j++) for (let i = 0; i < cols - 1; i++) {
+      const a = gid[j * cols + i], b = gid[j * cols + i + 1], c = gid[(j + 1) * cols + i], e = gid[(j + 1) * cols + i + 1];
+      if ((i + j) & 1) { tryTri(a, b, e); tryTri(a, e, c); } else { tryTri(a, b, c); tryTri(b, e, c); }
+    }
+    const used = new Int32Array(nx.length).fill(-1); let n = 0;
+    for (const v of tris) if (used[v] < 0) used[v] = n++;
+    N = n; X = new Float32Array(N); Y = new Float32Array(N); Z = new Float32Array(N); PX = new Float32Array(N); PY = new Float32Array(N); PZ = new Float32Array(N);
+    IM = new Float32Array(N).fill(1); HX = new Float32Array(N); HY = new Float32Array(N); LAB = new Int8Array(N);
+    for (let i = 0; i < nx.length; i++) if (used[i] >= 0) { const k = used[i]; HX[k] = X[k] = PX[k] = nx[i]; HY[k] = Y[k] = PY[k] = ny[i]; LAB[k] = nl[i]; Z[k] = PZ[k] = (Math.random() - 0.5) * 0.8; }
+    TRI = new Uint16Array(tris.map((v) => used[v])); const NT = TRI.length / 3;
+    ALIVE = new Uint8Array(NT).fill(1); TRIC = new Int32Array(NT * 3);
+    // threads: every triangle edge; across each shared edge, the two far corners (folding). Remember who owns what so a rip can spread.
+    const em = new Map(), key = (a, b) => (a < b ? a * 65536 + b : b * 65536 + a);
+    for (let t = 0; t < NT; t++) for (let e = 0; e < 3; e++) {
+      const a = TRI[t * 3 + e], b = TRI[t * 3 + (e + 1) % 3], o = TRI[t * 3 + (e + 2) % 3], k = key(a, b);
+      const r = em.get(k); if (r) { r.opp.push(o); r.tris.push(t); r.slots.push(t * 3 + e); } else em.set(k, { a, b, opp: [o], tris: [t], slots: [t * 3 + e] });
+    }
+    const ca = [], cb = [], ck = [], ecnt = [], ebend = [];
+    for (const r of em.values()) {
+      const id = ca.length; ca.push(r.a); cb.push(r.b); ck.push(1); ecnt.push(r.tris.length); ebend.push(-1);
+      for (const sl of r.slots) TRIC[sl] = id;
+      if (r.opp.length === 2) { ebend[id] = ca.length; ca.push(r.opp[0]); cb.push(r.opp[1]); ck.push(-1); ecnt.push(0); ebend.push(-1); }
+    }
+    NC = ca.length; CA = new Uint16Array(ca); CB = new Uint16Array(cb); CK = new Float32Array(ck); CR = new Float32Array(NC);
+    ECNT = new Int32Array(ecnt); EBEND = new Int32Array(ebend);
+    for (let c = 0; c < NC; c++) CR[c] = Math.hypot(HX[CB[c]] - HX[CA[c]], HY[CB[c]] - HY[CA[c]]) * P.slack;
+    // the pegs: along the top edge of each letter, spread evenly between its leftmost and rightmost top points
+    const bnd = new Uint8Array(N); for (const r of em.values()) if (r.opp.length === 1) { bnd[r.a] = 1; bnd[r.b] = 1; }
+    pegs = [];
+    for (let l = 0; l < letters.length; l++) {
+      let top = 1e9; for (let i = 0; i < N; i++) if (LAB[i] === l && bnd[i] && HY[i] < top) top = HY[i];
+      const band = []; for (let i = 0; i < N; i++) if (LAB[i] === l && bnd[i] && HY[i] < top + capH * 0.07) band.push(i);
+      if (!band.length) continue;
+      band.sort((a, b) => HX[a] - HX[b]);
+      const x0 = HX[band[0]], x1 = HX[band[band.length - 1]], k = x1 - x0 < capH * 0.15 ? 1 : P.pegs;
+      const picked = new Set();
+      for (let j = 0; j < k; j++) {
+        const tx2 = k === 1 ? (x0 + x1) / 2 : x0 + (x1 - x0) * (j / (k - 1)) * 0.94 + (x1 - x0) * 0.03;
+        let bi = band[0]; for (const i of band) if (Math.abs(HX[i] - tx2) < Math.abs(HX[bi] - tx2)) bi = i;
+        if (picked.has(bi)) continue; picked.add(bi);
+        const patch = [], pr = Math.max(s * 1.3, capH * 0.03);
+        for (let i = 0; i < N; i++) if (LAB[i] === l && (HX[i] - HX[bi]) ** 2 + (HY[i] - HY[bi]) ** 2 < pr * pr) { patch.push({ i, ox: HX[i] - HX[bi], oy: HY[i] - HY[bi] }); IM[i] = 0; }
+        pegs.push({ v: bi, patch, x: HX[bi], y: HY[bi], on: true, label: l });
+      }
+    }
+    POS = new Float32Array(N * 3); NRM = new Float32Array(N * 3); IDX = new Uint16Array(TRI.length); idxDirty = true;
+    grab = null; tears = 0; floorOn = true; lower = null; ready = true;
+    window.__torn = { N, NC, pegs: pegs.length, s, capH, step: (k = 1) => { for (let i = 0; i < k; i++) sim(1 / 60); }, frame, rehang, strain: () => { const a = []; for (let c = 0; c < NC; c++) if (CK[c] > 0) a.push(Math.hypot(X[CB[c]] - X[CA[c]], Y[CB[c]] - Y[CA[c]], Z[CB[c]] - Z[CA[c]]) / CR[c]); a.sort((p, q) => p - q); return [0.5, 0.9, 0.99, 1].map((f) => +a[Math.min(a.length - 1, Math.floor(f * a.length))].toFixed(3)); }, pull: (x0, y0, x1, y1, k = 60) => { startGrab({ x: x0, y: y0 }); for (let i = 0; i < k; i++) { grab && (grab.x = x0 + (x1 - x0) * i / k, grab.y = y0 + (y1 - y0) * i / k); sim(1 / 60); } endGrab(); return tears; } };
+  }
+
+  // a snapped thread takes its triangles; their other threads go when no triangle is left to hold them
+  function killTri(t) {
+    if (!ALIVE[t]) return; ALIVE[t] = 0; idxDirty = true;
+    for (let e = 0; e < 3; e++) { const id = TRIC[t * 3 + e]; if (--ECNT[id] <= 0) CK[id] = 0; if (EBEND[id] >= 0) CK[EBEND[id]] = 0; }
+  }
+  const edgeTris = new Map();
+  function snap(id) {
+    // find the (up to two) live triangles on this thread
+    for (let t = 0; t < ALIVE.length; t++) if (ALIVE[t] && (TRIC[t * 3] === id || TRIC[t * 3 + 1] === id || TRIC[t * 3 + 2] === id)) killTri(t);
+    CK[id] = 0; tears++;
+  }
+
+  // ---------- the solver: position-based, in 3D so spare cloth folds out of the page ----------
+  function sim(dt) {
+    const SUB = 4, ITER = 3, h = dt / SUB, g = P.grav * h * h, damp = 0.993, floor = H - 3, tear = lower ? 99 : P.tear, broke = [];
+    if (lower) {                                                     // a fresh set comes down on its pegs
+      lower.t += dt * 1000; const k = Math.min(1, lower.t / lower.ms), e = 0.5 - 0.5 * Math.cos(Math.PI * k);
+      for (const p of pegs) { p.y = HY[p.v] - lower.drop * (1 - e); }
+      if (k >= 1 && lower.t > lower.ms + 900) lower = null;
+    }
+    for (let sI = 0; sI < SUB; sI++) {
+      for (let i = 0; i < N; i++) {
+        if (IM[i] === 0) continue;
+        const vx = (X[i] - PX[i]) * damp, vy = (Y[i] - PY[i]) * damp, vz = (Z[i] - PZ[i]) * damp;
+        PX[i] = X[i]; PY[i] = Y[i]; PZ[i] = Z[i]; X[i] += vx; Y[i] += vy + g; Z[i] += vz;
+      }
+      if (air) {                                                      // air pushed by the moving pointer: along its path and out of the page
+        const r2 = air.r * air.r;
+        for (let i = 0; i < N; i++) {
+          if (!IM[i]) continue; const dx = X[i] - air.x, dy = Y[i] - air.y, q = dx * dx + dy * dy; if (q > r2) continue;
+          const f = (1 - q / r2) * P.air * h * 60;
+          PX[i] -= air.vx * f * 0.05; PY[i] -= air.vy * f * 0.05; PZ[i] -= air.sp * f * 0.06 * air.sign;
+        }
+      }
+      for (const p of pegs) if (p.on) for (const q of p.patch) { X[q.i] = p.x + q.ox; Y[q.i] = p.y + q.oy; Z[q.i] = 0; }
+      for (let it = 0; it < ITER; it++) {
+        for (let c = 0; c < NC; c++) {
+          const kc = CK[c]; if (kc === 0) continue;
+          const a = CA[c], b = CB[c], wa = IM[a], wb = IM[b], ws = wa + wb; if (!ws) continue;
+          const k = kc < 0 ? P.bend : 1;
+          const dx = X[b] - X[a], dy = Y[b] - Y[a], dz = Z[b] - Z[a], d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < 1e-6) continue;
+          if (kc > 0 && it === ITER - 1 && d > CR[c] * tear) { broke.push(c); continue; }
+          const f = (d - CR[c]) / (d * ws) * k;
+          X[a] += dx * f * wa; Y[a] += dy * f * wa; Z[a] += dz * f * wa; X[b] -= dx * f * wb; Y[b] -= dy * f * wb; Z[b] -= dz * f * wb;
+        }
+        if (grab) for (const g2 of grab.nodes) { X[g2.i] = grab.x + g2.ox; Y[g2.i] = grab.y + g2.oy; }
+      }
+      if (floorOn) for (let i = 0; i < N; i++) if (Y[i] > floor) { Y[i] = floor; PX[i] += (X[i] - PX[i]) * 0.6; PZ[i] += (Z[i] - PZ[i]) * 0.6; }
+      for (const c of broke) if (CK[c] > 0) snap(c);
+      broke.length = 0;
+    }
+    if (air) { air.sp *= 0.5; air.vx *= 0.5; air.vy *= 0.5; if (air.sp < 0.05) air = null; }
+  }
+
+  // ---------- drawing ----------
+  function frame() {
+    if (idxDirty) { nIdx = 0; for (let t = 0; t < ALIVE.length; t++) if (ALIVE[t]) { IDX[nIdx++] = TRI[t * 3]; IDX[nIdx++] = TRI[t * 3 + 1]; IDX[nIdx++] = TRI[t * 3 + 2]; } gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufI); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, IDX.subarray(0, nIdx), gl.DYNAMIC_DRAW); idxDirty = false; }
+    NRM.fill(0);
+    for (let q = 0; q < nIdx; q += 3) {
+      const a = IDX[q], b = IDX[q + 1], c = IDX[q + 2];
+      const ux = X[b] - X[a], uy = Y[b] - Y[a], uz = Z[b] - Z[a], vx = X[c] - X[a], vy = Y[c] - Y[a], vz = Z[c] - Z[a];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      NRM[a * 3] += nx; NRM[a * 3 + 1] += ny; NRM[a * 3 + 2] += nz; NRM[b * 3] += nx; NRM[b * 3 + 1] += ny; NRM[b * 3 + 2] += nz; NRM[c * 3] += nx; NRM[c * 3 + 1] += ny; NRM[c * 3 + 2] += nz;
+    }
+    for (let i = 0; i < N; i++) { POS[i * 3] = X[i]; POS[i * 3 + 1] = Y[i]; POS[i * 3 + 2] = Z[i]; }
+    const fg = revealed ? page : ink, bg = revealed ? ink : page;
+    gl.viewport(0, 0, cv.width, cv.height);
+    gl.clearColor(bg[0], bg[1], bg[2], 1); gl.clearDepth(1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufP); gl.bufferData(gl.ARRAY_BUFFER, POS, gl.DYNAMIC_DRAW); gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufN); gl.bufferData(gl.ARRAY_BUFFER, NRM, gl.DYNAMIC_DRAW); gl.enableVertexAttribArray(aN); gl.vertexAttribPointer(aN, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufI);
+    gl.uniform2f(uRes, W, H); gl.uniform3fv(uInk, revealed ? mixc(fg, bg, 0.82) : fg); gl.uniform3fv(uPage, bg); gl.uniform1f(uDark, (revealed ? !dark : dark) ? 1 : 0);
+    gl.uniform1f(uAmt, revealed ? 0 : P.sheen); gl.uniform2f(uL, -0.6, -0.8);
+    if (nIdx) gl.drawElements(gl.TRIANGLES, nIdx, gl.UNSIGNED_SHORT, 0);
+    drawTop(fg, bg);
+  }
+  const mixc = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+  const css = (c) => `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`;
+
+  // pegs always; on reveal, the threads drawn by how hard each one is pulled (the thick ones are the next to go)
+  function drawTop(fg, bg) {
+    tx.setTransform(dpr, 0, 0, dpr, 0, 0); tx.clearRect(0, 0, W, H);
+    const r = Math.max(2, capH * 0.018);
+    if (revealed) {
+      const bands = [[], [], []];
+      for (let c = 0; c < NC; c++) {
+        if (CK[c] <= 0) continue; const a = CA[c], b = CB[c];
+        const st = (Math.hypot(X[b] - X[a], Y[b] - Y[a], Z[b] - Z[a]) / CR[c] - 1) / (P.tear - 1);
+        bands[st > 0.5 ? 2 : st > 0.15 ? 1 : 0].push(a, b);
+      }
+      tx.strokeStyle = css(fg);
+      [[0.35, 0.5], [0.8, 1.2], [1, 2.4]].forEach(([al, lw], k) => {
+        tx.globalAlpha = al; tx.lineWidth = lw; tx.beginPath();
+        const L = bands[k]; for (let q = 0; q < L.length; q += 2) { tx.moveTo(X[L[q]], Y[L[q]]); tx.lineTo(X[L[q + 1]], Y[L[q + 1]]); }
+        tx.stroke();
+      });
+      tx.globalAlpha = 1;
+    }
+    for (const p of pegs) {
+      if (!p.on) continue;
+      tx.beginPath(); tx.arc(p.x, p.y, r, 0, Math.PI * 2); tx.fillStyle = css(bg); tx.fill(); tx.lineWidth = 1; tx.strokeStyle = css(fg); tx.stroke();
+    }
+  }
+
+  function unpeg(p) { if (!p.on) return; p.on = false; for (const q of p.patch) IM[q.i] = 1; }
+
+  // ---------- re-hang: the floor opens, the old cloth falls away, a fresh set comes down on its pegs ----------
+  let rehanging = false;
+  function rehang(first) {
+    if (rehanging) return; rehanging = true;
+    const go = async () => {
+      try { await build(); } catch (e) { rehanging = false; return; }
+      const drop = H * 0.9;
+      for (let i = 0; i < N; i++) { Y[i] -= drop; PY[i] = Y[i]; }
+      for (const p of pegs) p.y = HY[p.v] - drop;
+      lower = { t: 0, ms: 1600, drop }; rehanging = false;
+    };
+    if (first) { go(); return; }
+    floorOn = false; for (const p of pegs) unpeg(p);
+    setTimeout(go, 520);
+  }
+
+  // ---------- input ----------
+  const TAP = { ms: 250, px: 8 }, HOLD_MS = 250, DOUBLE_MS = 380;
+  let press = null, taps = [], tapTimer = 0, lastMove = null;
+  const pt = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  function nearest(q, r) { let bi = -1, bd = r * r; for (let i = 0; i < N; i++) { const d = (X[i] - q.x) ** 2 + (Y[i] - q.y) ** 2; if (d < bd) { bd = d; bi = i; } } return bi; }
+  function startGrab(q) {
+    const i = nearest(q, Math.max(28, s * 3)); if (i < 0) return;
+    const r = Math.max(s * 2.5, capH * 0.12), nodes = [];
+    for (let k = 0; k < N; k++) if (IM[k] && LAB[k] === LAB[i] && (X[k] - X[i]) ** 2 + (Y[k] - Y[i]) ** 2 < r * r) { nodes.push({ i: k, ox: X[k] - q.x, oy: Y[k] - q.y }); IM[k] = 0; }
+    grab = { x: q.x, y: q.y, nodes };
+  }
+  function endGrab() { if (!grab) return; for (const g2 of grab.nodes) { IM[g2.i] = 1; PX[g2.i] = X[g2.i] - (grab.vx || 0) / 4; PY[g2.i] = Y[g2.i] - (grab.vy || 0) / 4; } grab = null; }
+  cv.addEventListener('pointerdown', (e) => {
+    if (press || !ready) return; demo = false; cv.setPointerCapture(e.pointerId);
+    const q = pt(e); press = { id: e.pointerId, x: q.x, y: q.y, t: now(), moved: 0 };
+  });
+  cv.addEventListener('pointermove', (e) => {
+    const q = pt(e), t = now();
+    if (lastMove && !grab) {
+      const dt = Math.max(1, t - lastMove.t), vx = (q.x - lastMove.x) / dt * 16, vy = (q.y - lastMove.y) / dt * 16, sp = Math.hypot(vx, vy);
+      if (sp > 1) air = { x: q.x, y: q.y, vx, vy, sp: Math.min(sp, 60), r: capH * 0.55, sign: Math.random() < 0.5 ? -1 : 1 };
+    }
+    lastMove = { x: q.x, y: q.y, t };
+    if (!press || e.pointerId !== press.id) return;
+    press.moved = Math.max(press.moved, Math.hypot(q.x - press.x, q.y - press.y));
+    if (!grab && press.moved >= TAP.px) startGrab({ x: press.x, y: press.y });
+    if (grab) { grab.vx = q.x - grab.x; grab.vy = q.y - grab.y; grab.x = q.x; grab.y = q.y; }
+  });
+  const up = (e) => {
+    if (!press || e.pointerId !== press.id) return;
+    const ms = now() - press.t, tap = press.moved < TAP.px && ms < TAP.ms, q = { x: press.x, y: press.y };
+    press = null; endGrab();
+    if (!tap) return;
+    taps.push(q); clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => {
+      const n = taps.length, at = taps[0]; taps = [];
+      if (n >= 3) { revealed = !revealed; return; }
+      if (n === 2) { rehang(); return; }
+      // a tap pulls out the nearest peg
+      let bp = null, bd = (capH * 0.6) ** 2;
+      for (const p of pegs) { if (!p.on) continue; const d = (p.x - at.x) ** 2 + (p.y - at.y) ** 2; if (d < bd) { bd = d; bp = p; } }
+      if (!bp) { const i = nearest(at, capH * 0.5); if (i >= 0) for (const p of pegs) if (p.on && p.label === LAB[i]) { const d = (p.x - at.x) ** 2 + (p.y - at.y) ** 2; if (!bp || d < (bp.x - at.x) ** 2 + (bp.y - at.y) ** 2) bp = p; } }
+      if (bp) unpeg(bp);
+    }, DOUBLE_MS);
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  setInterval(() => { if (press && !grab && press.moved < TAP.px && now() - press.t >= HOLD_MS) startGrab({ x: press.x, y: press.y }); }, 30);
+
+  // ---------- loop ----------
+  function loop() { if (ready) { sim(1 / 60); frame(); } requestAnimationFrame(loop); }
+  async function resize() {
+    dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; if (W < 2 || H < 2) return;
+    cv.width = tc.width = Math.round(W * dpr); cv.height = tc.height = Math.round(H * dpr);
+    readTheme();
+    if (demo) rehang(true); else await build();                       // the one self-demo: the name comes down on its pegs
+  }
+  let rt = 0; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(resize, 200); });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+
+  // ---------- settings (test only) ----------
+  const fsel = $('font'); FONTS.forEach((f) => { const o = document.createElement('option'); o.value = o.textContent = f; fsel.appendChild(o); });
+  const fmt = { pegs: (v) => v, tear: (v) => v.toFixed(2), slack: (v) => v.toFixed(2), bend: (v) => v.toFixed(2), grav: (v) => v, air: (v) => v.toFixed(2), detail: (v) => v, sheen: (v) => v.toFixed(2) };
+  const rebuildOn = new Set(['font', 'pegs', 'slack', 'detail']);
+  fsel.value = P.font; fsel.addEventListener('change', () => { P.font = fsel.value; save(); build(); });
+  for (const k of Object.keys(fmt)) {
+    const el = $(k), o = $(k + 'O'); el.value = P[k]; o.textContent = fmt[k](+P[k]);
+    el.addEventListener('input', () => { P[k] = +el.value; o.textContent = fmt[k](P[k]); save(); });
+    if (rebuildOn.has(k)) el.addEventListener('change', () => build());
+  }
+  $('gear').addEventListener('click', () => { const sht = $('sheet'); sht.hidden = !sht.hidden; $('gear').setAttribute('aria-expanded', String(!sht.hidden)); });
+  $('again').addEventListener('click', () => rehang());
+  $('copy').addEventListener('click', () => { const t = JSON.stringify(P); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1200); }).catch(() => prompt('Settings', t)); });
+
+  // ---------- test only: the page theme and the shell's colour pass (the same gradients and blend modes as src/colour.js) ----------
+  const PAL = [[['#2ee6ff', '#6fe0a0', '#d4f01a'], ['#ff4fe0', '#ff5a9a', '#ff6b5e']], [['#ff3fe8', '#ff4d9b', '#ff6a3d'], ['#ff3fe8', '#ff4d9b', '#ff6a3d']],
+    [['#ffe14a', '#ff8a2b', '#ff2f7a'], ['#ff9b2e', '#ff3d6e', '#a62bff']], [['#d9ff2a', '#5cf08a', '#19d5ff'], ['#19d5ff', '#5aa0ff', '#b35bff']],
+    [['#b78bff', '#6a6bff', '#27b9ff'], ['#ff7be5', '#b078ff', '#5a7bff']], [['#fff1b0', '#ffb347', '#ff4a1c'], ['#ffd08a', '#ff6a3d', '#c4177d']]];
+  const qs = new URLSearchParams(location.search);
+  let cpEl = null;
+  function applyColour() {
+    const v = $('colourSel').value; if (cpEl) { cpEl.remove(); cpEl = null; } document.documentElement.classList.remove('colour-dark');
+    if (v === '') return;
+    const [a, b] = PAL[+v]; readTheme();
+    cpEl = document.createElement('div'); cpEl.className = 'colour-pass'; cpEl.setAttribute('aria-hidden', 'true');
+    cpEl.style.background = `linear-gradient(180deg, ${a[0]} 0%, ${a[1]} 24%, ${a[2]} 46%, ${b[0]} 54%, ${b[1]} 77%, ${b[2]} 100%)`;
+    cpEl.style.mixBlendMode = dark ? 'multiply' : 'screen';
+    document.querySelector('.foot').before(cpEl); document.documentElement.classList.toggle('colour-dark', dark);
+  }
+  function applyTheme() { const v = $('theme').value; if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; readTheme(); applyColour(); }
+  $('theme').value = qs.get('theme') || ''; $('colourSel').value = /^[0-5]$/.test(qs.get('colour') || '') ? qs.get('colour') : '';
+  $('theme').addEventListener('change', applyTheme); $('colourSel').addEventListener('change', applyColour);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyColour);
+  applyTheme();
+
+  document.fonts.ready.then(() => { resize(); requestAnimationFrame(loop); });
+})();
+</script>

@@ -322,6 +322,16 @@ export const POSTERS = [
     load: () => import('./lace.js'),
     prompt: "The name \"Idan Segev\" in heavy Bitter as sea foam, with WebGL2 and float textures at screen size. Keep three things per pixel: foam density, how fast it is ageing, and where that bit of foam started (advected with the foam, so the pattern stretches when pulled). Draw foam only where a two-scale bubble-raft pattern (Voronoi, the distance between the nearest and second nearest seed, so bubble middles are high and the films between them low) lies below the density: fresh foam is solid, and as it ages the bubble middles open first and the films last, so the letters thin into lace. A touch makes the foam age; a drag also pushes it along a short-lived wind field; hold is a gale that blows it into rows; double tap sends a breaker across that lays fresh foam. Black foam on white, or white on black.",
   },
+  {
+    slug: 'torn',
+    title: 'Torn',
+    words: ['Idan', 'Segev'],
+    blurb: 'The name cut from cloth and hung from pegs. Stir the air, pull a peg, and pull hard enough to tear it.',
+    hint: null,
+    themes: { dark: 0.5, light: 0.5 },
+    load: () => import('./torn.js'),
+    prompt: "The name \"Idan Segev\" in Alfa Slab One cut from black cloth and hung from a row of pegs along the top of each letter, rendered with WebGL. Make each letter a triangle mesh cut from the glyph, a little larger than the letter, and step it with a position-based cloth solver in 3D (stretch and fold constraints, gravity) so it drapes and folds out of the page; each peg pins a small patch. Every triangle edge is a thread that snaps when stretched past about 2.25 times its length and takes its triangles with it, so a hard pull rips the cloth along the line of most stress and the pieces fall and pile on the floor. A moving pointer pushes air at the cloth; drag pulls it; a tap pulls out the nearest peg; double tap drops everything and lowers a fresh set on its pegs. Black and white only.",
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);
