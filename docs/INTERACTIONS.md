@@ -184,7 +184,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | no demo; ripples at half strength |
 | Face | Bitter 700 (Google Fonts, the name's letters only) |
 
-## Lace (published 25 Oct 2026)
+## Lace (on hold: back to draft 25 Oct 2026, was published the same day)
 
 | | Lace |
 |---|---|

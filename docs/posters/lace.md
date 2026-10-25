@@ -1,6 +1,6 @@
 # Lace (draft)
 
-**Status:** published 2026-10-25. Test at `/?p=lace`.
+**Status:** on hold, back to draft 25 Oct 2026 (Idan: "remove lace from the stack, put it on hold"). It was published the same day. Out of the shuffle and the menu, no share page (`/p/lace/` goes to the home page); still at `?p=lace`.
 
 **Brief (Idan, 24 Oct 2026).** After Cat's paw was parked ("3d and text dont blend when they're plainly put together"): pitch ideas that apply Open Water's materials to the letterforms with no scene. "3 options sound cool. lets create all as different posters." Lace is one of the three (with Glitter and Vessel).
 

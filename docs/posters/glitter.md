@@ -28,3 +28,5 @@ Moon height (how far the glitter reaches), moonlight, glint density, ripples fro
 **Tuned by Idan (24 Oct 2026), now the defaults:** `{"height":1.42,"moon":2.7,"grain":0.65,"rough":2.45,"last":3.8,"bloom":0.7,"rest":0,"weight":700}`
 
 **In the site (24 Oct 2026):** draft poster `src/posters/glitter.js`, `?p=glitter` (settings: `&tune`). Not in the shuffle, no share page. Black only (`darkOnly`). Reveal (three taps, the engine gesture) makes the moon climb and draws the moon and its reach; double tap calms; the self-demo now waits 3.5 s untouched, per the standard.
+
+**Retuned by Idan (25 Oct 2026), now the default:** `{"height":1.42,"moon":2.7,"grain":0.65,"rough":2.45,"last":3.8,"bloom":0.7,"rest":0.05,"weight":700}`: the name faintly there at rest.

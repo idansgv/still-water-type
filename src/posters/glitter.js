@@ -16,7 +16,7 @@ import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './reveal.js';
 
 const FAMILY = 'Bitter', NAME = 'IdanSegv';
-const DEF = { height: 1.42, moon: 2.7, grain: 0.65, rough: 2.45, last: 3.8, bloom: 0.7, rest: 0, weight: 700 };   // Idan's tuning, 24 Oct 2026
+const DEF = { height: 1.42, moon: 2.7, grain: 0.65, rough: 2.45, last: 3.8, bloom: 0.7, rest: 0.05, weight: 700 };   // Idan's tuning, 25 Oct 2026 (the name faintly there at rest)
 const NW = 24;
 
 const VS = `#version 300 es

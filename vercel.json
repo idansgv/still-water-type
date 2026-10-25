@@ -36,6 +36,11 @@
       "source": "/p/rigged/",
       "destination": "/",
       "permanent": false
+    },
+    {
+      "source": "/p/lace/",
+      "destination": "/",
+      "permanent": false
     }
   ]
 }
