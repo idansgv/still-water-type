@@ -508,11 +508,12 @@ export function mount(stage) {
         const cw = Math.min((W - 2 * m - (cols - 1) * gap) / cols, ((H - 2 * m - (rows - 1) * gap) / rows) * 16 / 9);
         if (!best || cw > best.cw) best = { cols, rows, cw };
       }
-      const { cols, rows, cw } = best, ch = cw * 9 / 16, tw = cols * cw + (cols - 1) * gap, th = rows * ch + (rows - 1) * gap, x0 = (W - tw) / 2, y0 = (H - th) / 2;
+      if (W < H) { const cols = 2; best = { cols, rows: 2 + Math.ceil(11 / cols), cw: (W - 2 * m - gap) / cols }; }   // a phone: fill the width, and the book scrolls if it runs taller
+      const { cols, rows, cw } = best, ch = cw * 9 / 16, tw = cols * cw + (cols - 1) * gap, th = rows * ch + (rows - 1) * gap, x0 = (W - tw) / 2, y0 = Math.max(m, (H - th) / 2);
       const taken = new Set(['0,0', '1,0', '0,1', '1,1']), at = (cx, cy, s) => ({ x: x0 + cx * (cw + gap), y: y0 + cy * (ch + gap), w: s * cw + (s - 1) * gap, h: s * ch + (s - 1) * gap });
       rects.push(at(0, 0, 2));
       for (let cy = 0; cy < rows && rects.length < 12; cy++) for (let cx = 0; cx < cols && rects.length < 12; cx++) { if (!taken.has(`${cx},${cy}`)) rects.push(at(cx, cy, 1)); }
-      sy = 0; maxSy = 0;
+      maxSy = W < H ? Math.max(0, y0 + th + Math.max(m, 72) - H) : 0; sy = clamp(sy, 0, maxSy);   // a phone scrolls, with room at the end to clear the footer
     } else {
       const sw = Math.min(W - 2 * m, (H - 2 * m) * 16 / 9), sh = sw * 9 / 16;
       for (let i = 0; i < 12; i++) rects.push({ x: (W - sw) / 2 + (i - cur) * (W) + slideX, y: (H - sh) / 2, w: sw, h: sh });
@@ -611,7 +612,7 @@ export function mount(stage) {
     if (holding) return;
     if (press.moved >= 8) {
       panning = true;
-      if (Math.round(P.layout) === 0) { const ny = clamp(down.sy - (q.y - down.y), 0, maxSy); vy = ny - sy; sy = ny; dirty = true; }
+      if (Math.round(P.layout) !== 2 && maxSy > 0) { const ny = clamp(down.sy - (q.y - down.y), 0, maxSy); vy = ny - sy; sy = ny; dirty = true; }
       else if (Math.round(P.layout) === 2) { slideX = q.x - down.x; layout(); dirty = true; }
     }
   }));
@@ -636,7 +637,7 @@ export function mount(stage) {
   let wheelAcc = 0, wheelT = 0;
   const onWheel = (e) => {
     const L = Math.round(P.layout);
-    if (L === 0) { sy = clamp(sy + e.deltaY, 0, maxSy); dirty = true; e.preventDefault(); }
+    if (L !== 2 && maxSy > 0) { sy = clamp(sy + e.deltaY, 0, maxSy); dirty = true; e.preventDefault(); }
     else if (L === 2) { e.preventDefault(); const now = performance.now(); if (now - wheelT < 350) return; wheelAcc += e.deltaY + e.deltaX; if (Math.abs(wheelAcc) > 40) { step(wheelAcc > 0 ? 1 : -1); wheelAcc = 0; wheelT = now; } }
   };
   stage.root.addEventListener('wheel', onWheel, { passive: false });
@@ -711,7 +712,7 @@ export function mount(stage) {
     else if (dir) { morphT = clamp(morphT + dir * dt / speed); dirty = true; if (morphT <= 0 && dir < 0) { dir = 0; dirtyAll(A); } }
     if (morphT >= 1 && N) commit();
     // inertia after a pan of the wall
-    if (!down && Math.abs(vy) > 0.3 && Math.round(P.layout) === 0) { sy = clamp(sy + vy, 0, maxSy); vy *= 0.92; dirty = true; } else if (!down) vy = 0;
+    if (!down && Math.abs(vy) > 0.3 && maxSy > 0) { sy = clamp(sy + vy, 0, maxSy); vy *= 0.92; dirty = true; } else if (!down) vy = 0;
     // misuse springs
     for (const kd of springs) {
       const st = drags[kd], dts = Math.min(0.032, dt / 1000);
