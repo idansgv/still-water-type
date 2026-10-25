@@ -332,6 +332,17 @@ export const POSTERS = [
     load: () => import('./torn.js'),
     prompt: "The name \"Idan Segev\" in Alfa Slab One cut from black cloth and hung from a row of pegs along the top of each letter, rendered with WebGL. Make each letter a triangle mesh cut from the glyph, a little larger than the letter, and step it with a position-based cloth solver in 3D (stretch and fold constraints, gravity) so it drapes and folds out of the page; each peg pins a small patch. Every triangle edge is a thread that snaps when stretched past about 2.25 times its length and takes its triangles with it, so a hard pull rips the cloth along the line of most stress and the pieces fall and pile on the floor. A moving pointer pushes air at the cloth; drag pulls it; a tap pulls out the nearest peg; double tap drops everything and lowers a fresh set on its pegs. Black and white only.",
   },
+  {
+    slug: 'moonlit',
+    title: 'Moonlit',
+    words: ['Idan', 'Segev'],
+    blurb: 'The name is a slick on a moonlit sea: where the wind roughens the water it glitters, and the letters stay glassy and dark.',
+    hint: null,
+    themes: { dark: 1, light: 0 },
+    darkOnly: true,              // black only: a night sea
+    load: () => import('./moonlit.js'),
+    prompt: "The name \"Idan Segev\" in Bitter 900 as a slick on a night sea seen from straight above, with WebGL2. A slick damps the smallest ripples: inside the letters short waves are almost gone, mid waves halved, the swell untouched. Sum about 28 directional waves (5 to 380 px, gravity-capillary dispersion); ripples too fine for a pixel become slope variance. Light it with a moon outside the frame through a Beckmann slope distribution and draw the glints as a Poisson count per small cell, so rough water is a field of separate sparkles and the letters stay dark mirrors. A quarter-size wind field (pointer moves inject gusts that drift downwind and decay) plus a light breeze everywhere outside the letters, so the name shows at rest. Hold for a gale: swell, foam on the crests, the slick tears into strands and later heals. Black and white only.",
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

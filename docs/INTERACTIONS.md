@@ -231,6 +231,21 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Colour | the framework's colour pass, on the first press |
 | Multi-touch | one pointer |
 
+## Moonlit (published 25 Oct 2026)
+
+| | Moonlit |
+|---|---|
+| At rest | a light breeze outside the letters keeps the sea glittering, so the name shows as dark, glassy water (Idan's tuning) |
+| Hover / drag | wind under the pointer; gusts drift left to right and die away |
+| Tap | a puff of wind (under 250 ms, 8 px) |
+| Hold | a gale (250 ms, still): swell, foam on the crests, the slick tears into strands; heals after you let go |
+| Double tap | calm (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | lightning beyond the frame and a gust across the page; drawn over it: the wind |
+| Self-demo | once, after 3.5 s untouched: a gust crosses the page; off under reduced motion |
+| Theme | black only (`darkOnly: true`) |
+| Reduced motion | no demo; the sea is frozen |
+| Face | Bitter 900 (Google Fonts, the name's letters only) |
+
 ## In the pipeline (draft)
 
 | | Shadow |

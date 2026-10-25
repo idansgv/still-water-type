@@ -1,0 +1,369 @@
+<title>Cat's Paw</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@200..900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one full-bleed sea; a quiet mono line at the foot; a settings sheet for this test only. Night (black) by default, day (white) in the white slot. */
+:root {
+  --bg: #000000; --ink: #ffffff; --dim: #7c7c7c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+:root.day { --bg: #ffffff; --ink: #000000; --dim: #8a8a8a; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(252, 252, 252, 0.96); color-scheme: light; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="Idan Segev, written into the sea as a glassy slick, seen only when wind roughens the water around it."></canvas>
+<div class="foot"><span><b>Cat's paw</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row tog" for="day"><span>Day (the white slot)</span><input type="checkbox" id="day"></label>
+  <label class="row" for="density"><span>Glitter density</span><output id="densityO"></output><input type="range" id="density" min="0.2" max="4" step="0.05" value="0.8"></label>
+  <label class="row" for="moon"><span>Moon (high ↔ low)</span><output id="moonO"></output><input type="range" id="moon" min="15" max="70" step="1" value="36"></label>
+  <label class="row" for="ripple"><span>Ripple strength</span><output id="rippleO"></output><input type="range" id="ripple" min="0.2" max="2" step="0.05" value="1"></label>
+  <label class="row" for="gust"><span>Gust size</span><output id="gustO"></output><input type="range" id="gust" min="30" max="200" step="5" value="90"></label>
+  <label class="row" for="last"><span>How long a gust lasts (s)</span><output id="lastO"></output><input type="range" id="last" min="0.5" max="8" step="0.1" value="2.4"></label>
+  <label class="row" for="edge"><span>Slick edge softness</span><output id="edgeO"></output><input type="range" id="edge" min="0" max="4" step="0.1" value="1.6"></label>
+  <label class="row" for="weight"><span>Type weight</span><output id="weightO"></output><input type="range" id="weight" min="200" max="900" step="10" value="560"></label>
+  <label class="row" for="trace"><span>Trace left at rest</span><output id="traceO"></output><input type="range" id="trace" min="0" max="0.3" step="0.01" value="0"></label>
+  <label class="row" for="foam"><span>Gale foam</span><output id="foamO"></output><input type="range" id="foam" min="0" max="2" step="0.05" value="1"></label>
+  <label class="row tog" for="thunder"><span>Thunder sound</span><input type="checkbox" id="thunder" checked></label>
+  <div class="acts"><button id="copy" type="button">Copy settings</button><button id="reset" type="button">Reset</button></div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c');
+  const gl = cv.getContext('webgl2', { antialias: false, alpha: false });
+  if (!gl) { document.querySelector('.foot span').textContent = 'This needs WebGL2.'; return; }
+  const $ = (id) => document.getElementById(id);
+  const DEF = { day: false, density: 0.8, moon: 36, ripple: 1, gust: 90, last: 2.4, edge: 1.6, weight: 560, trace: 0, foam: 1, thunder: true };
+  const P = { ...DEF };
+  try { Object.assign(P, JSON.parse(localStorage.getItem('cats-paw') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('cats-paw', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const floatOK = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
+
+  const VS = `#version 300 es
+  void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+  const NOISE = `
+  float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+  float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+  float ihash(vec2 p) { uvec2 q = uvec2(ivec2(p) + 65536) * uvec2(1597334673u, 3812015801u); uint n = (q.x ^ q.y) * 1597334673u; return float(n >> 8) / 16777216.0; }
+  float fbm(vec2 p) { return 0.5 * vnoise(p) + 0.3 * vnoise(p * 2.03 + 7.1) + 0.2 * vnoise(p * 4.07 + 3.3); }`;
+
+  // the wind: gusts injected by the pointer drift downwind and decay; g holds slick damage from a gale
+  const SIM = `#version 300 es
+  precision highp float;
+  uniform sampler2D uPrev; uniform vec2 uSimRes, uAdv; uniform float uDecay, uGale, uDt, uTime, uCalm, uAspect;
+  uniform vec4 uP[12]; uniform vec2 uPd[12]; uniform int uNP;
+  out vec4 o;
+  ${NOISE}
+  void main() {
+    vec2 uv = gl_FragCoord.xy / uSimRes, px = 1.0 / uSimRes, src = uv - uAdv;
+    vec4 c = texture(uPrev, src);
+    float nb = 0.25 * (texture(uPrev, src + vec2(px.x, 0)).r + texture(uPrev, src - vec2(px.x, 0)).r
+                     + texture(uPrev, src + vec2(0, px.y)).r + texture(uPrev, src - vec2(0, px.y)).r);
+    float E = max(0.0, mix(c.r, nb, 0.2) * uDecay - 0.0012);
+    for (int i = 0; i < 12; i++) {
+      if (i >= uNP) break;
+      vec2 d = (uv - uP[i].xy) * vec2(uAspect, 1.0), m = uPd[i];
+      float a = dot(d, m), b = dot(d, vec2(-m.y, m.x)), r = uP[i].z;
+      E += uP[i].w * exp(-(a * a / (r * r * 2.4) + b * b / (r * r * 0.7)));
+    }
+    E = min(E * (1.0 - min(1.0, uCalm * uDt * 3.0)), 1.6);
+    float dmg = c.g + uGale * uGale * uDt * 1.1 * smoothstep(0.42, 0.78, fbm(uv * vec2(uAspect, 1.0) * 11.0 + uTime * 0.25));
+    dmg *= 1.0 - min(1.0, uDt * (0.14 * (1.0 - uGale) + uCalm * 3.0));
+    o = vec4(E, clamp(dmg, 0.0, 1.0), 0.0, 1.0);
+  }`;
+
+  const NW = 28;
+  // the sea, seen from straight above: a sum of directional waves, damped inside the slick; moon glints as a Poisson draw per cell
+  const SEA = `#version 300 es
+  precision highp float;
+  uniform sampler2D uWind, uMask; uniform vec2 uRes, uCss, uDir; uniform float uDpr, uT, uMoon, uDensity, uRipple, uSwell, uGale, uFlash, uEdge, uDay, uFoam, uTrace, uCell, uFlick;
+  uniform vec4 uWa[${NW}]; uniform vec2 uWb[${NW}];
+  out vec4 o;
+  ${NOISE}
+  float slick(vec2 uv) {
+    vec2 s = exp2(uEdge) * 0.9 / uCss;
+    return 0.4 * textureLod(uMask, uv, uEdge).r + 0.15 * (textureLod(uMask, uv + vec2(s.x, 0), uEdge).r + textureLod(uMask, uv - vec2(s.x, 0), uEdge).r
+         + textureLod(uMask, uv + vec2(0, s.y), uEdge).r + textureLod(uMask, uv - vec2(0, s.y), uEdge).r);
+  }
+  void main() {
+    vec2 uv = gl_FragCoord.xy / uRes, p = gl_FragCoord.xy / uDpr;
+    vec4 w = texture(uWind, uv);
+    float sRaw = smoothstep(0.08, 0.92, slick(uv)), s = sRaw * (1.0 - w.g);
+    vec2 drift = p - uDir * uT * 38.0;
+    float E = w.r * (0.5 + 1.0 * fbm(drift * 0.011)) + uGale * 1.25;     // patchy, like real cat's paws
+    E = max(E, uTrace * (1.0 - s));
+    float fS = E * (1.0 - s * 0.97) * uRipple, fM = 0.55 * pow(E, 0.8) * (1.0 - s * 0.55) * uRipple, fL = uSwell;
+    vec2 sl = vec2(0); float crest = 0.0;
+    for (int i = 0; i < ${NW}; i++) {
+      vec4 a = uWa[i]; vec2 b = uWb[i];
+      float ph = dot(a.xy, p) - a.z * uT + a.w, k = length(a.xy);
+      float amp = b.x * (b.y < 40.0 ? fS : b.y < 130.0 ? fM : fL);
+      sl += amp * cos(ph) * a.xy / k;
+      if (b.y >= 130.0) crest += amp * sin(ph);
+    }
+    float s2 = 0.0012 + (0.045 * E * (1.0 - s * 0.97) * uRipple + 0.05 * uGale);  // slope variance below a pixel
+    vec3 n = normalize(vec3(-sl, 1.0));
+    vec2 ctr = 0.5 * uCss;
+    vec3 V = normalize(vec3(ctr - p, 1.3 * max(uCss.x, uCss.y)));
+    vec3 rf = reflect(-V, vec3(0, 0, 1)), r = reflect(-V, n);
+    float mir = exp(-s2 * 45.0 - dot(sl, sl) * 8.0);
+    float lum;
+    if (uDay < 0.5) {
+      vec3 L = vec3(0.0, sin(uMoon), cos(uMoon)), H = normalize(V + L);
+      vec2 d = H.xy / H.z - n.xy / n.z;
+      float D = exp(-dot(d, d) / s2) / (3.14159 * s2);
+      vec2 cp = floor(gl_FragCoord.xy / uCell);
+      float h1 = ihash(cp), slot = floor(uT * uFlick + h1 * 17.0);
+      float lam = uDensity * D * 1.1;
+      float g = float(ihash(cp + vec2(slot * 37.0, slot * 11.0)) < 1.0 - exp(-lam)) * (0.5 + 0.5 * ihash(cp.yx + slot * 5.0));
+      lum = 0.006 + g + D * 0.004 * uDensity;
+      lum += uFlash * (0.08 + 0.9 * mir);
+    } else {
+      float rz = clamp(dot(r, rf) - 2.0 * s2, 0.0, 1.0);
+      lum = mix(0.46, 1.0, pow(rz, 8.0));
+      lum -= uFlash * 0.25 * (1.0 - mir);
+    }
+    // gale: foam on the crests and along the torn edges of the slick, drawn out downwind in rows
+    vec2 dp = vec2(dot(p, uDir), dot(p, vec2(-uDir.y, uDir.x)));
+    float rows = fbm(vec2(dp.x * 0.012 - uT * 0.6, dp.y * 0.09));
+    float lace = fbm(drift * 0.05 + 3.0);
+    float foam = smoothstep(0.62, 0.95, crest * 2.2 + lace * 0.8) * smoothstep(0.5, 0.7, fbm(drift * 0.12)) * uGale * uGale;
+    foam += sRaw * w.g * smoothstep(0.42, 0.75, rows * 0.6 + lace * 0.6) * (0.4 + uGale);
+    foam = clamp(foam * uFoam, 0.0, 1.0);
+    lum = mix(lum, uDay < 0.5 ? 0.62 : 1.0, foam * 0.9);
+    lum += (hash(gl_FragCoord.xy + fract(uT) * 91.0) - 0.5) / 255.0;
+    o = vec4(vec3(clamp(lum, 0.0, 1.0)), 1.0);
+  }`;
+
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const prog = (fs) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++) { const name = gl.getActiveUniform(p, i).name.replace(/\[0\]$/, ''); u[name] = gl.getUniformLocation(p, name); }
+    return { p, u }; };
+  const simP = prog(SIM), seaP = prog(SEA);
+  gl.bindVertexArray(gl.createVertexArray());
+
+  // waves: log-spaced from 5 to 380 css px, spread wider for the short ones; gravity-capillary dispersion in px units
+  let windAng = 0; const rnd = (() => { let a = 7; return () => ((a = (a * 16807) % 2147483647) / 2147483647); })();
+  const WA = new Float32Array(NW * 4), WB = new Float32Array(NW * 2);
+  const waves = []; for (let i = 0; i < NW; i++) waves.push({ t: i / (NW - 1), j: rnd() * 2 - 1, ph: rnd() * 6.283, amp: 0.8 + rnd() * 0.4 });
+  const buildWaves = () => {
+    waves.forEach((w, i) => {
+      const lam = 5 * Math.pow(380 / 5, w.t), k = 6.2832 / lam, spread = 1.6 - 1.2 * w.t, a = windAng + w.j * spread;
+      WA.set([Math.cos(a) * k, Math.sin(a) * k, Math.sqrt(75 * k + 120 * k * k * k), w.ph], i * 4);
+      WB.set([(lam < 130 ? 0.05 : 0.07) * w.amp, lam], i * 2);
+    });
+  };
+  buildWaves();
+
+  // targets
+  let W = 0, H = 0, dpr = 1, simW = 0, simH = 0, sims = [], simI = 0;
+  const tex = (w, h, fmt) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    if (fmt === 'f') gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); return { t, f }; };
+
+  // the name, drawn into a mask: Idan over Segev, fitted from the top of the d to the bottom of the g
+  const mc = document.createElement('canvas'), mx = mc.getContext('2d');
+  const maskT = gl.createTexture(); let maskReady = false;
+  const buildMask = () => {
+    mc.width = W; mc.height = H; mx.fillStyle = '#000'; mx.fillRect(0, 0, W, H);
+    const font = (s) => `${P.weight} ${s}px Bitter, Georgia, serif`;
+    mx.font = font(100);
+    const a = mx.measureText('Idan'), b = mx.measureText('Segev');
+    const lead = 92, blockH = a.actualBoundingBoxAscent + lead + b.actualBoundingBoxDescent, blockW = Math.max(a.width, b.width);
+    const m = Math.max(24, Math.min(W, H) * 0.07), foot = 48;
+    const s = Math.min((W - 2 * m) / blockW, (H - 2 * m - foot) / blockH) * 100;
+    mx.font = font(s); mx.fillStyle = '#fff'; mx.textAlign = 'center';
+    const k = s / 100, top = (H - foot - blockH * k) / 2 + a.actualBoundingBoxAscent * k;
+    mx.fillText('Idan', W / 2, top); mx.fillText('Segev', W / 2, top + lead * k);
+    gl.bindTexture(gl.TEXTURE_2D, maskT); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, mc);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    maskReady = true;
+  };
+  const fontReady = (document.fonts ? document.fonts.load(`${P.weight} 100px Bitter`) : Promise.resolve()).catch(() => {});
+
+  const resize = () => {
+    W = Math.max(1, innerWidth); H = Math.max(1, innerHeight);
+    dpr = Math.min(devicePixelRatio || 1, 2, Math.sqrt(2.6e6 / (W * H)));
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    simW = Math.max(64, Math.round(W / 4)); simH = Math.max(64, Math.round(H / 4));
+    sims.forEach((s) => { gl.deleteTexture(s.t); gl.deleteFramebuffer(s.f); });
+    sims = [tex(simW, simH, floatOK ? 'f' : 'b'), tex(simW, simH, floatOK ? 'f' : 'b')];
+    buildMask();
+  };
+
+  // wind input
+  let puffs = []; let Eg = 0, gale = 0, flash = 0, calm = 0, flashT = -1;
+  const puff = (x, y, str, rad, dx = Math.cos(windAng), dy = -Math.sin(windAng)) => {
+    const l = Math.hypot(dx, dy) || 1;
+    puffs.push([x / W, 1 - y / H, rad / H, str, dx / l, -dy / l]);
+    Eg = Math.min(1, Eg + str * 0.12);
+  };
+  let scripted = [];                                     // timed puffs: the self-demo and the reveal's gust
+  const sweep = (t0, dur, str, size = 1.7) => { for (let i = 0; i <= 34; i++) { const f = i / 34;
+    scripted.push({ at: t0 + f * dur, x: (-0.06 + 1.12 * f) * W, y: H * (0.46 + 0.06 * Math.sin(f * 5.3)), str, rad: P.gust * size }); } };
+
+  let audio = null;
+  const thunder = () => {
+    if (!P.thunder || P.day) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const a = audio, len = a.sampleRate * 4, buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+      let v = 0; for (let i = 0; i < len; i++) { v = 0.985 * v + 0.15 * (Math.random() * 2 - 1); d[i] = v; }
+      const src = a.createBufferSource(), lp = a.createBiquadFilter(), g = a.createGain(), t = a.currentTime + 1.9;
+      lp.type = 'lowpass'; lp.frequency.setValueAtTime(420, t); lp.frequency.exponentialRampToValueAtTime(90, t + 3.5);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9, t + 0.08); g.gain.linearRampToValueAtTime(0.5, t + 0.6);
+      g.gain.linearRampToValueAtTime(0.75, t + 0.9); g.gain.exponentialRampToValueAtTime(0.001, t + 3.8);
+      src.buffer = buf; src.connect(lp); lp.connect(g); g.connect(a.destination); src.start(t);
+    } catch (e) { /* silent is fine */ }
+  };
+  const reveal = (now) => { sweep(now, 700, 0.5, 3.2); flashT = now + 380; thunder(); };
+
+  let demoDone = reduced;
+  let down = null, last = null, taps = [], tapTimer = 0;
+  const stopDemo = () => { if (!demoDone) { demoDone = true; scripted = []; } };
+  cv.addEventListener('pointerdown', (e) => {
+    stopDemo(); try { cv.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
+    if (audio && audio.state === 'suspended') audio.resume();
+    down = { x: e.clientX, y: e.clientY, t: performance.now(), far: 0 }; last = { x: e.clientX, y: e.clientY, t: performance.now() };
+  });
+  cv.addEventListener('pointermove', (e) => {
+    const now = performance.now();
+    if (e.pointerType !== 'mouse' && !down) return;
+    if (e.pointerType === 'mouse' && !demoDone && !last) { last = { x: e.clientX, y: e.clientY, t: now }; return; }
+    if (down) down.far = Math.max(down.far, Math.hypot(e.clientX - down.x, e.clientY - down.y));
+    if (last) {
+      const dx = e.clientX - last.x, dy = e.clientY - last.y, d = Math.hypot(dx, dy), dt = Math.max(8, now - last.t);
+      if (d > 2) {
+        stopDemo();
+        const str = Math.min(0.45, (d / dt) * 0.11) * (reduced ? 0.6 : 1);
+        const steps = Math.min(4, Math.ceil(d / 30));
+        for (let i = 1; i <= steps; i++) puff(last.x + dx * i / steps, last.y + dy * i / steps, str / steps * 1.6, P.gust, dx, dy);
+        last = { x: e.clientX, y: e.clientY, t: now };
+      }
+    } else last = { x: e.clientX, y: e.clientY, t: now };
+  });
+  const up = (e) => {
+    if (!down) return;
+    const now = performance.now(), quick = now - down.t < 250 && down.far < 8;
+    if (quick) {
+      taps = taps.filter((t) => now - t < 760); taps.push(now);
+      const n = taps.length; clearTimeout(tapTimer);
+      if (n === 1) puff(e.clientX, e.clientY, 0.7, P.gust * 1.2);
+      else if (n === 2) tapTimer = setTimeout(() => { calm = 1.2; taps = []; }, 380);
+      else { taps = []; reveal(now); }
+    }
+    down = null; if (e.pointerType !== 'mouse') last = null;
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+
+  // loop
+  let prev = performance.now(), t = 0, started = 0;
+  const frame = (now) => {
+    const dt = Math.min(0.05, (now - prev) / 1000); prev = now; t += dt;
+    if (!maskReady) { requestAnimationFrame(frame); return; }
+    if (!started) { started = now; if (!demoDone) sweep(now + 700, 2600, 0.38); }
+
+    scripted = scripted.filter((s) => { if (s.at <= now) { puff(s.x, s.y, s.str, s.rad, 1, 0); return false; } return true; });
+    if (demoDone === false && !scripted.length && now - started > 3500) demoDone = true;
+    const holding = down && now - down.t > 250 && down.far < 24;
+    gale = holding ? Math.min(1, gale + dt / 4.5) : Math.max(0, gale - dt / 3);
+    if (calm > 0) { calm -= dt; gale = 0; Eg *= Math.exp(-dt * 3); }
+    Eg *= Math.exp(-dt / Math.max(0.8, P.last * 1.6));
+    flash = 0;
+    if (flashT > 0) { const f = (now - flashT) / 1000;
+      if (f >= 0) { [[0, 1], [0.07, 0.55], [0.19, 0.8], [0.34, 0.4]].forEach(([s, a]) => { if (f >= s) flash += a * Math.exp(-(f - s) / 0.055); });
+        flash += 0.22 * Math.exp(-f / 0.5); if (f > 3) flashT = -1; } }
+
+    // wind step
+    const src = sims[simI], dst = sims[1 - simI];
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dst.f); gl.viewport(0, 0, simW, simH); gl.useProgram(simP.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.t); gl.uniform1i(simP.u.uPrev, 0);
+    const u = simP.u, sp = 42 * dt, dx = Math.cos(windAng), dy = Math.sin(windAng);
+    gl.uniform2f(u.uSimRes, simW, simH); gl.uniform2f(u.uAdv, dx * sp / W, dy * sp / H);
+    gl.uniform1f(u.uDecay, Math.exp(-dt / P.last)); gl.uniform1f(u.uGale, gale); gl.uniform1f(u.uDt, dt); gl.uniform1f(u.uTime, t);
+    gl.uniform1f(u.uCalm, calm > 0 ? 1 : 0); gl.uniform1f(u.uAspect, W / H);
+    if (puffs.length > 12) { const keep = puffs.slice(-12); puffs = keep; }
+    const PA = new Float32Array(48), PD = new Float32Array(24);
+    puffs.forEach((q, i) => { PA.set([q[0], q[1], q[2], q[3]], i * 4); PD.set([q[4], q[5]], i * 2); });
+    gl.uniform4fv(u.uP, PA); gl.uniform2fv(u.uPd, PD); gl.uniform1i(u.uNP, puffs.length); puffs = [];
+    gl.drawArrays(gl.TRIANGLES, 0, 3); simI = 1 - simI;
+
+    // sea
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, cv.width, cv.height); gl.useProgram(seaP.p);
+    const v = seaP.u;
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, dst.t); gl.uniform1i(v.uWind, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, maskT); gl.uniform1i(v.uMask, 1);
+    gl.uniform2f(v.uRes, cv.width, cv.height); gl.uniform2f(v.uCss, W, H); gl.uniform2f(v.uDir, dx, dy);
+    gl.uniform1f(v.uDpr, cv.width / W); gl.uniform1f(v.uT, t); gl.uniform1f(v.uMoon, P.moon * Math.PI / 180);
+    gl.uniform1f(v.uDensity, P.density); gl.uniform1f(v.uRipple, P.ripple * (reduced ? 0.45 : 1));
+    gl.uniform1f(v.uSwell, Math.min(1, Eg * 0.9 + gale) * (reduced ? 0.45 : 1)); gl.uniform1f(v.uGale, gale);
+    gl.uniform1f(v.uFlash, flash); gl.uniform1f(v.uEdge, P.edge); gl.uniform1f(v.uDay, P.day ? 1 : 0);
+    gl.uniform1f(v.uFoam, P.foam); gl.uniform1f(v.uTrace, P.trace);
+    gl.uniform1f(v.uCell, Math.max(1, Math.round(1.5 * cv.width / W))); gl.uniform1f(v.uFlick, reduced ? 5 : 11);
+    gl.uniform4fv(v.uWa, WA); gl.uniform2fv(v.uWb, WB);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    requestAnimationFrame(frame);
+  };
+
+  // settings (this test only)
+  const fmt = { density: 2, moon: 0, ripple: 2, gust: 0, last: 1, edge: 1, weight: 0, trace: 2, foam: 2 };
+  const applyTheme = () => document.documentElement.classList.toggle('day', !!P.day);
+  const sync = () => { Object.keys(fmt).forEach((k) => { $(k).value = P[k]; $(k + 'O').textContent = (+P[k]).toFixed(fmt[k]); });
+    $('day').checked = !!P.day; $('thunder').checked = !!P.thunder; applyTheme(); };
+  Object.keys(fmt).forEach((k) => $(k).addEventListener('input', () => { P[k] = +$(k).value; $(k + 'O').textContent = P[k].toFixed(fmt[k]); save();
+    if (k === 'weight') document.fonts.load(`${P.weight} 100px Bitter`).then(buildMask, buildMask); }));
+  $('day').addEventListener('change', () => { P.day = $('day').checked; applyTheme(); save(); });
+  $('thunder').addEventListener('change', () => { P.thunder = $('thunder').checked; save(); });
+  $('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });
+  $('copy').addEventListener('click', () => { const txt = JSON.stringify(P);
+    navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1200); },
+      () => { $('copy').textContent = txt; }); });
+  $('reset').addEventListener('click', () => { Object.assign(P, DEF); save(); sync(); buildMask(); });
+  sync();
+
+  addEventListener('resize', () => { resize(); });
+  resize(); maskReady = false;
+  fontReady.then(() => { buildMask(); requestAnimationFrame(frame); });
+})();
+</script>
