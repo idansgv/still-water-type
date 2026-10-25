@@ -1,7 +1,7 @@
 // Splat type: the name is thousands of soft, translucent splats, each a gaussian smear (as in gaussian splatting) sized to fit
 // inside the letter, so together they read as solid type with a slightly painterly, grainy body. Press and the dust near it is
 // thrown outward (a few grains far, most a little); drag and it is pushed along the stroke, stretched into streaks while it
-// flies; a mouse moving over it only breathes on it. Then it drifts home, a spring each, and the letters close up again.
+// flies; a mouse moving over it can breathe on it (off by default). Then it drifts home, a spring each, and the letters close up again.
 //
 // Under the picture (WebGL2): one instanced quad per splat; the vertex shader stretches each along its flight and fades it a
 // little with speed; the fragment shader is the gaussian, premultiplied, blended over the page. The physics is a spring
@@ -17,7 +17,7 @@ import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 
 const FACE = '900 100px Archivo, "Arial Black", "Helvetica Neue", sans-serif';
-const DEF = { settle: 1, breath: 1, reach: 115, force: 2100, back: 1.2, grain: 1.85 };
+const DEF = { settle: 1, breath: 0, reach: 115, force: 2400, back: 0.5, grain: 2.5 };
 
 const VS = `#version 300 es
 layout(location=0) in vec2 aC;

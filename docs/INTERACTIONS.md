@@ -133,7 +133,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 |---|---|
 | Tap / press | a burst: the splats near it are thrown outward, most a little and a few far (reach 115 px; under 250 ms, 8 px is a tap) |
 | Drag | pushes the dust along the stroke; it stretches into streaks while it flies |
-| Hover (mouse) | a breath: a light push from a passing pointer; nothing on touch |
+| Hover (mouse) | a breath: a light push from a passing pointer (off by default; a toggle in settings); nothing on touch |
 | Hold | nothing more than the press |
 | Double tap (empty) | pulls everything home now (a beat later, so a third tap can still mean reveal) |
 | Three taps (reveal) | page inverts; a sample of the grains at home, and where the thrown ones are |
@@ -213,6 +213,21 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Self-demo | none beyond the writing |
 | Reduced motion | the name is written and dried in one go; nothing moves until touched |
 | Colour | its own, on every drag (each press the next colour of the page's palette); the writing stays black |
+
+## Torn (published 25 Oct 2026)
+
+| | Torn |
+|---|---|
+| Hover (mouse) | the moving pointer pushes air at the cloth: it sways and flutters out of the page |
+| Tap | pulls out the nearest peg (a beat later, so a double or triple tap does not): the letter swings down from the rest |
+| Tap on background | nothing, unless a peg or a letter is within about half a cap height |
+| Hold | takes hold of the cloth (250 ms) |
+| Drag | pulls the cloth; pull hard and it tears along the line of most stress, and the pieces fall and pile on the floor |
+| Double tap | the floor opens, the old cloth falls away and a fresh set comes down on its pegs (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | every thread, heavier the harder it is pulled, with the peg and tear counts |
+| Intro | the name comes down on its pegs once on load; under reduced motion it is simply hanging |
+| Colour | the framework's colour pass, on the first press |
+| Multi-touch | one pointer |
 
 ## In the pipeline (draft)
 

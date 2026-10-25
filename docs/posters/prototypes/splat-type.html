@@ -45,12 +45,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 <div class="foot"><span><b>Splat type</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
 <div class="sheet" id="sheet" hidden>
   <label class="row tog" for="settle"><span>Dust settles back into the letters</span><input type="checkbox" id="settle" checked></label>
-  <label class="row tog" for="breath"><span>A passing pointer breathes on it</span><input type="checkbox" id="breath" checked></label>
+  <label class="row tog" for="breath"><span>A passing pointer breathes on it</span><input type="checkbox" id="breath"></label>
   <label class="row tog" for="colour"><span>Colour (the rare easter egg)</span><input type="checkbox" id="colour"></label>
   <label class="row" for="reach"><span>Reach of a touch</span><output id="reachO"></output><input type="range" id="reach" min="60" max="420" step="5" value="115"></label>
-  <label class="row" for="force"><span>Force</span><output id="forceO"></output><input type="range" id="force" min="100" max="2400" step="20" value="2100"></label>
-  <label class="row" for="back"><span>How fast it settles</span><output id="backO"></output><input type="range" id="back" min="0.2" max="6" step="0.1" value="1.2"></label>
-  <label class="row" for="grain"><span>Splats (fewer, coarser ↔ more, finer)</span><output id="grainO"></output><input type="range" id="grain" min="0.3" max="2.5" step="0.05" value="1.85"></label>
+  <label class="row" for="force"><span>Force</span><output id="forceO"></output><input type="range" id="force" min="100" max="2400" step="20" value="2400"></label>
+  <label class="row" for="back"><span>How fast it settles</span><output id="backO"></output><input type="range" id="back" min="0.2" max="6" step="0.1" value="0.5"></label>
+  <label class="row" for="grain"><span>Splats (fewer, coarser ↔ more, finer)</span><output id="grainO"></output><input type="range" id="grain" min="0.3" max="2.5" step="0.05" value="2.5"></label>
   <div class="acts"><button id="reset" type="button">Back to the letters</button><button id="copy" type="button">Copy settings</button></div>
 </div>
 
@@ -60,9 +60,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   const gl = cv.getContext('webgl2', { antialias: false, premultipliedAlpha: true, alpha: false });
   if (!gl) { document.querySelector('.foot span').textContent = 'This needs WebGL2.'; return; }
   const $ = (id) => document.getElementById(id);
-  const P = { settle: true, breath: true, colour: false, reach: 115, force: 2100, back: 1.2, grain: 1.85 };
-  try { Object.assign(P, JSON.parse(localStorage.getItem('splat-type-v2') || '{}')); } catch (e) { /* no storage: defaults */ }
-  const save = () => { try { localStorage.setItem('splat-type-v2', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const P = { settle: true, breath: false, colour: false, reach: 115, force: 2400, back: 0.5, grain: 2.5 };
+  try { Object.assign(P, JSON.parse(localStorage.getItem('splat-type-v3') || '{}')); } catch (e) { /* no storage: defaults */ }
+  const save = () => { try { localStorage.setItem('splat-type-v3', JSON.stringify(P)); } catch (e) { /* fine */ } };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------- shaders: one soft gaussian per splat, stretched along its flight ----------
