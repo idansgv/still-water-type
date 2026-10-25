@@ -226,6 +226,7 @@ export async function mount(stage) {
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pointer) return;
     const r = press.up(q, e.pointerId); pointer = null; gv.to = 0;
+    if (combing && !stage.reduced) ripple(q.x, q.y, STIR.kick);                // letting go after a drag sends one last ring from where it ended
     if (!r || combing) { combing = false; return; }
     if (r.tap) {
       tapDrop(q.x, q.y);

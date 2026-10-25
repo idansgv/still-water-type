@@ -265,6 +265,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   });
   cv.addEventListener('pointerup', (e) => {
     gv.to = 0;
+    if (down && combing && !REDUCED) ripple(e.clientX, e.clientY, STIR.kick);   // letting go after a drag sends one last ring from where it ended
     if (down && !combing && performance.now() - down.t < 400) {
       const tone = P.colour ? drops % 6 : 'ink'; drops++;
       drop(e.clientX, e.clientY, P.drop, tone);
