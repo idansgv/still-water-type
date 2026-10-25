@@ -1,6 +1,6 @@
 # Glitter (draft)
 
-**Status:** draft in the site (`?p=glitter`), 24 Oct 2026; settings tuned by Idan. Not in the shuffle, not published.
+**Status:** published 2026-10-25. Test at `/?p=glitter`.
 
 **Brief (Idan, 24 Oct 2026).** One of three type-as-material posters from Open Water (with Lace and Vessel), after Cat's paw was parked: no scene, the letters are the material. "3 options sound cool. lets create all as different posters."
 

@@ -170,7 +170,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | no demo; the morph runs faster |
 | Colour | the framework's pass on a press |
 
-## In the pipeline (draft)
+## Glitter (published 25 Oct 2026)
 
 | | Glitter |
 |---|---|
@@ -184,6 +184,8 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | no demo; ripples at half strength |
 | Face | Bitter 700 (Google Fonts, the name's letters only) |
 
+## Lace (published 25 Oct 2026)
+
 | | Lace |
 |---|---|
 | Hover (mouse) | a breath: the foam under the pointer ages a little |
@@ -196,6 +198,8 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Theme | both: black foam on white (Idan's pick, the likelier draw), white foam on black |
 | Reduced motion | no demo; touches at half strength |
 | Face | Bitter 840 (Google Fonts, the name's letters only) |
+
+## In the pipeline (draft)
 
 | | Wash script |
 |---|---|

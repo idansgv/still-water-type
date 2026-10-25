@@ -309,7 +309,6 @@ export const POSTERS = [
     hint: null,
     themes: { dark: 1, light: 0 },
     darkOnly: true,              // black only: moonlight on water has no white version, like Glint
-    draft: true,
     load: () => import('./glitter.js'),
     prompt: "The name \"Idan Segev\" in Bitter as the only water on a black page, seen from straight above, with WebGL2; the pointer is a small moon above the page. Inside the letters sum about 24 ripples (3 to 240 px, every direction, gravity-capillary dispersion); ripples too fine for a pixel become slope variance. At each pixel take the half vector between the view and the moon, compare it with the surface normal through a Beckmann slope distribution, and draw the glints as a Poisson count per pixel from that expected radiance, so near the moon they are separate sparkles and further off a glow. Moves leave a wake of ripples (a low-resolution field that spreads and decays); hold raises the wind over every letter. HDR with a bloom. A calm letter is a black mirror. Black and white only.",
   },
@@ -320,7 +319,6 @@ export const POSTERS = [
     blurb: 'The name in sea foam. Touch it and the foam ages the way real foam does, opening along its bubbles into lace.',
     hint: null,
     themes: { dark: 0.3, light: 0.7 },
-    draft: true,
     load: () => import('./lace.js'),
     prompt: "The name \"Idan Segev\" in heavy Bitter as sea foam, with WebGL2 and float textures at screen size. Keep three things per pixel: foam density, how fast it is ageing, and where that bit of foam started (advected with the foam, so the pattern stretches when pulled). Draw foam only where a two-scale bubble-raft pattern (Voronoi, the distance between the nearest and second nearest seed, so bubble middles are high and the films between them low) lies below the density: fresh foam is solid, and as it ages the bubble middles open first and the films last, so the letters thin into lace. A touch makes the foam age; a drag also pushes it along a short-lived wind field; hold is a gale that blows it into rows; double tap sends a breaker across that lays fresh foam. Black foam on white, or white on black.",
   },
