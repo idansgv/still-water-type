@@ -136,6 +136,15 @@ export async function mount(stage) {
     }
     stirring = true;
   }
+  function ripple(x, y, kick) {                                       // a ring of push from a touch: outward, springy, settles back like the stir
+    const f = field(), C = STIR.cell, R = STIR.sigma * 2.6, s2 = STIR.sigma * STIR.sigma;
+    const i0 = Math.max(0, Math.floor((x - R) / C)), i1 = Math.min(f.gw - 1, Math.ceil((x + R) / C)), j0 = Math.max(0, Math.floor((y - R) / C)), j1 = Math.min(f.gh - 1, Math.ceil((y + R) / C));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const ex = i * C - x, ey = j * C - y, d = Math.hypot(ex, ey) || 1e-3, w = Math.exp(-(d * d) / s2) * kick, o = (j * f.gw + i) * 2;
+      f.v[o] += (ex / d) * w; f.v[o + 1] += (ey / d) * w;
+    }
+    stirring = true;
+  }
   function stepStir(dt) {
     if (!stirring || !sg) return;
     const h = Math.min(dt, 1 / 30), { d, v } = sg; let live = 0;
@@ -186,7 +195,7 @@ export async function mount(stage) {
 
   // ---------- touch ----------
   const press = pressTracker();
-  let lastInput = -1e9, breathT = 0;                                // idle breathing: after a quiet spell the water shivers faintly, now and then, and settles
+  let lastInput = -1e9, breathT = 0, lastRipple = 0;                                // idle breathing: after a quiet spell the water shivers faintly, now and then, and settles
   let hov = null, combing = false, last = null, lastTap = 0, pointer = null;
   const tapDrop = (x, y) => {
     const tone = col && col.woke ? col.css(stage.rand()) : 'ink';
@@ -196,6 +205,7 @@ export async function mount(stage) {
   offs.push(stage.on('down', (q, e) => {
     if (!press.down(q, e.pointerId)) return;
     touched = true; demo = null; lastInput = performance.now(); pointer = e.pointerId; last = { x: q.x, y: q.y }; combing = false; gv.x = q.x; gv.y = q.y; gv.to = GIVE_PX;
+    if (!stage.reduced) ripple(q.x, q.y, STIR.kick * 1.2);                          // every touch sends out a ripple
   }));
   offs.push(stage.on('move', (q, e) => {
     lastInput = performance.now();
@@ -207,7 +217,11 @@ export async function mount(stage) {
     if (e.pointerId !== pointer) return;
     press.move(q, e.pointerId);
     if (!combing && press.moved > TAP.px) { combing = true; gv.to = 0; }
-    if (combing) { tine(last.x, last.y, q.x, q.y); last = { x: q.x, y: q.y }; }
+    if (combing) {
+      tine(last.x, last.y, q.x, q.y); last = { x: q.x, y: q.y };
+      const now = performance.now();
+      if (!stage.reduced && now - lastRipple > 140) { ripple(q.x, q.y, STIR.kick * 0.5); lastRipple = now; }   // a drag keeps sending ripples, a few a second
+    }
   }));
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pointer) return;
