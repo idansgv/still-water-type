@@ -186,6 +186,7 @@ export async function mount(stage) {
 
   // ---------- touch ----------
   const press = pressTracker();
+  let lastInput = -1e9, breathT = 0;                                // idle breathing: after a quiet spell the water shivers faintly, now and then, and settles
   let hov = null, combing = false, last = null, lastTap = 0, pointer = null;
   const tapDrop = (x, y) => {
     const tone = col && col.woke ? col.css(stage.rand()) : 'ink';
@@ -194,9 +195,10 @@ export async function mount(stage) {
   };
   offs.push(stage.on('down', (q, e) => {
     if (!press.down(q, e.pointerId)) return;
-    touched = true; demo = null; pointer = e.pointerId; last = { x: q.x, y: q.y }; combing = false; gv.x = q.x; gv.y = q.y; gv.to = GIVE_PX;
+    touched = true; demo = null; lastInput = performance.now(); pointer = e.pointerId; last = { x: q.x, y: q.y }; combing = false; gv.x = q.x; gv.y = q.y; gv.to = GIVE_PX;
   }));
   offs.push(stage.on('move', (q, e) => {
+    lastInput = performance.now();
     if (pointer === null) {                                           // a mouse moving over the ink, no button: stir it gently
       if (e.pointerType !== 'mouse' || demo || stage.reduced || e.buttons) { hov = null; return; }
       if (hov) { const mv = Math.hypot(q.x - hov.x, q.y - hov.y); if (mv < 90) { stir(hov.x, hov.y, q.x, q.y); touched = true; } }
@@ -272,9 +274,17 @@ export async function mount(stage) {
 
   await restart();
   offs.push(stage.on('resize', () => { W = stage.W; H = stage.H; restart(); }));
+  // idle breathing: a small, springy push into the field at a point on the ink; the shapes never change, it just settles back
+  function breathe() {
+    const l = shapes.length && shapes[0].loops.length ? shapes[0].loops[Math.floor(stage.rand() * shapes[0].loops.length)] : null;
+    if (!l || l.length < 4) return;
+    const k = 2 * Math.floor(stage.rand() * (l.length / 2)), a = stage.rand() * Math.PI * 2;
+    stir(l[k], l[k + 1], l[k] + Math.cos(a) * 5, l[k + 1] + Math.sin(a) * 5);
+  }
   offs.push(stage.frame((dt) => {
     if (!touched && !demo && !stage.reduced && performance.now() - born > 3500 && !startDemo.done) { startDemo.done = true; startDemo(); }
     stepDemo(dt); stepGive(dt); stepStir(dt);
+    if (!stage.reduced && !demo && performance.now() - lastInput > 2500 && (breathT -= dt) <= 0) { breathe(); breathT = 3.5 + stage.rand() * 2.5; }
     if (dirty) { dirty = false; draw(); }
     rv.draw();
   }));

@@ -107,6 +107,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Hover (mouse) | gently stirs the ink: it is drawn displaced by a springy field the mouse pushes, swings back with a small bounce and settles exactly where it was; the shapes are never changed. Counts as the first touch (no self-demo after) |
 | Touch | the same; one pointer |
 | Hold | the ink under the finger gives a few pixels, in a soft ring, and springs back on release (drawn only) |
+| Idle | after 2.5 s untouched, a faint shiver every 3.5 to 6 s, at a random point on the ink; drawn only, settles back (off under reduced motion, and during the opening demo) |
 | Double tap (empty) | start again: the clean name (a beat later, so a third tap can still mean reveal) |
 | Three taps (reveal) | page inverts; every shape's outline and points, and each drop with its ring |
 | Face | "Idan Segev" in Arial Black (Helvetica Bold where it is missing) |
