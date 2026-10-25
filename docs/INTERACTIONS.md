@@ -151,7 +151,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Tap | knocks a coarse hole (a fifth of the short side): the fine cells there go, a few big ones take their place and refine back (under 250 ms, 8 px) |
 | Hold | melts the cells under the finger (250 ms) |
 | Double tap | starts over from the coarse crackle (a beat later, so a third tap can still mean reveal) |
-| Three taps (reveal) | page inverts; every seed as a dot, the cell count and the density outside the letters |
+| Three taps (reveal) | dots only: the page inverts, the cell edges go and only the seeds stay, still moving with every gesture; the taps leave no hole (the seeds are put back as they were before the first tap) |
 | Face | Fraunces 900 (Google Fonts, the name's letters only) |
 | Colour (rare) | the framework's colour pass, on the first press |
 | Multi-touch | one pointer |

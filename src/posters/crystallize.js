@@ -8,14 +8,16 @@
 //
 // Gestures (src/gestures.js): drag or hover stirs the cells; tap knocks a coarse hole that crystallizes back; hold melts the
 // cells under the finger; double tap on the page starts over (a beat later, so a third tap can still mean reveal).
+// Three taps (reveal) switch to dots only: the page inverts and only the seeds are drawn, still alive to every gesture.
 // The crystallization on load is the one intro; under reduced motion the poster opens already settled.
 
 import { Delaunay } from '../vendor/d3-delaunay.es.js';
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
-import { createReveal, grid, corners, titleBlock, ink as rvInk } from './reveal.js';
+import { createReveal, ink as rvInk } from './reveal.js';
 
 const FAMILY = 'Fraunces', WEIGHT = 900, NAME = 'Idan Segev';
 const DEF = { cells: 9000, out: 0.28, speed: 0.35, line: 1.3 };
+const DOT = 1;                                     // reveal: the radius of a seed, Idan's dot size from the test page
 
 export async function mount(stage) {
   const c = stage.canvas.getContext('2d');
@@ -157,18 +159,26 @@ export async function mount(stage) {
     const now = performance.now();
     clearTimeout(reform);
     if (lastTap >= 0 && now - lastTap < DOUBLE_MS) { lastTap = -1; reform = setTimeout(() => { if (alive && !stage.revealed) { seedCoarse(); dirty = true; } }, REFORM_DELAY_MS); }
-    else { lastTap = now; knock(q.x, q.y); }
+    else {
+      if (!undo || now - undo.t > 800) undo = { pts: pts.slice(0, n * 2), n, t: now };   // the first tap of what may be three
+      lastTap = now; knock(q.x, q.y);
+    }
+  }));
+  // Three taps mean reveal, not three holes: put back the seeds as they were before the first tap.
+  let undo = null;
+  offs.push(stage.on('reveal', () => {
+    clearTimeout(reform); lastTap = -1;
+    if (!undo || performance.now() - undo.t > 1200) return;
+    pts.set(undo.pts); n = undo.n; undo = null;
+    rebuild(); still = 0; dirty = true;
   }));
 
-  // ---------- reveal: the seeds, the cells' count and the density they follow ----------
+  // ---------- reveal: dots only. The cell edges go and only the seeds stay, still moving with the cells ----------
   const rv = createReveal(stage, (cx, W_, H_, k) => {
-    const col = (a) => rvInk(stage, a);
-    grid(cx, W_, H_, 24, col, k); corners(cx, W_, H_, 16, col, k);
-    cx.fillStyle = col(0.9 * k); cx.beginPath();
-    for (let i = 0; i < n; i++) { const x = pts[2 * i], y = pts[2 * i + 1]; cx.moveTo(x + 1.4, y); cx.arc(x, y, 1.4, 0, Math.PI * 2); }
+    cx.fillStyle = rvInk(stage, k); cx.beginPath();
+    for (let i = 0; i < n; i++) { const x = pts[2 * i], y = pts[2 * i + 1]; cx.moveTo(x + DOT, y); cx.arc(x, y, DOT, 0, Math.PI * 2); }
     cx.fill();
-    titleBlock(cx, W_, H_, ['CRYSTALLIZE · STRUCTURE', '• a seed: each owns the nearest page', `${n} of ${cap} cells`, `outside density ${P.out}`], col, k);
-  });
+  }, { dim: 0 });
 
   // ---------- settings ----------
   const Ctl = (key, label, min, max, step) => ({ key, label, min, max, step });

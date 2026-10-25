@@ -8,7 +8,7 @@
 
 **How.** 2D canvas. d3-delaunay 6.0.4 (ISC) is vendored as an ES module in `src/vendor/d3-delaunay.es.js`. Seeds live in one Float64Array the triangulation reads in place. The samples for a Lloyd step are kept with a probability equal to the density (1 in the letters, 0.28 outside), so a step costs one `find()` per sample. Once the seeds stop moving and nothing splits, the poster stops computing and drawing.
 
-**Interactions:** see `docs/INTERACTIONS.md` (Crystallize). Hover or drag stirs; tap knocks a coarse hole that refines back; hold melts; double tap starts over; three taps show the seeds.
+**Interactions:** see `docs/INTERACTIONS.md` (Crystallize). Hover or drag stirs; tap knocks a coarse hole that refines back; hold melts; double tap starts over; three taps switch to dots only (Idan, 25 Oct 2026): the seeds without their cell edges, inverted, still live.
 
 **The other directions** (still on the test page): Develop (seeds dropped under the pointer sharpen a coarse mosaic), Fault line (only the borders between letter cells and the rest are inked; springy seeds), Wave (a tap flips the cells card by card through the graph).
 
