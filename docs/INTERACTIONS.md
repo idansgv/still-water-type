@@ -199,7 +199,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | no demo; touches at half strength |
 | Face | Bitter 840 (Google Fonts, the name's letters only) |
 
-## In the pipeline (draft)
+## Wash script (published 25 Oct 2026)
 
 | | Wash script |
 |---|---|
@@ -213,6 +213,8 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Self-demo | none beyond the writing |
 | Reduced motion | the name is written and dried in one go; nothing moves until touched |
 | Colour | its own, on every drag (each press the next colour of the page's palette); the writing stays black |
+
+## In the pipeline (draft)
 
 | | Shadow |
 |---|---|

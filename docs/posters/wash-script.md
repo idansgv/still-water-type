@@ -1,6 +1,6 @@
-# Wash script (draft; started as the Wash idea)
+# Wash script (started as the Wash idea)
 
-**Status:** draft (Wash script), 24 Oct 2026. Test at `/?p=wash-script` (settings: `&tune`). Code: `src/posters/wash-script.js`. The first idea (water as a lens, then a stain) has a target still only: `docs/posters/wash-still.png`.
+**Status:** published 2026-10-25. Test at `/?p=wash-script`.
 
 **Reference.** Kynd, "Wet and material strokes" (kynd.info/unlock/wet-material-strokes, CC BY-SA 4.0): strokes that sample and move what is under them; watercolour rims and bleed; glass strokes with a height field that refract the canvas. Look and idea only; the demos expose no code and none is copied.
 
@@ -27,3 +27,5 @@
 **Open.** Colour is on every drag, which goes past the site's rule that colour is a rare easter egg (and the easter egg is switched off site-wide since 24 Oct): Idan's call at review. Not measured on a phone; the simulation is heavier than most posters (2.2 million cells at most, three steps a frame while wet). The writing takes about 8 s at the tuned speed. No self-demo beyond the writing.
 
 **Faces (24 Oct 2026).** Idan: "i dont like all the script fonts, can you put together a mini catalog i can pick and choose from?" Catalog: `docs/posters/prototypes/wash-script-faces.html` (private link https://claude.ai/artifact/54ks5tj2YHkmjFAEB2ejxx): 51 Google script and handwriting faces, each drawn as the centre line the brush would follow (found at poster size, so hairlines survive the thinning). His picks, in his order, are now the poster's faces: Parisienne, WindSong, Dancing Script, Mr Dafoe, Comforter, Zeyada, Nothing You Could Do, Reenie Beanie, Caveat, Gloria Hallelujah. All ten checked through the poster at 900 x 560; they load and fit. `debug.face(n)` jumps to a face.
+
+**Published (25 Oct 2026).** Idan: "do it." Colour stays on every drag, its own (`colour: 'native'`), while the site-wide easter egg is off. Share page `p/wash-script/`.
