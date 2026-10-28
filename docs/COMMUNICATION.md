@@ -19,6 +19,7 @@ Written 28 October 2026. How idansegev.com gets talked about outside the site: t
 | Website | Holds the code and the live experiences. Everything points here. |
 | Instagram, X | Drive traffic, build reputation. |
 | LinkedIn | Channels the work to the relevant audience: product and exec leaders. |
+| Substack | New since 28 October 2026 ([@idansegev](https://substack.com/@idansegev)); the launch post went out here first, as a Note. Its job is not set yet. |
 
 **Approach: giving tools.**
 - Share the work with copyable prompts people can drop into their own AI.
@@ -44,24 +45,27 @@ Learned from the drafts on 18 and 28 October 2026.
 - **Taste-maxing:** making a lot, keeping a little. Use it lightly ("a little"), never as a slogan. If it sticks, it can become a hashtag or a section title, so every channel carries the same phrase.
 - **The fun came back.** Loved creative coding, never had the time, AI made it fun again.
 
-## Launch post (LinkedIn)
+## Launch post
 
-Status: ready, not posted (28 October 2026).
+Posted 28 October 2026 as a [Substack Note](https://substack.com/@idansegev/note/c-372274731). Not yet on LinkedIn, Instagram or X. This is the text as posted:
 
-> We keep hearing about taste. I've been trying to figure out what it means for me.
+> We keep hearing about taste. I've been trying to figure out what it means for me. Right now I think it's three things.
 >
-> Right now I think it's three things.
 > Creativity: I can try anything.
+>
 > Restraint: I pick one.
+>
 > Focus: I stay with it until it feels done.
 >
-> AI made the first part easy. The other two I'm still learning.
+> AI made the first part easy. The other two take honing.
 >
 > I always loved creative coding but never had the time for it. AI made it fun again, so I've been taste-maxing a little: making a lot, keeping a little.
 >
-> This is where it lives. A different type poster every time you refresh.
+> This is where the experiments live:
 >
 > idansegev.com
+
+Why "take honing" and not "you need to keep honing": the post is in first person throughout, and "you need to" tells the reader what to do.
 
 Short version (X, Instagram caption):
 
