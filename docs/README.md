@@ -3,6 +3,7 @@
 Written 5 October 2026, updated 7 October 2026. `BRIEF.md` in the repository root is the running record (every decision, round and dead end, in order). These files are the clean reference: what each thing is and how it works now.
 
 - [PROJECT.md](PROJECT.md): the project itself: purpose, principles, architecture, the shared engine and shell, physics and GPU stack, deployment, working process, licences, risks, roadmap.
+- [COMMUNICATION.md](COMMUNICATION.md): how the site is talked about outside it: content strategy, voice, the launch post.
 - Posters in the rotation (the shuffle, as of 7 October 2026) or reachable by link:
   - [Still Water](posters/still-water.md): live, in the shuffle
   - [Soft type](posters/soft-type.md): live, in the shuffle (balloon behaviour: inflate, rocket, burst)
