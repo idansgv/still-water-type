@@ -7,7 +7,7 @@ Status as of 29 Oct 2026. Tick items off here as they land.
 | 1 | Slinky: composition, possibly the font, and the coil colour | Open | Needs Idan's target for composition and colour |
 | 2 | Marbled: change the font | Open | Needs Idan's pick of font |
 | 3 | Shuffle order: Still Water first more often | Done | About 55% of visits open on Still Water (`12e711a`) |
-| 4 | Dark-only posters (Glint, Glitter, Moonlit, Goblet) only on black turns | Done locally | `src/main.js`: pool filter in `pickOther` and `pickFirst`. Checked over 25 shuffles in the browser. Confirm which poster "Sparkles" is |
+| 4 | Dark-only posters (Glint, Glitter, Moonlit) only on black turns | Done | `src/main.js`: pool filter in `pickOther` and `pickFirst`. Checked over 25 shuffles in the browser. Confirm which poster "Sparkles" is |
 | 5 | Make it clear that double tap clears a poster | Open | Needs copy and placement from Idan |
 | 6 | Torn: look better and fix performance | Open | Investigate performance first |
 | 7 | Rename the watercolour poster to Wash | Done locally | Title changed in `src/posters/index.js`. Slug stays `wash-script` so the live share link keeps working |
