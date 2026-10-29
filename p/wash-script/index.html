@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Wash script · Idan Segev</title>
+<title>Wash · Idan Segev</title>
 <meta name="description" content="A wet brush writes the name in watercolour. Drag through it with a brush of coloured water; double tap to blot.">
 <link rel="canonical" href="https://idansegev.com/p/wash-script/">
 <meta name="theme-color" content="#000000">
@@ -11,7 +11,7 @@
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Idan Segev">
-<meta property="og:title" content="Wash script · Idan Segev">
+<meta property="og:title" content="Wash · Idan Segev">
 <meta property="og:description" content="A wet brush writes the name in watercolour. Drag through it with a brush of coloured water; double tap to blot.">
 <meta property="og:url" content="https://idansegev.com/p/wash-script/">
 <meta property="og:image" content="https://idansegev.com/assets/og.png">
@@ -19,7 +19,7 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Idan Segev, set in huge white type on black, melting at the baseline.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Wash script · Idan Segev">
+<meta name="twitter:title" content="Wash · Idan Segev">
 <meta name="twitter:description" content="A wet brush writes the name in watercolour. Drag through it with a brush of coloured water; double tap to blot.">
 <meta name="twitter:image" content="https://idansegev.com/assets/og.png">
 
@@ -49,6 +49,12 @@
 <div id="hint" class="hint" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
+<form id="name-form" class="name-form" autocomplete="off" hidden>
+  <input id="name-input" type="text" maxlength="14" spellcheck="false" autocapitalize="words" enterkeyhint="done" aria-label="Name">
+  <button id="name-reset" type="button">Reset</button>
+  <p id="name-err" class="name-err" role="alert"></p>
+</form>
+
 <footer class="chrome">
   <div class="id">
     <span class="who" id="who">
@@ -57,6 +63,7 @@
         <span class="role"><span class="r1">Design leader.</span> <span class="r2">Building teams of builders.</span></span>
         <nav id="links" class="links" aria-label="Elsewhere">
           <a href="https://www.linkedin.com/in/idansegev/" target="_blank" rel="noopener">LinkedIn</a>
+          <button id="btn-customize" type="button">Customize</button>
         </nav>
       </span>
     </span>
