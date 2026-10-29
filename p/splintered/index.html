@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en" data-poster="splintered">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Splintered · Idan Segev</title>
+<meta name="description" content="Polished type. Touch it and it blows apart toward you, hard at first, then in slow motion. Hold to rewind.">
+<link rel="canonical" href="https://idansegev.com/p/splintered/">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark light">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Idan Segev">
+<meta property="og:title" content="Splintered · Idan Segev">
+<meta property="og:description" content="Polished type. Touch it and it blows apart toward you, hard at first, then in slow motion. Hold to rewind.">
+<meta property="og:url" content="https://idansegev.com/p/splintered/">
+<meta property="og:image" content="https://idansegev.com/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Idan Segev, set in huge white type on black, melting at the baseline.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Splintered · Idan Segev">
+<meta name="twitter:description" content="Polished type. Touch it and it blows apart toward you, hard at first, then in slow motion. Hold to rewind.">
+<meta name="twitter:image" content="https://idansegev.com/assets/og.png">
+
+<link rel="icon" href="/assets/favicon-light.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Idan Segev">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<link rel="stylesheet" href="/src/shell.css">
+<script type="module" src="/src/main.js"></script>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="444fe210-9edc-4c19-86d7-e5a1197075e4"></script>
+</head>
+<body>
+<h1 class="sr-only">Idan Segev, design leader and builder of builders</h1>
+
+<div id="stage" class="stage"></div>
+
+<!-- The menu: hover the top-left corner and a quiet "Posters" appears; click it and the posters are listed in large type, a preview following the pointer. -->
+<button id="menu-corner" class="menu-corner" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="index"><span class="lbl">Posters</span></button>
+<div id="index" class="index" role="dialog" aria-modal="true" aria-label="Posters" hidden>
+  <ol id="index-list" class="index-list"></ol>
+  <div id="peek" class="peek" aria-hidden="true"><img alt="" decoding="async"></div>
+</div>
+
+<div id="hint" class="hint" aria-hidden="true"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<footer class="chrome">
+  <div class="id">
+    <span class="who" id="who">
+      <button id="btn-name" class="name" type="button" aria-expanded="false" aria-controls="links">Idan Segev</button>
+      <span class="slot">
+        <span class="role"><span class="r1">Design leader.</span> <span class="r2">Building teams of builders.</span></span>
+        <nav id="links" class="links" aria-label="Elsewhere">
+          <a href="https://www.linkedin.com/in/idansegev/" target="_blank" rel="noopener">LinkedIn</a>
+        </nav>
+      </span>
+    </span>
+    <span class="folio" hidden><span id="folio-title"></span><span class="count" id="folio-count"></span></span>
+  </div>
+  <div class="actions">
+    <button id="btn-shuffle" type="button">Shuffle</button>
+    <button id="btn-share" type="button" hidden>Share</button>
+  </div>
+</footer>
+
+<noscript>
+  <div class="plain">Idan<br>Segev<br><small style="font:400 14px/1.5 monospace;text-transform:none;display:block;margin-top:24px">Design leader. Building teams of builders. This page is a set of interactive posters and needs JavaScript.</small></div>
+</noscript>
+</body>
+</html>

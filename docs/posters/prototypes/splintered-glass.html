@@ -1,0 +1,969 @@
+<title>Splintered glass</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one full-bleed poster, the name as bevelled glass type that blows apart toward the lens; a quiet mono line at the foot; a settings sheet for this test only. */
+:root {
+  --bg: #000000; --ink: #ffffff; --dim: #7c7c7c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+:root[data-page="light"] { --bg: #ffffff; --ink: #000000; --dim: #808080; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(250, 250, 250, 0.97); color-scheme: light; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button, select { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.sheet h3 { margin: 6px 0 -4px; font: 500 11px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row select { padding: 2px 0; text-align: right; color: var(--dim); }
+.row select option { color: #000; }
+.acts { display: flex; flex-wrap: wrap; gap: 0 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+.err { position: fixed; inset: 0; display: grid; place-items: center; color: var(--dim); pointer-events: none; }
+</style>
+
+<canvas id="c" aria-label="Idan Segev as clear glass type. Tap and it blows apart toward you, hard at first and then in slow motion; hold to rewind it back together. Once it has burst, drag to turn the camera and scroll or pinch to fly between the pieces."></canvas>
+<div class="foot"><span><b>Splintered glass</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden></div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import opentype from 'https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.module.js';
+
+const $ = (id) => document.getElementById(id);
+const FONT_URL = {
+  'Archivo Black': 'archivo-black@5.0.19/files/archivo-black-latin-400-normal.woff',
+  'Alfa Slab One': 'alfa-slab-one@5.0.19/files/alfa-slab-one-latin-400-normal.woff',
+  'Playfair Display': 'playfair-display@5.0.19/files/playfair-display-latin-900-normal.woff',
+  'Playfair Display Regular': 'playfair-display@5.0.19/files/playfair-display-latin-400-normal.woff',
+  'Inter': 'inter@5.0.19/files/inter-latin-900-normal.woff',
+  'Bungee': 'bungee@5.0.19/files/bungee-latin-400-normal.woff',
+};
+
+// ---------- settings ----------
+const DEF = {
+  page: 'dark', glass: 'all letters', material: 'chrome', face: 'Archivo Black', depth: 0.05, bevel: 0.05,
+  glassEnv: 3.6, glassRough: 0, clarity: 1, inner: 0.85, env: 2.95, exposure: 1.8, shadow: 0.25, wall: 0.02,
+  pieces: 26, cluster: 0.24, force: 3.7, forward: 1.2, spread: 1.0, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
+  hitSpeed: 1.15, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1.0,
+  crackTime: 0.16, crackGlow: 0, crackWidth: 0.001, keep: 0,
+  lens: 69, aperture: 2.17, maxBlur: 22, focusMode: 'on the name', yaw: 0, pitch: 0, shake: 0.6,
+  flash: 25, glow: 'white', glowLevel: 1.6, cool: 0.15, sparks: 220, bloom: 0.6, threshold: 2.5, res: 1.5,
+};
+const SPEC = [
+  ['Look'],
+  ['page', 'Page', ['dark', 'light']],
+  ['glass', 'Glass', ['all letters', 'every other letter', 'off']],
+  ['material', 'Material (letters not in glass)', ['chrome', 'graphite', 'black lacquer', 'white ceramic']],
+  ['face', 'Face', Object.keys(FONT_URL)],
+  ['depth', 'Extrusion depth', 0.05, 1.5, 0.01],
+  ['env', 'Reflections (metal)', 0, 3, 0.05],
+  ['Glass'],
+  ['bevel', 'Bevel', 0, 0.05, 0.001],
+  ['glassEnv', 'Reflections', 0, 6, 0.05],
+  ['glassRough', 'Polish (lower is sharper)', 0, 0.3, 0.005],
+  ['clarity', 'Clarity', 0, 1, 0.01],
+  ['inner', 'Inner edges', 0, 4, 0.05],
+  ['exposure', 'Exposure', 0.3, 3, 0.05],
+  ['shadow', 'Shadow on the wall', 0, 1, 0.01],
+  ['wall', 'Wall distance', 0.02, 3, 0.01],
+  ['Blast'],
+  ['pieces', 'Pieces per letter (next blast)', 6, 120, 1],
+  ['cluster', 'Smaller pieces near the hit', 0, 1, 0.01],
+  ['force', 'Force', 1, 40, 0.1],
+  ['forward', 'Toward the camera', 0, 4, 0.05],
+  ['spread', 'Outward spread', 0, 3, 0.05],
+  ['spin', 'Spin', 0, 30, 0.1],
+  ['reach', 'Reach of the blast', 0.3, 12, 0.05],
+  ['gravity', 'Gravity', 0, 20, 0.1],
+  ['drag', 'Air drag', 0, 3, 0.01],
+  ['Time'],
+  ['hitSpeed', 'Speed at impact', 0.2, 4, 0.05],
+  ['hold', 'Impact lasts (s)', 0, 0.6, 0.01],
+  ['ramp', 'Ease into slow motion (s)', 0.05, 4, 0.05],
+  ['slow', 'Slow-motion speed', 0.005, 1, 0.005],
+  ['rewind', 'Rewind speed (hold)', 0.1, 4, 0.05],
+  ['Fracture light'],
+  ['crackTime', 'Cracks run before the burst (s)', 0, 0.6, 0.01],
+  ['crackGlow', 'Light in the cracks', 0, 30, 0.1],
+  ['crackWidth', 'Crack line width', 0.001, 0.03, 0.001],
+  ['keep', 'Lines that stay lit', 0, 1, 0.01],
+  ['Lens'],
+  ['lens', 'Lens (mm)', 18, 135, 1],
+  ['aperture', 'Aperture (blur strength)', 0, 3, 0.01],
+  ['maxBlur', 'Largest blur (px)', 2, 60, 1],
+  ['focusMode', 'Focus', ['on the name', 'follows a piece']],
+  ['yaw', 'Camera turn', -45, 45, 0.5],
+  ['pitch', 'Camera tilt', -30, 30, 0.5],
+  ['shake', 'Shake at impact', 0, 3, 0.05],
+  ['Light'],
+  ['flash', 'Flash at impact', 0, 300, 1],
+  ['glow', 'Glow in the cracks', ['white', 'ember', 'off']],
+  ['glowLevel', 'Glow strength', 0, 20, 0.1],
+  ['cool', 'Glow cools over', 0.02, 3, 0.01],
+  ['sparks', 'Sparks', 0, 1500, 10],
+  ['bloom', 'Bloom', 0, 3, 0.01],
+  ['threshold', 'Bloom threshold', 0.1, 8, 0.05],
+  ['res', 'Resolution', 0.5, 2, 0.05],
+];
+const KEY = 'splintered-glass-1';
+const P = { ...DEF };
+try { Object.assign(P, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* defaults */ }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) { /* fine */ } };
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- renderer, scene ----------
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.toneMapping = THREE.NoToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.autoClear = false;
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+// studio for reflections: black room, a few softboxes and a bright horizon behind the camera, so polished faces show hard light and dark.
+// Inverted for the white page (white room, black cards), so glass edges read dark on white.
+function studio(inv) {
+  const s = new THREE.Scene(); s.background = new THREE.Color(inv ? 0xffffff : 0x000000);
+  const box = (w, h, x, y, z, v, look) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })); m.material.color.setScalar(inv ? (v >= 4 ? 0 : 1) : v); m.position.set(x, y, z); m.lookAt(look || new THREE.Vector3()); s.add(m); };
+  box(14, 4, 0, 7, 5, 5);            // overhead softbox, front
+  box(1.2, 10, -7, 0, 4, 9);         // tall strip, left
+  box(1.2, 8, 7.5, 1, -1, 4);        // strip, right and behind
+  box(40, 12, 0, 6, 9, 1.4, new THREE.Vector3(0, 6, 0));          // horizon behind the camera at eye level: bright above, dark below
+  box(40, 12, 0, -6.02, 9, 0.06, new THREE.Vector3(0, -6.02, 0)); // the ground under it, barely lit
+  box(4, 4, 3, -6, 6, 0.5);          // faint bounce from below right
+  return s;
+}
+scene.environment = pmrem.fromScene(studio(false), 0.02).texture;
+// the glass gets its own room: nothing behind the camera, so faces that look at you stay dark and only the bevels catch the strips.
+// Inverted for the white page (white room, black strips), so glass edges read dark on white.
+function glassStudio(inv) {
+  const s = new THREE.Scene(); s.background = new THREE.Color(inv ? 0xffffff : 0x000000);
+  const box = (w, h, x, y, z, v) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })); m.material.color.setScalar(inv ? Math.max(0, 1 - v / 3) : v); m.position.set(x, y, z); m.lookAt(new THREE.Vector3()); s.add(m); };
+  box(40, 24, 0, 10, 0, 2.6);       // ceiling: top edges catch it, faces that look at you don't
+  box(1.6, 18, -9, 0, 2, 6);        // tall strip, left
+  box(1.2, 18, 9, -1, 1, 3);        // tall strip, right, dimmer
+  box(36, 1, 0, -8, 2, 0.8);        // faint strip below
+  return s;
+}
+const envDark = pmrem.fromScene(glassStudio(false), 0.02).texture;
+const envLight = pmrem.fromScene(glassStudio(true), 0.02).texture;
+
+const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 200);
+const key = new THREE.DirectionalLight(0xffffff, 2.6);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.bias = -0.0004;
+key.shadow.normalBias = 0.015;
+scene.add(key, key.target);
+const rim = new THREE.DirectionalLight(0xffffff, 1.6);
+scene.add(rim);
+const flash = new THREE.PointLight(0xfff2e0, 0, 0, 2);
+scene.add(flash);
+
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.ShadowMaterial({ opacity: P.shadow }));
+wall.receiveShadow = true;
+scene.add(wall);
+
+const outerMat = new THREE.MeshPhysicalMaterial();
+const innerMat = new THREE.MeshPhysicalMaterial();
+const MATS = [outerMat, innerMat];
+function applyMaterial() {
+  const m = P.material;
+  const set = (mat, o) => { mat.color.set(o.color); mat.metalness = o.metal; mat.roughness = o.rough; mat.clearcoat = o.coat || 0; mat.clearcoatRoughness = 0.04; mat.envMapIntensity = P.env; mat.needsUpdate = true; };
+  if (m === 'chrome') { set(outerMat, { color: 0xf4f4f4, metal: 1, rough: 0.07 }); set(innerMat, { color: 0xcfcfcf, metal: 1, rough: 0.42 }); }
+  else if (m === 'graphite') { set(outerMat, { color: 0x3a3a3a, metal: 1, rough: 0.22, coat: 0.6 }); set(innerMat, { color: 0x2a2a2a, metal: 1, rough: 0.6 }); }
+  else if (m === 'black lacquer') { set(outerMat, { color: 0x060606, metal: 0, rough: 0.14, coat: 1 }); set(innerMat, { color: 0x101010, metal: 0, rough: 0.7 }); }
+  else { set(outerMat, { color: 0xf2f2f0, metal: 0, rough: 0.28, coat: 1 }); set(innerMat, { color: 0xdedcd8, metal: 0, rough: 0.85 }); }
+  innerMat.emissive.set(P.glow === 'ember' ? 0xff5a14 : 0xfff0dc);
+}
+
+// glass: no diffuse, only reflections, and whatever is behind shows through. Premultiplied, so the page colour comes through alpha.
+// Back faces draw first (three does two passes for double-sided transparent), which gives the inner edges seen through the front.
+const glassU = { uClar: { value: 0.9 }, uInner: { value: 1.5 }, uDark: { value: 1 }, uHit: { value: new THREE.Vector2() }, uR: { value: 0 }, uI: { value: 0 }, uW: { value: 0.006 } };
+const glassMats = new Set();
+function glassMaterial(cracks, own) {
+  const m = new THREE.MeshPhysicalMaterial({ color: 0x000000, metalness: 0, ior: 1.5, side: THREE.DoubleSide, transparent: true, depthWrite: true });
+  m.blending = THREE.CustomBlending; m.blendEquation = THREE.AddEquation;
+  m.blendSrc = THREE.OneFactor; m.blendDst = THREE.OneMinusSrcAlphaFactor; m.blendSrcAlpha = THREE.OneFactor; m.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+  if (cracks) m.defines = { CRACKS: '' };
+  m.customProgramCacheKey = () => 'glass' + (cracks ? 1 : 0);
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, glassU, own || {});
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vLoc;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLoc = position.xy;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+varying vec2 vLoc; uniform float uClar, uInner, uDark, uR, uI, uW; uniform vec2 uHit;
+#ifdef CRACKS
+uniform vec3 uPl[16]; uniform int uN; uniform vec2 uHome;
+#endif`).replace('#include <opaque_fragment>', `
+  float NdV = clamp(abs(dot(normal, normalize(vViewPosition))), 0.0, 1.0);
+  float Fr = 0.04 + 0.96 * pow(1.0 - NdV, 5.0);
+  vec3 col = outgoingLight * (gl_FrontFacing ? 1.0 : uInner);
+  float a = 1.0 - uClar * (1.0 - Fr);
+  a = max(a, clamp(dot(totalEmissiveRadiance, vec3(0.3)), 0.0, 1.0));
+#ifdef CRACKS
+  if (uI > 0.0) {
+    // light along the fracture lines: distance to the nearest cut of this piece's cell, lit out to a front that runs from the hit
+    vec2 pg = vLoc + uHome; float d = 1e3;
+    for (int i = 0; i < 16; i++) { if (i >= uN) break; d = min(d, uPl[i].z - dot(uPl[i].xy, pg)); }
+    float g = uI * exp(-d * d / (uW * uW)) * (1.0 - smoothstep(uR - 0.06, uR, length(pg - uHit)));
+    float k = min(1.0, g);
+    if (uDark > 0.5) col += vec3(g); else col *= 1.0 - k;
+    a = max(a, k);
+  }
+#endif
+  gl_FragColor = vec4(col, a);`);
+  };
+  glassMats.add(m); tuneGlass(m);
+  return m;
+}
+function tuneGlass(m) {
+  const env = P.page === 'light' ? envLight : envDark;
+  if (m.envMap !== env) { m.envMap = env; m.needsUpdate = true; }
+  m.envMapIntensity = P.glassEnv; m.roughness = P.glassRough;
+}
+function applyGlass() {
+  glassU.uClar.value = P.clarity; glassU.uInner.value = P.inner; glassU.uW.value = P.crackWidth; glassU.uDark.value = P.page === 'light' ? 0 : 1;
+  for (const m of glassMats) tuneGlass(m);
+}
+const glassInner = glassMaterial(false);
+glassInner.emissive.set(0xffffff);
+
+// sparks: analytic points, bright, so the lens turns the near ones into bokeh discs
+const sparkMat = new THREE.ShaderMaterial({
+  uniforms: { tau: { value: 0 }, drag: { value: 0.5 }, grav: { value: 1 }, scale: { value: 300 }, heat: { value: 1 }, impact: { value: new THREE.Vector3() }, col: { value: new THREE.Color() } },
+  vertexShader: `
+    attribute vec3 dir; attribute float life; attribute float sz;
+    uniform float tau, drag, grav, scale; uniform vec3 impact; varying float vI;
+    void main() {
+      float k = drag * 2.0 + 0.6; float E = exp(-k * tau); float f1 = (1.0 - E) / k;
+      vec3 p = impact + dir * f1 + vec3(0.0, -grav, 0.0) * (tau - f1) / k;
+      vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
+      vI = exp(-tau / life) * smoothstep(0.0, 0.004, tau);
+      gl_PointSize = max(1.5, sz * scale / -mv.z);
+    }`,
+  fragmentShader: `
+    uniform vec3 col; uniform float heat; varying float vI;
+    void main() {
+      vec2 c = gl_PointCoord - 0.5; float d = length(c);
+      if (d > 0.5 || vI < 0.01) discard;
+      gl_FragColor = vec4(col * vI * heat * (1.0 - d * 1.4), 1.0);
+    }`,
+  blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+  depthWrite: true, transparent: true,
+});
+const sparkGeo = new THREE.BufferGeometry();
+const sparks = new THREE.Points(sparkGeo, sparkMat);
+sparks.frustumCulled = false;
+scene.add(sparks);
+
+// ---------- type: font to contours to triangles ----------
+let font = null, fontName = '';
+const AB64 = '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';
+async function loadFont(name) {
+  let buf = null;
+  if (name !== 'Archivo Black') { try { buf = await fetch('https://cdn.jsdelivr.net/npm/@fontsource/' + FONT_URL[name]).then((r) => { if (!r.ok) throw r.status; return r.arrayBuffer(); }); } catch (e) { buf = null; } }
+  if (!buf) { buf = Uint8Array.from(atob(AB64), (c) => c.charCodeAt(0)).buffer; name = buf && name !== 'Archivo Black' ? 'Archivo Black' : name; }
+  font = opentype.parse(buf); fontName = name;
+}
+function flatten(path) {
+  const cs = []; let cur = null, px = 0, py = 0;
+  for (const c of path.commands) {
+    if (c.type === 'M') { cur = [[c.x, -c.y]]; cs.push(cur); px = c.x; py = c.y; }
+    else if (c.type === 'L') { cur.push([c.x, -c.y]); px = c.x; py = c.y; }
+    else if (c.type === 'Q') { const n = 7; for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; cur.push([u * u * px + 2 * u * t * c.x1 + t * t * c.x, -(u * u * py + 2 * u * t * c.y1 + t * t * c.y)]); } px = c.x; py = c.y; }
+    else if (c.type === 'C') { const n = 9; for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; cur.push([u * u * u * px + 3 * u * u * t * c.x1 + 3 * u * t * t * c.x2 + t * t * t * c.x, -(u * u * u * py + 3 * u * u * t * c.y1 + 3 * u * t * t * c.y2 + t * t * t * c.y)]); } px = c.x; py = c.y; }
+  }
+  return cs.map((c) => {
+    const o = [];
+    for (const p of c) { const q = o[o.length - 1]; if (!q || Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-5) o.push(p); }
+    if (o.length > 2 && Math.hypot(o[0][0] - o[o.length - 1][0], o[0][1] - o[o.length - 1][1]) < 1e-5) o.pop();
+    return o;
+  }).filter((c) => c.length > 2);
+}
+const pip = (p, poly) => {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+  }
+  return inside;
+};
+const insideGlyph = (p, contours) => { let n = 0; for (const c of contours) if (pip(p, c)) n++; return n % 2 === 1; };
+const area2 = (poly) => { let s = 0; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) s += poly[j][0] * poly[i][1] - poly[i][0] * poly[j][1]; return s; };
+
+let glyphs = [];   // { contours, tris, area, box }
+let textBox = null;
+function layoutText(twoLines) {
+  const lines = twoLines ? ['Idan', 'Segev'] : ['Idan Segev'];
+  const lh = 0.92;
+  glyphs = [];
+  lines.forEach((line, li) => {
+    const w = font.getAdvanceWidth(line, 1);
+    const base = (li - (lines.length - 1) / 2) * lh + 0.35;
+    for (const path of font.getPaths(line, -w / 2, base, 1)) {
+      const contours = flatten(path);
+      if (!contours.length) continue;
+      const depth = contours.map((c, i) => contours.reduce((n, d, j) => n + (j !== i && pip(c[0], d) ? 1 : 0), 0));
+      const tris = []; let area = 0;
+      contours.forEach((c, i) => {
+        if (depth[i] % 2) return;
+        const holes = contours.filter((h, j) => depth[j] === depth[i] + 1 && pip(h[0], c));
+        const all = [c, ...holes].flat();
+        const faces = THREE.ShapeUtils.triangulateShape(c.map((p) => new THREE.Vector2(p[0], p[1])), holes.map((h) => h.map((p) => new THREE.Vector2(p[0], p[1]))));
+        for (const f of faces) {
+          let t = [all[f[0]], all[f[1]], all[f[2]]];
+          const a = area2(t);
+          if (Math.abs(a) < 1e-9) continue;
+          if (a < 0) t = [t[0], t[2], t[1]];
+          tris.push(t); area += Math.abs(a) / 2;
+        }
+      });
+      const xs = contours.flat().map((p) => p[0]), ys = contours.flat().map((p) => p[1]);
+      glyphs.push({ contours, tris, area, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], segs: segsOf(contours), solid: buildSolid(contours, depth) });
+    }
+  });
+  textBox = glyphs.reduce((b, g) => [Math.min(b[0], g.box[0]), Math.min(b[1], g.box[1]), Math.max(b[2], g.box[2]), Math.max(b[3], g.box[3])], [1e9, 1e9, -1e9, -1e9]);
+}
+
+// ---------- bevelled solid: a rounded bevel round every contour, flat faces inside it ----------
+// Triangles carry [x, y, z, nx, ny, nz] so the fracture can clip them like the flat ones.
+function segsOf(contours) { const a = []; for (const c of contours) for (let i = 0; i < c.length; i++) { const p = c[i], q = c[(i + 1) % c.length]; a.push(p[0], p[1], q[0], q[1]); } return new Float64Array(a); }
+function distOutline(x, y, segs) {
+  let best = 1e9;
+  for (let i = 0; i < segs.length; i += 4) {
+    const ax = segs[i], ay = segs[i + 1], ex = segs[i + 2] - ax, ey = segs[i + 3] - ay;
+    const l2 = ex * ex + ey * ey; const t = l2 > 0 ? Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / l2)) : 0;
+    const dx = x - ax - ex * t, dy = y - ay - ey * t, d = dx * dx + dy * dy; if (d < best) best = d;
+  }
+  return Math.sqrt(best);
+}
+const bevelDims = () => { const h = P.depth / 2, s = Math.max(1e-4, P.bevel), t = Math.max(1e-4, Math.min(P.bevel, h * 0.9)); return { h, s, t, zb: h - t }; };
+function buildSolid(contours, par) {
+  const { h, s, t, zb } = bevelDims(), K = 6;
+  const tris = [], insets = [];
+  contours.forEach((c) => {
+    const n = c.length;
+    let left = 0;   // is the letter on the left of this contour?
+    for (let k = 0; k < 3; k++) {
+      const i = Math.floor(k * n / 3), a = c[i], b = c[(i + 1) % n], ex = b[0] - a[0], ey = b[1] - a[1], l = Math.hypot(ex, ey) || 1;
+      left += insideGlyph([(a[0] + b[0]) / 2 - ey / l * 1e-3, (a[1] + b[1]) / 2 + ex / l * 1e-3], contours) ? 1 : -1;
+    }
+    const sg = left > 0 ? 1 : -1, o = [], m = [], vn = [], smooth = [];
+    for (let i = 0; i < n; i++) { const a = c[i], b = c[(i + 1) % n], ex = b[0] - a[0], ey = b[1] - a[1], l = Math.hypot(ex, ey) || 1; o.push([sg * ey / l, -sg * ex / l]); }
+    for (let i = 0; i < n; i++) {
+      const p = o[(i - 1 + n) % n], q = o[i], L = Math.hypot(p[0] + q[0], p[1] + q[1]);
+      const k = L < 1e-6 ? 0 : Math.min(2.5, 2 / L) / L;   // miter, clamped at sharp corners
+      m.push(L < 1e-6 ? [-q[0], -q[1]] : [-(p[0] + q[0]) * k, -(p[1] + q[1]) * k]);
+      vn.push(L < 1e-6 ? q : [(p[0] + q[0]) / L, (p[1] + q[1]) / L]);
+      smooth.push(p[0] * q[0] + p[1] * q[1] > 0.82);
+    }
+    insets.push(c.map((pt, i) => [pt[0] + m[i][0] * s, pt[1] + m[i][1] * s]));
+    const ring = (pt, mm, nn, k, side) => {
+      const th = k / K * Math.PI / 2, cs = Math.cos(th), sn = Math.sin(th);
+      const nx = nn[0] * cs * t, ny = nn[1] * cs * t, nz = sn * s * side, nl = Math.hypot(nx, ny, nz) || 1;
+      return [pt[0] + mm[0] * s * (1 - cs), pt[1] + mm[1] * s * (1 - cs), side * (zb + t * sn), nx / nl, ny / nl, nz / nl];
+    };
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, nA = smooth[i] ? vn[i] : o[i], nB = smooth[j] ? vn[j] : o[i], P0 = c[i], P1 = c[j];
+      const w = (pt, nn, z) => [pt[0], pt[1], z, nn[0], nn[1], 0];
+      tris.push([w(P0, nA, -zb), w(P1, nB, -zb), w(P1, nB, zb)], [w(P0, nA, -zb), w(P1, nB, zb), w(P0, nA, zb)]);
+      for (const side of [1, -1]) for (let k = 0; k < K; k++) {
+        const a0 = ring(P0, m[i], nA, k, side), b0 = ring(P1, m[j], nB, k, side), a1 = ring(P0, m[i], nA, k + 1, side), b1 = ring(P1, m[j], nB, k + 1, side);
+        tris.push([a0, b0, b1], [a0, b1, a1]);
+      }
+    }
+  });
+  const v2 = (p) => new THREE.Vector2(p[0], p[1]);
+  contours.forEach((c, i) => {
+    if (par[i] % 2) return;
+    const hs = contours.map((d, j) => j).filter((j) => par[j] === par[i] + 1 && pip(contours[j][0], c)).map((j) => insets[j]);
+    const all = [insets[i], ...hs].flat();
+    for (const f of THREE.ShapeUtils.triangulateShape(insets[i].map(v2), hs.map((x) => x.map(v2)))) for (const side of [1, -1]) {
+      const v = (q) => [q[0], q[1], side * h, 0, 0, side];
+      tris.push([v(all[f[0]]), v(all[f[1]]), v(all[f[2]])]);
+    }
+  });
+  return { tris, boxes: tris.map(boxOf) };
+}
+
+// ---------- fracture: Voronoi cells clipped against the glyph triangles ----------
+function clipHalf(poly, nx, ny, c) {
+  const out = []; const L = poly.length;
+  for (let i = 0; i < L; i++) {
+    const a = poly[i], b = poly[(i + 1) % L];
+    const da = nx * a[0] + ny * a[1] - c, db = nx * b[0] + ny * b[1] - c;
+    if (da <= 0) out.push(a);
+    if ((da < 0 && db > 0) || (da > 0 && db < 0)) { const t = da / (da - db); out.push(a.map((v, j) => v + (b[j] - v) * t)); }
+  }
+  return out;
+}
+function clipConvex(poly, cell) {
+  let out = poly;
+  for (let i = 0; i < cell.length && out.length > 2; i++) {
+    const p = cell[i], q = cell[(i + 1) % cell.length];
+    const nx = q[1] - p[1], ny = -(q[0] - p[0]);
+    out = clipHalf(out, nx, ny, nx * p[0] + ny * p[1]);
+  }
+  return out;
+}
+const boxOf = (poly) => { let a = 1e9, b = 1e9, c = -1e9, d = -1e9; for (const p of poly) { a = Math.min(a, p[0]); b = Math.min(b, p[1]); c = Math.max(c, p[0]); d = Math.max(d, p[1]); } return [a, b, c, d]; };
+const overlap = (A, B) => A[0] <= B[2] && B[0] <= A[2] && A[1] <= B[3] && B[1] <= A[3];
+
+function fracture(ix, iy) {
+  const total = Math.round(P.pieces * glyphs.length);
+  const r0 = Math.max(0.3, P.reach * 0.35);
+  const weight = (x, y) => (1 - P.cluster) * 0.25 + P.cluster * Math.exp(-Math.hypot(x - ix, y - iy) / r0) + 0.02;
+  const seeds = glyphs.map(() => []);
+  const [bx0, by0, bx1, by1] = textBox;
+  let tries = 0, got = 0;
+  while (got < total && tries < total * 400) {
+    tries++;
+    const x = bx0 + Math.random() * (bx1 - bx0), y = by0 + Math.random() * (by1 - by0);
+    if (Math.random() > weight(x, y)) continue;
+    const gi = glyphs.findIndex((g) => x >= g.box[0] && x <= g.box[2] && y >= g.box[1] && y <= g.box[3] && insideGlyph([x, y], g.contours));
+    if (gi < 0) continue;
+    seeds[gi].push([x, y]); got++;
+  }
+  const pieces = [];
+  glyphs.forEach((g, gi) => {
+    const S = seeds[gi];
+    while (S.length < 3) { const x = g.box[0] + Math.random() * (g.box[2] - g.box[0]), y = g.box[1] + Math.random() * (g.box[3] - g.box[1]); if (insideGlyph([x, y], g.contours)) S.push([x, y]); }
+    const pad = 0.05, R = [[g.box[0] - pad, g.box[1] - pad], [g.box[2] + pad, g.box[1] - pad], [g.box[2] + pad, g.box[3] + pad], [g.box[0] - pad, g.box[3] + pad]];
+    const triBoxes = g.tris.map(boxOf);
+    const glass = P.glass === 'all letters' || (P.glass === 'every other letter' && gi % 2 === 0);
+    S.forEach((s, i) => {
+      let cell = R;
+      for (let j = 0; j < S.length && cell.length > 2; j++) {
+        if (j === i) continue;
+        const t = S[j], nx = t[0] - s[0], ny = t[1] - s[1];
+        cell = clipHalf(cell, nx, ny, (t[0] * t[0] + t[1] * t[1] - s[0] * s[0] - s[1] * s[1]) / 2);
+      }
+      if (cell.length < 3) return;
+      const cb = boxOf(cell);
+      const polys = [];
+      g.tris.forEach((t, k) => {
+        if (!overlap(cb, triBoxes[k])) return;
+        const p = clipConvex(t, cell);
+        if (p.length > 2 && area2(p) > 1e-8) polys.push(p);
+      });
+      if (!polys.length) return;
+      const solid = [];
+      g.solid.tris.forEach((t, k) => { if (!overlap(cb, g.solid.boxes[k])) return; const p = clipConvex(t, cell); if (p.length > 2) solid.push(p); });
+      // the cuts of this cell (not its padding box), for the light that runs along them
+      const planes = [];
+      for (let k = 0; k < cell.length && planes.length < 16; k++) {
+        const p = cell[k], q = cell[(k + 1) % cell.length];
+        const pad = (p[0] === q[0] && (p[0] === R[0][0] || p[0] === R[1][0])) || (p[1] === q[1] && (p[1] === R[0][1] || p[1] === R[2][1]));
+        let nx = q[1] - p[1], ny = -(q[0] - p[0]); const l = Math.hypot(nx, ny);
+        if (pad || l < 1e-9) continue;
+        nx /= l; ny /= l; planes.push(new THREE.Vector3(nx, ny, nx * p[0] + ny * p[1]));
+      }
+      pieces.push(makePiece(polys, solid, g, planes, glass));
+    });
+  });
+  return pieces;
+}
+
+function makePiece(polys, solid, g, planes, glass) {
+  let A = 0, cx = 0, cy = 0;
+  for (const p of polys) for (let i = 1; i < p.length - 1; i++) {
+    const a = ((p[i][0] - p[0][0]) * (p[i + 1][1] - p[0][1]) - (p[i + 1][0] - p[0][0]) * (p[i][1] - p[0][1])) / 2;
+    A += a; cx += a * (p[0][0] + p[i][0] + p[i + 1][0]) / 3; cy += a * (p[0][1] + p[i][1] + p[i + 1][1]) / 3;
+  }
+  cx /= A; cy /= A;
+  const q = (v) => Math.round(v * 2e4);
+  const edges = new Map();
+  for (const p of polys) for (let i = 0; i < p.length; i++) {
+    const a = p[i], b = p[(i + 1) % p.length];
+    if (q(a[0]) === q(b[0]) && q(a[1]) === q(b[1])) continue;
+    edges.set(q(a[0]) + ',' + q(a[1]) + '|' + q(b[0]) + ',' + q(b[1]), [a, b]);
+  }
+  const { h, s, t, zb } = bevelDims();
+  const O = [], ON = [], I = [], IN = [];
+  // one triangle, wound to face the way its normals point
+  const tri = (V, N, a, b, c) => {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const flip = (uy * vz - uz * vy) * (a[3] + b[3] + c[3]) + (uz * vx - ux * vz) * (a[4] + b[4] + c[4]) + (ux * vy - uy * vx) * (a[5] + b[5] + c[5]) < 0;
+    for (const p of flip ? [a, c, b] : [a, b, c]) { const nl = Math.hypot(p[3], p[4], p[5]) || 1; V.push(p[0] - cx, p[1] - cy, p[2]); N.push(p[3] / nl, p[4] / nl, p[5] / nl); }
+  };
+  for (const p of solid) for (let i = 1; i < p.length - 1; i++) tri(O, ON, p[0], p[i], p[i + 1]);
+  // crack walls: as tall as the solid, which thins over the bevel near the outline
+  const zAt = (x, y) => { const d = distOutline(x, y, g.segs); if (d >= s) return h; const c = 1 - d / s; return zb + t * Math.sqrt(Math.max(0, 1 - c * c)); };
+  for (const [k, [a, b]] of edges) {
+    const [ks, ke] = k.split('|');
+    if (edges.has(ke + '|' + ks)) continue;
+    let nx = b[1] - a[1], ny = -(b[0] - a[0]); const l = Math.hypot(nx, ny); nx /= l; ny /= l;
+    if (!insideGlyph([(a[0] + b[0]) / 2 + nx * 0.004, (a[1] + b[1]) / 2 + ny * 0.004], g.contours)) continue;   // outline: the solid has it
+    const da = distOutline(a[0], a[1], g.segs) < s, db = distOutline(b[0], b[1], g.segs) < s;
+    const us = [0, 1], span = Math.min(0.5, 1.6 * s / l);
+    for (let j = 1; j <= 6; j++) { const u = span * (j / 6) ** 2; if (da) us.push(u); if (db) us.push(1 - u); }
+    us.sort((x, y) => x - y);
+    const pts = us.map((u) => { const x = a[0] + (b[0] - a[0]) * u, y = a[1] + (b[1] - a[1]) * u; return [x, y, zAt(x, y)]; });
+    const v = (r, z) => [r[0], r[1], z, nx, ny, 0];
+    for (let j = 0; j < pts.length - 1; j++) {
+      const p = pts[j], r = pts[j + 1];
+      tri(I, IN, v(p, -p[2]), v(r, -r[2]), v(r, r[2])); tri(I, IN, v(p, -p[2]), v(r, r[2]), v(p, p[2]));
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(O.concat(I), 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(ON.concat(IN), 3));
+  geo.addGroup(0, O.length / 3, 0); geo.addGroup(O.length / 3, I.length / 3, 1);
+  const pl = Array.from({ length: 16 }, (_, i) => planes[i] || new THREE.Vector3());
+  const glassMat = glass ? glassMaterial(true, { uPl: { value: pl }, uN: { value: planes.length }, uHome: { value: new THREE.Vector2(cx, cy) } }) : null;
+  const mesh = new THREE.Mesh(geo, glass ? [glassMat, glassInner] : MATS);
+  mesh.castShadow = !glass; mesh.receiveShadow = !glass;
+  mesh.position.set(cx, cy, 0);
+  return { mesh, glassMat, area: A, home: new THREE.Vector3(cx, cy, 0), p0: new THREE.Vector3(cx, cy, 0), v0: new THREE.Vector3(), q0: new THREE.Quaternion(), w: new THREE.Vector3(), moving: false };
+}
+
+// ---------- motion: closed form in simulated time, so time can run at any speed, or backwards ----------
+let pieces = [];
+const group = new THREE.Group(); scene.add(group);
+function setPieces(list) {
+  for (const p of pieces) { group.remove(p.mesh); p.mesh.geometry.dispose(); if (p.glassMat) { p.glassMat.dispose(); glassMats.delete(p.glassMat); } }
+  pieces = list; for (const p of pieces) group.add(p.mesh);
+}
+const kRot = () => P.drag * 1.5 + 0.15;
+const _q = new THREE.Quaternion(), _ax = new THREE.Vector3();
+function poseAt(pc, t, outP, outQ, outV, outW) {
+  const k = P.drag, g = pc.moving ? P.gravity : 0;
+  let f1, f2, E;
+  if (k < 1e-4) { f1 = t; f2 = t * t / 2; E = 1; } else { E = Math.exp(-k * t); f1 = (1 - E) / k; f2 = (t - f1) / k; }
+  outP.set(pc.p0.x + pc.v0.x * f1, pc.p0.y + pc.v0.y * f1 - g * f2, pc.p0.z + pc.v0.z * f1);
+  const wl = pc.w.length(), kr = kRot();
+  if (wl > 1e-6) { _ax.copy(pc.w).divideScalar(wl); _q.setFromAxisAngle(_ax, wl * (1 - Math.exp(-kr * t)) / kr); outQ.multiplyQuaternions(_q, pc.q0); }
+  else outQ.copy(pc.q0);
+  if (outV) outV.set(pc.v0.x * E, pc.v0.y * E - g * f1, pc.v0.z * E);
+  if (outW) outW.copy(pc.w).multiplyScalar(Math.exp(-kr * t));
+}
+
+// state
+let mode = 'rest';          // rest | crack (light runs through the cracks, nothing moves yet) | go
+let tau = 0, tr = 0, tauDone = 0;  // sim time in this base, real time since its kick, sim time of earlier bases
+let stack = [];              // earlier bases, for rewinding past a second tap
+let impact = new THREE.Vector3();
+let rewinding = false, heldFor = 0, hero = null, rackT = 0;
+let avgArea = 1;
+let crackT = 0, crackReach = 1;
+const cam = { yaw: 0, pitch: 0, zoom: 0 }, camT = { yaw: 0, pitch: 0, zoom: 0 };   // flown camera (zoom is log distance), and where it is easing to
+let camR = 10, afD = 10;
+const piv = new THREE.Vector3(), cloud = new THREE.Vector3(), _sum = new THREE.Vector3();
+const flown = () => Math.abs(cam.zoom) > 0.02 || Math.abs(cam.yaw) > 0.5 || Math.abs(cam.pitch) > 0.5;
+
+function sparkBurst(at) {
+  const n = Math.round(P.sparks);
+  const dir = new Float32Array(n * 3), life = new Float32Array(n), sz = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
+    const sp = P.force * (0.5 + Math.random() * 1.6);
+    dir[i * 3] = s * Math.cos(a) * sp * (0.6 + P.spread * 0.6); dir[i * 3 + 1] = s * Math.sin(a) * sp * (0.6 + P.spread * 0.6); dir[i * 3 + 2] = (Math.abs(u) * 0.7 + 0.3) * sp * (0.5 + P.forward * 0.7);
+    life[i] = 0.05 + Math.random() * 0.3; sz[i] = 0.008 + Math.random() * Math.random() * 0.03;
+  }
+  sparkGeo.setAttribute('dir', new THREE.BufferAttribute(dir, 3));
+  sparkGeo.setAttribute('life', new THREE.BufferAttribute(life, 1));
+  sparkGeo.setAttribute('sz', new THREE.BufferAttribute(sz, 1));
+  sparkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  sparkGeo.setDrawRange(0, n);
+  sparkMat.uniforms.impact.value.copy(at);
+}
+
+function kickFrom(at, strength, fresh) {
+  const P3 = new THREE.Vector3(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), W = new THREE.Vector3();
+  if (!fresh) stack.push({ tau, base: pieces.map((p) => ({ p0: p.p0.clone(), v0: p.v0.clone(), q0: p.q0.clone(), w: p.w.clone(), moving: p.moving })), impact: impact.clone(), sparks: { dir: sparkGeo.getAttribute('dir'), life: sparkGeo.getAttribute('life'), sz: sparkGeo.getAttribute('sz') } });
+  for (const p of pieces) {
+    if (!fresh) { poseAt(p, tau, P3, Q, V, W); p.p0.copy(P3); p.q0.copy(Q); p.v0.copy(V); p.w.copy(W); }
+    const dx = p.p0.x - at.x, dy = p.p0.y - at.y, dz = p.p0.z - at.z;
+    const d = Math.hypot(dx, dy, dz) + 0.05;
+    const fall = Math.exp(-d / P.reach);
+    const sp = P.force * strength * fall * (0.55 + Math.random() * 0.9) * Math.pow(p.area / avgArea, -0.22);
+    if (sp < 0.12) continue;
+    const dir = new THREE.Vector3((dx / d) * P.spread * (0.6 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.5, (dy / d) * P.spread * (0.6 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.5, P.forward * (0.5 + Math.random()));
+    dir.normalize();
+    p.v0.addScaledVector(dir, sp);
+    p.w.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(P.spin * fall * strength * (0.3 + Math.random())));
+    p.moving = true;
+  }
+  if (!fresh) tauDone += tau;
+  impact.copy(at); tau = 0; tr = 0; mode = 'go';
+  sparkBurst(at);
+  // the piece the lens may follow: a good-sized one heading for the camera
+  const cand = pieces.filter((p) => p.moving && p.area > avgArea * 0.8).sort((a, b) => b.v0.z - a.v0.z);
+  hero = cand[Math.min(cand.length - 1, 2)] || null;
+}
+
+function explode(at) {
+  const t0 = performance.now();
+  setPieces(fracture(at.x, at.y));
+  avgArea = pieces.reduce((s, p) => s + p.area, 0) / Math.max(1, pieces.length);
+  stack = []; tauDone = 0; tau = 0; tr = 0;
+  impact.copy(at); glassU.uHit.value.set(at.x, at.y);
+  crackReach = Math.max(...[[0, 1], [2, 1], [0, 3], [2, 3]].map(([i, j]) => Math.hypot(textBox[i] - at.x, textBox[j] - at.y)));
+  crackT = 0; mode = 'crack';
+  if (P.crackTime <= 0) kickFrom(at, 1, true);
+  console.log('fracture', pieces.length, 'pieces', Math.round(performance.now() - t0), 'ms');
+}
+
+function reform() {
+  camT.yaw = camT.pitch = camT.zoom = 0;
+  for (const p of pieces) { p.p0.copy(p.home); p.v0.set(0, 0, 0); p.q0.identity(); p.w.set(0, 0, 0); p.moving = false; p.mesh.position.copy(p.home); p.mesh.quaternion.identity(); p.mesh.visible = true; }
+  stack = []; tau = 0; tauDone = 0; tr = 0; mode = 'rest'; rewinding = false;
+}
+
+function popBase() {
+  const b = stack.pop();
+  tauDone -= b.tau;
+  pieces.forEach((p, i) => { const s = b.base[i]; p.p0.copy(s.p0); p.v0.copy(s.v0); p.q0.copy(s.q0); p.w.copy(s.w); p.moving = s.moving; });
+  impact.copy(b.impact); sparkMat.uniforms.impact.value.copy(b.impact);
+  sparkGeo.setAttribute('dir', b.sparks.dir); sparkGeo.setAttribute('life', b.sparks.life); sparkGeo.setAttribute('sz', b.sparks.sz);
+  sparkGeo.setDrawRange(0, b.sparks.dir.count);
+  tau = b.tau; tr = 99;
+}
+
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function rate() {
+  if (rewinding) return -P.rewind * (0.12 + 1.3 * smooth(0, 1.1, heldFor));
+  if (tr < P.hold) return P.hitSpeed;
+  return P.slow + (P.hitSpeed - P.slow) * (1 - smooth(P.hold, P.hold + P.ramp, tr));
+}
+
+// ---------- post: HDR scene with depth, depth of field, bloom, tone map ----------
+const FS = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+const fsScene = new THREE.Scene(); fsScene.add(FS);
+const fsCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+const LIN = `uniform float cNear, cFar; float lin(float d){ return -(cNear * cFar) / ((cFar - cNear) * d - cFar); }
+  uniform float focus, aperture, maxR; float coc(float z){ return clamp(aperture * abs(1.0 - focus / z), 0.0, 1.0) * maxR; }`;
+const mat = (frag, uniforms) => new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: frag, uniforms, depthTest: false, depthWrite: false });
+const camU = () => ({ cNear: { value: camera.near }, cFar: { value: camera.far }, focus: { value: 10 }, aperture: { value: 1 }, maxR: { value: 10 } });
+
+const dofMat = mat(`
+  uniform sampler2D tCol, tDep; uniform vec2 texel; uniform float radScale; varying vec2 vUv; ${LIN}
+  void main() {
+    float zc = lin(texture2D(tDep, vUv).x); float cc = coc(zc);
+    vec4 col = texture2D(tCol, vUv); float tot = 1.0; float r = radScale; float ang = 0.0;
+    for (int i = 0; i < 360; i++) {
+      if (r >= maxR) break;
+      vec2 uv = vUv + vec2(cos(ang), sin(ang)) * texel * r;
+      vec4 s = texture2D(tCol, uv); float zs = lin(texture2D(tDep, uv).x); float cs = coc(zs);
+      if (zs > zc) cs = min(cs, cc * 2.0);
+      float m = smoothstep(r - 0.5, r + 0.5, cs);
+      col += mix(col / tot, s, m); tot += 1.0; r += radScale / r; ang += 2.39996323;
+    }
+    gl_FragColor = col / tot;
+  }`, { tCol: { value: null }, tDep: { value: null }, texel: { value: new THREE.Vector2() }, radScale: { value: 1 }, ...camU() });
+
+const brightMat = mat(`
+  uniform sampler2D t; uniform float thr; varying vec2 vUv;
+  void main(){ vec3 c = texture2D(t, vUv).rgb; float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * max(l - thr, 0.0) / max(l, 1e-4), 1.0); }`, { t: { value: null }, thr: { value: 1 } });
+const downMat = mat(`
+  uniform sampler2D t; uniform vec2 texel; varying vec2 vUv;
+  void main(){ vec3 c = texture2D(t, vUv + texel * vec2(-1.0, -1.0)).rgb + texture2D(t, vUv + texel * vec2(1.0, -1.0)).rgb + texture2D(t, vUv + texel * vec2(-1.0, 1.0)).rgb + texture2D(t, vUv + texel * vec2(1.0, 1.0)).rgb; gl_FragColor = vec4(c * 0.25, 1.0); }`, { t: { value: null }, texel: { value: new THREE.Vector2() } });
+const upMat = mat(`
+  uniform sampler2D t, tAdd; uniform vec2 texel; varying vec2 vUv;
+  void main(){
+    vec3 c = texture2D(t, vUv).rgb * 4.0;
+    c += (texture2D(t, vUv + texel * vec2(-1.0, 0.0)).rgb + texture2D(t, vUv + texel * vec2(1.0, 0.0)).rgb + texture2D(t, vUv + texel * vec2(0.0, -1.0)).rgb + texture2D(t, vUv + texel * vec2(0.0, 1.0)).rgb) * 2.0;
+    c += texture2D(t, vUv + texel * vec2(-1.0, -1.0)).rgb + texture2D(t, vUv + texel * vec2(1.0, -1.0)).rgb + texture2D(t, vUv + texel * vec2(-1.0, 1.0)).rgb + texture2D(t, vUv + texel * vec2(1.0, 1.0)).rgb;
+    gl_FragColor = vec4(c / 16.0 + texture2D(tAdd, vUv).rgb, 1.0);
+  }`, { t: { value: null }, tAdd: { value: null }, texel: { value: new THREE.Vector2() } });
+const finalMat = mat(`
+  uniform sampler2D tScene, tDep, tDof, tBloom; uniform vec2 texelHalf; uniform float bloom, exposure; uniform vec3 bg; varying vec2 vUv; ${LIN}
+  vec3 aces(vec3 c){
+    const mat3 I = mat3(0.59719, 0.07600, 0.02840, 0.35458, 0.90834, 0.13383, 0.04823, 0.01566, 0.83777);
+    const mat3 O = mat3(1.60475, -0.10208, -0.00327, -0.53108, 1.10813, -0.07276, -0.07367, -0.00605, 1.07602);
+    c = I * (c / 0.6); vec3 a = c * (c + 0.0245786) - 0.000090537; vec3 b = c * (0.983729 * c + 0.4329510) + 0.238081; return clamp(O * (a / b), 0.0, 1.0);
+  }
+  vec3 srgb(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
+  void main(){
+    float zc = lin(texture2D(tDep, vUv).x);
+    float f = smoothstep(0.35, 1.4, coc(zc));
+    for (int k = 0; k < 12; k++) {
+      float a = float(k) * 2.39996323; float rr = maxR * (k < 6 ? 0.4 : 0.85);
+      vec2 o = vec2(cos(a), sin(a)) * rr;
+      float zs = lin(texture2D(tDep, vUv + o * texelHalf).x);
+      if (zs < zc) f = max(f, smoothstep(rr - 1.0, rr + 1.0, coc(zs)));
+    }
+    vec4 c = mix(texture2D(tScene, vUv), texture2D(tDof, vUv), f);
+    vec3 L = c.rgb + texture2D(tBloom, vUv).rgb * bloom;
+    vec3 outc = aces(L * exposure) + bg * (1.0 - clamp(c.a, 0.0, 1.0));
+    gl_FragColor = vec4(srgb(clamp(outc, 0.0, 1.0)), 1.0);
+  }`, { tScene: { value: null }, tDep: { value: null }, tDof: { value: null }, tBloom: { value: null }, texelHalf: { value: new THREE.Vector2() }, bloom: { value: 1 }, exposure: { value: 1 }, bg: { value: new THREE.Vector3() }, ...camU() });
+
+let rtScene, rtDof, rtBright, downs = [], ups = [], W = 1, H = 1, dpr = 1;
+const hf = (w, h) => new THREE.WebGLRenderTarget(Math.max(1, w), Math.max(1, h), { type: THREE.HalfFloatType, depthBuffer: false });
+function makeTargets() {
+  [rtScene, rtDof, rtBright, ...downs, ...ups].forEach((t) => t && t.dispose());
+  const w = Math.round(W * dpr), h = Math.round(H * dpr);
+  rtScene = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4 });
+  rtScene.depthTexture = new THREE.DepthTexture(w, h, THREE.FloatType);
+  const hw = Math.ceil(w / 2), hh = Math.ceil(h / 2);
+  rtDof = hf(hw, hh); rtBright = hf(hw, hh);
+  downs = []; ups = [];
+  let dw = hw, dh = hh;
+  for (let i = 0; i < 5; i++) { dw = Math.ceil(dw / 2); dh = Math.ceil(dh / 2); downs.push(hf(dw, dh)); ups.push(hf(dw, dh)); }
+}
+function blit(m, target) { FS.material = m; renderer.setRenderTarget(target); renderer.render(fsScene, fsCam); }
+
+function renderFrame(focusDist) {
+  const maxRHalf = P.maxBlur * dpr / 2;
+  for (const m of [dofMat, finalMat]) { m.uniforms.focus.value = focusDist; m.uniforms.aperture.value = P.aperture; m.uniforms.maxR.value = maxRHalf; m.uniforms.cNear.value = camera.near; m.uniforms.cFar.value = camera.far; }
+  renderer.setRenderTarget(rtScene); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, camera);
+  dofMat.uniforms.tCol.value = rtScene.texture; dofMat.uniforms.tDep.value = rtScene.depthTexture;
+  dofMat.uniforms.texel.value.set(1 / rtDof.width, 1 / rtDof.height); dofMat.uniforms.radScale.value = Math.max(0.7, maxRHalf / 11);
+  blit(dofMat, rtDof);
+  brightMat.uniforms.t.value = rtDof.texture; brightMat.uniforms.thr.value = P.threshold; blit(brightMat, rtBright);
+  let src = rtBright;
+  for (const d of downs) { downMat.uniforms.t.value = src.texture; downMat.uniforms.texel.value.set(0.5 / src.width, 0.5 / src.height); blit(downMat, d); src = d; }
+  let lower = downs[downs.length - 1];
+  for (let i = downs.length - 2; i >= 0; i--) {
+    upMat.uniforms.t.value = lower.texture; upMat.uniforms.tAdd.value = downs[i].texture;
+    upMat.uniforms.texel.value.set(1 / lower.width, 1 / lower.height);
+    blit(upMat, ups[i]); lower = ups[i];
+  }
+  finalMat.uniforms.tScene.value = rtScene.texture; finalMat.uniforms.tDep.value = rtScene.depthTexture; finalMat.uniforms.tDof.value = rtDof.texture; finalMat.uniforms.tBloom.value = ups[0].texture;
+  finalMat.uniforms.texelHalf.value.set(1 / rtDof.width, 1 / rtDof.height);
+  finalMat.uniforms.bloom.value = P.bloom * 0.35; finalMat.uniforms.exposure.value = P.exposure;
+  const b = P.page === 'light' ? 1 : 0; finalMat.uniforms.bg.value.set(b, b, b);
+  blit(finalMat, null);
+}
+
+// ---------- camera, layout ----------
+let camDist = 10, twoLines = null;
+const target = new THREE.Vector3();
+function placeCamera(shakeAmt = 0) {
+  const fov = 2 * Math.atan(12 / P.lens) * 180 / Math.PI;
+  camera.fov = fov; camera.aspect = W / H; camera.updateProjectionMatrix();
+  const tw = (textBox[2] - textBox[0]) / 0.78, th = (textBox[3] - textBox[1]) / 0.62;
+  const vt = Math.tan(fov * Math.PI / 360);
+  camDist = Math.max(th / 2 / vt, tw / 2 / (vt * camera.aspect));
+  target.set((textBox[0] + textBox[2]) / 2, (textBox[1] + textBox[3]) / 2, 0);
+  const yaw = (P.yaw + cam.yaw) * Math.PI / 180, pitch = (P.pitch + cam.pitch) * Math.PI / 180;
+  camR = camDist * Math.exp(-cam.zoom);
+  // flying in: turn round the middle of the flying pieces rather than the empty spot where the name was, and widen the lens
+  const w = Math.min(1, Math.max(0, cam.zoom));
+  piv.copy(target).lerp(cloud, w);
+  camera.fov = 2 * Math.atan(12 / Math.max(18, P.lens * Math.exp(-Math.max(0, cam.zoom) * 0.45))) * 180 / Math.PI; camera.updateProjectionMatrix();
+  camera.position.set(piv.x + Math.sin(yaw) * Math.cos(pitch) * camR, piv.y + Math.sin(pitch) * camR, piv.z + Math.cos(yaw) * Math.cos(pitch) * camR);
+  if (shakeAmt) camera.position.add(new THREE.Vector3((Math.random() - 0.5), (Math.random() - 0.5), 0).multiplyScalar(shakeAmt));
+  camera.lookAt(piv);
+  sparkMat.uniforms.scale.value = H * dpr / (2 * Math.tan(camera.fov * Math.PI / 360));
+}
+function placeLights() {
+  const s = Math.max(textBox[2] - textBox[0], textBox[3] - textBox[1]);
+  key.target.position.copy(target);
+  key.position.copy(target).add(new THREE.Vector3(-0.45, 0.75, 1).multiplyScalar(s * 1.4));
+  const sc = key.shadow.camera; sc.left = -s * 1.1; sc.right = s * 1.1; sc.top = s * 1.1; sc.bottom = -s * 1.1; sc.near = 0.1; sc.far = s * 5; sc.updateProjectionMatrix();
+  rim.position.copy(target).add(new THREE.Vector3(0.8, 0.5, -1).multiplyScalar(s));
+  wall.position.set(target.x, target.y, -P.depth / 2 - P.wall);
+  wall.material.opacity = P.shadow;
+}
+async function rebuild() {
+  if (fontName !== P.face) await loadFont(P.face);
+  if (fontName !== P.face) { P.face = fontName; const el = $('s-face'); if (el) el.value = fontName; }
+  twoLines = W / H < 1.35;
+  layoutText(twoLines);
+  setPieces(fracture((textBox[0] + textBox[2]) / 2, (textBox[1] + textBox[3]) / 2).map((p) => p));
+  avgArea = pieces.reduce((s, p) => s + p.area, 0) / Math.max(1, pieces.length);
+  reform();
+  placeCamera(); placeLights();
+}
+function resize() {
+  W = innerWidth; H = innerHeight; dpr = Math.min(devicePixelRatio || 1, P.res);
+  renderer.setPixelRatio(dpr); renderer.setSize(W, H, false);
+  makeTargets();
+  if (font && (W / H < 1.35) !== twoLines) rebuild(); else if (textBox) placeCamera();
+}
+
+// ---------- input ----------
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function hitPoint(x, y) {
+  ndc.set((x / W) * 2 - 1, -(y / H) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects(pieces.map((p) => p.mesh), false);
+  if (hits.length) return hits[0].point;
+  const pl = new THREE.Plane(new THREE.Vector3(0, 0, 1), -P.depth / 2), pt = new THREE.Vector3();
+  if (!ray.ray.intersectPlane(pl, pt)) return target.clone();
+  if (mode !== 'rest') return pt;
+  // missed the letters: hit the nearest piece instead
+  let best = pieces[0], bd = 1e9;
+  for (const p of pieces) { const d = p.home.distanceToSquared(pt); if (d < bd) { bd = d; best = p; } }
+  return new THREE.Vector3(best.home.x, best.home.y, P.depth / 2);
+}
+let demo = !reduced, demoAt = 1.1, demoBack = 0;
+let down = null, holdTimer = 0, lastTap = 0;
+const ptrs = new Map(); let pinch = 0;
+const flyBy = (f) => { camT.zoom = Math.min(Math.log(camDist / 1.2), Math.max(-0.5, camT.zoom + f)); };   // each step a share of the way in, so it slows near the middle
+canvas.addEventListener('pointerdown', (e) => {
+  demo = false; demoBack = 0;
+  canvas.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); clearTimeout(holdTimer); if (down) down.moved = 99; return; }
+  down = { x: e.clientX, y: e.clientY, moved: 0, held: false };
+  holdTimer = setTimeout(() => { if (!down) return; down.held = true; if (mode === 'go') { rewinding = true; heldFor = 0; } }, 250);
+});
+canvas.addEventListener('pointermove', (e) => {
+  const pr = ptrs.get(e.pointerId); if (!pr) return;
+  const dx = e.clientX - pr.x, dy = e.clientY - pr.y; pr.x = e.clientX; pr.y = e.clientY;
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y); if (mode === 'go') flyBy((d - pinch) * 0.004); pinch = d; return; }
+  if (!down) return;
+  down.moved = Math.max(down.moved, Math.hypot(e.clientX - down.x, e.clientY - down.y));
+  if (down.moved > 8 && !down.held) { clearTimeout(holdTimer); if (mode === 'go') { camT.yaw -= dx * 0.2; camT.pitch = Math.min(80, Math.max(-80, camT.pitch + dy * 0.2)); } }
+});
+canvas.addEventListener('wheel', (e) => { if (mode !== 'go') return; e.preventDefault(); flyBy(-e.deltaY * 0.0012); }, { passive: false });
+const end = (e) => {
+  ptrs.delete(e.pointerId);
+  if (!down) return;
+  clearTimeout(holdTimer);
+  const d = down; down = null;
+  if (rewinding) { rewinding = false; tr = Math.max(tr, P.hold + P.ramp); return; }
+  if (d.held || d.moved > 8 || e.type === 'pointercancel') return;
+  const now = performance.now();
+  if (now - lastTap < 380 && mode !== 'rest') { reform(); lastTap = 0; return; }
+  lastTap = now;
+  const at = hitPoint(e.clientX, e.clientY);
+  if (mode === 'rest') explode(at); else if (mode === 'go') kickFrom(at, 0.75, false);
+};
+canvas.addEventListener('pointerup', end);
+canvas.addEventListener('pointercancel', end);
+
+// ---------- loop ----------
+const _p = new THREE.Vector3(), _fw = new THREE.Vector3();
+let last = performance.now(), clock = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(1 / 30, (now - last) / 1000); last = now; clock += dt;
+  if (!textBox) return;
+  if (demo && clock > demoAt) { demo = false; explode(new THREE.Vector3(textBox[0] + (textBox[2] - textBox[0]) * 0.38, (textBox[1] + textBox[3]) / 2 + 0.1, P.depth / 2)); demoBack = clock + 6.5; }
+  if (demoBack && clock > demoBack) { demoBack = 0; if (mode === 'go') { rewinding = true; heldFor = 0; } }
+  if (rewinding) heldFor += dt;
+  const ke = 1 - Math.exp(-dt * 7);
+  for (const k in cam) cam[k] += (camT[k] - cam[k]) * ke;
+  if (mode === 'crack') { crackT += dt; if (crackT >= P.crackTime) kickFrom(impact.clone(), 1, true); }
+  if (mode === 'go') {
+    tau += rate() * dt; tr += dt;
+    while (tau < 0 && stack.length) { const over = tau; popBase(); tau += over; }
+    if (tau <= 0) { reform(); }
+  }
+  // pose
+  camera.getWorldDirection(_fw);
+  const camZ = camera.position.z;
+  for (const p of pieces) {
+    if (!p.moving) continue;
+    poseAt(p, tau, p.mesh.position, p.mesh.quaternion);
+    p.mesh.visible = _p.copy(p.mesh.position).sub(camera.position).dot(_fw) > camera.near + 0.15;
+  }
+  // the middle of the flying pieces, for the flown camera to turn round
+  let nMov = 0; _sum.set(0, 0, 0);
+  for (const p of pieces) if (p.moving) { _sum.add(p.mesh.position); nMov++; }
+  if (mode === 'go' && nMov) cloud.lerp(_sum.divideScalar(nMov), Math.min(1, dt * 3)); else cloud.copy(target);
+  // light, glow, sparks
+  const T = tauDone + tau;
+  const go = mode === 'go';
+  flash.position.copy(impact).add(new THREE.Vector3(0, 0, 0.6));
+  flash.intensity = go ? P.flash * Math.exp(-tau / 0.035) * smooth(0, 0.003, tau) : mode === 'crack' ? P.flash * 0.5 * Math.exp(-crackT / 0.03) : 0;
+  innerMat.emissiveIntensity = go && P.glow !== 'off' ? P.glowLevel * Math.exp(-T / P.cool) * smooth(0, 0.01, T) : 0;
+  glassInner.emissiveIntensity = innerMat.emissiveIntensity;
+  glassInner.visible = go;   // crack walls stay hidden until the pieces part
+  if (mode === 'crack') { const u = Math.min(1, crackT / Math.max(1e-3, P.crackTime)); glassU.uR.value = crackReach * Math.pow(u, 0.6) + 0.03; glassU.uI.value = P.crackGlow * smooth(0, 0.012, crackT); }
+  else if (go) { glassU.uR.value = 1e3; glassU.uI.value = P.crackGlow * (P.keep + (1 - P.keep) * Math.exp(-T / P.cool)); }
+  else glassU.uI.value = 0;
+  sparkMat.uniforms.tau.value = tau; sparkMat.uniforms.drag.value = P.drag; sparkMat.uniforms.grav.value = P.gravity;
+  sparkMat.uniforms.col.value.set(P.glow === 'ember' ? 0xffa060 : 0xfff6ea).multiplyScalar(4);
+  sparks.visible = go && P.sparks > 0;
+  // camera: shake on the hit, focus on the name or on the hero piece
+  placeCamera(go && !rewinding && tr < 0.45 ? P.shake * 0.06 * Math.exp(-tr / 0.09) : mode === 'crack' ? P.shake * 0.025 * Math.exp(-crackT / 0.05) : 0);
+  const nameDist = camR - P.depth / 2;
+  let focus = nameDist;
+  if (flown()) {
+    // flying: focus on whatever is in the middle of the frame
+    ndc.set(0, 0); ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(pieces.filter((p) => p.mesh.visible).map((p) => p.mesh), false)[0];
+    afD += ((hit ? hit.distance : nameDist) - afD) * Math.min(1, dt * 5);
+    focus = afD;
+  } else afD = nameDist;
+  if (P.focusMode === 'follows a piece' && go && hero && hero.mesh.visible) {
+    rackT += ((rewinding ? 0 : smooth(0.25, 1.6, tr)) - rackT) * Math.min(1, dt * 3);
+    const hd = _p.copy(hero.mesh.position).sub(camera.position).dot(_fw);
+    focus = nameDist + (Math.max(camera.near + 0.3, hd) - nameDist) * rackT;
+  } else rackT *= 0.9;
+  renderFrame(focus);
+}
+
+// ---------- settings sheet ----------
+function fmt(v, step) { const d = String(step).includes('.') ? String(step).split('.')[1].length : 0; return Number(v).toFixed(d); }
+const sheet = $('sheet');
+function buildSheet() {
+  let html = '';
+  for (const s of SPEC) {
+    if (s.length === 1) { html += `<h3>${s[0]}</h3>`; continue; }
+    const [k, label, a, b, step] = s;
+    if (Array.isArray(a)) html += `<label class="row" for="s-${k}"><span>${label}</span><select id="s-${k}">${a.map((o) => `<option${o === P[k] ? ' selected' : ''}>${o}</option>`).join('')}</select></label>`;
+    else html += `<label class="row" for="s-${k}"><span>${label}</span><output id="o-${k}">${fmt(P[k], step)}</output><input type="range" id="s-${k}" min="${a}" max="${b}" step="${step}" value="${P[k]}"></label>`;
+  }
+  html += '<div class="acts"><button id="boom" type="button">Detonate</button><button id="reform" type="button">Re-form</button><button id="copy" type="button">Copy settings</button><button id="reset" type="button">Reset</button></div>';
+  sheet.innerHTML = html;
+  for (const s of SPEC) {
+    if (s.length === 1) continue;
+    const [k, , a, , step] = s; const el = $('s-' + k);
+    el.addEventListener('input', () => {
+      P[k] = Array.isArray(a) ? el.value : parseFloat(el.value);
+      if (!Array.isArray(a)) $('o-' + k).textContent = fmt(P[k], step);
+      save(); onChange(k);
+    });
+  }
+  $('boom').onclick = () => { demo = false; demoBack = 0; reform(); explode(new THREE.Vector3((textBox[0] + textBox[2]) / 2 - 0.4, (textBox[1] + textBox[3]) / 2, P.depth / 2)); };
+  $('reform').onclick = () => { demo = false; demoBack = 0; reform(); };
+  $('copy').onclick = () => {
+    const txt = JSON.stringify(P, null, 2);
+    navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1200); }, () => { prompt('Settings', txt); });
+  };
+  $('reset').onclick = () => { Object.assign(P, DEF); save(); buildSheet(); applyAll(); rebuild(); };
+}
+function applyAll() {
+  document.documentElement.dataset.page = P.page;
+  applyMaterial(); applyGlass();
+}
+function onChange(k) {
+  if (k === 'page') applyAll();
+  else if (k === 'material' || k === 'env' || k === 'glow') applyMaterial();
+  else if (['glassEnv', 'glassRough', 'clarity', 'inner', 'crackWidth'].includes(k)) applyGlass();
+  else if (k === 'face' || k === 'depth' || k === 'bevel' || k === 'glass') rebuild();
+  else if (k === 'res') resize();
+  else if (k === 'shadow' || k === 'wall') placeLights();
+}
+$('gear').onclick = () => { const open = sheet.hidden; sheet.hidden = !open; $('gear').setAttribute('aria-expanded', String(open)); };
+
+// ---------- start ----------
+buildSheet(); applyAll();
+W = innerWidth; H = innerHeight; dpr = Math.min(devicePixelRatio || 1, P.res);
+renderer.setPixelRatio(dpr); renderer.setSize(W, H, false); makeTargets();
+addEventListener('resize', resize);
+rebuild().then(() => requestAnimationFrame(frame)).catch((err) => {
+  console.error(err);
+  const d = document.createElement('div'); d.className = 'err'; d.textContent = 'Could not load the type.'; document.body.appendChild(d);
+});
+window.__explode = { P, get crackT() { return crackT; }, get pieces() { return pieces; }, get tau() { return tau; }, get mode() { return mode; }, cam, camT, get dbg() { return { afD, camR, camDist, pos: camera.position.toArray(), near: camera.near }; }, explode: (x, y) => explode(new THREE.Vector3(x, y, P.depth / 2)) };
+</script>

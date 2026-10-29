@@ -1,18 +1,24 @@
 // Splintered: a realistic render of Shatter's idea. The name is polished extruded type; a tap blows it apart from that point, the
 // shards fly toward the lens, and time is directed: a forceful hit, then an ease into slow motion, so the depth of field comes
-// into play as pieces pass the camera. Port of the test page docs/posters/prototypes/explode-slomo.html; Idan's tuning as the
-// defaults, one set for each page (29 Oct 2026).
+// into play as pieces pass the camera. Port of the test pages docs/posters/prototypes/explode-slomo.html and splintered-glass.html;
+// Idan's tuning as the defaults, one set for each page (29 Oct 2026): on black the letters are bevelled glass (after the
+// PP Fragment posters), on white they are porcelain.
 //
-// Under the picture (three.js 0.160, vendored): the letters are traced from Archivo Black (glyph-contours.js), triangulated, and
-// cut into Voronoi shards at the moment of the tap (finer near the hit). Crack faces are their own material and glow, then cool.
-// Motion is closed-form in simulated time (drift, spin, drag, gravity), so the clock can run at any speed, or backwards. The
-// render is an HDR scene with a depth texture, then a gather depth of field at half size (with near-field spill), bloom and an
-// ACES tone map, composited over the page colour. Reflections come from a black studio: softboxes and a horizon behind the camera.
+// Under the picture (three.js 0.160, vendored): the letters are traced from Archivo Black (glyph-contours.js), given a rounded
+// bevel round every contour, and cut into Voronoi shards at the moment of the tap (finer near the hit). Crack faces are their own
+// material and glow, then cool. Motion is closed-form in simulated time (drift, spin, drag, gravity), so the clock can run at any
+// speed, or backwards. The render is an HDR scene with a depth texture, then a gather depth of field at half size (with near-field
+// spill), bloom and an ACES tone map, composited over the page colour. Metal reflects a black studio (softboxes, a horizon behind
+// the camera); glass has only reflections, no diffuse, premultiplied so the page shows through, in a room lit from above and the
+// sides with nothing behind the camera, so faces that look at you stay dark and the bevels catch the light.
 //
-// Gestures (src/gestures.js): tap a letter and it explodes from there; tap a flying shard and the pieces are kicked again; tapping
-// the background does nothing. Hold rewinds time and the shards fly back together. Double tap re-forms at once (after the re-form
-// beat). Reveal: the cut, drawn over the type: every shard's outline and the hit. One self-demo after 3.5 s untouched (explode,
-// then rewind); off under reduced motion. Colour (native, when the shell rolls it): the first press anodises the type in the palette.
+// Gestures (src/gestures.js): tap a letter and it explodes from there (on black, a beat after the hit); tap a flying shard and
+// the pieces are kicked again; tapping the background does nothing. Hold rewinds time and the shards fly back together. Double tap
+// re-forms at once (after the re-form beat) and brings the camera home. Once it has burst the camera flies: drag turns round the
+// flying pieces, the wheel or a pinch flies in and out (the lens widens and focus follows the middle of the frame), two fingers
+// turn too. Reveal: the cut, drawn over the type: every shard's outline and the hit. One self-demo after 3.5 s untouched
+// (explode, then rewind); off under reduced motion. Colour (native, when the shell rolls it): the first press anodises the type,
+// or tints the glass's reflections, in the palette.
 
 import * as THREE from '../vendor/three.module.min.js';
 import { getGL } from '../engine.js';
@@ -23,15 +29,17 @@ import { colourOf } from '../colour.js';
 
 const FAMILY = 'Archivo Black', NAME = 'IdanSegv';
 const MATERIALS = ['chrome', 'graphite', 'black lacquer', 'white ceramic'];
-// Idan's two tunings from the test page (29 Oct 2026): it works best on black; white is porcelain
-const DARK = { material: 0, depth: 0.05, env: 2.95, exposure: 0.95, shadow: 0.21, wall: 0.02,
-  pieces: 17, cluster: 0.24, force: 3.7, forward: 1.2, spread: 1, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
-  hitSpeed: 1.15, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1,
-  lens: 135, aperture: 0.92, maxBlur: 22, follow: 0, yaw: 0, pitch: 0, shake: 0.6,
+// Idan's tunings from the test pages (29 Oct 2026): black is glass, white is porcelain
+const DARK = { glass: 1, material: 0, depth: 0.05, bevel: 0.05, glassEnv: 3.6, glassRough: 0, clarity: 1, inner: 0.85,
+  env: 2.95, exposure: 1.8, shadow: 0.25, wall: 0.02,
+  pieces: 26, cluster: 0.24, force: 3.7, forward: 1.2, spread: 1, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
+  hitSpeed: 1.15, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1, crackTime: 0.16,
+  lens: 69, aperture: 2.17, maxBlur: 22, follow: 0, yaw: 0, pitch: 0, shake: 0.6,
   flash: 25, glowLevel: 1.6, cool: 0.15, sparks: 220, bloom: 0.6, threshold: 2.5, res: 1.5 };
-const LIGHT = { material: 3, depth: 0.05, env: 2, exposure: 0.65, shadow: 0, wall: 0.31,
+const LIGHT = { glass: 0, material: 3, depth: 0.05, bevel: 0, glassEnv: 1.6, glassRough: 0.03, clarity: 0.92, inner: 1,
+  env: 2, exposure: 0.65, shadow: 0, wall: 0.31,
   pieces: 24, cluster: 0.24, force: 3.7, forward: 1.15, spread: 1, spin: 5.6, reach: 4.65, gravity: 0, drag: 0.31,
-  hitSpeed: 1.15, hold: 0.04, ramp: 0.3, slow: 0.055, rewind: 1,
+  hitSpeed: 1.15, hold: 0.04, ramp: 0.3, slow: 0.055, rewind: 1, crackTime: 0,
   lens: 69, aperture: 1.41, maxBlur: 36, follow: 0, yaw: 0, pitch: 0, shake: 1.55,
   flash: 25, glowLevel: 7.2, cool: 0.33, sparks: 270, bloom: 1.6, threshold: 3.05, res: 1.5 };
 const DEMO_AFTER = 3.5, DEMO_REWIND = 6.5;
@@ -47,13 +55,13 @@ const pip = (p, poly) => {
 };
 const insideGlyph = (p, contours) => { let n = 0; for (const c of contours) if (pip(p, c)) n++; return n % 2 === 1; };
 const area2 = (poly) => { let s = 0; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) s += poly[j][0] * poly[i][1] - poly[i][0] * poly[j][1]; return s; };
-function clipHalf(poly, nx, ny, c) {                       // keep nx*x + ny*y <= c
+function clipHalf(poly, nx, ny, c) {                       // keep nx*x + ny*y <= c; points may carry more than x, y (all interpolate)
   const out = []; const L = poly.length;
   for (let i = 0; i < L; i++) {
     const a = poly[i], b = poly[(i + 1) % L];
     const da = nx * a[0] + ny * a[1] - c, db = nx * b[0] + ny * b[1] - c;
     if (da <= 0) out.push(a);
-    if ((da < 0 && db > 0) || (da > 0 && db < 0)) { const t = da / (da - db); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+    if ((da < 0 && db > 0) || (da > 0 && db < 0)) { const t = da / (da - db); out.push(a.map((v, j) => v + (b[j] - v) * t)); }
   }
   return out;
 }
@@ -68,6 +76,16 @@ function clipConvex(poly, cell) {                          // poly against a con
 }
 const boxOf = (poly) => { let a = 1e9, b = 1e9, c = -1e9, d = -1e9; for (const p of poly) { a = Math.min(a, p[0]); b = Math.min(b, p[1]); c = Math.max(c, p[0]); d = Math.max(d, p[1]); } return [a, b, c, d]; };
 const overlap = (A, B) => A[0] <= B[2] && B[0] <= A[2] && A[1] <= B[3] && B[1] <= A[3];
+function distOutline(x, y, segs) {                       // distance to the nearest outline segment
+  let best = 1e9;
+  for (let i = 0; i < segs.length; i += 4) {
+    const ax = segs[i], ay = segs[i + 1], ex = segs[i + 2] - ax, ey = segs[i + 3] - ay;
+    const l2 = ex * ex + ey * ey, t = l2 > 0 ? Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / l2)) : 0;
+    const dx = x - ax - ex * t, dy = y - ay - ey * t, d = dx * dx + dy * dy; if (d < best) best = d;
+  }
+  return Math.sqrt(best);
+}
+const segsOf = (contours) => { const a = []; for (const c of contours) for (let i = 0; i < c.length; i++) { const p = c[i], q = c[(i + 1) % c.length]; a.push(p[0], p[1], q[0], q[1]); } return new Float64Array(a); };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 // ---------- post-processing shaders ----------
@@ -163,6 +181,15 @@ export async function mount(stage) {
   const envRT = pmrem.fromScene(studio, 0.02);
   scene.environment = envRT.texture;
   studio.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+  // the glass's own room: a ceiling and two tall strips, nothing behind the camera; inverted on white (white room, black strips)
+  const gStudio = new THREE.Scene(); gStudio.background = new THREE.Color(dark ? 0x000000 : 0xffffff);
+  const gbox = (w, h, x, y, z, v) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })); m.material.color.setScalar(dark ? v : Math.max(0, 1 - v / 3)); m.position.set(x, y, z); m.lookAt(new THREE.Vector3()); gStudio.add(m); };
+  gbox(40, 24, 0, 10, 0, 2.6);                                       // ceiling: top edges catch it, faces that look at you don't
+  gbox(1.6, 18, -9, 0, 2, 6);                                        // tall strip, left
+  gbox(1.2, 18, 9, -1, 1, 3);                                        // tall strip, right, dimmer
+  gbox(36, 1, 0, -8, 2, 0.8);                                        // faint strip below
+  const glassEnvRT = pmrem.fromScene(gStudio, 0.02);
+  gStudio.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
 
   const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 200);
   const key = new THREE.DirectionalLight(0xffffff, 2.6);
@@ -189,6 +216,34 @@ export async function mount(stage) {
   const colour = colourOf(stage);
   if (colour) { colour.wakeOnPress(); const [r, g, b] = colour.rgb(0.4); tint.setRGB(r, g, b, THREE.SRGBColorSpace); }
   applyMaterial();
+
+  // glass: no diffuse, only reflections; what is behind shows through. Premultiplied, so the page colour comes through alpha. Back
+  // faces draw first (three's two passes for double-sided transparent), which gives the inner edges seen through the front.
+  const glassU = { uClar: { value: 1 }, uInner: { value: 1 } };
+  function glassMaterial() {
+    const m = new THREE.MeshPhysicalMaterial({ color: 0x000000, metalness: 0, ior: 1.5, side: THREE.DoubleSide, transparent: true, depthWrite: true });
+    m.blending = THREE.CustomBlending; m.blendEquation = THREE.AddEquation;
+    m.blendSrc = THREE.OneFactor; m.blendDst = THREE.OneMinusSrcAlphaFactor; m.blendSrcAlpha = THREE.OneFactor; m.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+    m.envMap = glassEnvRT.texture;
+    m.customProgramCacheKey = () => 'splintered-glass';
+    m.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, glassU);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uClar, uInner;').replace('#include <opaque_fragment>', `
+        float NdV = clamp(abs(dot(normal, normalize(vViewPosition))), 0.0, 1.0);
+        float Fr = 0.04 + 0.96 * pow(1.0 - NdV, 5.0);
+        float a = max(1.0 - uClar * (1.0 - Fr), clamp(dot(totalEmissiveRadiance, vec3(0.3)), 0.0, 1.0));
+        gl_FragColor = vec4(outgoingLight * (gl_FrontFacing ? 1.0 : uInner), a);`);
+    };
+    return m;
+  }
+  const glassOuter = glassMaterial(), glassInner = glassMaterial();
+  glassInner.emissive.set(0xffffff);
+  const GMATS = [glassOuter, glassInner];
+  function applyGlass() {
+    glassU.uClar.value = P.clarity; glassU.uInner.value = P.inner;
+    for (const m of GMATS) { m.envMapIntensity = P.glassEnv; m.roughness = P.glassRough; }
+  }
+  applyGlass();
 
   // sparks: analytic points, bright, so the lens turns the near ones into bokeh discs
   const sparkMat = new THREE.ShaderMaterial({
@@ -252,10 +307,61 @@ export async function mount(stage) {
           }
         });
         const flat = contours.flat();
-        glyphs.push({ contours, tris, box: boxOf(flat) });
+        glyphs.push({ contours, tris, box: boxOf(flat), segs: segsOf(contours), solid: buildSolid(contours, depth) });
       }
     });
     textBox = glyphs.reduce((b, g) => [Math.min(b[0], g.box[0]), Math.min(b[1], g.box[1]), Math.max(b[2], g.box[2]), Math.max(b[3], g.box[3])], [1e9, 1e9, -1e9, -1e9]);
+  }
+
+  // ---------- the bevelled solid: a rounded bevel round every contour, flat faces inside it. Triangles carry [x, y, z, nx, ny, nz]
+  // so the fracture clips them like the flat ones ----------
+  const bevelDims = () => { const h = P.depth / 2, s = Math.max(1e-4, P.bevel), t = Math.max(1e-4, Math.min(P.bevel, h * 0.9)); return { h, s, t, zb: h - t }; };
+  function buildSolid(contours, par) {
+    const { h, s, t, zb } = bevelDims(), K = P.bevel > 0.002 ? 6 : 1;
+    const tris = [], insets = [];
+    contours.forEach((c) => {
+      const n = c.length;
+      let left = 0;                                        // is the letter on the left of this contour?
+      for (let k2 = 0; k2 < 3; k2++) {
+        const i = Math.floor(k2 * n / 3), a = c[i], b = c[(i + 1) % n], ex = b[0] - a[0], ey = b[1] - a[1], l = Math.hypot(ex, ey) || 1;
+        left += insideGlyph([(a[0] + b[0]) / 2 - ey / l * 1e-3, (a[1] + b[1]) / 2 + ex / l * 1e-3], contours) ? 1 : -1;
+      }
+      const sg = left > 0 ? 1 : -1, o = [], m = [], vn = [], sm = [];
+      for (let i = 0; i < n; i++) { const a = c[i], b = c[(i + 1) % n], ex = b[0] - a[0], ey = b[1] - a[1], l = Math.hypot(ex, ey) || 1; o.push([sg * ey / l, -sg * ex / l]); }
+      for (let i = 0; i < n; i++) {
+        const p = o[(i - 1 + n) % n], q = o[i], L = Math.hypot(p[0] + q[0], p[1] + q[1]);
+        const f = L < 1e-6 ? 0 : Math.min(2.5, 2 / L) / L;   // miter, clamped at sharp corners
+        m.push(L < 1e-6 ? [-q[0], -q[1]] : [-(p[0] + q[0]) * f, -(p[1] + q[1]) * f]);
+        vn.push(L < 1e-6 ? q : [(p[0] + q[0]) / L, (p[1] + q[1]) / L]);
+        sm.push(p[0] * q[0] + p[1] * q[1] > 0.82);         // smooth normals round gentle turns, crisp at corners
+      }
+      insets.push(c.map((pt, i) => [pt[0] + m[i][0] * s, pt[1] + m[i][1] * s]));
+      const ring = (pt, mm, nn, k2, side) => {
+        const th = k2 / K * Math.PI / 2, cs = Math.cos(th), sn = Math.sin(th);
+        const nx = nn[0] * cs * t, ny = nn[1] * cs * t, nz = sn * s * side, nl = Math.hypot(nx, ny, nz) || 1;
+        return [pt[0] + mm[0] * s * (1 - cs), pt[1] + mm[1] * s * (1 - cs), side * (zb + t * sn), nx / nl, ny / nl, nz / nl];
+      };
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n, nA = sm[i] ? vn[i] : o[i], nB = sm[j] ? vn[j] : o[i], P0 = c[i], P1 = c[j];
+        const w = (pt, nn, z) => [pt[0], pt[1], z, nn[0], nn[1], 0];
+        tris.push([w(P0, nA, -zb), w(P1, nB, -zb), w(P1, nB, zb)], [w(P0, nA, -zb), w(P1, nB, zb), w(P0, nA, zb)]);
+        for (const side of [1, -1]) for (let k2 = 0; k2 < K; k2++) {
+          const a0 = ring(P0, m[i], nA, k2, side), b0 = ring(P1, m[j], nB, k2, side), a1 = ring(P0, m[i], nA, k2 + 1, side), b1 = ring(P1, m[j], nB, k2 + 1, side);
+          tris.push([a0, b0, b1], [a0, b1, a1]);
+        }
+      }
+    });
+    const v2 = (p) => new THREE.Vector2(p[0], p[1]);
+    contours.forEach((c, i) => {
+      if (par[i] % 2) return;
+      const hs = contours.map((d, j) => j).filter((j) => par[j] === par[i] + 1 && pip(contours[j][0], c)).map((j) => insets[j]);
+      const all = [insets[i], ...hs].flat();
+      for (const f of THREE.ShapeUtils.triangulateShape(insets[i].map(v2), hs.map((x) => x.map(v2)))) for (const side of [1, -1]) {
+        const v = (q) => [q[0], q[1], side * h, 0, 0, side];
+        tris.push([v(all[f[0]]), v(all[f[1]]), v(all[f[2]])]);
+      }
+    });
+    return { tris, boxes: tris.map(boxOf) };
   }
 
   // ---------- fracture: Voronoi cells (finer near the hit) clipped against the glyph triangles ----------
@@ -294,13 +400,16 @@ export async function mount(stage) {
           const p = clipConvex(t, cell);
           if (p.length > 2 && area2(p) > 1e-8) polys.push(p);
         });
-        if (polys.length) out.push(makePiece(polys, g.contours));
+        if (!polys.length) return;
+        const solid = [];
+        g.solid.tris.forEach((t, k2) => { if (!overlap(cb, g.solid.boxes[k2])) return; const p = clipConvex(t, cell); if (p.length > 2) solid.push(p); });
+        out.push(makePiece(polys, solid, g));
       });
     });
     return out;
   }
 
-  function makePiece(polys, contours) {
+  function makePiece(polys, solid, g) {
     let A = 0, cx = 0, cy = 0;
     for (const p of polys) for (let i = 1; i < p.length - 1; i++) {
       const a = ((p[i][0] - p[0][0]) * (p[i + 1][1] - p[0][1]) - (p[i + 1][0] - p[0][0]) * (p[i][1] - p[0][1])) / 2;
@@ -314,29 +423,40 @@ export async function mount(stage) {
       if (q(a[0]) === q(b[0]) && q(a[1]) === q(b[1])) continue;
       edges.set(q(a[0]) + ',' + q(a[1]) + '|' + q(b[0]) + ',' + q(b[1]), [a, b]);
     }
-    const h = P.depth / 2;
+    const { h, s, t, zb } = bevelDims();
     const O = [], ON = [], I = [], IN = [], outline = [];
-    const push = (arr, nrm, x, y, z, nx, ny, nz) => { arr.push(x - cx, y - cy, z); nrm.push(nx, ny, nz); };
-    for (const p of polys) for (let i = 1; i < p.length - 1; i++) {
-      push(O, ON, p[0][0], p[0][1], h, 0, 0, 1); push(O, ON, p[i][0], p[i][1], h, 0, 0, 1); push(O, ON, p[i + 1][0], p[i + 1][1], h, 0, 0, 1);
-      push(O, ON, p[0][0], p[0][1], -h, 0, 0, -1); push(O, ON, p[i + 1][0], p[i + 1][1], -h, 0, 0, -1); push(O, ON, p[i][0], p[i][1], -h, 0, 0, -1);
-    }
-    for (const [k, [a, b]] of edges) {
-      const [s, e] = k.split('|');
-      if (edges.has(e + '|' + s)) continue;               // shared inside the shard
+    const tri = (V, N, a, b, c) => {                       // one triangle, wound to face the way its normals point
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+      const flip = (uy * vz - uz * vy) * (a[3] + b[3] + c[3]) + (uz * vx - ux * vz) * (a[4] + b[4] + c[4]) + (ux * vy - uy * vx) * (a[5] + b[5] + c[5]) < 0;
+      for (const p of flip ? [a, c, b] : [a, b, c]) { const nl = Math.hypot(p[3], p[4], p[5]) || 1; V.push(p[0] - cx, p[1] - cy, p[2]); N.push(p[3] / nl, p[4] / nl, p[5] / nl); }
+    };
+    for (const p of solid) for (let i = 1; i < p.length - 1; i++) tri(O, ON, p[0], p[i], p[i + 1]);
+    // crack walls: as tall as the solid, which thins over the bevel near the outline
+    const zAt = (x, y) => { const d = distOutline(x, y, g.segs); if (d >= s) return h; const c = 1 - d / s; return zb + t * Math.sqrt(Math.max(0, 1 - c * c)); };
+    for (const [key2, [a, b]] of edges) {
+      const [ks, ke] = key2.split('|');
+      if (edges.has(ke + '|' + ks)) continue;              // shared inside the shard
       let nx = b[1] - a[1], ny = -(b[0] - a[0]); const l = Math.hypot(nx, ny); nx /= l; ny /= l;
-      const crack = insideGlyph([(a[0] + b[0]) / 2 + nx * 0.004, (a[1] + b[1]) / 2 + ny * 0.004], contours);
-      const V = crack ? I : O, N = crack ? IN : ON;
-      push(V, N, a[0], a[1], -h, nx, ny, 0); push(V, N, b[0], b[1], -h, nx, ny, 0); push(V, N, b[0], b[1], h, nx, ny, 0);
-      push(V, N, a[0], a[1], -h, nx, ny, 0); push(V, N, b[0], b[1], h, nx, ny, 0); push(V, N, a[0], a[1], h, nx, ny, 0);
+      const crack = insideGlyph([(a[0] + b[0]) / 2 + nx * 0.004, (a[1] + b[1]) / 2 + ny * 0.004], g.contours);
       outline.push(a[0] - cx, a[1] - cy, b[0] - cx, b[1] - cy, crack ? 1 : 0);
+      if (!crack) continue;                                // the outline: the solid has it
+      const da = distOutline(a[0], a[1], g.segs) < s, db = distOutline(b[0], b[1], g.segs) < s;
+      const us = [0, 1], span = Math.min(0.5, 1.6 * s / l);
+      for (let j = 1; j <= 6; j++) { const u = span * (j / 6) ** 2; if (da) us.push(u); if (db) us.push(1 - u); }
+      us.sort((x, y) => x - y);
+      const pts = us.map((u) => { const x = a[0] + (b[0] - a[0]) * u, y = a[1] + (b[1] - a[1]) * u; return [x, y, zAt(x, y)]; });
+      const v = (r, z) => [r[0], r[1], z, nx, ny, 0];
+      for (let j = 0; j < pts.length - 1; j++) {
+        const p = pts[j], r = pts[j + 1];
+        tri(I, IN, v(p, -p[2]), v(r, -r[2]), v(r, r[2])); tri(I, IN, v(p, -p[2]), v(r, r[2]), v(p, p[2]));
+      }
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(O.concat(I), 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(ON.concat(IN), 3));
     geo.addGroup(0, O.length / 3, 0); geo.addGroup(O.length / 3, I.length / 3, 1);
-    const mesh = new THREE.Mesh(geo, MATS);
-    mesh.castShadow = true; mesh.receiveShadow = true;
+    const mesh = new THREE.Mesh(geo, P.glass ? GMATS : MATS);
+    mesh.castShadow = !P.glass; mesh.receiveShadow = !P.glass;
     mesh.position.set(cx, cy, 0);
     return { mesh, area: A, outline, home: new THREE.Vector3(cx, cy, 0), p0: new THREE.Vector3(cx, cy, 0), v0: new THREE.Vector3(), q0: new THREE.Quaternion(), w: new THREE.Vector3(), moving: false };
   }
@@ -363,7 +483,8 @@ export async function mount(stage) {
     if (outW) outW.copy(pc.w).multiplyScalar(Math.exp(-kr * t));
   }
 
-  let mode = 'rest';                                       // rest | go
+  let mode = 'rest';                                       // rest | crack (the hit has landed, nothing moves yet) | go
+  let crackT = 0;
   let tau = 0, tr = 0, tauDone = 0;                        // sim time in this base, real time since its kick, sim time of earlier bases
   let stack = [];                                          // earlier bases, so a hold can rewind past a second tap
   const impact = new THREE.Vector3();
@@ -410,10 +531,12 @@ export async function mount(stage) {
   }
   function explode(at) {
     setPieces(fracture(at.x, at.y));
-    stack = []; tauDone = 0; tau = 0;
-    kickFrom(at, 1, true);
+    stack = []; tauDone = 0; tau = 0; tr = 0;
+    impact.copy(at); crackT = 0; mode = 'crack';
+    if (P.crackTime <= 0) kickFrom(at, 1, true);
   }
   function reform() {
+    camT.yaw = camT.pitch = camT.zoom = 0;
     for (const p of pieces) { p.p0.copy(p.home); p.v0.set(0, 0, 0); p.q0.identity(); p.w.set(0, 0, 0); p.moving = false; p.mesh.position.copy(p.home); p.mesh.quaternion.identity(); p.mesh.visible = true; }
     stack = []; tau = 0; tauDone = 0; tr = 0; mode = 'rest'; rewinding = false;
   }
@@ -486,8 +609,11 @@ export async function mount(stage) {
   }
 
   // ---------- camera, lights, layout ----------
-  let camDist = 10;
+  let camDist = 10, camR = 10, afD = 10;
   const target = new THREE.Vector3(), _fw = new THREE.Vector3(), _p = new THREE.Vector3();
+  const cam = { yaw: 0, pitch: 0, zoom: 0 }, camT = { yaw: 0, pitch: 0, zoom: 0 };   // the flown camera (zoom: log of distance), and where it eases to
+  const piv = new THREE.Vector3(), cloud = new THREE.Vector3(), _sum = new THREE.Vector3();
+  const flown = () => Math.abs(cam.zoom) > 0.02 || Math.abs(cam.yaw) > 0.5 || Math.abs(cam.pitch) > 0.5;
   function placeCamera(shakeAmt = 0) {
     const fov = 2 * Math.atan(12 / P.lens) * 180 / Math.PI;
     camera.fov = fov; camera.aspect = W / H; camera.updateProjectionMatrix();
@@ -495,12 +621,16 @@ export async function mount(stage) {
     const vt = Math.tan(fov * Math.PI / 360);
     camDist = Math.max(th / 2 / vt, tw / 2 / (vt * camera.aspect));
     target.set((textBox[0] + textBox[2]) / 2, (textBox[1] + textBox[3]) / 2, 0);
-    const yaw = P.yaw * Math.PI / 180, pitch = P.pitch * Math.PI / 180;
-    camera.position.set(target.x + Math.sin(yaw) * Math.cos(pitch) * camDist, target.y + Math.sin(pitch) * camDist, Math.cos(yaw) * Math.cos(pitch) * camDist);
+    const yaw = (P.yaw + cam.yaw) * Math.PI / 180, pitch = (P.pitch + cam.pitch) * Math.PI / 180;
+    camR = camDist * Math.exp(-cam.zoom);
+    // flying in: turn round the middle of the flying pieces, not the empty spot where the name was, and widen the lens
+    piv.copy(target).lerp(cloud, Math.min(1, Math.max(0, cam.zoom)));
+    camera.fov = 2 * Math.atan(12 / Math.max(18, P.lens * Math.exp(-Math.max(0, cam.zoom) * 0.45))) * 180 / Math.PI; camera.updateProjectionMatrix();
+    camera.position.set(piv.x + Math.sin(yaw) * Math.cos(pitch) * camR, piv.y + Math.sin(pitch) * camR, piv.z + Math.cos(yaw) * Math.cos(pitch) * camR);
     if (shakeAmt) camera.position.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, 0).multiplyScalar(shakeAmt));
-    camera.lookAt(target);
+    camera.lookAt(piv);
     camera.updateMatrixWorld();
-    sparkMat.uniforms.scale.value = H * k / (2 * vt);
+    sparkMat.uniforms.scale.value = H * k / (2 * Math.tan(camera.fov * Math.PI / 360));
   }
   function placeLights() {
     const s = Math.max(textBox[2] - textBox[0], textBox[3] - textBox[1]);
@@ -516,6 +646,7 @@ export async function mount(stage) {
     layoutText();
     setPieces(fracture((textBox[0] + textBox[2]) / 2, (textBox[1] + textBox[3]) / 2));
     reform();
+    cloud.copy(target);
     placeCamera(); placeLights();
   }
   function resize() {
@@ -534,11 +665,38 @@ export async function mount(stage) {
     return hits.length ? hits[0].point.clone() : null;
   }
   let demoAt = stage.reduced ? Infinity : DEMO_AFTER, demoBack = 0, clock = 0;
-  const press = pressTracker();
-  let lastTap = -1, reformT = 0;
-  offs.push(stage.on('down', (q, e) => { demoAt = Infinity; demoBack = 0; press.down(q, e.pointerId); }));
-  offs.push(stage.on('move', (q, e) => press.move(q, e.pointerId)));
+  // the camera flies once it has burst: drag turns round the pieces, the wheel or a pinch flies in and out, two fingers turn too
+  const press = pressTracker(), pts = new Map();
+  let lastTap = -1, reformT = 0, drag = null, two = null;
+  const pair = () => { const [a, b] = [...pts.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; };
+  const clampPitch = (v) => Math.max(-80, Math.min(80, v));
+  const flyTo = (z) => { camT.zoom = Math.min(Math.log(camDist / 1.2), Math.max(-0.5, z)); };   // stops short of the empty middle
+  offs.push(stage.on('down', (q, e) => {
+    demoAt = Infinity; demoBack = 0;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) { two = { ...pair(), yaw: camT.yaw, pitch: camT.pitch, zoom: camT.zoom }; press.cancel(); drag = null; return; }
+    if (pts.size > 2 || two) return;
+    if (press.down(q, e.pointerId)) drag = { x: q.x, y: q.y, yaw: camT.yaw, pitch: camT.pitch };
+  }));
+  offs.push(stage.on('move', (q, e) => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (two && pts.size >= 2) {
+      if (mode !== 'go') return;
+      const c = pair();
+      camT.yaw = two.yaw - (c.x - two.x) / W * 120; camT.pitch = clampPitch(two.pitch + (c.y - two.y) / H * 90);
+      if (two.d > 20) flyTo(two.zoom + Math.log(c.d / two.d) * 1.5);
+      return;
+    }
+    press.move(q, e.pointerId);
+    if (!drag || press.moved < 8 || mode !== 'go' || rewinding) return;
+    camT.yaw = drag.yaw - (q.x - drag.x) / W * 160; camT.pitch = clampPitch(drag.pitch + (q.y - drag.y) / H * 110);
+  }));
+  const onWheel = (e) => { if (mode !== 'go' || stage.revealed) return; e.preventDefault(); flyTo(camT.zoom - e.deltaY * 0.0012); };
+  stage.root.addEventListener('wheel', onWheel, { passive: false });
   offs.push(stage.on('up', (q, e) => {
+    pts.delete(e.pointerId);
+    if (two) { if (pts.size === 0) two = null; return; }
+    drag = null;
     const r = press.up(q, e.pointerId);
     if (!r) return;
     if (rewinding) { rewinding = false; tr = Math.max(tr, P.hold + P.ramp); return; }
@@ -552,7 +710,7 @@ export async function mount(stage) {
     lastTap = now;
     const at = pick(q.x, q.y);
     if (!at) return;                                       // the background does nothing
-    if (mode === 'rest') explode(at); else kickFrom(at, 0.75, false);
+    if (mode === 'rest') explode(at); else if (mode === 'go') kickFrom(at, 0.75, false);
   }));
 
   // ---------- reveal: the cut, over the type ----------
@@ -587,7 +745,7 @@ export async function mount(stage) {
     }
     label(c, '— cracks · cut by Voronoi cells, finer near the hit', 40, 50, colr, kk);
     label(c, '- - the letter outline', 40, 66, colr, kk);
-    titleBlock(c, W_, H_, ['SPLINTERED · STRUCTURE', `${pieces.length} shards · ${MATERIALS[Math.round(P.material)] || 'chrome'}`,
+    titleBlock(c, W_, H_, ['SPLINTERED · STRUCTURE', `${pieces.length} shards · ${P.glass ? 'glass' : MATERIALS[Math.round(P.material)] || 'chrome'}`,
       mode === 'go' ? `time ×${Math.abs(rate()).toFixed(3)}${rewinding ? ' · rewinding' : ''}` : 'whole', `lens ${Math.round(P.lens)} mm · aperture ${P.aperture.toFixed(2)}`], colr, kk);
   }, { dim: 0.6 });
 
@@ -596,13 +754,15 @@ export async function mount(stage) {
   const tune = {
     title: 'Splintered', values: P, defaults: DEF,
     groups: [
-      { name: 'Look', items: [Ctl('material', 'Material (chrome, graphite, lacquer, ceramic)', 0, 3, 1), Ctl('depth', 'Extrusion depth', 0.05, 1.5, 0.01), Ctl('env', 'Reflections', 0, 3, 0.05),
+      { name: 'Glass', items: [{ key: 'glass', label: 'Glass letters', type: 'toggle' }, Ctl('bevel', 'Bevel', 0, 0.05, 0.001), Ctl('glassEnv', 'Reflections', 0, 6, 0.05),
+        Ctl('glassRough', 'Polish (lower is sharper)', 0, 0.3, 0.005), Ctl('clarity', 'Clarity', 0, 1, 0.01), Ctl('inner', 'Inner edges', 0, 4, 0.05)] },
+      { name: 'Look', items: [Ctl('material', 'Material when not glass (chrome, graphite, lacquer, ceramic)', 0, 3, 1), Ctl('depth', 'Extrusion depth', 0.05, 1.5, 0.01), Ctl('env', 'Reflections', 0, 3, 0.05),
         Ctl('exposure', 'Exposure', 0.3, 3, 0.05), Ctl('shadow', 'Shadow on the wall', 0, 1, 0.01), Ctl('wall', 'Wall distance', 0.02, 3, 0.01)] },
       { name: 'Blast', items: [Ctl('pieces', 'Pieces per letter (next blast)', 6, 120, 1), Ctl('cluster', 'Smaller pieces near the hit', 0, 1, 0.01), Ctl('force', 'Force', 1, 40, 0.1),
         Ctl('forward', 'Toward the camera', 0, 4, 0.05), Ctl('spread', 'Outward spread', 0, 3, 0.05), Ctl('spin', 'Spin', 0, 30, 0.1), Ctl('reach', 'Reach of the blast', 0.3, 12, 0.05),
         Ctl('gravity', 'Gravity', 0, 20, 0.1), Ctl('drag', 'Air drag', 0, 3, 0.01)] },
       { name: 'Time', items: [Ctl('hitSpeed', 'Speed at impact', 0.2, 4, 0.05), Ctl('hold', 'Impact lasts (s)', 0, 0.6, 0.01), Ctl('ramp', 'Ease into slow motion (s)', 0.05, 4, 0.05),
-        Ctl('slow', 'Slow-motion speed', 0.005, 1, 0.005), Ctl('rewind', 'Rewind speed (hold)', 0.1, 4, 0.05)] },
+        Ctl('slow', 'Slow-motion speed', 0.005, 1, 0.005), Ctl('rewind', 'Rewind speed (hold)', 0.1, 4, 0.05), Ctl('crackTime', 'Beat before the burst (s)', 0, 0.6, 0.01)] },
       { name: 'Lens', items: [Ctl('lens', 'Lens (mm)', 18, 135, 1), Ctl('aperture', 'Aperture (blur strength)', 0, 3, 0.01), Ctl('maxBlur', 'Largest blur (px)', 2, 60, 1),
         { key: 'follow', label: 'Focus follows a shard', type: 'toggle' }, Ctl('yaw', 'Camera turn', -45, 45, 0.5), Ctl('pitch', 'Camera tilt', -30, 30, 0.5), Ctl('shake', 'Shake at impact', 0, 3, 0.05)] },
       { name: 'Light', items: [Ctl('flash', 'Flash at impact', 0, 300, 1), Ctl('glowLevel', 'Glow in the cracks', 0, 20, 0.1), Ctl('cool', 'Glow cools over', 0.02, 3, 0.01),
@@ -611,11 +771,12 @@ export async function mount(stage) {
     set(key2, v) {
       P[key2] = v;
       if (key2 === 'material' || key2 === 'env') applyMaterial();
-      else if (key2 === 'depth') rebuild();
+      else if (key2 === 'depth' || key2 === 'bevel' || key2 === 'glass') rebuild();
+      else if (['glassEnv', 'glassRough', 'clarity', 'inner'].includes(key2)) applyGlass();
       else if (key2 === 'res') resize();
       else if (key2 === 'shadow' || key2 === 'wall') placeLights();
     },
-    reset() { Object.assign(P, DEF); applyMaterial(); resize(); rebuild(); },
+    reset() { Object.assign(P, DEF); applyMaterial(); applyGlass(); resize(); rebuild(); },
   };
 
   // ---------- the frame ----------
@@ -629,6 +790,9 @@ export async function mount(stage) {
     if (demoBack && clock > demoBack) { demoBack = 0; if (mode === 'go') { rewinding = true; heldFor = 0; } }
     if (press.holding && mode === 'go' && !rewinding && !stage.revealed) { rewinding = true; heldFor = 0; }
     if (rewinding) heldFor += dt;
+    if (mode === 'crack') { crackT += dt; if (crackT >= P.crackTime) kickFrom(impact.clone(), 1, true); }
+    const ke = 1 - Math.exp(-dt * 7);
+    for (const c in cam) cam[c] += (camT[c] - cam[c]) * ke;
     if (mode === 'go') {
       tau += rate() * dt; tr += dt;
       while (tau < 0 && stack.length) { const over = tau; popBase(); tau += over; }
@@ -640,20 +804,33 @@ export async function mount(stage) {
       poseAt(p, tau, p.mesh.position, p.mesh.quaternion);
       p.mesh.visible = _p.copy(p.mesh.position).sub(camera.position).dot(_fw) > camera.near + 0.15;
     }
+    let nMov = 0; _sum.set(0, 0, 0);                       // the middle of the flying pieces, for the flown camera to turn round
+    for (const p of pieces) if (p.moving) { _sum.add(p.mesh.position); nMov++; }
+    if (mode === 'go' && nMov) cloud.lerp(_sum.divideScalar(nMov), Math.min(1, dt * 3)); else cloud.copy(target);
     if (colour) {                                          // anodised in the palette once the first press wakes it
       const a = colour.update(dt);
       outerMat.color.copy(outerBase).lerp(tint, a); innerMat.color.copy(innerBase).lerp(tint, a); innerMat.emissive.setRGB(1, 1, 1).lerp(tint, a);
+      for (const m of GMATS) m.specularColor.setRGB(1, 1, 1).lerp(tint, a);
+      glassInner.emissive.setRGB(1, 1, 1).lerp(tint, a);
     }
     const go = mode === 'go', T = tauDone + tau;
     flash.position.copy(impact).add(new THREE.Vector3(0, 0, 0.6));
-    flash.intensity = go ? P.flash * Math.exp(-tau / 0.035) * smooth(0, 0.003, tau) : 0;
+    flash.intensity = go ? P.flash * Math.exp(-tau / 0.035) * smooth(0, 0.003, tau) : mode === 'crack' ? P.flash * 0.5 * Math.exp(-crackT / 0.03) : 0;
     innerMat.emissiveIntensity = go ? P.glowLevel * Math.exp(-T / P.cool) * smooth(0, 0.01, T) : 0;
+    glassInner.emissiveIntensity = innerMat.emissiveIntensity;
+    glassInner.visible = go;                               // glass crack walls stay hidden until the pieces part
     sparkMat.uniforms.tau.value = tau; sparkMat.uniforms.drag.value = P.drag; sparkMat.uniforms.grav.value = P.gravity;
     sparks.visible = go && P.sparks > 0;
-    placeCamera(go && !rewinding && tr < 0.45 ? P.shake * 0.06 * Math.exp(-tr / 0.09) : 0);
-    const nameDist = camDist - P.depth / 2;
+    placeCamera(go && !rewinding && tr < 0.45 ? P.shake * 0.06 * Math.exp(-tr / 0.09) : mode === 'crack' ? P.shake * 0.025 * Math.exp(-crackT / 0.05) : 0);
+    const nameDist = camR - P.depth / 2;
     let focus = nameDist;
-    if (P.follow && go && hero && hero.mesh.visible) {
+    if (flown()) {                                         // flying: focus on whatever is in the middle of the frame
+      ndc.set(0, 0); ray.setFromCamera(ndc, camera);
+      const hit = ray.intersectObjects(pieces.filter((p) => p.mesh.visible).map((p) => p.mesh), false)[0];
+      afD += ((hit ? hit.distance : nameDist) - afD) * Math.min(1, dt * 5);
+      focus = afD;
+    } else afD = nameDist;
+    if (P.follow && go && hero && hero.mesh.visible && !flown()) {
       rackT += ((rewinding ? 0 : smooth(0.25, 1.6, tr)) - rackT) * Math.min(1, dt * 3);
       const hd = _p.copy(hero.mesh.position).sub(camera.position).dot(_fw);
       focus = nameDist + (Math.max(camera.near + 0.3, hd) - nameDist) * rackT;
@@ -671,17 +848,17 @@ export async function mount(stage) {
 
   return {
     tune,
-    debug: { pick: (x, y) => pick(x, y), get tau() { return tau; }, get mode() { return mode; }, get pieces() { return pieces.length; },
+    debug: { pick: (x, y) => pick(x, y), get tau() { return tau; }, get mode() { return mode; }, get pieces() { return pieces.length; }, cam, camT,
       explode: (fx = 0.38, fy = 0.5) => explode(new THREE.Vector3(textBox[0] + (textBox[2] - textBox[0]) * fx, textBox[1] + (textBox[3] - textBox[1]) * fy, P.depth / 2)), reform },
     destroy() {
       alive = false; clearTimeout(rt); clearTimeout(reformT);
-      rv.destroy(); offs.forEach((f) => f());
+      rv.destroy(); offs.forEach((f) => f()); stage.root.removeEventListener('wheel', onWheel);
       setPieces([]);
       [rtScene, rtDof, rtBright, ...downs, ...ups].forEach((t) => t && t.dispose());
       if (rtScene) rtScene.depthTexture.dispose();
-      [...POST, sparkMat, outerMat, innerMat, wall.material].forEach((m) => m.dispose());
+      [...POST, sparkMat, outerMat, innerMat, ...GMATS, wall.material].forEach((m) => m.dispose());
       FS.geometry.dispose(); wall.geometry.dispose(); sparkGeo.dispose();
-      envRT.dispose(); pmrem.dispose(); key.shadow.map && key.shadow.map.dispose();
+      envRT.dispose(); glassEnvRT.dispose(); pmrem.dispose(); key.shadow.map && key.shadow.map.dispose();
       renderer.dispose();
       link.remove(); stage.setBackdrop(null);
     },

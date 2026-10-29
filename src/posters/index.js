@@ -82,7 +82,6 @@ export const POSTERS = [
     blurb: 'Polished type. Touch it and it blows apart toward you, hard at first, then in slow motion. Hold to rewind.',
     hint: null,
     themes: { dark: 1, light: 0 },          // best on black (Idan); white is porcelain with its own tuning
-    draft: true,
     load: () => import('./splintered.js'),
     prompt: "The name \"Idan Segev\" as polished extruded 3D type (three.js), rendered realistically: chrome on black or porcelain on white, studio reflections, soft shadows, depth of field, bloom. Tap a letter and the type is cut into Voronoi shards at that point (finer near the hit) and blows apart toward the camera. Time is directed: a forceful hit with a flash, sparks and glowing crack faces, then an ease into slow motion so shards drift past the lens and blur. Motion is closed-form in time, so hold rewinds it and the shards fly back together; double tap re-forms. Black and white only.",
   },
