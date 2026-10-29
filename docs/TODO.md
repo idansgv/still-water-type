@@ -5,7 +5,6 @@ Status as of 29 Oct 2026. Tick items off here as they land.
 | # | Item | Status | Notes |
 |---|---|---|---|
 | 1 | Slinky: composition, possibly the font, and the coil colour | Open | Needs Idan's target for composition and colour |
-| 2 | Marbled: change the font | Open | Needs Idan's pick of font |
 | 5 | Make it clear that a click clears a poster | Open | Needs copy and placement from Idan. Most posters use a single tap for something else, so the clear needs a home that doesn't clash |
 | 6 | Torn: look better and fix performance | Partly done | Rest skip is live (`71c052e`), unmeasured. Still to do: the full-canvas copy each frame while moving, and the look |
 | 8 | Share image: improve it | Check | `69c9240` already changed it to an Idan Segev wordmark. Check whether that's what Idan wanted |

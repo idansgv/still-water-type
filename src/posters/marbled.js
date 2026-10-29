@@ -15,7 +15,16 @@ import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './
 import { pressTracker, TAP, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 
 const MAXPTS = 90000;
-const FACE = '900 100px "Arial Black", Helvetica, "Helvetica Neue", Arial, sans-serif';
+const FACE = 'italic 900 100px "Bitter", Georgia, serif';          // Still Water's face (Bitter), in italics
+let faceReady = null;
+function loadFace() {                                                 // the stylesheet, then the face: the trace waits for it
+  if (!faceReady) faceReady = new Promise((r) => {
+    const l = document.createElement('link'); l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Bitter:ital,wght@1,900&display=swap';
+    l.onload = r; l.onerror = r; setTimeout(r, 2500); document.head.appendChild(l);
+  }).then(() => Promise.race([document.fonts.load('italic 900 100px "Bitter"'), new Promise((r) => setTimeout(r, 2500))])).catch(() => {});
+  return faceReady;
+}
 const STIR = { cell: 10, sigma: 32, kick: 14, cap: 10, max: 20, k: 85, c: 7 };   // hover stir: a springy field under the ink, so it is drawn displaced and settles back; the shape is never changed
 const DEF = { rings: 1, teeth: 1, gap: 46, sharp: 18, pull: 0.85, drop: 54 };
 
@@ -34,6 +43,7 @@ export async function mount(stage) {
 
   // ---------- the name as ink ----------
   async function nameShape() {
+    await loadFace();
     const G = 1, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     const m = document.createElement('canvas'); m.width = gw; m.height = gh; const x = m.getContext('2d', { willReadFrequently: true });
     const portrait = W / H < 0.8, lines = portrait ? ['Idan', 'Se', 'gev'] : ['Idan', 'Segev'];
