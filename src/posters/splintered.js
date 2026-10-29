@@ -29,6 +29,7 @@ import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './reveal.js';
 import { glyphContours } from './glyph-contours.js';
 import { colourOf } from '../colour.js';
+import { linesFor, lettersFor } from '../name.js';
 
 const FAMILY = 'Archivo Black', NAME = 'IdanSegv';
 const MATERIALS = ['chrome', 'graphite', 'black lacquer', 'white ceramic'];
@@ -157,7 +158,7 @@ export async function mount(stage) {
 
   // ---------- the face: Archivo Black from Google Fonts, only the letters of the name ----------
   const link = document.createElement('link'); link.rel = 'stylesheet';
-  link.href = `https://fonts.googleapis.com/css2?family=${FAMILY.replace(/ /g, '+')}&text=${encodeURIComponent(NAME)}&display=block`;
+  link.href = `https://fonts.googleapis.com/css2?family=${FAMILY.replace(/ /g, '+')}&text=${encodeURIComponent(lettersFor(stage, NAME))}&display=block`;
   document.head.appendChild(link);
   await Promise.race([new Promise((r) => { link.onload = r; link.onerror = r; }), new Promise((r) => setTimeout(r, 2500))]);
   try { await Promise.race([document.fonts.load(`400 100px "${FAMILY}"`, 'Idan Segev'), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the fallback face */ }
@@ -317,7 +318,7 @@ uniform vec3 uPl[16]; uniform int uN; uniform vec2 uHome;
     const mc = document.createElement('canvas').getContext('2d');
     mc.font = `400 100px ${FACE}`;
     const capEm = (mc.measureText('H').actualBoundingBoxAscent || 72) / 100;
-    const lines = twoLines ? ['Idan', 'Segev'] : ['Idan Segev'];
+    const lines = linesFor(stage, twoLines ? ['Idan', 'Segev'] : ['Idan Segev']);
     glyphs = [];
     lines.forEach((line, li) => {
       const w = mc.measureText(line).width / 100;

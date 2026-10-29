@@ -54,6 +54,8 @@ export const POSTERS = [
     blurb: 'Letters made of one soft material. Drag them, squash them, hold one until it pops.',
     hint: null,
     themes: { dark: 0.15, light: 0.85 },
+    nameable: true,
+    face: { family: 'Fredoka', weight: 600, upper: true },
     load: () => import('./soft-type.js'),
   },
   {
@@ -86,6 +88,8 @@ export const POSTERS = [
     blurb: 'Polished type. Touch it and it blows apart toward you, hard at first, then in slow motion. Hold to rewind.',
     hint: null,
     themes: { dark: 1, light: 0 },          // best on black (Idan); white is porcelain with its own tuning
+    nameable: true,
+    face: { family: 'Archivo Black', weight: 400 },
     load: () => import('./splintered.js'),
     prompt: "The name \"Idan Segev\" as polished extruded 3D type (three.js), rendered realistically: chrome on black or porcelain on white, studio reflections, soft shadows, depth of field, bloom. Tap a letter and the type is cut into Voronoi shards at that point (finer near the hit) and blows apart toward the camera. Time is directed: a forceful hit with a flash, sparks and glowing crack faces, then an ease into slow motion so shards drift past the lens and blur. Motion is closed-form in time, so hold rewinds it and the shards fly back together; double tap re-forms. Black and white only.",
   },
@@ -96,6 +100,8 @@ export const POSTERS = [
     blurb: 'Every letter is a chubby glass bottle half full of ink. Pick one up and the ink sloshes; tip it over and it pours out.',
     hint: null,
     themes: { dark: 1, light: 1 },
+    nameable: true,
+    face: { family: 'Fredoka', weight: 700 },
     load: () => import('./goblet.js'),
     prompt: "The name \"Idan Segev\" in Fredoka 700, every letter a chubby 3D glass bottle (three.js): the glyph extruded with a deep rounded bevel, transmissive glass, a small neck and lip on its highest point, about 58% full of white ink on a black page. The ink is the glyph extruded smaller by the glass's thickness, with a shader that discards everything above a plane and paints its back faces as the liquid's top (MinionsArt's Unity liquid trick). The plane's height is the quantile of about 1,400 volume samples along its normal, so the ink keeps its volume at any angle. Each letter is a rigid body on a spring home; dragging holds it at the grip so it hangs under gravity, and the surface tilts against the felt acceleration as a damped spring (wobble). Held by its foot the letter swings over; when the neck is below the surface the fill drops and ink pours out as falling drops. Tap jiggles a letter, double tap refills. Black and white only.",
   },
@@ -218,6 +224,8 @@ export const POSTERS = [
     blurb: 'The name, cut into strips that fan, scatter and snap back. Drag it, or tap.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    nameable: true,
+    face: { family: 'Archivo', weight: 900, upper: true },
     load: () => import('./fan.js'),
   },
   {
@@ -228,6 +236,8 @@ export const POSTERS = [
     blurb: 'Heavy type the colour of the page. Rain follows you and leaves its mark. Press, and it pours.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    nameable: true,
+    face: { family: 'Bitter', weight: 700 },
     load: () => import('./rain.js'),
   },
   {
@@ -248,6 +258,8 @@ export const POSTERS = [
     blurb: 'Every letter in a different typeface. Hover to swap one, press to make them all go.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    nameable: true,
+    face: { family: 'Abril Fatface', weight: 400 },
     load: () => import('./fontapalloza.js'),
   },
   {
@@ -309,6 +321,8 @@ export const POSTERS = [
     blurb: 'A wet brush writes the name in watercolour. Drag through it with a brush of coloured water; double tap to blot.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    nameable: true,
+    face: { family: 'Parisienne', weight: 400 },
     load: () => import('./wash-script.js'),
     prompt: "The name \"Idan Segev\" written by a wet brush in black watercolour, with WebGL2. Render the name in a script or handwriting face (Parisienne), thin it to a one-pixel centre line (Zhang-Suen) and walk that into strokes; a brush follows them in reading order, pressing in at the start of each stroke and heavier on downstrokes. The paper is a GPU simulation with ping-pong float textures: water, ink floating in the water, ink settled into the paper. Water bleeds into dry paper where a paper-fibre noise lets it; floating ink flows to shallower water (a conservative flux between neighbours) so strokes dry with a dark rim and a pale middle; ink settles more in the paper's valleys (granulation). The visitor's finger is a brush of clear water carrying a colour (stored as absorbance per channel so it mixes like paint): it lifts the ink, drags it along and dries with its own rim. Hold to flood; double tap to blot and write it again in another script.",
   },

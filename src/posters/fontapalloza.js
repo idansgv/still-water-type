@@ -8,6 +8,7 @@
 import { pressTracker } from '../gestures.js';
 import { createReveal, ink, corners } from './reveal.js';
 import { colourOf } from '../colour.js';
+import { linesFor, lettersFor } from '../name.js';
 
 const WORDS = ['Idan', 'Segev'];
 const CHARS = 'IdanSegv';
@@ -54,13 +55,14 @@ export function mount(stage) {
   };
   const ready = SYSTEM.filter(here);                              // families that have loaded, so the pool grows as the network answers
   let alive = true;
-  const loadFace = (f) => document.fonts.load(`${SIZE}px "${f}"`, CHARS).then((r) => { if (alive && r.length && !ready.includes(f)) ready.push(f); }).catch(() => {});
+  const words = linesFor(stage, WORDS), chars = lettersFor(stage, CHARS);   // a visitor's name: its rows and its letters
+  const loadFace = (f) => document.fonts.load(`${SIZE}px "${f}"`, chars).then((r) => { if (alive && r.length && !ready.includes(f)) ready.push(f); }).catch(() => {});
   const links = [];
   const addFonts = (list, sizes) => {
     for (let i = 0, b = 0; i < list.length; i += sizes[Math.min(b++, sizes.length - 1)]) {
       const fams = list.slice(i, i + sizes[Math.min(b, sizes.length - 1)]);
       const l = document.createElement('link');
-      l.rel = 'stylesheet'; l.href = `https://fonts.googleapis.com/css2?${fams.map((f) => 'family=' + f.replace(/ /g, '+')).join('&')}&text=${CHARS}&display=block`;
+      l.rel = 'stylesheet'; l.href = `https://fonts.googleapis.com/css2?${fams.map((f) => 'family=' + f.replace(/ /g, '+')).join('&')}&text=${encodeURIComponent(chars)}&display=block`;
       l.onload = () => fams.forEach(loadFace);          // the faces exist only once the stylesheet is parsed
       document.head.appendChild(l); links.push(l);
     }
@@ -73,7 +75,7 @@ export function mount(stage) {
 
   // --- cells ---
   const cells = [];
-  WORDS.forEach((w, row) => [...w].forEach((ch, col) => cells.push({ ch, row, col, n: w.length, font: START, next: 0, x: 0, y: 0, w: 0, h: 0 })));
+  words.forEach((w, row) => [...w].forEach((ch, col) => cells.push({ ch, row, col, n: w.length, font: START, next: 0, x: 0, y: 0, w: 0, h: 0 })));
   function box(font, ch) {
     const k = font + '|' + ch;
     let m = metric.get(k);
@@ -91,9 +93,9 @@ export function mount(stage) {
   const TIGHT = 0.004;                              // gap between letters, as a share of the short side
   function layout() {
     const W = stage.W, H = stage.H, pad = Math.min(W, H) * 0.04, gap = Math.min(W, H) * TIGHT, rowGap = Math.min(W, H) * 0.02;
-    const rowH = (H - pad * 2 - rowGap) / 2, avail = W - pad * 2;
+    const rowH = (H - pad * 2 - rowGap * (words.length - 1)) / words.length, avail = W - pad * 2;
     const rows = [];
-    for (let row = 0; row < WORDS.length; row++) {
+    for (let row = 0; row < words.length; row++) {
       const rc = cells.filter((q) => q.row === row), cw = avail / rc.length;
       for (const q of rc) {
         const m = ready.includes(q.font) ? box(q.font, q.ch) : { w: cw, h: rowH };

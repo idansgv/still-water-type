@@ -17,6 +17,7 @@
 import { getGL } from '../engine.js';
 import { createReveal, grid, corners, titleBlock, ink as rvInk } from './reveal.js';
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
+import { linesFor, lettersFor } from '../name.js';
 
 const DEF = { brush: 8.5, speed: 650, water: 0.9, pigment: 0.86, bleed: 0.095, rim: 1.5, dry: 1.2, gran: 0.68, reach: 0.9, lift: 0.013, colour: true, colourAmt: 0.7, newFace: true };   // Idan's tuned values, 24 Oct 2026
 const FACES = [                                                  // Idan's picks from the face catalog, 24 Oct 2026, in his order
@@ -36,13 +37,13 @@ const SUB = 3;
 const REF_SCALE = 1.5;                                           // the sim cells per css px Idan tuned at (a retina laptop)                                                   // simulation steps per frame
 
 // the faces, only the letters of the name, from Google Fonts: the stylesheet first, then the faces
-let faces = null;
-function loadFaces() {
-  if (faces) return faces;
+const faces = new Map();                                          // one stylesheet per set of letters (a visitor's name adds its own)
+function loadFaces(letters = 'IdanSegv') {
+  if (faces.has(letters)) return faces.get(letters);
   const l = document.createElement('link'); l.rel = 'stylesheet';
-  l.href = 'https://fonts.googleapis.com/css2?' + FACES.map((f) => 'family=' + f.family.replace(/ /g, '+')).join('&') + '&text=' + encodeURIComponent('IdanSegv') + '&display=block';
-  faces = new Promise((r) => { l.onload = r; l.onerror = r; setTimeout(r, 2500); document.head.appendChild(l); });
-  return faces;
+  l.href = 'https://fonts.googleapis.com/css2?' + FACES.map((f) => 'family=' + f.family.replace(/ /g, '+')).join('&') + '&text=' + encodeURIComponent(letters) + '&display=block';
+  faces.set(letters, new Promise((r) => { l.onload = r; l.onerror = r; setTimeout(r, 2500); document.head.appendChild(l); }));
+  return faces.get(letters);
 }
 
 const VS = `#version 300 es
@@ -224,15 +225,15 @@ export async function mount(stage) {
   // ---------- the name's centre line ----------
   let face = 0;
   async function fontStrokes(f) {
-    await loadFaces();
-    const NAME = 'Idan Segev';                                       // the stylesheet only has these letters, so ask for them (the default test string is not in it)
+    await loadFaces(lettersFor(stage, 'IdanSegv'));
+    const NAME = stage.words ? stage.words.join(' ') : 'Idan Segev';   // the stylesheet only has these letters, so ask for them (the default test string is not in it)
     try { await Promise.race([document.fonts.load(`${f.weight} 100px "${f.family}"`, NAME), new Promise((r) => setTimeout(r, 3000))]); } catch (e) { return null; }
     if (!document.fonts.check(`${f.weight} 100px "${f.family}"`, NAME)) return null;
     const w = Math.ceil(W), h = Math.ceil(H), m = document.createElement('canvas'); m.width = w; m.height = h;
     const x = m.getContext('2d', { willReadFrequently: true }), font = (px) => `${f.weight} ${px}px "${f.family}"`;
-    const words = W / H < 0.8 ? ['Idan', 'Segev'] : ['Idan Segev'];
+    const words = linesFor(stage, W / H < 0.8 ? ['Idan', 'Segev'] : ['Idan Segev']);
     x.font = font(100); const widest = Math.max(...words.map((t) => x.measureText(t).width));
-    const size = Math.min(W * 0.8 / widest * 100, H * (words.length > 1 ? 0.3 : 0.42) * f.size);
+    const size = Math.min(W * 0.8 / widest * 100, H * Math.min(words.length > 1 ? 0.3 : 0.42, 0.66 / words.length) * f.size);
     x.font = font(size); x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#000';
     const lead = size * 0.9, top = H / 2 - (words.length - 1) * lead / 2;
     words.forEach((t, i) => x.fillText(t, W / 2, top + i * lead));

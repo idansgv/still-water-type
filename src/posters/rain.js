@@ -13,6 +13,7 @@ import { getGL, compile, texture, uploadCanvas, VS_TRI, typeMask, clamp } from '
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 import { createReveal, ink } from './reveal.js';
 import { colourOf, GLSL_PAGE_GRADIENT } from '../colour.js';
+import { linesFor } from '../name.js';
 
 const MAXD = 4000;              // most drops in the air
 const TOP = 0.8;                // drops enter from here (above the frame)
@@ -159,7 +160,7 @@ export async function mount(ctx) {
   function build() {
     A = ctx.W / ctx.H;
     MW = 1024; MH = Math.max(256, Math.round(MW / A));
-    const lines = String(P.words).split('\n').map((l) => l.trim()).filter(Boolean);
+    const lines = linesFor(ctx, String(P.words).split('\n').map((l) => l.trim()).filter(Boolean));   // a visitor's name: one line per word
     const fam = P.font === 'Bitter' ? 'Bitter' : `${P.font}", "Bitter`;
     const tm = { lines: lines.length ? lines : ['Idan'], mode: 'fit', weight: P.weight, family: fam, pad: P.pad, valign: 'middle', align: P.center ? 'center' : 'left', gap: P.gap };
     // typeMask sizes the lines by cap height, so a descender (the g of Segev) can run off the bottom of the mask and be cut flat.

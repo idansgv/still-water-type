@@ -11,13 +11,6 @@
       ]
     }
   ],
-  "rewrites": [
-    {
-      "source": "/p/:slug/",
-      "has": [{ "type": "query", "key": "n" }],
-      "destination": "/api/share?slug=:slug"
-    }
-  ],
   "redirects": [
     {
       "source": "/p/jazz-fan/",

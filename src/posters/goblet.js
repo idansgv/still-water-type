@@ -19,6 +19,7 @@ import { getGL } from '../engine.js';
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './reveal.js';
 import { glyphContours } from './glyph-contours.js';
+import { linesFor, lettersFor } from '../name.js';
 
 const FAMILY = 'Fredoka', NAME = 'IdanSegv', WEIGHT = 700;
 // Idan's tuning from the test page (29 Oct 2026)
@@ -58,7 +59,7 @@ export async function mount(stage) {
 
   // ---------- the face: Fredoka from Google Fonts, only the letters of the name ----------
   const link = document.createElement('link'); link.rel = 'stylesheet';
-  link.href = `https://fonts.googleapis.com/css2?family=${FAMILY}:wght@${WEIGHT}&text=${encodeURIComponent(NAME)}&display=block`;
+  link.href = `https://fonts.googleapis.com/css2?family=${FAMILY}:wght@${WEIGHT}&text=${encodeURIComponent(lettersFor(stage, NAME))}&display=block`;
   document.head.appendChild(link);
   await Promise.race([new Promise((r) => { link.onload = r; link.onerror = r; }), new Promise((r) => setTimeout(r, 2500))]);
   try { await Promise.race([document.fonts.load(`${WEIGHT} 100px "${FAMILY}"`, NAME), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the fallback face */ }
@@ -172,9 +173,9 @@ export async function mount(stage) {
     const mc = document.createElement('canvas').getContext('2d');
     mc.font = `${WEIGHT} 100px ${FACE}`;
     const capA = mc.measureText('H').actualBoundingBoxAscent || 70;
-    const lines = W / H < 0.95 ? ['Idan', 'Segev'] : ['Idan Segev'];
+    const lines = linesFor(stage, W / H < 0.95 ? ['Idan', 'Segev'] : ['Idan Segev']);
     const w100 = Math.max(...lines.map((l) => mc.measureText(l).width));
-    fs = Math.min((W * 0.8) / w100 * 100, H * (lines.length === 1 ? 0.4 : 0.28));
+    fs = Math.min((W * 0.8) / w100 * 100, H * Math.min(lines.length === 1 ? 0.4 : 0.28, 0.6 / lines.length));
     mc.font = `${WEIGHT} ${fs}px ${FACE}`;
     const cap = capA / 100 * fs, lh = fs * 1.05;
     let base = (lh * (lines.length - 1)) / 2;                       // y up: the middle of the cap band of the first line

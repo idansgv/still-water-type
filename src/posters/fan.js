@@ -12,6 +12,7 @@
 import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './reveal.js';
 import { pressTracker } from '../gestures.js';
 import { compile } from '../engine.js';
+import { linesFor } from '../name.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const FONT = '900 100px Archivo, "Arial Black", Helvetica, sans-serif';
@@ -66,7 +67,7 @@ export function mount(stage) {
 
   function layout() {
     const portrait = W / H < 0.85;
-    const words = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    const words = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true });
     const padX = Math.max(14, W * 0.045), maxW = W - padX * 2, gapL = H * 0.035, topPad = H * 0.04, avail = H - 120 - topPad;
     const m = document.createElement('canvas').getContext('2d'); m.font = FONT;
     const lines = words.map((t) => {

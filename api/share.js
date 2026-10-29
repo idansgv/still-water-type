@@ -1,4 +1,4 @@
-// A shared link with a visitor's name (/p/<slug>/?n=<name>, sent here by vercel.json): the poster's own share page, with the name in
+// A shared link with a visitor's name (/p/<slug>/?n=<name>, sent here by middleware.js): the poster's own share page, with the name in
 // its title and a preview image that shows it. Link previews never run JavaScript, so this is the only way the name reaches them.
 // The page itself is unchanged: the shell reads ?n= and the poster draws the name. Links without a name never come here.
 import { bySlug } from '../src/posters/index.js';
@@ -17,7 +17,7 @@ export async function GET(request) {
   if (!page.ok || !poster || !poster.nameable || !name) return new Response(html, { status: page.status, headers });
 
   const n = encodeURIComponent(name), title = `${name} · ${poster.title}`;
-  const link = `${url.origin}/p/${slug}/?n=${n}`, image = `${url.origin}/api/og?slug=${slug}&n=${n}`;
+  const link = `${url.origin}/p/${slug}/?n=${n}`, image = `${url.origin}/api/og/?slug=${slug}&n=${n}`;   // the slash: vercel.json's trailingSlash would 308 it otherwise
   html = html.replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`);
   html = meta(html, /(<meta property="og:title" content=")[^"]*(")/, title);
   html = meta(html, /(<meta name="twitter:title" content=")[^"]*(")/, title);

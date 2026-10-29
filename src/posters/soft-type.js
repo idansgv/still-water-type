@@ -23,7 +23,8 @@
 // Mass follows size: a letter weighs its stroke length times its stroke width, so a swollen letter is heavier.
 // Heavy letters shove light ones in contacts and keep their momentum longer. The air is the stored energy.
 
-import { SKELETON, ratio, radiusFor } from './lettering.js';
+import { SKELETON, ratio, radiusFor, lettered } from './lettering.js';
+import { linesFor } from '../name.js';
 import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
 import { colourOf } from '../colour.js';
 
@@ -123,7 +124,9 @@ export function mount(stage) {
 
   function layout() {
     const portrait = W / H < 0.85;
-    const rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    const own = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    let rows = linesFor(stage, own).map(lettered).filter(Boolean);   // a visitor's name in the skeleton letters (accents dropped)
+    if (!rows.length) rows = own;
     const padX = Math.max(14, W * 0.045), top = Math.max(18, H * 0.04), bottom = 96;
     const availW = W - 2 * padX, availH = H - top - bottom;
     const gap = 0.06;
