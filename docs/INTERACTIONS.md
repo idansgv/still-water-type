@@ -246,9 +246,9 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | no demo; the sea is frozen |
 | Face | Bitter 900 (Google Fonts, the name's letters only) |
 
-## Moiré phase (published 29 Oct 2026)
+## Phases (published 29 Oct 2026, was Moiré phase)
 
-| | Moiré phase |
+| | Phases |
 |---|---|
 | At rest | two voices of lines bent in 3D; the bends travel slowly and voice 2 lags behind in Reich's steps (12 per 50 s cycle). Once a cycle they fall back into step and the name appears by gestalt, then dissolves into moiré (Idan's standing drift) |
 | Drag | turns the view through the lines; springs back on release |

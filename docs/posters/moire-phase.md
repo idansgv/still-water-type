@@ -1,4 +1,4 @@
-# Moiré phase
+# Phases (was Moiré phase)
 
 **Status:** published 2026-10-29. Test at `/?p=moire-phase`.
 
@@ -38,3 +38,7 @@
 **Staged on the site (29 Oct 2026, draft, local, not committed).** `src/posters/moire-phase.js`, registry row `draft: true`, `?p=moire-phase` (`&tune` for the panel), scene in `tools/scenes.cjs`. Same model as the test page, with Idan's settings as defaults; the shell owns black/white (both themes). Gestures through `src/gestures.js`. The reveal (three taps) lifts voice 2 off under a drawing of the two voices. The standing drift stays (his choice), frozen under reduced motion. Static gate passes except the two publish-only items (INTERACTIONS.md entry, menu preview).
 
 **Published (29 Oct 2026).** Idan retuned it on the site (fold 0.51, scale 0.65, breath 1.07, pitch 28, yaw -8, zoom 2, 178 lines, weight 0.28, light 0.69, tempo 0.018, tilt 1.15) and said publish. Gate fixes: the theme check reads corners as a grey mix for a line field (`LINE_FIELD` in `tools/tests/lib.cjs`, thresholds 128); the reveal draws the two voices as a score so the layer has real ink; colour scene is a press. Menu preview is taken at unison (`debug.unison()`). Next: a more rewarding interaction.
+
+**Renamed Phases (29 Oct 2026, Idan).** Title only; the slug and URL stay `moire-phase`.
+
+**Tune it, hear it (29 Oct 2026, test link only, not on the site yet).** Idan picked "you are voice 2" plus sound. A horizontal drag sets voice 2's lag directly (full width = one cycle, `span`); the clock stops while you tune. Within `snap` (0.035 of a cycle) of unison it snaps in with a short click and the name appears. A vertical drag tilts the view. Sound starts on the first touch: both voices play the Piano Phase figure (E F# B C# D F# E C# B F# D C#, 150 ms a note) as soft struck tones, voice 1 left and voice 2 right, with voice 2 as many notes ahead as its bends lag (fractions are a delay inside the note). At unison the two voices sound as one. Settings: span, snap, sound, volume, note length.

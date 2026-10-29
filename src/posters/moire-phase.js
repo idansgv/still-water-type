@@ -1,4 +1,4 @@
-// Moiré phase: Steve Reich's phasing as moiré. Two voices of fine lines, each line bent in 3D and seen in perspective. Voice 1
+// Phases (was Moiré phase): Steve Reich's phasing as moiré. Two voices of fine lines, each line bent in 3D and seen in perspective. Voice 1
 // holds tempo; voice 2 is the same lines with their bends lagging behind, in Reich's steps (12 per cycle, held a moment on each).
 // Inside the letters voice 1 sits half a line over, so the name exists only between the two voices: when they fall back into
 // step once a cycle it appears by gestalt, and as voice 2 slips it dissolves into moiré and folds. The bends travel slowly
@@ -183,13 +183,13 @@ export async function mount(stage) {
     c.setLineDash([]);
     label(c, 'voice 1 · holds tempo · half a line over inside the letters', 40, 50, colr, k);
     label(c, '- - voice 2 · the same lines, lagging', 40, 66, colr, k);
-    titleBlock(c, W_, H_, ['MOIRÉ PHASE · STRUCTURE', 'voice 2 lifted off: one set of lines', `voice 2 lags ${Math.round(lag * (P.steps || 12))} of ${P.steps || 12} beats`, `${P.lines} lines · cycle ${P.cycle} s`], colr, k);
+    titleBlock(c, W_, H_, ['PHASES · STRUCTURE', 'voice 2 lifted off: one set of lines', `voice 2 lags ${Math.round(lag * (P.steps || 12))} of ${P.steps || 12} beats`, `${P.lines} lines · cycle ${P.cycle} s`], colr, k);
   }, { dim: 0.6 });
 
   // ---------- settings ----------
   const Ctl = (key, label2, min, max, step) => ({ key, label: label2, min, max, step });
   const tune = {
-    title: 'Moiré phase', values: P, defaults: DEF,
+    title: 'Phases', values: P, defaults: DEF,
     groups: [
       { name: 'Space', items: [Ctl('fold', 'Bend depth', 0, 0.8, 0.01), Ctl('scale', 'Bend size (small to large)', 0.2, 2, 0.05), Ctl('breath', 'Bends travel (0 = still)', 0, 1.5, 0.01),
         Ctl('pitch', 'View tilt (deg)', 0, 58, 1), Ctl('yaw', 'View turn (deg)', -45, 45, 1), Ctl('zoom', 'Zoom', 0.5, 2.5, 0.05)] },

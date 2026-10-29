@@ -334,11 +334,11 @@ export const POSTERS = [
   },
   {
     slug: 'moire-phase',
-    title: 'Moiré phase',
+    title: 'Phases',
     words: ['Idan', 'Segev'],
     blurb: 'Two voices of lines drift out of phase, like Reich. Now and then they fall back into step and the name appears between them.',
     hint: null,
-    themes: { dark: 0.5, light: 0.5 },                 // staged for review (29 Oct 2026)
+    themes: { dark: 0.5, light: 0.5 },
     load: () => import('./moire-phase.js'),
     prompt: "The name \"Idan Segev\" in Alfa Slab One made only of moiré, after Steve Reich's phasing, with WebGL2. Two voices of about 140 fine lines across the height, each line bent in 3D by a few long sines that travel slowly, seen in perspective from a tilted camera. Voice 1 holds still; inside the letters (a screen-space mask) it steps half a line over. Voice 2 is the same lines with the phase of their bends lagging behind in Reich's steps (12 per 50 s cycle, held a moment on each), its spacing and angle parting slightly away from unison. When the voices fall back into step once a cycle the name appears by gestalt, then dissolves into moiré. Lines thicken in shade. Drag turns the view, tap is one beat ahead, hold settles into unison, double tap starts over. Black and white only.",
   },
