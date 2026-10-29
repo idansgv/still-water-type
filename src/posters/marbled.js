@@ -16,14 +16,14 @@ import { pressTracker, TAP, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 import { linesFor } from '../name.js';
 
 const MAXPTS = 90000;
-const FACE = 'italic 900 100px "Bitter", Georgia, serif';          // Still Water's face (Bitter), in italics
+const FACE = '400 100px "Anton", "Arial Narrow", Impact, sans-serif';   // Anton, tall and condensed: the combed ink runs through big strokes (Idan, 29 Oct 2026: Fan's composition in another face)
 let faceReady = null;
 function loadFace() {                                                 // the stylesheet, then the face: the trace waits for it
   if (!faceReady) faceReady = new Promise((r) => {
     const l = document.createElement('link'); l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=Bitter:ital,wght@1,900&display=swap';
+    l.href = 'https://fonts.googleapis.com/css2?family=Anton&display=swap';
     l.onload = r; l.onerror = r; setTimeout(r, 2500); document.head.appendChild(l);
-  }).then(() => Promise.race([document.fonts.load('italic 900 100px "Bitter"'), new Promise((r) => setTimeout(r, 2500))])).catch(() => {});
+  }).then(() => Promise.race([document.fonts.load('400 100px "Anton"'), new Promise((r) => setTimeout(r, 2500))])).catch(() => {});
   return faceReady;
 }
 const STIR = { cell: 10, sigma: 32, kick: 14, cap: 10, max: 20, k: 85, c: 7 };   // hover stir: a springy field under the ink, so it is drawn displaced and settles back; the shape is never changed
@@ -47,12 +47,16 @@ export async function mount(stage) {
     await loadFace();
     const G = 1, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     const m = document.createElement('canvas'); m.width = gw; m.height = gh; const x = m.getContext('2d', { willReadFrequently: true });
-    const portrait = W / H < 0.8, lines = linesFor(stage, portrait ? ['Idan', 'Se', 'gev'] : ['Idan', 'Segev']);
-    x.font = FACE; const widest = Math.max(...lines.map((l) => x.measureText(l).width));
-    const size = Math.min(W * 0.82 / widest * 100, H * Math.min(portrait ? 0.22 : 0.33, 0.66 / lines.length)) / G;   // the cap per line shrinks when a visitor's name has more lines
-    x.font = FACE.replace('100px', size + 'px'); x.textAlign = 'center'; x.fillStyle = '#000';
-    const lead = size * 0.93, top = gh / 2 - (lines.length * lead) / 2 + size * 0.78 - gh * 0.02;
-    lines.forEach((l, i) => x.fillText(l, gw / 2, top + i * lead));
+    // Fan's composition: capitals, every line sized on its own to the full width, so the block is one justified slab
+    const portrait = W / H < 0.85, lines = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true });
+    const padX = Math.max(14, W * 0.045), maxW = W - padX * 2, gapL = H * 0.035, topPad = H * 0.04, avail = H - 120 - topPad;
+    x.font = FACE; const capK = (x.measureText('H').actualBoundingBoxAscent || 72) / 100;
+    const rows = lines.map((t) => { const size = maxW / (x.measureText(t).width || 1) * 100; return { t, size, cap: capK * size }; });
+    let total = rows.reduce((a, r) => a + r.cap, 0) + gapL * (rows.length - 1);
+    const k = Math.min(1, avail / total); total *= k;
+    let y = topPad + (avail - total) / 2;
+    x.textAlign = 'center'; x.fillStyle = '#000';
+    for (const r of rows) { const cap = r.cap * k; x.font = FACE.replace('100px', (r.size * k / G) + 'px'); x.fillText(r.t, gw / 2, y + cap); y += cap + gapL * k; }
     const d = x.getImageData(0, 0, gw, gh).data, av = (i, j) => (i < 0 || j < 0 || i >= gw || j >= gh ? 0 : d[(j * gw + i) * 4 + 3] / 255), on = (i, j) => (av(i, j) > 0.5 ? 1 : 0);
     const cross = (a, b) => (Math.abs(b - a) < 1e-4 ? 0.5 : Math.min(1, Math.max(0, (0.5 - a) / (b - a))));   // where the edge of the type crosses between two samples, from the antialiasing: a smooth outline, not a staircase
     const next = new Map(), pt = new Map();

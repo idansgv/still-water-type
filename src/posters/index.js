@@ -259,7 +259,7 @@ export const POSTERS = [
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
     nameable: true,
-    face: { family: 'Bitter', weight: 900, italic: true },
+    face: { family: 'Anton', weight: 400, upper: true },
     load: () => import('./marbled.js'),
     prompt: "The name \"Idan Segev\" as ink floating on water, like Japanese suminagashi marbling, as black-and-white vector shapes on a canvas. Set it in a heavy Helvetica-style black (Arial Black) and trace its outline into closed loops of points and apply every move to those points so the ink stays sharp. A tap drops ink: push all the ink outward around the tap keeping its area (p' = c + (p - c) * sqrt(1 + r^2 / |p - c|^2)), then drop clear water into the middle so it lands as a ring. A drag combs: drag every point beside the stroke along it, less the farther away (an exponential falloff), and keep curves smooth by inserting a point wherever a stretch has opened a gap. A mouse moving over the ink without a button gently stirs it: draw the ink displaced by a springy field that the mouse pushes and that swings back and settles, never changing the shapes. Pressing and holding makes the ink give slightly under the finger. Nothing ever resets by itself.",
   },

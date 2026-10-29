@@ -9,7 +9,7 @@
 // Gestures (src/gestures.js): drag or hover stirs the cells; tap knocks a coarse hole that crystallizes back; hold melts the
 // cells under the finger; double tap on the page starts over (a beat later, so a third tap can still mean reveal).
 // Three taps (reveal) switch to dots only: the page inverts and only the seeds are drawn, still alive to every gesture.
-// The crystallization on load is the intro; once settled and left alone for REBOOT_MS it starts over (Idan, 29 Oct 2026).
+// The crystallization on load is the intro; once settled and left alone for REBOOT_MS it melts back to coarse cells and grows again (Idan, 29 Oct 2026).
 // Under reduced motion the poster opens already settled and never restarts on its own.
 
 import { Delaunay } from '../vendor/d3-delaunay.es.js';
@@ -20,7 +20,8 @@ import { linesFor, lettersFor } from '../name.js';
 const FAMILY = 'Fraunces', WEIGHT = 900, NAME = 'Idan Segev';
 const DEF = { cells: 9000, out: 0.28, speed: 0.35, line: 1.3 };
 const DOT = 1;                                     // reveal: the radius of a seed, Idan's dot size from the test page
-const REBOOT_MS = 9000;                            // Idan (29 Oct 2026): once the name has condensed and nobody touches it, it starts over after this long
+const REBOOT_MS = 5000;                            // Idan (29 Oct 2026): once the name has condensed and nobody touches it, it starts over after this long
+const MELT = 0.03;                                // the share of cells that merge away each frame while it starts over (about 2 s back to coarse)
 
 export async function mount(stage) {
   const c = stage.canvas.getContext('2d');
@@ -97,7 +98,7 @@ export async function mount(stage) {
     dirty = true;
   }
   // One step: each seed moves to the centre of its samples; the heaviest cells split.
-  function step(fast) {
+  function step(fast, grow = true) {                               // grow: false relaxes the cells without splitting any (while they melt)
     acc.fill(0, 0, n * 3);
     let k = 0;
     for (let s = 0; s < smp.x.length; s++) { const x = smp.x[s], y = smp.y[s]; k = del.find(x, y, k); const o = 3 * k; acc[o] += x; acc[o + 1] += y; acc[o + 2] += 1; }
@@ -108,7 +109,7 @@ export async function mount(stage) {
       pts[2 * i] += dx; pts[2 * i + 1] += dy;
       mx = Math.max(mx, dx * dx + dy * dy);
     }
-    const budget = fast ? n : Math.max(6, Math.round(n * 0.05 * Math.min(1, P.speed)));
+    const budget = !grow ? 0 : fast ? n : Math.max(6, Math.round(n * 0.05 * Math.min(1, P.speed)));
     const heavy = [];
     for (let i = 0; i < n; i++) if (acc[3 * i + 2] > target * 1.6) heavy.push(i);
     heavy.sort((a, b) => acc[3 * b + 2] - acc[3 * a + 2]);
@@ -126,7 +127,7 @@ export async function mount(stage) {
 
   // ---------- input ----------
   const press = pressTracker();
-  let lastTap = -1, reform = 0, dirty = true, lastInput = performance.now(), restAt = 0;
+  let lastTap = -1, reform = 0, dirty = true, lastInput = performance.now(), restAt = 0, melting = false;
   function stir(x, y, dx, dy) {
     const R = 80, R2 = R * R;
     for (let i = 0; i < n; i++) {
@@ -151,7 +152,7 @@ export async function mount(stage) {
     remove((px, py) => (px - x) ** 2 + (py - y) ** 2 < 400 && rand() < 0.2);
     rebuild(); still = 0; dirty = true;
   }
-  offs.push(stage.on('down', (q, e) => { press.down(q, e.pointerId); lastInput = performance.now(); }));
+  offs.push(stage.on('down', (q, e) => { press.down(q, e.pointerId); lastInput = performance.now(); melting = false; }));
   offs.push(stage.on('move', (q, e) => {
     press.move(q, e.pointerId);
     if (q.type === 'mouse' || q.down) lastInput = performance.now();
@@ -207,11 +208,15 @@ export async function mount(stage) {
   offs.push(stage.on('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (alive && (stage.W !== W || stage.H !== H)) build(); else dirty = true; }, 150); }));
   offs.push(stage.frame(() => {
     if (press.holding) melt(stage.ptr.x, stage.ptr.y);
-    if (still <= 40) { step(false); dirty = true; restAt = 0; }
+    if (melting) {                                                  // starting over: cells merge a few at a time back to the coarse crackle, then the name grows again
+      const n0 = Math.round(160 * areaScale());
+      remove(() => rand() < MELT); if (n <= n0) melting = false;
+      rebuild(); step(false, false); still = 0; dirty = true; restAt = 0;
+    } else if (still <= 40) { step(false); dirty = true; restAt = 0; }
     else {                                                          // condensed: after REBOOT_MS of rest with no input it crackles back to coarse and grows again
       const now = performance.now();
       if (!restAt) restAt = now;
-      if (!stage.reduced && !stage.revealed && !press.active && now - Math.max(restAt, lastInput) > REBOOT_MS) { seedCoarse(); dirty = true; restAt = 0; }
+      if (!stage.reduced && !stage.revealed && !press.active && now - Math.max(restAt, lastInput) > REBOOT_MS) { melting = true; restAt = 0; }
     }
     if (dirty) { draw(); dirty = false; }
     rv.draw(performance.now());

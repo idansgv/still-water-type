@@ -667,7 +667,8 @@ uniform vec3 uPl[16]; uniform int uN; uniform vec2 uHome;
   function placeCamera(shakeAmt = 0) {
     const fov = 2 * Math.atan(12 / P.lens) * 180 / Math.PI;
     camera.fov = fov; camera.aspect = W / H; camera.updateProjectionMatrix();
-    const tw = (textBox[2] - textBox[0]) / 0.78, th = (textBox[3] - textBox[1]) / 0.62;
+    const portrait = W / H < 0.8;                                         // a phone: the name fills nearly the whole width (Idan, 29 Oct 2026: it read too small)
+    const tw = (textBox[2] - textBox[0]) / (portrait ? 0.94 : 0.78), th = (textBox[3] - textBox[1]) / (portrait ? 0.7 : 0.62);
     const vt = Math.tan(fov * Math.PI / 360);
     camDist = Math.max(th / 2 / vt, tw / 2 / (vt * camera.aspect));
     target.set((textBox[0] + textBox[2]) / 2, (textBox[1] + textBox[3]) / 2, 0);
