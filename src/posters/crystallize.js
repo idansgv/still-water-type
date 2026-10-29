@@ -9,7 +9,8 @@
 // Gestures (src/gestures.js): drag or hover stirs the cells; tap knocks a coarse hole that crystallizes back; hold melts the
 // cells under the finger; double tap on the page starts over (a beat later, so a third tap can still mean reveal).
 // Three taps (reveal) switch to dots only: the page inverts and only the seeds are drawn, still alive to every gesture.
-// The crystallization on load is the one intro; under reduced motion the poster opens already settled.
+// The crystallization on load is the intro; once settled and left alone for REBOOT_MS it starts over (Idan, 29 Oct 2026).
+// Under reduced motion the poster opens already settled and never restarts on its own.
 
 import { Delaunay } from '../vendor/d3-delaunay.es.js';
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
@@ -18,6 +19,7 @@ import { createReveal, ink as rvInk } from './reveal.js';
 const FAMILY = 'Fraunces', WEIGHT = 900, NAME = 'Idan Segev';
 const DEF = { cells: 9000, out: 0.28, speed: 0.35, line: 1.3 };
 const DOT = 1;                                     // reveal: the radius of a seed, Idan's dot size from the test page
+const REBOOT_MS = 9000;                            // Idan (29 Oct 2026): once the name has condensed and nobody touches it, it starts over after this long
 
 export async function mount(stage) {
   const c = stage.canvas.getContext('2d');
@@ -123,7 +125,7 @@ export async function mount(stage) {
 
   // ---------- input ----------
   const press = pressTracker();
-  let lastTap = -1, reform = 0, dirty = true;
+  let lastTap = -1, reform = 0, dirty = true, lastInput = performance.now(), restAt = 0;
   function stir(x, y, dx, dy) {
     const R = 80, R2 = R * R;
     for (let i = 0; i < n; i++) {
@@ -148,9 +150,10 @@ export async function mount(stage) {
     remove((px, py) => (px - x) ** 2 + (py - y) ** 2 < 400 && rand() < 0.2);
     rebuild(); still = 0; dirty = true;
   }
-  offs.push(stage.on('down', (q, e) => { press.down(q, e.pointerId); }));
+  offs.push(stage.on('down', (q, e) => { press.down(q, e.pointerId); lastInput = performance.now(); }));
   offs.push(stage.on('move', (q, e) => {
     press.move(q, e.pointerId);
+    if (q.type === 'mouse' || q.down) lastInput = performance.now();
     if ((q.type === 'mouse' || q.down) && (q.vx || q.vy) && !(q.down && press.active && press.moved < 8)) stir(q.x, q.y, q.vx, q.vy);
   }));
   offs.push(stage.on('up', (q, e) => {
@@ -203,7 +206,12 @@ export async function mount(stage) {
   offs.push(stage.on('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (alive && (stage.W !== W || stage.H !== H)) build(); else dirty = true; }, 150); }));
   offs.push(stage.frame(() => {
     if (press.holding) melt(stage.ptr.x, stage.ptr.y);
-    if (still <= 40) { step(false); dirty = true; }
+    if (still <= 40) { step(false); dirty = true; restAt = 0; }
+    else {                                                          // condensed: after REBOOT_MS of rest with no input it crackles back to coarse and grows again
+      const now = performance.now();
+      if (!restAt) restAt = now;
+      if (!stage.reduced && !stage.revealed && !press.active && now - Math.max(restAt, lastInput) > REBOOT_MS) { seedCoarse(); dirty = true; restAt = 0; }
+    }
     if (dirty) { draw(); dirty = false; }
     rv.draw(performance.now());
   }));
