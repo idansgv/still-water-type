@@ -8,10 +8,12 @@
 // with a shade, aimed at the name or at a fixed angle), and a flat look that cuts the picture to two tones.
 //
 // Colour (about one showing in twenty, src/colour.js): from the first touch, the light takes the palette along the page.
-// gestures: n/a (the lamp follows the pointer; nothing else is pressable). Self-demo: once, after 3.5 s untouched, the lamp
-// takes a slow turn through the name and stops; off under reduced motion.
+// Gestures: the lamp follows the pointer; a tap is a flare (the lamp flashes up, every edge of the name catches the light for a
+// moment, then it sinks back). Self-demo: once, after 3.5 s untouched, the lamp takes a slow turn through the name and stops;
+// off under reduced motion.
 
 import { getGL } from '../engine.js';
+import { pressTracker } from '../gestures.js';
 import { colourOf, GLSL_PAGE_GRADIENT } from '../colour.js';
 import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './reveal.js';
 
@@ -144,8 +146,10 @@ export async function mount(stage) {
   const lamp = { x: 0, y: 0, tx: 0, ty: 0, held: false };
   const born = performance.now(); let demoT = -1;
   const take = (q) => { lamp.held = true; demoT = -1; lamp.tx = q.x; lamp.ty = q.y; };
-  offs.push(stage.on('down', (q) => take(q)));
-  offs.push(stage.on('move', (q) => { if (q.type === 'mouse' || q.down) take(q); }));
+  const press = pressTracker(); let flare = 0;                         // a tap: the lamp flares up and sinks back
+  offs.push(stage.on('down', (q, e) => { take(q); press.down(q, e.pointerId); }));
+  offs.push(stage.on('move', (q, e) => { press.move(q, e.pointerId); if (q.type === 'mouse' || q.down) take(q); }));
+  offs.push(stage.on('up', (q, e) => { const r = press.up(q, e.pointerId); if (r && r.tap) flare = 1; }));
 
   // ---------- reveal: the lamp, the heights, the rays ----------
   const rv = createReveal(stage, (c, W_, H_, k) => {
@@ -182,7 +186,8 @@ export async function mount(stage) {
       if (demoT >= 0) { demoT += dt; const u = Math.min(1, demoT / 11); lamp.tx = W * (0.18 + 0.64 * u); lamp.ty = H * (0.5 + 0.22 * Math.sin(u * Math.PI * 2.0)); if (u >= 1) demoT = -1; }
     }
     lamp.x += (lamp.tx - lamp.x) * Math.min(1, dt * 9); lamp.y += (lamp.ty - lamp.y) * Math.min(1, dt * 9);
-    const lampZ = P.height;
+    flare *= Math.exp(-dt * 2.4);
+    const lampZ = P.height * (1 + 1.5 * flare), reach = P.reach * (1 + 2.5 * flare);
     let ax = Math.cos(P.aim * Math.PI / 180), ay = Math.sin(P.aim * Math.PI / 180);   // the cone's direction, on the page (y down)
     if (P.aimName) { const dx = W / 2 - lamp.x, dy = H / 2 - lamp.y, l = Math.hypot(dx, dy); if (l > 1) { ax = dx / l; ay = dy / l; } }
     const cone = (pp) => { gl.uniform1f(pp.u('uCone'), P.cone ? 1 : 0); gl.uniform1f(pp.u('uConeW'), P.coneW * Math.PI / 180); gl.uniform1f(pp.u('uConeSoft'), P.coneSoft); gl.uniform2f(pp.u('uAim'), ax, ay); };
@@ -190,7 +195,7 @@ export async function mount(stage) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, TL.f); gl.viewport(0, 0, TL.w, TL.h); gl.useProgram(pL.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, hTex); gl.uniform1i(pL.u('uH'), 0);
     gl.uniform2f(pL.u('uCss'), W, H); gl.uniform2f(pL.u('uTex'), 1 / texW, 1 / texH); gl.uniform3f(pL.u('uLamp'), lamp.x, lamp.y, lampZ);
-    gl.uniform1f(pL.u('uSharp'), P.sharp); gl.uniform1f(pL.u('uReach'), P.reach); gl.uniform1f(pL.u('uFace'), P.face); gl.uniform1f(pL.u('uDepth'), 30 * (W / texW) / 2); cone(pL);
+    gl.uniform1f(pL.u('uSharp'), P.sharp); gl.uniform1f(pL.u('uReach'), reach); gl.uniform1f(pL.u('uFace'), P.face); gl.uniform1f(pL.u('uDepth'), 30 * (W / texW) / 2); cone(pL);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.useProgram(pB.p);                                                // bloom: a quarter-size blur, there and back, twice
     for (let pass = 0; pass < 2; pass++) {
@@ -199,13 +204,13 @@ export async function mount(stage) {
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, TR.f); gl.viewport(0, 0, TR.w, TR.h); gl.useProgram(pR.p);   // the air
     gl.bindTexture(gl.TEXTURE_2D, hTex); gl.uniform1i(pR.u('uH'), 0);
-    gl.uniform2f(pR.u('uLampUV'), lamp.x / W, 1 - lamp.y / H); gl.uniform2f(pR.u('uCss'), W, H); gl.uniform1f(pR.u('uReach'), P.reach); cone(pR);
+    gl.uniform2f(pR.u('uLampUV'), lamp.x / W, 1 - lamp.y / H); gl.uniform2f(pR.u('uCss'), W, H); gl.uniform1f(pR.u('uReach'), reach); cone(pR);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, stage.pw, stage.ph); gl.useProgram(pC.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, TL.t); gl.uniform1i(pC.u('uL'), 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, TB.t); gl.uniform1i(pC.u('uB'), 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, TR.t); gl.uniform1i(pC.u('uR'), 2); gl.activeTexture(gl.TEXTURE0);
-    gl.uniform1f(pC.u('uBloom'), P.bloom); gl.uniform1f(pC.u('uHaze'), P.haze); gl.uniform1f(pC.u('uCol'), col ? col.amount : 0); gl.uniform1f(pC.u('uInv'), dark ? 0 : 1);
+    gl.uniform1f(pC.u('uBloom'), P.bloom * (1 + 0.8 * flare)); gl.uniform1f(pC.u('uHaze'), P.haze); gl.uniform1f(pC.u('uCol'), col ? col.amount : 0); gl.uniform1f(pC.u('uInv'), dark ? 0 : 1);
     gl.uniform1f(pC.u('uFlat'), P.flat ? 1 : 0); gl.uniform1f(pC.u('uCut'), P.cut);
     gl.uniform2f(pC.u('uCss'), W, H); gl.uniform3f(pC.u('uLamp'), lamp.x, lamp.y, lampZ); gl.uniform3fv(pC.u('uG[0]'), gUni);
     gl.drawArrays(gl.TRIANGLES, 0, 3);

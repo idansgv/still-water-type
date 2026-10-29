@@ -9,12 +9,10 @@ Status as of 29 Oct 2026. Tick items off here as they land.
 | 6 | Torn: look better and fix performance | Partly done | Rest skip is live (`71c052e`), unmeasured. Still to do: the full-canvas copy each frame while moving, and the look |
 | 8 | Share image: improve it | Check | `69c9240` already changed it to an Idan Segev wordmark. Check whether that's what Idan wanted |
 | 10 | Review every poster: click clears, and double tap has an effect on the letters | Open | Audit table below. Needs a run of each poster to confirm |
-| 12 | Glint: add a click interaction | Open | Proposal below |
 | 13 | Customize interaction: more posters take the visitor's name | Open | Only Still Water takes it so far. Each poster opts in with `nameable: true` and needs its letters drawn from `stage.words` |
 | 14 | Customize share: the name in the share preview | Decision | The link carries the name and the poster draws it (checked in the browser). The title, preview image and description stay generic: they are static, and crawlers do not run the script. Options: accept that, or render a preview per name on a server |
 
 **Proposals (not built, for approval)**
-- **Glint, click:** a click drops a stone into the water. A ring of ripples spreads out from the click, and each glint it passes flares for a moment before it settles.
 
 
 ## Audit (item 10): double tap, from docs/INTERACTIONS.md
