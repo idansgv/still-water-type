@@ -15,6 +15,8 @@ Status as of 29 Oct 2026. Tick items off here as they land.
 | 9 | Moonlit: double tap for a moon reveal, or a silent lightning and thunder effect | Open | Corrected from Glint. Proposal below |
 | 10 | Review every poster: click clears, and double tap has an effect on the letters | Open | Audit table below. Needs a run of each poster to confirm |
 | 12 | Glint: add a click interaction | Open | Proposal below |
+| 13 | Customize interaction: more posters take the visitor's name | Open | Only Still Water takes it so far. Each poster opts in with `nameable: true` and needs its letters drawn from `stage.words` |
+| 14 | Customize share: share a customized poster with the name | Open | The share link carries `?n=` for Still Water. Check that the share page and its preview carry the name too |
 
 **Proposals (not built, for approval)**
 - **Moonlit, double tap:** a silent lightning flash. The whole sea goes white for two frames, the letters go dark in the flash, then a rumble of ripples rolls out from the tap point over about 1.5 s. No audio.
