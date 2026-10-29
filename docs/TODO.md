@@ -11,6 +11,7 @@ Status as of 29 Oct 2026. Tick items off here as they land.
 | 8 | Share image: improve it | Check | `69c9240` already changed it to an Idan Segev wordmark. Check whether that's what Idan wanted |
 | 9 | Moonlit: double tap for a moon reveal, or a silent lightning and thunder effect | Open | Corrected from Glint. Proposal below |
 | 10 | Review every poster: click clears, and double tap has an effect on the letters | Open | Audit table below. Needs a run of each poster to confirm |
+| 11 | Crystallize: auto reboot after a delay | Open | Needs Idan's delay and whether it restarts the cells or the whole poster |
 | 12 | Glint: add a click interaction | Open | Proposal below |
 | 13 | Customize interaction: more posters take the visitor's name | Open | Only Still Water takes it so far. Each poster opts in with `nameable: true` and needs its letters drawn from `stage.words` |
 | 14 | Customize share: share a customized poster with the name | Open | The share link carries `?n=` for Still Water. Check that the share page and its preview carry the name too |
@@ -18,7 +19,6 @@ Status as of 29 Oct 2026. Tick items off here as they land.
 **Proposals (not built, for approval)**
 - **Moonlit, double tap:** a silent lightning flash. The whole sea goes white for two frames, the letters go dark in the flash, then a rumble of ripples rolls out from the tap point over about 1.5 s. No audio.
 - **Glint, click:** a click drops a stone into the water. A ring of ripples spreads out from the click, and each glint it passes flares for a moment before it settles.
-| 11 | Crystallize: auto reboot after a delay | Open | Needs Idan's delay and whether it restarts the cells or the whole poster |
 
 
 ## Audit (item 10): double tap, from docs/INTERACTIONS.md
