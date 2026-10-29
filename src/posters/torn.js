@@ -64,6 +64,7 @@ export async function mount(stage) {
   gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
 
   // ---------- the cloth ----------
+  let settled = false;                                                 // set by sim(): the cloth has stopped moving
   let W = stage.W, H = stage.H, N = 0, X, Y, Z, PX, PY, PZ, IM, HX, HY, LAB, CA, CB, CR, CK, NC = 0, TRI, ALIVE, TRIC, ECNT, EBEND, IDX, nIdx = 0, idxDirty = true;
   let NRM, POS, pegs = [], capH = 100, s = 8, letters = [], ready = false, floorOn = true, lower = null, grab = null, air = null, tears = 0;
 
@@ -166,7 +167,7 @@ export async function mount(stage) {
       }
     }
     POS = new Float32Array(N * 3); NRM = new Float32Array(N * 3); IDX = new Uint16Array(TRI.length); idxDirty = true;
-    grab = null; tears = 0; floorOn = true; lower = null; ready = true;
+    grab = null; tears = 0; floorOn = true; lower = null; settled = false; ready = true;
   }
 
   // a snapped thread takes its triangles; their other threads go when no triangle is left to hold them
@@ -219,6 +220,9 @@ export async function mount(stage) {
       broke.length = 0;
     }
     if (air) { air.sp *= 0.5; air.vx *= 0.5; air.vy *= 0.5; if (air.sp < 0.05) air = null; }
+    let mv = 0;                                                        // at rest: nothing moves, no hand and no air on it; the frame loop then skips the solver and the redraw
+    for (let i = 0; i < N; i++) mv = Math.max(mv, Math.abs(X[i] - PX[i]) + Math.abs(Y[i] - PY[i]) + Math.abs(Z[i] - PZ[i]));
+    settled = mv < 1e-3 && !grab && !air && !lower;
   }
 
   // ---------- drawing ----------
@@ -338,7 +342,8 @@ export async function mount(stage) {
   offs.push(stage.frame(() => {
     if (!ready) return;
     if (press.holding && !grab && start) startGrab(start);
-    sim(1 / 60); render(); rv.draw();
+    if (press.active || grab || air || lower || !settled) { sim(1 / 60); render(); }
+    rv.draw();
   }));
 
   return {
