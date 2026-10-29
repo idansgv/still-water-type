@@ -330,6 +330,7 @@ export const POSTERS = [
     hint: null,
     themes: { dark: 1, light: 0 },
     darkOnly: true,              // black only: moonlight on water has no white version, like Glint
+    draft: true,                 // parked (29 Oct 2026): out of the shuffle, still at ?p=glitter
     load: () => import('./glitter.js'),
     prompt: "The name \"Idan Segev\" in Bitter as the only water on a black page, seen from straight above, with WebGL2; the pointer is a small moon above the page. Inside the letters sum about 24 ripples (3 to 240 px, every direction, gravity-capillary dispersion); ripples too fine for a pixel become slope variance. At each pixel take the half vector between the view and the moon, compare it with the surface normal through a Beckmann slope distribution, and draw the glints as a Poisson count per pixel from that expected radiance, so near the moon they are separate sparkles and further off a glow. Moves leave a wake of ripples (a low-resolution field that spreads and decays); hold raises the wind over every letter. HDR with a bloom. A calm letter is a black mirror. Black and white only.",
   },
@@ -361,6 +362,7 @@ export const POSTERS = [
     blurb: 'Two voices of lines drift out of phase, like Reich. Now and then they fall back into step and the name appears between them.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    draft: true,                 // parked (29 Oct 2026): out of the shuffle, still at ?p=moire-phase
     load: () => import('./moire-phase.js'),
     prompt: "The name \"Idan Segev\" in Alfa Slab One made only of moiré, after Steve Reich's phasing, with WebGL2. Two voices of about 140 fine lines across the height, each line bent in 3D by a few long sines that travel slowly, seen in perspective from a tilted camera. Voice 1 holds still; inside the letters (a screen-space mask) it steps half a line over. Voice 2 is the same lines with the phase of their bends lagging behind in Reich's steps (12 per 50 s cycle, held a moment on each), its spacing and angle parting slightly away from unison. When the voices fall back into step once a cycle the name appears by gestalt, then dissolves into moiré. Lines thicken in shade. Drag turns the view, tap is one beat ahead, hold settles into unison, double tap starts over. Black and white only.",
   },
