@@ -27,5 +27,6 @@ const COLOUR_SCENES = {
   splintered: async (p) => { await sleep(1500); await p.mouse.click(100, 240); await sleep(1500); },   // native: a press on a letter (the I) wakes the colour and blows it apart
   'moire-phase': async (p) => { await sleep(1500); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press (it is also a beat)
   moonlit: async (p) => { await sleep(1500); await p.mouse.move(400, 250); await p.mouse.down(); await sleep(3500); },   // the pass wakes on the press; a held gale makes enough glitter to carry it (the test lets go)
+  goblet: async (p) => { await sleep(2200); await p.mouse.click(660, 420); await sleep(1500); },   // the pass wakes on a press (a jiggle of the S)
 };
 module.exports = { COLOUR_SCENES };

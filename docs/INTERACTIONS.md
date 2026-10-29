@@ -83,6 +83,23 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | the thrash slows to about three swaps a second per letter |
 | Multi-touch | one pointer |
 
+## Goblet (published 29 Oct 2026, was Inkwell)
+
+| | Goblet |
+|---|---|
+| At rest | every letter a chubby glass bottle (Fredoka 700, a neck and lip on its highest point), about 58% full of white ink, on black; still |
+| Drag a letter | you carry it from where you grabbed it and it hangs from there under gravity; it swings a little in 3D and the ink's surface sloshes |
+| Hold it by its foot | it swings upside down; once its neck is under the ink, the ink pours out as drops that fall off the page |
+| Release | springs home upright and wobbles; the ink sloshes again |
+| Tap on a letter | a jiggle: the ink sloshes (under 250 ms, 8 px) |
+| Tap on background | nothing |
+| Hold | nothing of its own (a hold on a letter is a carry) |
+| Double tap | every letter fills up again (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | each letter's ink surface as a line with its fill, the neck, and which way is up for the ink |
+| Self-demo | once, after 3.5 s untouched: the S is nudged and sloshes; off under reduced motion (which also fills the letters at once) |
+| Theme | black only (darkOnly) |
+| Face | Fredoka 700 (Google Fonts, the name's letters only) |
+
 ## In the pipeline (draft): Rigged (published 21 Oct 2026, back to draft 24 Oct)
 
 | | Rigged |

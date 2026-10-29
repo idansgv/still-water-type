@@ -24,7 +24,8 @@ const SCENES = {
   'moire-phase': async (p) => { await p.evaluate(() => window.__poster.inst.debug.unison()); await sleep(600); },   // at unison: the name between the two voices
   splintered: async (p) => { await p.evaluate(() => window.__poster.inst.debug.explode()); await sleep(1600); },   // blown apart, in slow motion
   moonlit: async (p) => { await p.mouse.move(200, 330); for (let i = 0; i <= 30; i++) { await p.mouse.move(200 + i * 26, 330 + Math.sin(i / 5) * 60); await sleep(20); } await sleep(700); },   // a gust drawn across the name
+  goblet: async (p) => { await sleep(2200); await p.mouse.move(650, 455); await p.mouse.down(); for (let i = 0; i <= 24; i++) { await p.mouse.move(650 + i * 6, 455 - i * 9); await sleep(16); } await sleep(1100); },   // the S held by its foot, upside down and pouring
 };
 
-const PREVIEW_THEME = { glint: 'dark', glitter: 'dark', moonlit: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
+const PREVIEW_THEME = { glint: 'dark', glitter: 'dark', moonlit: 'dark', goblet: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
 module.exports = { SCENES, PREVIEW_THEME, sleep };

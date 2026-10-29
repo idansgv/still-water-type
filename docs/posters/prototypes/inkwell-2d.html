@@ -1,0 +1,606 @@
+<title>Inkwell</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&family=Sniglet:wght@800&family=Baloo+2:wght@800&family=Chewy&family=Coiny&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one full-bleed poster, each letter a round glass vessel half full of ink; a quiet mono line at the foot; a settings sheet for this test only. White page by default, black in the dark slot. */
+:root {
+  --bg: #ffffff; --ink: #000000; --dim: #8a8a8a; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(252, 252, 252, 0.96);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+:root.dark { --bg: #000000; --ink: #ffffff; --dim: #7c7c7c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#glass { pointer-events: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button, select { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+select { border-bottom: 1px solid var(--line); padding: 2px 0; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="ink" aria-label="Idan Segev, each letter a round glass vessel half full of ink. Pick a letter up and the ink sloshes; tip it and the ink pours out."></canvas>
+<canvas id="glass"></canvas>
+<div class="foot"><span><b>Inkwell</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row tog" for="dark"><span>Black page (white ink)</span><input type="checkbox" id="dark"></label>
+  <label class="row" for="font"><span>Face</span><select id="font">
+    <option value="Fredoka|700">Fredoka</option><option value="Sniglet|800">Sniglet</option><option value="Baloo 2|800">Baloo 2</option>
+    <option value="Chewy|400">Chewy</option><option value="Coiny|400">Coiny</option></select></label>
+  <label class="row" for="fill"><span>How full</span><output id="fillO"></output><input type="range" id="fill" min="0.2" max="0.9" step="0.01"></label>
+  <label class="row" for="wall"><span>Glass thickness</span><output id="wallO"></output><input type="range" id="wall" min="0.015" max="0.07" step="0.001"></label>
+  <label class="row" for="mouth"><span>Mouth width</span><output id="mouthO"></output><input type="range" id="mouth" min="0" max="0.16" step="0.005"></label>
+  <label class="row" for="count"><span>Drops (thousands)</span><output id="countO"></output><input type="range" id="count" min="0.8" max="5" step="0.1"></label>
+  <label class="row" for="stiff"><span>Ink pressure</span><output id="stiffO"></output><input type="range" id="stiff" min="0.02" max="0.4" step="0.005"></label>
+  <label class="row" for="near"><span>Drop roundness</span><output id="nearO"></output><input type="range" id="near" min="0" max="0.8" step="0.01"></label>
+  <label class="row" for="dens"><span>Cling (surface tension)</span><output id="densO"></output><input type="range" id="dens" min="0.7" max="1.4" step="0.01"></label>
+  <label class="row" for="visc"><span>Thickness (viscosity)</span><output id="viscO"></output><input type="range" id="visc" min="0" max="0.6" step="0.01"></label>
+  <label class="row" for="grav"><span>Gravity</span><output id="gravO"></output><input type="range" id="grav" min="0.3" max="2.5" step="0.05"></label>
+  <label class="row" for="spring"><span>Letter springiness</span><output id="springO"></output><input type="range" id="spring" min="0.3" max="2" step="0.05"></label>
+  <label class="row" for="glassA"><span>Glass line</span><output id="glassAO"></output><input type="range" id="glassA" min="0" max="1" step="0.02"></label>
+  <div class="acts"><button id="copy" type="button">Copy settings</button><button id="reset" type="button">Reset</button></div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const cv = $('ink'), gcv = $('glass');
+  const gl = cv.getContext('webgl2', { antialias: false, premultipliedAlpha: true });
+  const g2 = gcv.getContext('2d');
+  if (!gl) { document.querySelector('.foot span').textContent = 'This needs WebGL2.'; return; }
+
+  const DEF = { dark: false, font: 'Fredoka|700', fill: 0.6, wall: 0.036, mouth: 0.07, count: 2.4, stiff: 0.12, near: 0.25, dens: 1.0, visc: 0.12, grav: 1, spring: 1, glassA: 0.85 };
+  const P = Object.assign({}, DEF);
+  try { Object.assign(P, JSON.parse(localStorage.getItem('inkwell') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('inkwell', JSON.stringify(P)); } catch (e) { /* fine */ } };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const SUB = 4, FPS = 60, DT = 1 / (FPS * SUB);
+  let W = 0, H = 0, dpr = 1, K = 1; // K: mask pixels per CSS px
+  let bodies = [];
+  let s = 5, rp = 2.5, h = 12, rho0 = 3, vmax = 6;
+
+  // ---------- distance transform (Felzenszwalb) ----------
+  const INF = 1e20;
+  function edt1d(f, n, d, v, z) {
+    let k = 0; v[0] = 0; z[0] = -INF; z[1] = INF;
+    for (let q = 1; q < n; q++) {
+      let sv = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+      while (sv <= z[k]) { k--; sv = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+      k++; v[k] = q; z[k] = sv; z[k + 1] = INF;
+    }
+    k = 0;
+    for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; d[q] = (q - v[k]) * (q - v[k]) + f[v[k]]; }
+  }
+  // distance from every pixel to the nearest pixel where pred is true
+  function distTo(pred, w, hh) {
+    const g = new Float32Array(w * hh);
+    for (let i = 0; i < w * hh; i++) g[i] = pred(i) ? 0 : INF;
+    const m = Math.max(w, hh), f = new Float32Array(m), d = new Float32Array(m), v = new Int32Array(m), z = new Float32Array(m + 1);
+    for (let x = 0; x < w; x++) { for (let y = 0; y < hh; y++) f[y] = g[y * w + x]; edt1d(f, hh, d, v, z); for (let y = 0; y < hh; y++) g[y * w + x] = d[y]; }
+    for (let y = 0; y < hh; y++) { const o = y * w; for (let x = 0; x < w; x++) f[x] = g[o + x]; edt1d(f, w, d, v, z); for (let x = 0; x < w; x++) g[o + x] = Math.sqrt(d[x]); }
+    return g;
+  }
+
+  // ---------- letters as vessels ----------
+  function makeVessel(ch, fam, wt, fs, ox, base) {
+    const c = document.createElement('canvas'), x = c.getContext('2d');
+    x.font = `${wt} ${fs * K}px "${fam}"`;
+    const m = x.measureText(ch);
+    const t = P.wall * fs * K, mouthW = P.mouth * fs * K;
+    const pad = Math.ceil(t + 6 * K + 4);
+    const l = Math.ceil(m.actualBoundingBoxLeft), r = Math.ceil(m.actualBoundingBoxRight);
+    const a = Math.ceil(m.actualBoundingBoxAscent), d = Math.ceil(m.actualBoundingBoxDescent);
+    const w = l + r + 2 * pad, hh = a + d + 2 * pad;
+    c.width = w; c.height = hh;
+    x.font = `${wt} ${fs * K}px "${fam}"`; x.fillStyle = '#000';
+    x.fillText(ch, pad + l, pad + a);
+    const px = x.getImageData(0, 0, w, hh).data, N = w * hh;
+    const G = new Uint8Array(N);
+    for (let i = 0; i < N; i++) G[i] = px[i * 4 + 3] > 127 ? 1 : 0;
+    const dIn = distTo((i) => !G[i], w, hh);
+    const cav = new Int32Array(N).fill(-1);
+    // cavity components
+    const comps = [];
+    const minArea = Math.pow(1.8 * s * K, 2) * 2;
+    const stack = new Int32Array(N);
+    for (let i = 0; i < N; i++) {
+      if (!G[i] || dIn[i] <= t || cav[i] !== -1) continue;
+      const id = comps.length; let sp = 0, area = 0, top = hh, sumX = 0, nTop = 0;
+      stack[sp++] = i; cav[i] = id; const list = [];
+      while (sp) {
+        const j = stack[--sp]; list.push(j); area++;
+        const jx = j % w, jy = (j / w) | 0;
+        if (jy < top) top = jy;
+        const nb = [j - 1, j + 1, j - w, j + w];
+        for (let q = 0; q < 4; q++) {
+          const n = nb[q]; if (n < 0 || n >= N) continue;
+          if ((q === 0 && jx === 0) || (q === 1 && jx === w - 1)) continue;
+          if (G[n] && dIn[n] > t && cav[n] === -1) { cav[n] = id; stack[sp++] = n; }
+        }
+      }
+      for (const j of list) { if (((j / w) | 0) <= top + 1) { sumX += j % w; nTop++; } }
+      comps.push({ area, top, cx: sumX / nTop, list, keep: area >= minArea });
+    }
+    // solid glass = glyph minus kept cavities minus the mouth channels
+    const S = new Uint8Array(N);
+    for (let i = 0; i < N; i++) S[i] = G[i] && !(cav[i] >= 0 && comps[cav[i]].keep) ? 1 : 0;
+    if (mouthW > 0) for (const cp of comps) {
+      if (!cp.keep) continue;
+      const x0 = Math.max(0, Math.round(cp.cx - mouthW / 2)), x1 = Math.min(w - 1, Math.round(cp.cx + mouthW / 2));
+      const yStart = Math.min(hh - 1, Math.round(cp.top + mouthW * 0.5));
+      for (let y = yStart; y >= 0; y--) for (let xx = x0; xx <= x1; xx++) S[y * w + xx] = 0;
+    }
+    const dOutS = distTo((i) => S[i], w, hh), dInS = distTo((i) => !S[i], w, hh);
+    const sdf = new Float32Array(N);
+    for (let i = 0; i < N; i++) sdf[i] = S[i] ? -(dInS[i] - 0.5) : (dOutS[i] - 0.5);
+    // mass properties from the whole glyph
+    let mA = 0, mx = 0, my = 0;
+    for (let i = 0; i < N; i++) if (G[i]) { mA++; mx += i % w; my += (i / w) | 0; }
+    mx /= mA; my /= mA;
+    let I = 0;
+    for (let i = 0; i < N; i++) if (G[i]) { const dx = i % w - mx, dy = ((i / w) | 0) - my; I += dx * dx + dy * dy; }
+    const rg2 = I / mA / (K * K);
+    let R = 0;
+    for (const [cx, cy] of [[0, 0], [w, 0], [0, hh], [w, hh]]) R = Math.max(R, Math.hypot(cx - mx, cy - my) / K);
+    const homeX = ox + (mx - pad - l) / K, homeY = base + (my - pad - a) / K;
+    return {
+      ch, w, hh, G, S, sdf, cav, comps, pivX: mx, pivY: my, rg2, R,
+      x: homeX, y: homeY, hx: homeX, hy: homeY, th: 0, vx: 0, vy: 0, om: 0, c: 1, s: 0,
+      img: null, grab: null
+    };
+  }
+
+  function glassImage(b) {
+    const c = document.createElement('canvas'); c.width = b.w; c.height = b.hh;
+    const x = c.getContext('2d'), im = x.createImageData(b.w, b.hh), D = im.data;
+    const ink = P.dark ? 255 : 0, lw = 0.7 * K;
+    for (let i = 0; i < b.w * b.hh; i++) {
+      const d = b.sdf[i];
+      const line = Math.max(0, Math.min(1, lw + 0.5 - Math.abs(d))) * P.glassA;
+      const fillA = d < 0 ? 0.06 + 0.04 * P.glassA : 0;
+      const al = Math.max(line, fillA);
+      D[i * 4] = D[i * 4 + 1] = D[i * 4 + 2] = ink; D[i * 4 + 3] = al * 255;
+    }
+    x.putImageData(im, 0, 0);
+    return c;
+  }
+
+  // ---------- particles ----------
+  let NMAX = 0, n = 0, nAct = 0;
+  let px, py, ox, oy, vx, vy, actAt, pcell, sorted, cellStart, ncx = 0, ncy = 0, gx0 = 0, gy0 = 0;
+  let pairI, pairJ, pairA, nPairs = 0;
+  let fillStart = 0, fillDur = 1400;
+
+  function alloc(N) {
+    NMAX = N;
+    px = new Float32Array(N); py = new Float32Array(N); ox = new Float32Array(N); oy = new Float32Array(N);
+    vx = new Float32Array(N); vy = new Float32Array(N); actAt = new Float32Array(N);
+    pcell = new Int32Array(N); sorted = new Int32Array(N);
+    pairI = new Int32Array(N * 24); pairJ = new Int32Array(N * 24); pairA = new Float32Array(N * 24);
+  }
+
+  function seed(now) {
+    const seeds = [];
+    const sp = s * K, dy = sp * 0.866;
+    for (const b of bodies) {
+      const per = b.comps.map(() => []);
+      for (let row = 0, y = dy * 0.5; y < b.hh; y += dy, row++) {
+        for (let x = (row & 1) ? sp * 0.5 : 0; x < b.w; x += sp) {
+          const i = (y | 0) * b.w + (x | 0);
+          const cid = b.cav[i];
+          if (cid < 0 || !b.comps[cid].keep) continue;
+          if (sampleSdf(b, x, y) < rp * K * 1.05) continue;
+          per[cid].push([x, y]);
+        }
+      }
+      for (const list of per) {
+        list.sort((p, q) => q[1] - p[1]);
+        const take = Math.round(list.length * P.fill);
+        for (let k = 0; k < take; k++) {
+          const [lx, ly] = list[k];
+          seeds.push({ x: b.x + (lx - b.pivX) / K, y: b.y + (ly - b.pivY) / K, t: (k / Math.max(1, take)) });
+        }
+      }
+    }
+    seeds.sort((p, q) => p.t - q.t);
+    if (seeds.length > NMAX) alloc(seeds.length + 64);
+    n = seeds.length;
+    for (let i = 0; i < n; i++) {
+      px[i] = ox[i] = seeds[i].x; py[i] = oy[i] = seeds[i].y; vx[i] = vy[i] = 0; actAt[i] = seeds[i].t;
+    }
+    fillStart = now; nAct = reduced ? n : 0;
+  }
+
+  function sampleSdf(b, x, y) {
+    if (x < 0 || y < 0 || x >= b.w - 1 || y >= b.hh - 1) return 1e9;
+    const x0 = x | 0, y0 = y | 0, fx = x - x0, fy = y - y0, i = y0 * b.w + x0, S = b.sdf;
+    return (S[i] * (1 - fx) + S[i + 1] * fx) * (1 - fy) + (S[i + b.w] * (1 - fx) + S[i + b.w + 1] * fx) * fy;
+  }
+
+  // ---------- build ----------
+  let fontReady = Promise.resolve();
+  async function build() {
+    dpr = Math.min(devicePixelRatio || 1, 2); K = Math.min(dpr, 1.5);
+    W = innerWidth; H = innerHeight;
+    for (const c of [cv, gcv]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+    const [fam, wt] = P.font.split('|');
+    try { await document.fonts.load(`${wt} 100px "${fam}"`, 'IdanSegv'); } catch (e) { /* fallback face */ }
+    const mc = document.createElement('canvas').getContext('2d');
+    mc.font = `${wt} 100px "${fam}"`;
+    const lines = W / H < 0.95 ? ['Idan', 'Segev'] : ['Idan Segev'];
+    const w100 = Math.max(...lines.map((l) => mc.measureText(l).width));
+    const fs = Math.min((W * 0.86) / w100 * 100, H * (lines.length === 1 ? 0.42 : 0.3));
+    mc.font = `${wt} ${fs}px "${fam}"`;
+    const lh = fs * 1.02, blockH = lh * (lines.length - 1) + fs * 0.72;
+    let base = (H - blockH) / 2 + fs * 0.72 - fs * 0.04;
+    // first pass: geometry only, so the drop size can follow the total cavity area
+    s = fs / 40; rp = s * 0.5;
+    bodies = [];
+    for (const line of lines) {
+      const lw = mc.measureText(line).width, x0 = (W - lw) / 2;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === ' ') continue;
+        bodies.push(makeVessel(line[i], fam, wt, fs, x0 + mc.measureText(line.slice(0, i)).width, base));
+      }
+      base += lh;
+    }
+    let cavA = 0;
+    for (const b of bodies) for (const cp of b.comps) if (cp.keep) cavA += cp.area / (K * K);
+    s = Math.sqrt((P.fill * cavA) / (0.866 * P.count * 1000));
+    s = Math.max(fs / 90, Math.min(fs / 22, s));
+    rp = s * 0.5; h = s * 2.4;
+    vmax = Math.min(P.wall * fs * 0.45, s * 1.6);
+    // rest density of a hex lattice at spacing s
+    rho0 = 0;
+    for (let j = -5; j <= 5; j++) for (let i = -5; i <= 5; i++) {
+      if (!i && !j) continue;
+      const x = (i + (j & 1) * 0.5) * s, y = j * s * 0.866, r = Math.hypot(x, y);
+      if (r < h) { const a = 1 - r / h; rho0 += a * a; }
+    }
+    for (const b of bodies) b.img = glassImage(b);
+    gx0 = -h * 2; gy0 = -H - h * 2;
+    ncx = Math.ceil((W + h * 4) / h); ncy = Math.ceil((2 * H + h * 4) / h);
+    cellStart = new Int32Array(ncx * ncy + 1);
+    if (!NMAX) alloc(4096);
+    seed(performance.now());
+    demoAt = reduced || touched ? 0 : performance.now() + fillDur + 500;
+    glResize();
+  }
+
+  // ---------- simulation ----------
+  function stepBodies() {
+    const gB = 2000 * P.grav;
+    for (const b of bodies) {
+      let ax, ay, al;
+      if (b.grab) {
+        const gw = 34, zg = 0.55;
+        const rx = b.grab.lx * b.c - b.grab.ly * b.s, ry = b.grab.lx * b.s + b.grab.ly * b.c;
+        const gvx = b.vx - b.om * ry, gvy = b.vy + b.om * rx;
+        const fx = gw * gw * (mouse.x - (b.x + rx)) - 2 * zg * gw * gvx;
+        const fy = gw * gw * (mouse.y - (b.y + ry)) - 2 * zg * gw * gvy + 0;
+        ax = fx; ay = fy + gB;
+        // torque from the hand: the letter hangs from where you hold it
+        al = (rx * fy - ry * fx) / b.rg2 - 1.2 * b.om;
+      } else {
+        const wh = 9 * P.spring, wa = 11 * P.spring, zh = 0.32, za = 0.22;
+        let dth = b.th % (Math.PI * 2); if (dth > Math.PI) dth -= Math.PI * 2; if (dth < -Math.PI) dth += Math.PI * 2;
+        b.th = dth;
+        ax = wh * wh * (b.hx - b.x) - 2 * zh * wh * b.vx;
+        ay = wh * wh * (b.hy - b.y) - 2 * zh * wh * b.vy;
+        al = -wa * wa * dth - 2 * za * wa * b.om;
+      }
+      b.vx += ax * DT; b.vy += ay * DT; b.om += al * DT;
+      const sp = Math.hypot(b.vx, b.vy), cap = 2600;
+      if (sp > cap) { b.vx *= cap / sp; b.vy *= cap / sp; }
+      b.om = Math.max(-14, Math.min(14, b.om));
+      b.px0 = b.x; b.py0 = b.y; b.c0 = b.c; b.s0 = b.s;
+      b.x += b.vx * DT; b.y += b.vy * DT; b.th += b.om * DT;
+      b.c = Math.cos(b.th); b.s = Math.sin(b.th);
+    }
+  }
+
+  function stepParticles() {
+    const N = nAct, g = 2000 * P.grav * DT * DT;
+    for (let i = 0; i < N; i++) {
+      vy[i] += g; ox[i] = px[i]; oy[i] = py[i]; px[i] += vx[i]; py[i] += vy[i];
+    }
+    // grid
+    const nc = ncx * ncy; cellStart.fill(0);
+    for (let i = 0; i < N; i++) {
+      let cx = ((px[i] - gx0) / h) | 0, cy = ((py[i] - gy0) / h) | 0;
+      cx = cx < 0 ? 0 : cx >= ncx ? ncx - 1 : cx; cy = cy < 0 ? 0 : cy >= ncy ? ncy - 1 : cy;
+      const c = cy * ncx + cx; pcell[i] = c; cellStart[c + 1]++;
+    }
+    for (let c = 0; c < nc; c++) cellStart[c + 1] += cellStart[c];
+    const fillp = cellStart.slice(0, nc);
+    for (let i = 0; i < N; i++) sorted[fillp[pcell[i]]++] = i;
+    // double density relaxation (Clavet et al.)
+    const k = P.stiff * s, kn = P.near * s, r0 = rho0 * P.dens, h2 = h * h;
+    const nbJ = relaxBuf.j, nbA = relaxBuf.a, nbX = relaxBuf.x, nbY = relaxBuf.y;
+    nPairs = 0;
+    const maxPairs = pairI.length;
+    for (let i = 0; i < N; i++) {
+      const xi = px[i], yi = py[i], c = pcell[i], cx = c % ncx, cy = (c / ncx) | 0;
+      let rho = 0, rhoN = 0, nn = 0;
+      for (let yy = cy - 1; yy <= cy + 1; yy++) {
+        if (yy < 0 || yy >= ncy) continue;
+        for (let xx = cx - 1; xx <= cx + 1; xx++) {
+          if (xx < 0 || xx >= ncx) continue;
+          const cc = yy * ncx + xx;
+          for (let q = cellStart[cc], e = cellStart[cc + 1]; q < e; q++) {
+            const j = sorted[q]; if (j === i) continue;
+            const dx = px[j] - xi, dy = py[j] - yi, r2 = dx * dx + dy * dy;
+            if (r2 >= h2 || r2 < 1e-8 || nn >= 64) continue;
+            const r = Math.sqrt(r2), a = 1 - r / h;
+            rho += a * a; rhoN += a * a * a;
+            nbJ[nn] = j; nbA[nn] = a; nbX[nn] = dx / r; nbY[nn] = dy / r; nn++;
+          }
+        }
+      }
+      const Pr = k * (rho - r0), Pn = kn * rhoN;
+      let dxi = 0, dyi = 0;
+      for (let q = 0; q < nn; q++) {
+        const j = nbJ[q], a = nbA[q];
+        const D = (Pr * a + Pn * a * a) * 0.5;
+        const ux = nbX[q] * D, uy = nbY[q] * D;
+        px[j] += ux; py[j] += uy; dxi -= ux; dyi -= uy;
+        if (j > i && nPairs < maxPairs) { pairI[nPairs] = i; pairJ[nPairs] = j; pairA[nPairs] = a; nPairs++; }
+      }
+      px[i] += dxi; py[i] += dyi;
+    }
+    // glass and page edges
+    const rK = rp * K, fr = 0.12;
+    for (const b of bodies) {
+      const R2 = (b.R + rp) * (b.R + rp), bvx = b.vx * DT, bvy = b.vy * DT, bom = b.om * DT;
+      for (let i = 0; i < N; i++) {
+        const dx = px[i] - b.x, dy = py[i] - b.y;
+        if (dx * dx + dy * dy > R2) continue;
+        let lx = (dx * b.c + dy * b.s) * K + b.pivX, ly = (-dx * b.s + dy * b.c) * K + b.pivY;
+        // swept test: where was this drop in the glass's frame before the step? Never let it jump through a wall.
+        const qx = ox[i] - b.px0, qy = oy[i] - b.py0;
+        const plx = (qx * b.c0 + qy * b.s0) * K + b.pivX, ply = (-qx * b.s0 + qy * b.c0) * K + b.pivY;
+        if (sampleSdf(b, plx, ply) > 0) {
+          const L = Math.hypot(lx - plx, ly - ply), steps = Math.ceil(L / (0.75 * K));
+          let fx = plx, fy = ply;
+          for (let k = 1; k <= steps; k++) {
+            const tx = plx + (lx - plx) * k / steps, ty = ply + (ly - ply) * k / steps;
+            if (sampleSdf(b, tx, ty) <= 0) { lx = fx; ly = fy; break; }
+            fx = tx; fy = ty;
+          }
+        }
+        const d = sampleSdf(b, lx, ly);
+        if (d >= rK) {
+          const ex = (lx - b.pivX) / K, ey = (ly - b.pivY) / K;
+          px[i] = b.x + ex * b.c - ey * b.s; py[i] = b.y + ex * b.s + ey * b.c;
+          continue;
+        }
+        let nx = sampleSdf(b, lx + 1, ly) - sampleSdf(b, lx - 1, ly), ny = sampleSdf(b, lx, ly + 1) - sampleSdf(b, lx, ly - 1);
+        const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        const push = (rK - d) / K;
+        const wx = nx * b.c - ny * b.s, wy = nx * b.s + ny * b.c;
+        const ex = (lx - b.pivX) / K, ey = (ly - b.pivY) / K;
+        px[i] = b.x + ex * b.c - ey * b.s + wx * push; py[i] = b.y + ex * b.s + ey * b.c + wy * push;
+        // drag the drop along with the moving glass a little
+        const wvx = bvx - bom * dy, wvy = bvy + bom * dx;
+        let rvx = px[i] - ox[i] - wvx, rvy = py[i] - oy[i] - wvy;
+        const rn = rvx * wx + rvy * wy; rvx -= rn * wx; rvy -= rn * wy;
+        ox[i] += rvx * fr; oy[i] += rvy * fr;
+      }
+    }
+    for (let i = 0; i < N; i++) {
+      if (px[i] < rp) px[i] = rp; else if (px[i] > W - rp) px[i] = W - rp;
+      if (py[i] > H - rp) { py[i] = H - rp; ox[i] += (px[i] - ox[i]) * 0.2; }
+      if (py[i] < -H) py[i] = -H;
+      let ux = px[i] - ox[i], uy = py[i] - oy[i];
+      const sp = Math.hypot(ux, uy);
+      if (sp > vmax) { ux *= vmax / sp; uy *= vmax / sp; }
+      vx[i] = ux; vy[i] = uy;
+    }
+    // viscosity (velocity smoothing between neighbours)
+    const vc = P.visc * 0.5;
+    if (vc > 0) for (let q = 0; q < nPairs; q++) {
+      const i = pairI[q], j = pairJ[q], w = vc * pairA[q];
+      const dvx = (vx[j] - vx[i]) * w, dvy = (vy[j] - vy[i]) * w;
+      vx[i] += dvx; vy[i] += dvy; vx[j] -= dvx; vy[j] -= dvy;
+    }
+  }
+  const relaxBuf = { j: new Int32Array(64), a: new Float32Array(64), x: new Float32Array(64), y: new Float32Array(64) };
+
+  // ---------- drawing ----------
+  const VS = `#version 300 es
+  layout(location=0) in vec2 p; uniform vec2 res; uniform float ps;
+  void main(){ gl_Position = vec4(p / res * 2.0 - 1.0, 0, 1); gl_Position.y *= -1.0; gl_PointSize = ps; }`;
+  const FS_SPLAT = `#version 300 es
+  precision highp float; out vec4 o; uniform float amp;
+  void main(){ vec2 q = gl_PointCoord * 2.0 - 1.0; float r2 = dot(q, q); if (r2 > 1.0) discard; o = vec4(amp * exp(-3.0 * r2) * (1.0 - r2)); }`;
+  const VS_FULL = `#version 300 es
+  void main(){ vec2 v = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); gl_Position = vec4(v * 2.0 - 1.0, 0, 1); }`;
+  const FS_COMP = `#version 300 es
+  precision highp float; out vec4 o; uniform sampler2D f; uniform vec2 res; uniform vec3 ink; uniform float alpha;
+  void main(){ vec2 uv = gl_FragCoord.xy / res; float v = texture(f, uv).r; float w = max(fwidth(v), 1e-3) * 0.8;
+    float a = smoothstep(0.5 - w, 0.5 + w, v) * alpha; o = vec4(ink * a, a); }`;
+  function prog(vs, fs) {
+    const p = gl.createProgram();
+    for (const [t, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
+      const sh = gl.createShader(t); gl.shaderSource(sh, src); gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+      gl.attachShader(p, sh);
+    }
+    gl.linkProgram(p); return p;
+  }
+  const pSplat = prog(VS, FS_SPLAT), pComp = prog(VS_FULL, FS_COMP);
+  const vbo = gl.createBuffer(), vao = gl.createVertexArray();
+  gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  const tex = gl.createTexture(), fbo = gl.createFramebuffer();
+  let upload = new Float32Array(0);
+  function glResize() {
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, cv.width, cv.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  let inkAlpha = 1;
+  function draw() {
+    if (upload.length < nAct * 2) upload = new Float32Array(NMAX * 2);
+    for (let i = 0; i < nAct; i++) { upload[i * 2] = px[i]; upload[i * 2 + 1] = py[i]; }
+    gl.viewport(0, 0, cv.width, cv.height);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+    gl.useProgram(pSplat);
+    gl.uniform2f(gl.getUniformLocation(pSplat, 'res'), W, H);
+    gl.uniform1f(gl.getUniformLocation(pSplat, 'ps'), s * 2.9 * dpr);
+    gl.uniform1f(gl.getUniformLocation(pSplat, 'amp'), 0.95);
+    gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, upload.subarray(0, nAct * 2), gl.STREAM_DRAW);
+    gl.drawArrays(gl.POINTS, 0, nAct);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    const bg = P.dark ? 0 : 1;
+    gl.clearColor(bg, bg, bg, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(pComp);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(gl.getUniformLocation(pComp, 'f'), 0);
+    gl.uniform2f(gl.getUniformLocation(pComp, 'res'), cv.width, cv.height);
+    const ink = P.dark ? 1 : 0;
+    gl.uniform3f(gl.getUniformLocation(pComp, 'ink'), ink, ink, ink);
+    gl.uniform1f(gl.getUniformLocation(pComp, 'alpha'), inkAlpha);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // glass
+    g2.setTransform(1, 0, 0, 1, 0, 0); g2.clearRect(0, 0, gcv.width, gcv.height);
+    for (const b of bodies) {
+      g2.setTransform(dpr * b.c, dpr * b.s, -dpr * b.s, dpr * b.c, b.x * dpr, b.y * dpr);
+      g2.drawImage(b.img, -b.pivX / K, -b.pivY / K, b.w / K, b.hh / K);
+    }
+  }
+
+  // ---------- input ----------
+  const mouse = { x: 0, y: 0 };
+  let touched = false, demoAt = 0, down = null, lastTap = 0, refilling = 0;
+  function hit(x, y) {
+    for (let k = bodies.length - 1; k >= 0; k--) {
+      const b = bodies[k], dx = x - b.x, dy = y - b.y;
+      const lx = (dx * b.c + dy * b.s) * K + b.pivX, ly = (-dx * b.s + dy * b.c) * K + b.pivY;
+      if (lx < 0 || ly < 0 || lx >= b.w || ly >= b.hh) continue;
+      // forgiving: anywhere on the glass, in the cavity, or a few px off the edge
+      if (sampleSdf(b, lx, ly) < 10 * K || b.G[(ly | 0) * b.w + (lx | 0)]) return { b, lx: dx, ly: dy };
+    }
+    return null;
+  }
+  cv.addEventListener('pointerdown', (e) => {
+    touched = true; demoAt = 0;
+    cv.setPointerCapture(e.pointerId);
+    mouse.x = e.clientX; mouse.y = e.clientY;
+    const hb = hit(e.clientX, e.clientY);
+    down = { x: e.clientX, y: e.clientY, t: performance.now(), b: hb && hb.b, moved: false };
+    if (hb) {
+      const b = hb.b; // grab point in the letter's own (unrotated) frame
+      b.grab = { lx: hb.lx * b.c + hb.ly * b.s, ly: -hb.lx * b.s + hb.ly * b.c };
+      cv.style.cursor = 'grabbing';
+    }
+  });
+  cv.addEventListener('pointermove', (e) => {
+    mouse.x = e.clientX; mouse.y = e.clientY;
+    if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) down.moved = true;
+    if (!down) cv.style.cursor = hit(e.clientX, e.clientY) ? 'grab' : 'default';
+  });
+  const up = () => {
+    if (!down) return;
+    const now = performance.now();
+    for (const b of bodies) b.grab = null;
+    cv.style.cursor = 'default';
+    if (!down.moved && now - down.t < 250) {
+      if (now - lastTap < 380) { lastTap = 0; refill(); }
+      else {
+        lastTap = now;
+        if (down.b) jiggle(down.b, Math.sign(down.x - down.b.x) || 1);
+      }
+    }
+    down = null;
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+
+  function jiggle(b, dir) { b.om += dir * 5.5; b.vx += dir * 120; b.vy -= 160; }
+  function refill() { refilling = performance.now(); }
+
+  // ---------- loop ----------
+  let last = performance.now(), acc = 0, ready = false;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (!ready) return;
+    if (refilling) {
+      const t = (now - refilling) / 320;
+      inkAlpha = Math.max(0, 1 - t);
+      if (t >= 1) { refilling = 0; inkAlpha = 1; seed(now); }
+    }
+    if (nAct < n) {
+      const f = (now - fillStart) / fillDur;
+      while (nAct < n && actAt[nAct] <= f) nAct++;
+    }
+    if (demoAt && now > demoAt) { demoAt = 0; const b = bodies.find((q) => q.ch === 'S') || bodies[0]; jiggle(b, 1); }
+    acc = Math.min(acc + (now - last) / 1000, 3 / FPS); last = now;
+    while (acc >= 1 / FPS) {
+      for (let k = 0; k < SUB; k++) { stepBodies(); stepParticles(); }
+      acc -= 1 / FPS;
+    }
+    draw();
+  }
+  requestAnimationFrame(frame);
+  window.__inkwell = { get n() { return nAct; }, bodies: () => bodies, P };
+
+  let rt = 0;
+  addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(rebuild, 150); });
+  async function rebuild() { ready = false; await build(); ready = true; }
+
+  // ---------- settings sheet ----------
+  const REBUILD = new Set(['font', 'fill', 'wall', 'mouth', 'count']);
+  const fmt = (v) => (Math.abs(v) >= 10 ? v.toFixed(0) : Math.abs(v) >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(/\.?0+$/, '') || '0';
+  function syncUI() {
+    document.documentElement.classList.toggle('dark', !!P.dark);
+    $('dark').checked = !!P.dark; $('font').value = P.font;
+    for (const k of ['fill', 'wall', 'mouth', 'count', 'stiff', 'near', 'dens', 'visc', 'grav', 'spring', 'glassA']) { $(k).value = P[k]; $(k + 'O').textContent = fmt(+P[k]); }
+  }
+  let bt = 0;
+  for (const k of ['fill', 'wall', 'mouth', 'count', 'stiff', 'near', 'dens', 'visc', 'grav', 'spring', 'glassA']) {
+    $(k).addEventListener('input', () => {
+      P[k] = +$(k).value; $(k + 'O').textContent = fmt(P[k]); save();
+      if (REBUILD.has(k)) { clearTimeout(bt); bt = setTimeout(rebuild, 250); }
+      if (k === 'glassA') for (const b of bodies) b.img = glassImage(b);
+    });
+  }
+  $('font').addEventListener('change', () => { P.font = $('font').value; save(); rebuild(); });
+  $('dark').addEventListener('change', () => { P.dark = $('dark').checked; save(); syncUI(); for (const b of bodies) b.img = glassImage(b); });
+  $('gear').addEventListener('click', () => { const sh = $('sheet'); sh.hidden = !sh.hidden; $('gear').setAttribute('aria-expanded', String(!sh.hidden)); });
+  $('copy').addEventListener('click', () => { const txt = JSON.stringify(P);
+    navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1200); },
+      () => { $('copy').textContent = txt; }); });
+  $('reset').addEventListener('click', () => { Object.assign(P, DEF); save(); syncUI(); rebuild(); });
+  syncUI();
+  rebuild();
+})();
+</script>

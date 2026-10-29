@@ -86,6 +86,17 @@ export const POSTERS = [
     prompt: "The name \"Idan Segev\" as polished extruded 3D type (three.js), rendered realistically: chrome on black or porcelain on white, studio reflections, soft shadows, depth of field, bloom. Tap a letter and the type is cut into Voronoi shards at that point (finer near the hit) and blows apart toward the camera. Time is directed: a forceful hit with a flash, sparks and glowing crack faces, then an ease into slow motion so shards drift past the lens and blur. Motion is closed-form in time, so hold rewinds it and the shards fly back together; double tap re-forms. Black and white only.",
   },
   {
+    slug: 'goblet',
+    title: 'Goblet',
+    words: ['Idan', 'Segev'],
+    blurb: 'Every letter is a chubby glass bottle half full of ink. Pick one up and the ink sloshes; tip it over and it pours out.',
+    hint: null,
+    themes: { dark: 1, light: 0 },
+    darkOnly: true,              // black only: Idan tuned it on black (white ink in clear glass)
+    load: () => import('./goblet.js'),
+    prompt: "The name \"Idan Segev\" in Fredoka 700, every letter a chubby 3D glass bottle (three.js): the glyph extruded with a deep rounded bevel, transmissive glass, a small neck and lip on its highest point, about 58% full of white ink on a black page. The ink is the glyph extruded smaller by the glass's thickness, with a shader that discards everything above a plane and paints its back faces as the liquid's top (MinionsArt's Unity liquid trick). The plane's height is the quantile of about 1,400 volume samples along its normal, so the ink keeps its volume at any angle. Each letter is a rigid body on a spring home; dragging holds it at the grip so it hangs under gravity, and the surface tilts against the felt acceleration as a damped spring (wobble). Held by its foot the letter swings over; when the neck is below the surface the fill drops and ink pours out as falling drops. Tap jiggles a letter, double tap refills. Black and white only.",
+  },
+  {
     slug: 'skyline',
     title: 'Skyline',
     words: ['Idan', 'Segev'],
