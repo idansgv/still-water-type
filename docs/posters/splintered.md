@@ -30,3 +30,5 @@ Idan's tunings are `DARK` and `LIGHT` in `src/posters/splintered.js`: glass with
 
 ## Open
 Phone performance unmeasured (each frame is a scene pass, a depth of field pass and a bloom chain; glass adds a back-face pass). Glass on the white page: since 29 Oct, tuned on `docs/posters/prototypes/splintered-glass-white.html`. The bend through the edges is faked (three times one surface's refraction), not traced.
+
+Shelved: Glow (29 Oct 2026). After the Glow effect in hjunhuh/glass (MIT): glass that bends light hard at its edges, a low bloom threshold and lens colour fringes (which break black and white). Test page `docs/posters/prototypes/splintered-glow.html`, with Idan's tuning as its defaults; private link https://claude.ai/artifact/4XJb4TVHZ2c5gPEJ1Mjb4k. About 4x the frame time of the plain glass in headless renders.
