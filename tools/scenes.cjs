@@ -21,6 +21,7 @@ const SCENES = {
   glitter: async (p) => { await p.mouse.move(520, 300, { steps: 4 }); for (let i = 0; i <= 18; i++) { await p.mouse.move(380 + i * 24, 360 - Math.sin(i / 5) * 60); await sleep(20); } await sleep(500); },   // the moon drawn across the name, its wake glittering
   lace: async (p) => { await p.mouse.click(470, 280); await sleep(200); await p.mouse.move(380, 470); await p.mouse.down(); for (let i = 0; i <= 24; i++) { await p.mouse.move(380 + i * 18, 470 - Math.sin(i / 6) * 40); await sleep(20); } await p.mouse.up(); await sleep(2500); },   // a patch of lace and a pulled stroke
   torn: async (p) => { await sleep(3800); },                                 // down on its pegs and settled: the name hanging
+  'moire-phase': async (p) => { await sleep(1500); },                       // at unison: the name between the two voices
   moonlit: async (p) => { await p.mouse.move(200, 330); for (let i = 0; i <= 30; i++) { await p.mouse.move(200 + i * 26, 330 + Math.sin(i / 5) * 60); await sleep(20); } await sleep(700); },   // a gust drawn across the name
 };
 
