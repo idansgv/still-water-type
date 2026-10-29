@@ -6,11 +6,8 @@ Status as of 29 Oct 2026. Tick items off here as they land.
 |---|---|---|---|
 | 1 | Slinky: composition, possibly the font, and the coil colour | Open | Needs Idan's target for composition and colour |
 | 2 | Marbled: change the font | Open | Needs Idan's pick of font |
-| 3 | Shuffle order: Still Water first more often | Done | About 55% of visits open on Still Water (`12e711a`) |
-| 4 | Dark-only posters (Glint, Glitter, Moonlit) only on black turns | Done | `src/main.js`: pool filter in `pickOther` and `pickFirst`. Checked over 25 shuffles in the browser. "Sparkles" is Moonlit |
 | 5 | Make it clear that a click clears a poster | Open | Needs copy and placement from Idan. Most posters use a single tap for something else, so the clear needs a home that doesn't clash |
 | 6 | Torn: look better and fix performance | Partly done | Rest skip is live (`71c052e`), unmeasured. Still to do: the full-canvas copy each frame while moving, and the look |
-| 7 | Rename the watercolour poster to Wash | Done | Live. Slug stays `wash-script` so the share link keeps working |
 | 8 | Share image: improve it | Check | `69c9240` already changed it to an Idan Segev wordmark. Check whether that's what Idan wanted |
 | 9 | Moonlit: double tap for a moon reveal, or a silent lightning and thunder effect | Open | Corrected from Glint. Proposal below |
 | 10 | Review every poster: click clears, and double tap has an effect on the letters | Open | Audit table below. Needs a run of each poster to confirm |
@@ -23,7 +20,6 @@ Status as of 29 Oct 2026. Tick items off here as they land.
 - **Glint, click:** a click drops a stone into the water. A ring of ripples spreads out from the click, and each glint it passes flares for a moment before it settles.
 | 11 | Crystallize: auto reboot after a delay | Open | Needs Idan's delay and whether it restarts the cells or the whole poster |
 
-Also: the share-page metadata is regenerated and live. The name feature is live as well.
 
 ## Audit (item 10): double tap, from docs/INTERACTIONS.md
 
