@@ -17,7 +17,9 @@ const esc = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g
 for (const p of POSTERS) {
   const url = `${ORIGIN}/p/${p.slug}/`;
   const title = `${p.title} · Idan Segev`;
-  const image = existsSync(join(root, 'assets', `og-${p.slug}.png`)) ? `${ORIGIN}/assets/og-${p.slug}.png` : `${ORIGIN}/assets/og.png`;
+  const own = existsSync(join(root, 'assets', `og-${p.slug}.png`));                  // made by tools/og-posters.cjs
+  const image = own ? `${ORIGIN}/assets/og-${p.slug}.png` : `${ORIGIN}/assets/og.png`;
+  const alt = own ? `${p.title}: ${p.blurb}` : null;
   let html = home
     .replace('<html lang="en">', `<html lang="en" data-poster="${p.slug}"${p.standalone ? ' data-bare' : ''}>`)
     .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`)
@@ -27,6 +29,7 @@ for (const p of POSTERS) {
     .replace(/(<meta property="og:description" content=")[^"]*(")/, `$1${esc(p.blurb)}$2`)
     .replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${url}$2`)
     .replace(/(<meta property="og:image" content=")[^"]*(")/, `$1${image}$2`)
+    .replace(/(<meta property="og:image:alt" content=")[^"]*(")/, (m, a, b) => (alt ? `${a}${esc(alt)}${b}` : m))
     .replace(/(<meta name="twitter:title" content=")[^"]*(")/, `$1${esc(title)}$2`)
     .replace(/(<meta name="twitter:description" content=")[^"]*(")/, `$1${esc(p.blurb)}$2`)
     .replace(/(<meta name="twitter:image" content=")[^"]*(")/, `$1${image}$2`);

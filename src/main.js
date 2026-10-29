@@ -22,6 +22,7 @@ let hintTimer = 0;
 let panel = null, wantPanel = params.has('tune');
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const track = (event, props) => { try { if (window.posthog && window.posthog.capture) window.posthog.capture(event, props); } catch (e) { /* analytics never breaks the page */ } };
 const randomSeed = () => (Math.random() * 4294967296) >>> 0;
 
 // ---------- small things ----------
@@ -224,6 +225,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     showFallback(poster);
   }
   window.__poster = { slug: poster.slug, seed, theme: theme.name, colour: stage.colour ? stage.colour.name : null, stage: current.stage, inst };
+  track('poster_view', { slug: poster.slug, theme: theme.name, first: shuffles === 0, named: !!(myName && poster.nameable), failed: !current.stage });
   try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
   requestAnimationFrame(() => stageEl.classList.remove('swap'));
   busy = false;
@@ -243,6 +245,7 @@ async function share() {
   const q = myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : '';
   const url = `${location.origin}/p/${poster.slug}/${q}#s=${seed.toString(36)}`;
   const data = { title: `${poster.title} · Idan Segev`, text: poster.blurb, url };
+  track('share', { slug: poster.slug, named: !!q });
   if (navigator.share) {
     try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; }
   }
@@ -355,6 +358,7 @@ function closeName() { nameOpen = false; nameForm.hidden = true; nameInput.blur(
 async function setName(name) {
   myName = name || null;
   saveName(myName);
+  track('name_set', { reset: !myName, lines: myName ? myName.split(' ').length : 0 });   // never the name itself
   closeName();
   if (!current || busy) return;
   if (current.poster.nameable) { await show(current.poster, { seed: current.seed, themeName: current.theme.name }); return; }

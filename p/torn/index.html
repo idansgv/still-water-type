@@ -14,14 +14,14 @@
 <meta property="og:title" content="Torn · Idan Segev">
 <meta property="og:description" content="The name cut from cloth and hung from pegs. Stir the air, pull a peg, and pull hard enough to tear it.">
 <meta property="og:url" content="https://idansegev.com/p/torn/">
-<meta property="og:image" content="https://idansegev.com/assets/og.png">
+<meta property="og:image" content="https://idansegev.com/assets/og-torn.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Idan Segev, set in huge white type on black, melting at the baseline.">
+<meta property="og:image:alt" content="Torn: The name cut from cloth and hung from pegs. Stir the air, pull a peg, and pull hard enough to tear it.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Torn · Idan Segev">
 <meta name="twitter:description" content="The name cut from cloth and hung from pegs. Stir the air, pull a peg, and pull hard enough to tear it.">
-<meta name="twitter:image" content="https://idansegev.com/assets/og.png">
+<meta name="twitter:image" content="https://idansegev.com/assets/og-torn.png">
 
 <link rel="icon" href="/assets/favicon-light.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
@@ -32,7 +32,12 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
 <link rel="stylesheet" href="/src/shell.css">
 <script type="module" src="/src/main.js"></script>
-<script defer src="https://cloud.umami.is/script.js" data-website-id="444fe210-9edc-4c19-86d7-e5a1197075e4"></script>
+<!-- Analytics: PostHog (US). No cookies or local storage (persistence in memory only), no session recording. The shell adds poster_view, share and name_set events (src/main.js); the typed name itself is never sent. -->
+<script>
+!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+if (/(^|\.)idansegev\.com$/.test(location.hostname)) posthog.init('phc_AtvwJyz9WhREwp4PZEjm4QzFdnv6ro6H4LCs53nrtZf5', {   // the live site only: no events from local work or the tests api_host: 'https://us.i.posthog.com', person_profiles: 'identified_only', persistence: 'memory', disable_session_recording: true, capture_pageview: true, capture_pageleave: true,
+  before_send: function (e) { var p = e && e.properties; if (p) ['$current_url', '$referrer', '$initial_current_url'].forEach(function (k) { if (typeof p[k] === 'string') p[k] = p[k].replace(/([?&])n=[^&#]*&?/, '$1').replace(/[?&](#|$)/, '$1'); }); return e; } });   // a shared link's ?n= (a visitor's name) is never sent
+</script>
 </head>
 <body>
 <h1 class="sr-only">Idan Segev, design leader and builder of builders</h1>
