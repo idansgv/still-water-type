@@ -246,6 +246,21 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Reduced motion | no demo; the sea is frozen |
 | Face | Bitter 900 (Google Fonts, the name's letters only) |
 
+## Moiré phase (published 29 Oct 2026)
+
+| | Moiré phase |
+|---|---|
+| At rest | two voices of lines bent in 3D; the bends travel slowly and voice 2 lags behind in Reich's steps (12 per 50 s cycle). Once a cycle they fall back into step and the name appears by gestalt, then dissolves into moiré (Idan's standing drift) |
+| Drag | turns the view through the lines; springs back on release |
+| Tap | voice 2 one beat ahead (under 250 ms, 8 px; after the double-tap window) |
+| Hold | settles into unison and waits there: the name (250 ms, still) |
+| Double tap | starts the cycle over from unison (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | voice 2 lifts off, leaving the one set of lines that carries the name; drawn over it: grid, the two voices, the current lag |
+| Self-demo | none (the drift is the demo) |
+| Theme | black on white or white on black |
+| Reduced motion | the drift is frozen |
+| Face | Alfa Slab One (Google Fonts, the name's letters only) |
+
 ## In the pipeline (draft)
 
 | | Shadow |

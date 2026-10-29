@@ -24,6 +24,7 @@ const COLOUR_SCENES = {
   crystallize: async (p) => { await sleep(1500); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press (it also knocks a hole)
   glitter: async (p) => { await sleep(1500); await p.mouse.click(600, 330); await sleep(1500); },
   lace: async (p) => { await sleep(1500); await p.mouse.click(600, 330); await sleep(1500); },
+  'moire-phase': async (p) => { await sleep(1500); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press (it is also a beat)
   moonlit: async (p) => { await sleep(1500); await p.mouse.move(400, 250); await p.mouse.down(); await sleep(3500); },   // the pass wakes on the press; a held gale makes enough glitter to carry it (the test lets go)
 };
 module.exports = { COLOUR_SCENES };

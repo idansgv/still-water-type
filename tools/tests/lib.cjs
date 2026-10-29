@@ -1,6 +1,7 @@
 // Shared bits for the site checks. Slinky posters are left out for now (still in draft and in progress).
 const SKIP = new Set(['slinky']);
 // Posters that are black until the visitor finds something (Backlight: the light), so a blank canvas at rest is correct.
+const LINE_FIELD = new Set(['moire-phase']);   // fine lines to the very edge: the corner is a grey mix of page and ink, so the theme check reads it as lighter or darker than mid grey
 const DARK_AT_REST = new Set(['backlight', 'glitter', 'moonlit']);   // glitter, moonlit: dark water until the moon or the wind finds the letters
 
 // Registry rows, read through the same file the site uses.
@@ -54,4 +55,4 @@ async function touch(page, steps) {
   await cdp.detach();
 }
 
-module.exports = { SKIP, DARK_AT_REST, posters, watch, open, inkRatio, touch };
+module.exports = { SKIP, DARK_AT_REST, LINE_FIELD, posters, watch, open, inkRatio, touch };

@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { DARK_AT_REST, posters, watch, open, inkRatio, touch } = require('./lib.cjs');
+const { DARK_AT_REST, LINE_FIELD, posters, watch, open, inkRatio, touch } = require('./lib.cjs');
 
 let LIST = [];
 test.beforeAll(async () => { LIST = await posters(); });
@@ -165,14 +165,16 @@ test('6 theme sequence: alternates, and every poster follows it', async ({ page 
     const only = darkOnly(r.slug), prev = i ? rows[i - 1].theme : 'dark';          // a black-only poster is always dark; the sequence carries on from it
     expect.soft(r.theme, `shuffle ${i}`).toBe(only ? 'dark' : prev === 'light' ? 'dark' : 'light');
     expect.soft(r.flip).toBe(r.theme === 'dark');
-    if (r.theme === 'light') expect.soft(r.corner, `${r.slug} should be white`).toBeGreaterThan(200); else expect.soft(r.corner, `${r.slug} should be black`).toBeLessThan(55);
+    const [hi, lo] = LINE_FIELD.has(r.slug) ? [128, 128] : [200, 55];
+    if (r.theme === 'light') expect.soft(r.corner, `${r.slug} should be white`).toBeGreaterThan(hi); else expect.soft(r.corner, `${r.slug} should be black`).toBeLessThan(lo);
   });
   const miss = [];
   for (const p of LIST) for (const theme of ['light', 'dark']) {
     if (theme === 'light' && darkOnly(p.slug)) continue;
     await open(page, p.slug, `&theme=${theme}`);
     const c = await corner();
-    if (theme === 'light' ? c < 200 : c > 55) miss.push(`${p.slug} ${theme} corner=${c}`);
+    const [hi, lo] = LINE_FIELD.has(p.slug) ? [128, 128] : [200, 55];
+    if (theme === 'light' ? c < hi : c > lo) miss.push(`${p.slug} ${theme} corner=${c}`);
   }
   console.log('posters not following the theme:', miss.length ? miss.join('; ') : 'none');
   expect(miss).toEqual([]);

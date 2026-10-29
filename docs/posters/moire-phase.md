@@ -1,6 +1,6 @@
 # Moiré phase
 
-**Status:** target stills, 28 Oct 2026 (`output/stills/moire/`, git-ignored; renderer in the session scratchpad, numpy). Standing drift at rest: yes (Idan). Stand-in face Arial Black.
+**Status:** published 2026-10-29. Test at `/?p=moire-phase`.
 
 **Brief (Idan, 28 Oct 2026).** "I want to explore the concept of Moire via the phased approach that Steve reich developed towards music in the 70s"
 
@@ -36,3 +36,5 @@
 **Strands build (29 Oct 2026, same test link; folding grid kept in `prototypes/moire-phase-fold.html`).** WebGL2, no mesh buffers: each strand is an instanced screen-space ribbon (360 segments) computed in the vertex shader. The field is ±5 × ±4 world units so the strands always cover the frame. Bends are three long sines in z plus a small one in y, and they travel with time ("Bends travel"). Voice 1 samples a screen-space mask of the name and steps half a line over (in y0, so it lands between neighbours on the bent surface). Voice 2's bends lag by the Reich-step phase. Its spacing and angle part only away from unison (scaled by sin(π·lag)), so it is exactly back in step once a cycle. Width follows depth and the light; lines finer than a pixel fade instead of vanishing. Defaults are his settings: fold 0.53, scale 0.45, breath 0.8, pitch 38, yaw 7, zoom 1.25, 138 lines, weight 0.42, light 0.55, tempo 0.022, tilt 1.2, cycle 50 s, 12 steps, pause 0.4, size 0.79, Alfa Slab One, white page. Gestures are unchanged.
 
 **Staged on the site (29 Oct 2026, draft, local, not committed).** `src/posters/moire-phase.js`, registry row `draft: true`, `?p=moire-phase` (`&tune` for the panel), scene in `tools/scenes.cjs`. Same model as the test page, with Idan's settings as defaults; the shell owns black/white (both themes). Gestures through `src/gestures.js`. The reveal (three taps) lifts voice 2 off under a drawing of the two voices. The standing drift stays (his choice), frozen under reduced motion. Static gate passes except the two publish-only items (INTERACTIONS.md entry, menu preview).
+
+**Published (29 Oct 2026).** Idan retuned it on the site (fold 0.51, scale 0.65, breath 1.07, pitch 28, yaw -8, zoom 2, 178 lines, weight 0.28, light 0.69, tempo 0.018, tilt 1.15) and said publish. Gate fixes: the theme check reads corners as a grey mix for a line field (`LINE_FIELD` in `tools/tests/lib.cjs`, thresholds 128); the reveal draws the two voices as a score so the layer has real ink; colour scene is a press. Menu preview is taken at unison (`debug.unison()`). Next: a more rewarding interaction.

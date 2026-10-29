@@ -19,8 +19,8 @@ import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './reveal.js';
 
 const FAMILY = 'Alfa Slab One', NAME = 'IdanSegv';
-const DEF = { fold: 0.53, scale: 0.45, breath: 0.8, pitch: 38, yaw: 7, zoom: 1.25, lines: 138, weight: 0.42, light: 0.55,
-  tempo: 0.022, tilt: 1.2, cycle: 50, steps: 12, pause: 0.4, size: 0.79 };   // Idan's tuning, 29 Oct 2026
+const DEF = { fold: 0.51, scale: 0.65, breath: 1.07, pitch: 28, yaw: -8, zoom: 2, lines: 178, weight: 0.28, light: 0.69,
+  tempo: 0.018, tilt: 1.15, cycle: 50, steps: 12, pause: 0.4, size: 0.79 };   // Idan's tuning on the site, 29 Oct 2026
 const PX = 5, PY = 4;                                    // half-extent of the line field in world units; the view is 2 units tall
 const SEG = 360;                                         // segments per line
 const FOV = 30 * Math.PI / 180;
@@ -169,8 +169,20 @@ export async function mount(stage) {
   const rv = createReveal(stage, (c, W_, H_, k) => {
     const colr = (a) => rvInk(stage, a);
     grid(c, W_, H_, 24, colr, k); corners(c, W_, H_, 16, colr, k);
-    label(c, 'voice 1 · holds tempo · half a line over inside the letters', 40, 50, colr, k);
     const ph = sched(tau) + off, lag = ph - Math.floor(ph);
+    // the two voices as a score: voice 1 solid, voice 2 dashed, its bends behind by the lag
+    c.lineWidth = 1.2;
+    for (let r = 0; r < 7; r++) {
+      const y0 = H_ * (0.14 + r * 0.11);
+      [[0, []], [lag, [5, 5]]].forEach(([l, dash]) => {
+        c.setLineDash(dash); c.strokeStyle = colr(0.75 * k); c.beginPath();
+        for (let x = 0; x <= W_; x += 8) { const y = y0 + 14 * Math.sin(x / W_ * 9 + r * 0.8 + l * 6.283); x ? c.lineTo(x, y) : c.moveTo(x, y); }
+        c.stroke();
+      });
+    }
+    c.setLineDash([]);
+    label(c, 'voice 1 · holds tempo · half a line over inside the letters', 40, 50, colr, k);
+    label(c, '- - voice 2 · the same lines, lagging', 40, 66, colr, k);
     titleBlock(c, W_, H_, ['MOIRÉ PHASE · STRUCTURE', 'voice 2 lifted off: one set of lines', `voice 2 lags ${Math.round(lag * (P.steps || 12))} of ${P.steps || 12} beats`, `${P.lines} lines · cycle ${P.cycle} s`], colr, k);
   }, { dim: 0.6 });
 
