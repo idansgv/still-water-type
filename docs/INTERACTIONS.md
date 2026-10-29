@@ -251,10 +251,12 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | | Phases |
 |---|---|
 | At rest | two voices of lines bent in 3D; the bends travel slowly and voice 2 lags behind in Reich's steps (12 per 50 s cycle). Once a cycle they fall back into step and the name appears by gestalt, then dissolves into moiré (Idan's standing drift) |
-| Drag | turns the view through the lines; springs back on release |
+| Drag across | you are voice 2: tunes its lag against voice 1 (full width = one cycle; the clock waits while you drag) and snaps into unison within 0.035 of a cycle, so you find the name by hand |
+| Drag up or down | tilts the view |
+| Camera | right-drag or Alt-drag turns and tilts, the wheel zooms; touch: two fingers turn and tilt, a pinch zooms. The view stays where you leave it |
 | Tap | voice 2 one beat ahead (under 250 ms, 8 px; after the double-tap window) |
 | Hold | settles into unison and waits there: the name (250 ms, still) |
-| Double tap | starts the cycle over from unison (a beat later, so a third tap can still mean reveal) |
+| Double tap | starts the cycle over from unison and brings the view home (a beat later, so a third tap can still mean reveal) |
 | Three taps (reveal) | voice 2 lifts off, leaving the one set of lines that carries the name; drawn over it: grid, the two voices, the current lag |
 | Self-demo | none (the drift is the demo) |
 | Theme | black on white or white on black |

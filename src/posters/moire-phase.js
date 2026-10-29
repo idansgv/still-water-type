@@ -10,8 +10,10 @@
 // neighbours on the bent surface). Voice 2's spacing and angle part only away from unison (scaled by sin(pi * lag)), so it is
 // exactly back in step once a cycle. Width follows depth and the light; lines finer than a pixel fade instead of vanishing.
 //
-// Gestures (src/gestures.js): drag turns the view through the lines and springs back; tap one beat ahead; hold settles into
-// unison and waits; double tap starts over (after the re-form beat). Reveal: voice 2 lifts off, so you see the one plain set of
+// Gestures (src/gestures.js): you are voice 2. A drag across tunes it against voice 1 (the clock waits) and it snaps in near
+// unison, so you find the name by hand; up or down tilts the view. Right-drag or Alt-drag turns the view, the wheel zooms; on touch
+// two fingers turn and a pinch zooms. Tap one beat ahead; hold settles into unison and waits; double tap starts over and brings
+// the view home (after the re-form beat). Reveal: voice 2 lifts off, so you see the one plain set of
 // lines carrying the name, under a drawing of the two voices.
 
 import { getGL } from '../engine.js';
@@ -134,7 +136,7 @@ export async function mount(stage) {
 
   // ---------- the second player: a clock that drifts ahead in Reich's steps, plus whatever the hand adds ----------
   let tau = 0, off = 0, offT = 0, lock = 0, t = 0, lift = 0;
-  let orbX = 0, orbY = 0, orbXT = 0, orbYT = 0;
+  let orbX = 0, orbY = 0, orbXT = 0, orbYT = 0, zm = 1, zmT = 1;
   const sched = (x) => {
     const n = P.steps; if (!n) return x;
     const s = x * n, k = Math.floor(s), f = s - k, h = P.pause;
@@ -143,27 +145,56 @@ export async function mount(stage) {
   };
   const beat = () => 1 / (P.steps || 12);
 
-  // ---------- input ----------
-  const press = pressTracker();
-  let lastTap = -1, tapT = 0, drag = null;
-  offs.push(stage.on('down', (q, e) => { if (press.down(q, e.pointerId)) drag = { x: q.x, y: q.y, ox: orbXT, oy: orbYT }; }));
+  // ---------- input: a drag across tunes voice 2 (the clock waits) and snaps into unison near it; up or down tilts. The camera:
+  // right-drag or Alt-drag turns and tilts, the wheel zooms; on touch two fingers turn and tilt and a pinch zooms. The view stays
+  // where you leave it; double tap starts over and brings it home. ----------
+  const SPAN = 1, SNAP = 0.035;                          // a drag across the page = one cycle; snaps within this much of unison
+  const clampYaw = (v) => Math.max(-80, Math.min(80, v)), clampPitch = (v) => Math.max(-P.pitch, Math.min(70 - P.pitch, v));
+  const clampZoom = (v) => Math.max(0.4, Math.min(3, v));
+  const press = pressTracker(), pts = new Map();
+  let lastTap = -1, tapT = 0, drag = null, two = null;
+  const pair = () => { const [a, b] = [...pts.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; };
+  offs.push(stage.on('down', (q, e) => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) { const c = pair(); two = { ...c, ox: orbXT, oy: orbYT, oz: zmT }; press.cancel(); drag = null; lastTap = -1; clearTimeout(tapT); return; }
+    if (pts.size > 2 || two) return;
+    if (press.down(q, e.pointerId)) { const cam = e.button === 2 || e.altKey; drag = { x: q.x, y: q.y, mode: cam ? 'orbit' : null, o0: offT, ox: orbXT, oy: orbYT }; }
+  }));
   offs.push(stage.on('move', (q, e) => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (two && pts.size >= 2) {
+      const c = pair();
+      orbXT = clampYaw(two.ox + (c.x - two.x) / W * 120); orbYT = clampPitch(two.oy - (c.y - two.y) / H * 90);
+      if (two.d > 20) zmT = clampZoom(two.oz * c.d / two.d);
+      return;
+    }
     press.move(q, e.pointerId);
-    if (!drag || !press.active || press.moved < 8) return;          // a drag turns the view through the lines, then springs back
-    orbXT = Math.max(-50, Math.min(50, drag.ox + (q.x - drag.x) / W * 90));
-    orbYT = Math.max(-P.pitch, Math.min(58 - P.pitch, drag.oy - (q.y - drag.y) / H * 70));
+    if (!drag || !press.active) return;
+    const dx = q.x - drag.x, dy = q.y - drag.y;
+    if (!drag.mode) { if (press.moved < 8) return; drag.mode = Math.abs(dx) >= Math.abs(dy) ? 'tune' : 'tilt'; }
+    if (drag.mode === 'tune') {
+      const raw = drag.o0 + dx / W * SPAN, total = sched(tau) + raw, dd = total - Math.round(total);
+      offT = Math.abs(dd) < SNAP ? raw - dd : raw;
+    } else if (drag.mode === 'tilt') orbYT = clampPitch(drag.oy - dy / H * 70);
+    else { orbXT = clampYaw(drag.ox + dx / W * 120); orbYT = clampPitch(drag.oy - dy / H * 90); }
   }));
   offs.push(stage.on('up', (q, e) => {
+    pts.delete(e.pointerId);
+    if (two) { if (pts.size === 0) two = null; return; }
     const r = press.up(q, e.pointerId);
     if (!r) return;
-    drag = null;
-    if (!r.tap || stage.revealed) return;
+    const wasOrbit = drag && drag.mode === 'orbit'; drag = null;
+    if (!r.tap || wasOrbit || stage.revealed) return;
     const now = performance.now();
     clearTimeout(tapT);
-    if (lastTap >= 0 && now - lastTap < DOUBLE_MS) {                                                      // start over, from unison
-      lastTap = -1; tapT = setTimeout(() => { if (alive && !stage.revealed) { tau = 0; offT = Math.round(off); } }, REFORM_DELAY_MS);
+    if (lastTap >= 0 && now - lastTap < DOUBLE_MS) {                                                      // start over, from unison, the view home
+      lastTap = -1; tapT = setTimeout(() => { if (alive && !stage.revealed) { tau = 0; offT = Math.round(off); orbXT = orbYT = 0; zmT = 1; } }, REFORM_DELAY_MS);
     } else { lastTap = now; tapT = setTimeout(() => { if (alive && !stage.revealed) offT += beat(); }, DOUBLE_MS); }   // one beat ahead
   }));
+  const onWheel = (e) => { e.preventDefault(); zmT = clampZoom(zmT * Math.exp(-e.deltaY * 0.0015)); };
+  const noMenu = (e) => e.preventDefault();
+  stage.root.addEventListener('wheel', onWheel, { passive: false });
+  stage.root.addEventListener('contextmenu', noMenu);
 
   // ---------- reveal: voice 2 lifts off; drawn: the two voices ----------
   const rv = createReveal(stage, (c, W_, H_, k) => {
@@ -207,16 +238,16 @@ export async function mount(stage) {
   function frame(dt) {
     const holding = press.holding;
     lock = holding ? Math.min(1, lock + dt * 1.6) : Math.max(0, lock - dt * 1.2);
-    if (!stage.reduced && !holding) { tau += dt / P.cycle; t += dt * P.breath; }
+    const tuning = drag && drag.mode === 'tune';
+    if (!stage.reduced && !holding) { if (!tuning) tau += dt / P.cycle; t += dt * P.breath; }
     if (holding) { const total = sched(tau) + offT; offT += Math.round(total) - total; }   // hold: back into unison, and wait
-    if (!press.active) { orbXT *= Math.exp(-dt / 1.4); orbYT *= Math.exp(-dt / 1.4); }
-    const k = 1 - Math.exp(-dt * (drag && press.moved >= 8 ? 18 : 4));
-    off += (offT - off) * k; orbX += (orbXT - orbX) * k; orbY += (orbYT - orbY) * k;
+    const k = 1 - Math.exp(-dt * ((drag && drag.mode) || two ? 18 : 4));
+    off += (offT - off) * k; orbX += (orbXT - orbX) * k; orbY += (orbYT - orbY) * k; zm += (zmT - zm) * (1 - Math.exp(-dt * 10));
     lift += ((stage.revealed ? 1 : 0) - lift) * Math.min(1, dt * (stage.reduced ? 40 : 4));
 
     const ph = sched(tau) + off, lag = ph - Math.floor(ph), apart = Math.sin(Math.PI * lag);
     const sp = 2 / P.lines, n = Math.ceil(2 * PY / sp);
-    const d = 1 / Math.tan(FOV / 2) / P.zoom, pr = (P.pitch + orbY) * Math.PI / 180, yw = (P.yaw + orbX) * Math.PI / 180;
+    const d = 1 / Math.tan(FOV / 2) / (P.zoom * zm), pr = (P.pitch + orbY) * Math.PI / 180, yw = (P.yaw + orbX) * Math.PI / 180;
     const mvp = mul(persp(FOV, W / H, 0.05, 40), look([d * Math.sin(pr) * Math.sin(yw), -d * Math.sin(pr) * Math.cos(yw), d * Math.cos(pr)]));
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, stage.pw, stage.ph);
@@ -254,6 +285,7 @@ export async function mount(stage) {
       alive = false; clearTimeout(rt); clearTimeout(tapT);
       rv.destroy(); offs.forEach((f) => f());
       gl.deleteTexture(maskT); gl.deleteProgram(prog); gl.deleteVertexArray(vao);
+      stage.root.removeEventListener('wheel', onWheel); stage.root.removeEventListener('contextmenu', noMenu);
       link.remove(); stage.setBackdrop(null);
     },
   };

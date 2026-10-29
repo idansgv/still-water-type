@@ -40,7 +40,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
 </style>
 
-<canvas id="c" aria-label="Phases: fine lines bent in 3D drift through space in two voices, one lagging behind the other, each playing the Piano Phase figure. Drag across to tune the second voice; when the two fall into step Idan Segev appears among them."></canvas>
+<canvas id="c" aria-label="Phases: fine lines bent in 3D drift through space in two voices, one lagging behind the other. Drag across to tune the second voice; when the two fall into step Idan Segev appears among them."></canvas>
 <div class="foot"><span><b>Phases</b> &nbsp;tune · draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
 <div class="sheet" id="sheet" hidden>
   <h3>Space</h3>
@@ -63,10 +63,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   <h3>Your hand (voice 2)</h3>
   <label class="row" for="span"><span>Drag across = this much of a cycle</span><output id="spanO"></output><input type="range" id="span" min="0.25" max="2" step="0.05" value="1"></label>
   <label class="row" for="snap"><span>Snap into unison within</span><output id="snapO"></output><input type="range" id="snap" min="0" max="0.1" step="0.005" value="0.035"></label>
-  <h3>Sound</h3>
-  <label class="row" for="sound"><span>Sound (starts on first touch)</span><output id="soundO"></output><input type="range" id="sound" min="0" max="1" step="1" value="1"></label>
-  <label class="row" for="volume"><span>Volume</span><output id="volumeO"></output><input type="range" id="volume" min="0" max="1" step="0.01" value="0.5"></label>
-  <label class="row" for="note"><span>Note length (ms)</span><output id="noteO"></output><input type="range" id="note" min="90" max="300" step="5" value="150"></label>
   <h3>Name</h3>
   <label class="row" for="size"><span>Name width</span><output id="sizeO"></output><input type="range" id="size" min="0.4" max="0.96" step="0.01" value="0.79"></label>
   <label class="row" for="face"><span>Face</span><span></span><select id="face" style="grid-column: 1 / -1"></select></label>
@@ -83,7 +79,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   const FACES = [['Archivo Black', 400], ['Anton', 400], ['Bricolage Grotesque', 800], ['Inter Tight', 900], ['Alfa Slab One', 400]];
   const DEF = { fold: 0.51, scale: 0.65, breath: 1.07, pitch: 28, yaw: -8, zoom: 2, lines: 178, weight: 0.28, light: 0.69,
     tempo: 0.018, tilt: 1.15, cycle: 50, steps: 12, pause: 0.4, size: 0.79, face: 4, dark: 0,
-    span: 1, snap: 0.035, sound: 1, volume: 0.5, note: 150 };
+    span: 1, snap: 0.035 };
   const P = { ...DEF };
   try { Object.assign(P, JSON.parse(localStorage.getItem('moire-tune') || '{}')); } catch (e) {}
   const save = () => { try { localStorage.setItem('moire-tune', JSON.stringify(P)); } catch (e) {} };
@@ -199,14 +195,14 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   };
   const FOV = 30 * Math.PI / 180;
   const camera = (pitch, yaw) => {
-    const d = 1 / Math.tan(FOV / 2) / P.zoom, p = pitch * Math.PI / 180, y = yaw * Math.PI / 180;
+    const d = 1 / Math.tan(FOV / 2) / (P.zoom * zm), p = pitch * Math.PI / 180, y = yaw * Math.PI / 180;
     const e = [d * Math.sin(p) * Math.sin(y), -d * Math.sin(p) * Math.cos(y), d * Math.cos(p)];
     return mul(persp(FOV, W / H, 0.05, 40), look(e, [0, 0, 0]));
   };
 
   // the second player: a clock that drifts ahead (smoothly or in Reich's steps), plus whatever the hand adds
   let tau = 0, off = 0, offT = 0, lock = 0, cut = 0, reveal = 0, t = 0;
-  let orbX = 0, orbY = 0, orbXT = 0, orbYT = 0;
+  let orbX = 0, orbY = 0, orbXT = 0, orbYT = 0, zm = 1, zmT = 1;
   const sched = (x) => {
     const n = P.steps; if (!n) return x;
     const s = x * n, k = Math.floor(s), f = s - k, h = P.pause;
@@ -215,76 +211,57 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   };
   const beat = () => 1 / (P.steps || 12);
 
-  // ---------- sound: both voices play the Piano Phase figure; voice 2 sits as many notes ahead as its bends lag ----------
-  const FIG = [64, 66, 71, 73, 74, 66, 64, 73, 71, 66, 74, 73];    // E F# B C# D F# E C# B F# D C#
-  const hz = (m) => 440 * 2 ** ((m - 69) / 12);
-  let ac = null, master = null, nextT = 0, slot = 0, noise = null;
-  const ensureAudio = () => {
-    if (!P.sound) return;
-    if (!ac) {
-      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-      ac = new AC(); master = ac.createGain(); master.connect(ac.destination);
-      noise = ac.createBuffer(1, Math.round(ac.sampleRate * 0.04), ac.sampleRate);
-      const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) ** 3;
-      nextT = ac.currentTime + 0.12;
-    }
-    if (ac.state === 'suspended') ac.resume();
-  };
-  const note = (t, m, pan, amp) => {                  // a soft struck tone: triangle and an octave, quick attack, long decay
-    const o = ac.createOscillator(), o2 = ac.createOscillator(), g = ac.createGain(), g2 = ac.createGain(), p = ac.createStereoPanner();
-    o.type = 'triangle'; o.frequency.value = hz(m); o2.type = 'sine'; o2.frequency.value = hz(m) * 2; g2.gain.value = 0.22;
-    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(p); p.connect(master); p.pan.value = pan;
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0005, t + 0.8);
-    o.start(t); o2.start(t); o.stop(t + 0.85); o2.stop(t + 0.85);
-  };
-  const click = () => {                               // the name snaps in
-    if (!ac || !P.sound) return;
-    const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-    s.buffer = noise; f.type = 'highpass'; f.frequency.value = 2400; g.gain.value = 0.5;
-    s.connect(f); f.connect(g); g.connect(master); s.start();
-  };
-  const playAudio = (lag) => {
-    if (!ac || ac.state !== 'running') return;
-    master.gain.setTargetAtTime(P.sound ? P.volume * 0.35 : 0, ac.currentTime, 0.05);
-    if (!P.sound) { nextT = ac.currentTime + 0.1; return; }
-    const d = P.note / 1000, b = lag * 12, ahead = Math.ceil(b - 1e-6);
-    if (nextT < ac.currentTime) nextT = ac.currentTime + 0.02;
-    while (nextT < ac.currentTime + 0.12) {
-      note(nextT, FIG[slot % 12], -0.45, 0.5);                                                         // voice 1, left
-      note(nextT + (ahead - b) * d, FIG[(slot + ahead) % 12], 0.45, 0.5);                               // voice 2, right
-      slot++; nextT += d;
-    }
-  };
-
-  // drag across tunes voice 2 against voice 1 (it holds still while you do); it snaps into unison when you come close
-  let down = null, taps = [], tapTimer = 0;
+  // one finger (or a plain mouse drag) across tunes voice 2 against voice 1 (it holds still while you do) and snaps into unison
+  // when you come close; up or down tilts the view. The camera: right-drag or Alt-drag turns and tilts, the wheel zooms; on touch,
+  // two fingers turn and tilt and a pinch zooms. The view stays where you leave it; double tap brings it home.
+  const clampYaw = (v) => Math.max(-80, Math.min(80, v)), clampPitch = (v) => Math.max(-P.pitch, Math.min(70 - P.pitch, v));
+  const clampZoom = (v) => Math.max(0.4, Math.min(3, v));
+  const pts = new Map();
+  let down = null, two = null, taps = [], tapTimer = 0;
+  const pair = () => { const [a, b] = [...pts.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; };
+  cv.addEventListener('contextmenu', (e) => e.preventDefault());
   cv.addEventListener('pointerdown', (e) => {
-    cv.setPointerCapture(e.pointerId); ensureAudio();
-    down = { x: e.clientX, y: e.clientY, t: performance.now(), far: 0, drag: false, mode: null, o0: offT, oy: orbYT, snapped: false };
+    cv.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) {                              // a second finger: the camera, not the voices
+      const c = pair(); two = { ...c, ox: orbXT, oy: orbYT, oz: zmT }; down = null; taps = []; clearTimeout(tapTimer); return;
+    }
+    if (pts.size > 2 || two) return;
+    const cam = e.button === 2 || e.altKey;
+    down = { x: e.clientX, y: e.clientY, t: performance.now(), far: 0, drag: cam, mode: cam ? 'orbit' : null, o0: offT, ox: orbXT, oy: orbYT };
   });
   cv.addEventListener('pointermove', (e) => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (two && pts.size >= 2) {
+      const c = pair();
+      orbXT = clampYaw(two.ox + (c.x - two.x) / W * 120); orbYT = clampPitch(two.oy - (c.y - two.y) / H * 90);
+      if (two.d > 20) zmT = clampZoom(two.oz * c.d / two.d);
+      return;
+    }
     if (!down) return;
     const dx = e.clientX - down.x, dy = e.clientY - down.y;
     down.far = Math.max(down.far, Math.hypot(dx, dy));
     if (down.far > 8 && !down.drag) { down.drag = true; down.mode = Math.abs(dx) >= Math.abs(dy) ? 'tune' : 'tilt'; }
     if (down.mode === 'tune') {
       const raw = down.o0 + dx / W * P.span, total = sched(tau) + raw, dd = total - Math.round(total);
-      const near = Math.abs(dd) < P.snap;
-      offT = near ? raw - dd : raw;
-      if (near && !down.snapped) click();
-      down.snapped = near;
-    } else if (down.mode === 'tilt') {                 // a vertical drag tilts the view through the strands, then springs back
-      orbYT = Math.max(-P.pitch, Math.min(58 - P.pitch, down.oy - dy / H * 70));
+      offT = Math.abs(dd) < P.snap ? raw - dd : raw;
+    } else if (down.mode === 'tilt') {
+      orbYT = clampPitch(down.oy - dy / H * 70);
+    } else if (down.mode === 'orbit') {
+      orbXT = clampYaw(down.ox + dx / W * 120); orbYT = clampPitch(down.oy - dy / H * 90);
     }
   });
-  const up = () => {
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); zmT = clampZoom(zmT * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+  const up = (e) => {
+    pts.delete(e.pointerId);
+    if (two) { if (pts.size === 0) two = null; return; }
     if (!down) return;
-    const now = performance.now(), quick = now - down.t < 250 && down.far < 8;
+    const now = performance.now(), quick = now - down.t < 250 && down.far < 8 && down.mode !== 'orbit';
     if (quick) {
       taps = taps.filter((x) => now - x < 760); taps.push(now);
       const n = taps.length; clearTimeout(tapTimer);
       if (n === 1) tapTimer = setTimeout(() => { offT += beat(); }, 380);                                  // one beat ahead
-      else if (n === 2) tapTimer = setTimeout(() => { tau = 0; offT = Math.round(off); taps = []; }, 380);  // back to unison
+      else if (n === 2) tapTimer = setTimeout(() => { tau = 0; offT = Math.round(off); orbXT = orbYT = 0; zmT = 1; taps = []; }, 380);  // start over, view home
       else { taps = []; reveal = 2.8; }                                                                    // lift voice 2 off
     }
     down = null;
@@ -300,9 +277,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
     const tuning = down && down.mode === 'tune';
     if (!reduced && !holding) { if (!tuning) tau += dt / P.cycle; t += dt * P.breath; }
     if (holding) { const total = sched(tau) + offT; offT += Math.round(total) - total; }   // hold: back into unison, and wait
-    if (!down) { orbXT *= Math.exp(-dt / 1.4); orbYT *= Math.exp(-dt / 1.4); }
-    const k = 1 - Math.exp(-dt * (down && down.drag ? 18 : 4));
-    off += (offT - off) * k; orbX += (orbXT - orbX) * k; orbY += (orbYT - orbY) * k;
+    const k = 1 - Math.exp(-dt * ((down && down.drag) || two ? 18 : 4));
+    off += (offT - off) * k; orbX += (orbXT - orbX) * k; orbY += (orbYT - orbY) * k; zm += (zmT - zm) * (1 - Math.exp(-dt * 10));
     if (reveal > 0) {
       reveal -= dt; const f = 1 - reveal / 2.8;
       const g = f < 0.3 ? f / 0.3 : f < 0.7 ? 1 : 1 - (f - 0.7) / 0.3;
@@ -310,7 +286,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
     } else cut = 0;
 
     const ph = sched(tau) + off, lag = ph - Math.floor(ph), apart = Math.sin(Math.PI * lag), dark = !!P.dark;
-    playAudio(lag);
     const sp = 2 / P.lines, n = Math.ceil(2 * PY / sp);
     gl.viewport(0, 0, cw, chh);
     gl.clearColor(dark ? 0 : 1, dark ? 0 : 1, dark ? 0 : 1, 1); gl.clear(gl.COLOR_BUFFER_BIT);
@@ -335,7 +310,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 
   // settings (this test only)
   FACES.forEach(([f], i) => { const o = document.createElement('option'); o.value = i; o.textContent = f; $('face').appendChild(o); });
-  const fmt = { fold: 2, scale: 2, breath: 2, pitch: 0, yaw: 0, zoom: 2, lines: 0, weight: 2, light: 2, tempo: 3, tilt: 2, cycle: 0, steps: 0, pause: 2, size: 2, dark: 0, span: 2, snap: 3, sound: 0, volume: 2, note: 0 };
+  const fmt = { fold: 2, scale: 2, breath: 2, pitch: 0, yaw: 0, zoom: 2, lines: 0, weight: 2, light: 2, tempo: 3, tilt: 2, cycle: 0, steps: 0, pause: 2, size: 2, dark: 0, span: 2, snap: 3 };
   const loadFace = () => (document.fonts ? document.fonts.load(font(100), 'Idan Segev') : Promise.resolve()).catch(() => {});
   const applyDark = () => document.body.classList.toggle('dark', !!P.dark);
   const sync = () => {
@@ -344,7 +319,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   };
   Object.keys(fmt).forEach((k) => $(k).addEventListener('input', () => {
     P[k] = +$(k).value; $(k + 'O').textContent = P[k].toFixed(fmt[k]); save();
-    if (k === 'size') buildMask(); if (k === 'dark') applyDark(); if (k === 'sound' && P.sound) ensureAudio();
+    if (k === 'size') buildMask(); if (k === 'dark') applyDark();
   }));
   $('face').addEventListener('change', () => { P.face = +$('face').value; save(); loadFace().then(buildMask); });
   $('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });

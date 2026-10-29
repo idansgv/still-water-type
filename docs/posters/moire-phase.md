@@ -41,4 +41,8 @@
 
 **Renamed Phases (29 Oct 2026, Idan).** Title only; the slug and URL stay `moire-phase`.
 
-**Tune it, hear it (29 Oct 2026, test link only, not on the site yet).** Idan picked "you are voice 2" plus sound. A horizontal drag sets voice 2's lag directly (full width = one cycle, `span`); the clock stops while you tune. Within `snap` (0.035 of a cycle) of unison it snaps in with a short click and the name appears. A vertical drag tilts the view. Sound starts on the first touch: both voices play the Piano Phase figure (E F# B C# D F# E C# B F# D C#, 150 ms a note) as soft struck tones, voice 1 left and voice 2 right, with voice 2 as many notes ahead as its bends lag (fractions are a delay inside the note). At unison the two voices sound as one. Settings: span, snap, sound, volume, note length.
+**Tune it (29 Oct 2026, test link only, not on the site yet).** Idan picked "you are voice 2". A horizontal drag sets voice 2's lag directly (full width = one cycle, `span`); the clock stops while you tune. Within `snap` (0.035 of a cycle) of unison it snaps in and the name appears. A vertical drag tilts the view. Settings: span, snap. Sound was tried and removed the same day: Idan: "I'd avoid sound" (option 3 was misread as part of his pick; no sound on this poster).
+
+**Camera back (29 Oct 2026, test link).** Drag-to-tune had taken the turn away. Now: right-drag or Alt-drag turns and tilts (yaw ±80°), the wheel zooms (0.4 to 3x), and on touch two fingers turn and tilt and a pinch zooms. A plain one-finger drag still tunes (across) or tilts (up and down). The view stays where you leave it (no spring back); double tap starts over and brings the view home.
+
+**On the site (29 Oct 2026, Idan: "Port to site").** Drag-to-tune (span 1, snap 0.035, fixed constants, no settings) and the camera controls (right/Alt-drag, wheel, two fingers, pinch) are in `src/posters/moire-phase.js`; no sound. Full gate 17/17.
