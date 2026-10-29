@@ -278,6 +278,19 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Self-demo | the light swings once at 3.5 s, then every 9 to 13 s, until the first touch; off under reduced motion |
 | Idle | light eases home after 4 s |
 
+| | Splintered (draft) |
+|---|---|
+| At rest | polished extruded type: chrome on black, porcelain on white; still |
+| Tap on a letter | it is cut into Voronoi shards at that point (finer near the hit) and blows apart toward the camera: a forceful hit (flash, sparks, glowing cracks, a small shake), then an ease into slow motion, shards blurring as they pass the lens (under 250 ms, 8 px) |
+| Tap on a flying shard | the pieces are kicked again from there |
+| Tap on background | nothing |
+| Hold | rewinds time: the shards fly back together (250 ms, still) |
+| Double tap | re-forms at once (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | the cut drawn over the type: crack lines solid, letter outlines dashed, the hit, the time rate |
+| Self-demo | once, after 3.5 s untouched: a hit left of centre, then it rewinds; off under reduced motion |
+| Theme | both; a separate tuning for each (Idan, 29 Oct 2026); best on black |
+| Face | Archivo Black (Google Fonts, the name's letters only) |
+
 ## Slinky
 
 | | Slinky |
