@@ -267,8 +267,8 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 
 | | Splintered |
 |---|---|
-| At rest | bevelled glass type on black (after the PP Fragment posters: dark faces, the edges catch the light); porcelain on white; still |
-| Tap on a letter | it is cut into Voronoi shards at that point (finer near the hit) and, on black a beat after the hit (0.16 s), blows apart toward the camera: a forceful hit (flash, sparks, a small shake), then an ease into slow motion, shards blurring as they pass the lens (under 250 ms, 8 px) |
+| At rest | bevelled glass type on black (after the PP Fragment posters: dark faces, the edges catch the light); on white the same glass with dark rims, as if seen against a white wall in a dark room; still |
+| Tap on a letter | it is cut into Voronoi shards at that point (finer near the hit) and, a beat after the hit (0.16 s), blows apart toward the camera: a forceful hit (flash, sparks, a small shake), then an ease into slow motion, shards blurring as they pass the lens (under 250 ms, 8 px) |
 | Tap on a flying shard | the pieces are kicked again from there |
 | Tap on background | nothing |
 | Drag (once it has burst) | turns the camera round the middle of the flying pieces |
@@ -277,8 +277,8 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Double tap | re-forms at once and brings the camera home (a beat later, so a third tap can still mean reveal) |
 | Three taps (reveal) | the cut drawn over the type: crack lines solid, letter outlines dashed, the hit, the time rate |
 | Self-demo | once, after 3.5 s untouched: a hit left of centre, then it rewinds; off under reduced motion |
-| Theme | both; a separate tuning for each (Idan, 29 Oct 2026); best on black |
-| Colour | native: the first press anodises porcelain, or tints the glass's reflections, in the palette |
+| Theme | both; glass on each, a separate tuning for each (Idan, 29 Oct 2026) |
+| Colour | native: the first press tints the glass's reflections in the palette; on white the glass is stained in it |
 | Face | Archivo Black (Google Fonts, the name's letters only) |
 
 ## In the pipeline (draft)

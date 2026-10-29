@@ -2,15 +2,18 @@
 // shards fly toward the lens, and time is directed: a forceful hit, then an ease into slow motion, so the depth of field comes
 // into play as pieces pass the camera. Port of the test pages docs/posters/prototypes/explode-slomo.html and splintered-glass.html;
 // Idan's tuning as the defaults, one set for each page (29 Oct 2026): on black the letters are bevelled glass (after the
-// PP Fragment posters), on white they are porcelain.
+// PP Fragment posters), and on white too, seen against a white wall in a black room so the bevels go dark (Idan's white
+// tuning, 29 Oct 2026).
 //
 // Under the picture (three.js 0.160, vendored): the letters are traced from Archivo Black (glyph-contours.js), given a rounded
 // bevel round every contour, and cut into Voronoi shards at the moment of the tap (finer near the hit). Crack faces are their own
 // material and glow, then cool. Motion is closed-form in simulated time (drift, spin, drag, gravity), so the clock can run at any
 // speed, or backwards. The render is an HDR scene with a depth texture, then a gather depth of field at half size (with near-field
 // spill), bloom and an ACES tone map, composited over the page colour. Metal reflects a black studio (softboxes, a horizon behind
-// the camera); glass has only reflections, no diffuse, premultiplied so the page shows through, in a room lit from above and the
-// sides with nothing behind the camera, so faces that look at you stay dark and the bevels catch the light.
+// the camera); glass has only reflections, no diffuse, premultiplied so the page shows through. On black its room is lit from above
+// and the sides with nothing behind the camera, so faces that look at you stay dark and the bevels catch the light. On white the room
+// is a small white wall behind the letters in a near-black void, and light through the bevels, sides and cracks is bent (faked,
+// about three times one surface's bend) so they show the void: dark rims on clear glass.
 //
 // Gestures (src/gestures.js): tap a letter and it explodes from there (on black, a beat after the hit); tap a flying shard and
 // the pieces are kicked again; tapping the background does nothing. Hold rewinds time and the shards fly back together. Double tap
@@ -29,19 +32,20 @@ import { colourOf } from '../colour.js';
 
 const FAMILY = 'Archivo Black', NAME = 'IdanSegv';
 const MATERIALS = ['chrome', 'graphite', 'black lacquer', 'white ceramic'];
-// Idan's tunings from the test pages (29 Oct 2026): black is glass, white is porcelain
-const DARK = { glass: 1, material: 0, depth: 0.05, bevel: 0.05, glassEnv: 3.6, glassRough: 0, clarity: 1, inner: 0.85,
+// Idan's tunings from the test pages (29 Oct 2026): glass on both pages, lit by different rooms
+const DARK = { glass: 1, material: 0, depth: 0.05, bevel: 0.05, glassEnv: 3.6, glassRough: 0, clarity: 1, inner: 0.85, bend: 0, faceBend: 1,
   env: 2.95, exposure: 1.8, shadow: 0.25, wall: 0.02,
   pieces: 26, cluster: 0.24, force: 3.7, forward: 1.2, spread: 1, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
   hitSpeed: 1.15, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1, crackTime: 0.16,
   lens: 69, aperture: 2.17, maxBlur: 22, follow: 0, yaw: 0, pitch: 0, shake: 0.6,
   flash: 25, glowLevel: 1.6, cool: 0.15, sparks: 220, bloom: 0.6, threshold: 2.5, res: 1.5 };
-const LIGHT = { glass: 0, material: 3, depth: 0.05, bevel: 0, glassEnv: 1.6, glassRough: 0.03, clarity: 0.92, inner: 1,
-  env: 2, exposure: 0.65, shadow: 0, wall: 0.31,
-  pieces: 24, cluster: 0.24, force: 3.7, forward: 1.15, spread: 1, spin: 5.6, reach: 4.65, gravity: 0, drag: 0.31,
-  hitSpeed: 1.15, hold: 0.04, ramp: 0.3, slow: 0.055, rewind: 1, crackTime: 0,
-  lens: 69, aperture: 1.41, maxBlur: 36, follow: 0, yaw: 0, pitch: 0, shake: 1.55,
-  flash: 25, glowLevel: 7.2, cool: 0.33, sparks: 270, bloom: 1.6, threshold: 3.05, res: 1.5 };
+const LIGHT = { glass: 1, material: 0, depth: 0.05, bevel: 0.032, glassEnv: 5.65, glassRough: 0.14, clarity: 1, inner: 1.9, bend: 1, faceBend: 0.55,
+  env: 0, exposure: 1.8, shadow: 0, wall: 0.02,
+  pieces: 40, cluster: 0.36, force: 3.7, forward: 1.2, spread: 1, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
+  hitSpeed: 1.1, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1, crackTime: 0.16,
+  lens: 87, aperture: 2.17, maxBlur: 20, follow: 0, yaw: 0, pitch: 0, shake: 0.6,
+  flash: 25, glowLevel: 9.5, cool: 0.15, sparks: 220, bloom: 0.57, threshold: 2.5, res: 1.5 };
+const WALL = 0.1, VOID = 0.08;   // the white page's glass room: wall width (x 40) and how lit the void round it is
 const DEMO_AFTER = 3.5, DEMO_REWIND = 6.5;
 
 // ---------- geometry helpers: 2D polygons as arrays of [x, y] ----------
@@ -181,13 +185,16 @@ export async function mount(stage) {
   const envRT = pmrem.fromScene(studio, 0.02);
   scene.environment = envRT.texture;
   studio.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
-  // the glass's own room: a ceiling and two tall strips, nothing behind the camera; inverted on white (white room, black strips)
-  const gStudio = new THREE.Scene(); gStudio.background = new THREE.Color(dark ? 0x000000 : 0xffffff);
-  const gbox = (w, h, x, y, z, v) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })); m.material.color.setScalar(dark ? v : Math.max(0, 1 - v / 3)); m.position.set(x, y, z); m.lookAt(new THREE.Vector3()); gStudio.add(m); };
-  gbox(40, 24, 0, 10, 0, 2.6);                                       // ceiling: top edges catch it, faces that look at you don't
-  gbox(1.6, 18, -9, 0, 2, 6);                                        // tall strip, left
-  gbox(1.2, 18, 9, -1, 1, 3);                                        // tall strip, right, dimmer
-  gbox(36, 1, 0, -8, 2, 0.8);                                        // faint strip below
+  // the glass's own room. On black: a ceiling and two tall strips, nothing behind the camera. On white: a small white wall behind
+  // the letters in a near-black void; faces show the wall, bevels mirror the void
+  const gStudio = new THREE.Scene(); gStudio.background = new THREE.Color(0x000000).setScalar(dark ? 0 : VOID);
+  const gbox = (w, h, x, y, z, v) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })); m.material.color.setScalar(v); m.position.set(x, y, z); m.lookAt(new THREE.Vector3()); gStudio.add(m); };
+  if (dark) {
+    gbox(40, 24, 0, 10, 0, 2.6);                                     // ceiling: top edges catch it, faces that look at you don't
+    gbox(1.6, 18, -9, 0, 2, 6);                                      // tall strip, left
+    gbox(1.2, 18, 9, -1, 1, 3);                                      // tall strip, right, dimmer
+    gbox(36, 1, 0, -8, 2, 0.8);                                      // faint strip below
+  } else gbox(40 * WALL, 28 * WALL, 0, 0, -10, 1);                   // the white wall
   const glassEnvRT = pmrem.fromScene(gStudio, 0.02);
   gStudio.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
 
@@ -219,7 +226,9 @@ export async function mount(stage) {
 
   // glass: no diffuse, only reflections; what is behind shows through. Premultiplied, so the page colour comes through alpha. Back
   // faces draw first (three's two passes for double-sided transparent), which gives the inner edges seen through the front.
-  const glassU = { uClar: { value: 1 }, uInner: { value: 1 } };
+  // What comes through: straight through to the page face-on; toward the edges the light is bent, so it comes from the room instead.
+  // A flat face is a slab (light leaves parallel to how it came in), so faces bend only by faceBend.
+  const glassU = { uClar: { value: 1 }, uInner: { value: 1 }, uBend: { value: 0 }, uSlab: { value: 0 }, uTint: { value: new THREE.Color(0, 0, 0) }, uTintA: { value: 0 }, uStain: { value: dark ? 0 : 0.6 } };
   function glassMaterial() {
     const m = new THREE.MeshPhysicalMaterial({ color: 0x000000, metalness: 0, ior: 1.5, side: THREE.DoubleSide, transparent: true, depthWrite: true });
     m.blending = THREE.CustomBlending; m.blendEquation = THREE.AddEquation;
@@ -228,11 +237,22 @@ export async function mount(stage) {
     m.customProgramCacheKey = () => 'splintered-glass';
     m.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, glassU);
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uClar, uInner;').replace('#include <opaque_fragment>', `
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vONrm;').replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvONrm = objectNormal;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vONrm; uniform float uClar, uInner, uBend, uSlab; uniform vec3 uTint; uniform float uTintA, uStain;').replace('#include <opaque_fragment>', `
         float NdV = clamp(abs(dot(normal, normalize(vViewPosition))), 0.0, 1.0);
         float Fr = 0.04 + 0.96 * pow(1.0 - NdV, 5.0);
-        float a = max(1.0 - uClar * (1.0 - Fr), clamp(dot(totalEmissiveRadiance, vec3(0.3)), 0.0, 1.0));
-        gl_FragColor = vec4(outgoingLight * (gl_FrontFacing ? 1.0 : uInner), a);`);
+        vec3 col = outgoingLight * (gl_FrontFacing ? 1.0 : uInner);
+        float slab = smoothstep(0.97, 0.995, abs(normalize(vONrm).z));
+        float tr = uClar * (1.0 - Fr), bw = uBend * smoothstep(0.0, 0.3, 1.0 - NdV) * (1.0 - uSlab * slab);
+        #ifdef ENVMAP_TYPE_CUBE_UV
+        vec3 vin = -normalize(vViewPosition), r1 = refract(vin, normal, 1.0 / 1.5);
+        vec3 bent = textureCubeUV(envMap, inverseTransformDirection(normalize(vin + (r1 - vin) * 3.0), viewMatrix), 0.0).rgb * envMapIntensity;
+        col += tr * bw * mix(bent, uTint * 2.0, uTintA * clamp(1.0 - dot(bent, vec3(0.33)), 0.0, 1.0));   // colour: the dark the edges bend in takes the palette
+        #endif
+        float a = max(1.0 - tr * (1.0 - bw), clamp(dot(totalEmissiveRadiance, vec3(0.3)), 0.0, 1.0));
+        float st = uStain * uTintA * tr;                     // colour on white: the glass is stained in the palette
+        col += st * uTint; a = min(1.0, a + st);
+        gl_FragColor = vec4(col, a);`);
     };
     return m;
   }
@@ -240,7 +260,7 @@ export async function mount(stage) {
   glassInner.emissive.set(0xffffff);
   const GMATS = [glassOuter, glassInner];
   function applyGlass() {
-    glassU.uClar.value = P.clarity; glassU.uInner.value = P.inner;
+    glassU.uClar.value = P.clarity; glassU.uInner.value = P.inner; glassU.uBend.value = P.bend; glassU.uSlab.value = 1 - P.faceBend;
     for (const m of GMATS) { m.envMapIntensity = P.glassEnv; m.roughness = P.glassRough; }
   }
   applyGlass();
@@ -755,7 +775,8 @@ export async function mount(stage) {
     title: 'Splintered', values: P, defaults: DEF,
     groups: [
       { name: 'Glass', items: [{ key: 'glass', label: 'Glass letters', type: 'toggle' }, Ctl('bevel', 'Bevel', 0, 0.05, 0.001), Ctl('glassEnv', 'Reflections', 0, 6, 0.05),
-        Ctl('glassRough', 'Polish (lower is sharper)', 0, 0.3, 0.005), Ctl('clarity', 'Clarity', 0, 1, 0.01), Ctl('inner', 'Inner edges', 0, 4, 0.05)] },
+        Ctl('glassRough', 'Polish (lower is sharper)', 0, 0.3, 0.005), Ctl('clarity', 'Clarity', 0, 1, 0.01), Ctl('inner', 'Inner edges', 0, 4, 0.05),
+        Ctl('bend', 'Light bent through the edges', 0, 1, 0.01), Ctl('faceBend', 'Flat faces bend light too', 0, 1, 0.01)] },
       { name: 'Look', items: [Ctl('material', 'Material when not glass (chrome, graphite, lacquer, ceramic)', 0, 3, 1), Ctl('depth', 'Extrusion depth', 0.05, 1.5, 0.01), Ctl('env', 'Reflections', 0, 3, 0.05),
         Ctl('exposure', 'Exposure', 0.3, 3, 0.05), Ctl('shadow', 'Shadow on the wall', 0, 1, 0.01), Ctl('wall', 'Wall distance', 0.02, 3, 0.01)] },
       { name: 'Blast', items: [Ctl('pieces', 'Pieces per letter (next blast)', 6, 120, 1), Ctl('cluster', 'Smaller pieces near the hit', 0, 1, 0.01), Ctl('force', 'Force', 1, 40, 0.1),
@@ -772,7 +793,7 @@ export async function mount(stage) {
       P[key2] = v;
       if (key2 === 'material' || key2 === 'env') applyMaterial();
       else if (key2 === 'depth' || key2 === 'bevel' || key2 === 'glass') rebuild();
-      else if (['glassEnv', 'glassRough', 'clarity', 'inner'].includes(key2)) applyGlass();
+      else if (['glassEnv', 'glassRough', 'clarity', 'inner', 'bend', 'faceBend'].includes(key2)) applyGlass();
       else if (key2 === 'res') resize();
       else if (key2 === 'shadow' || key2 === 'wall') placeLights();
     },
@@ -811,6 +832,7 @@ export async function mount(stage) {
       const a = colour.update(dt);
       outerMat.color.copy(outerBase).lerp(tint, a); innerMat.color.copy(innerBase).lerp(tint, a); innerMat.emissive.setRGB(1, 1, 1).lerp(tint, a);
       for (const m of GMATS) m.specularColor.setRGB(1, 1, 1).lerp(tint, a);
+      glassU.uTint.value.copy(tint); glassU.uTintA.value = a;
       glassInner.emissive.setRGB(1, 1, 1).lerp(tint, a);
     }
     const go = mode === 'go', T = tauDone + tau;

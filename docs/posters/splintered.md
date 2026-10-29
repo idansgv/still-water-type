@@ -20,7 +20,7 @@ Then: glass letters with light fractures, rendered like the PP Fragment posters 
 - One self-demo on load (explode, then rewind); off under reduced motion.
 
 ## Defaults
-Idan's tunings are `DARK` and `LIGHT` in `src/posters/splintered.js`: glass with a 0.05 bevel, 26 pieces a letter, 69 mm at aperture 2.17, exposure 1.8 and a 0.16 s beat before the burst on black; white ceramic, 24 pieces, 69 mm, more glow and blur on white. Registry `themes: { dark: 1, light: 0 }` (a hint for previews; the shell still alternates).
+Idan's tunings are `DARK` and `LIGHT` in `src/posters/splintered.js`: glass with a 0.05 bevel, 26 pieces a letter, 69 mm at aperture 2.17, exposure 1.8 and a 0.16 s beat before the burst on black; on white, glass with a 0.032 bevel, 40 pieces, 87 mm, the same beat, in a room of a small white wall in a near-black void (`WALL`, `VOID`), with light through the bevels bent toward the void (`bend` 1, flat faces `faceBend` 0.55). Registry `themes: { dark: 1, light: 0 }` (a hint for previews; the shell still alternates).
 
 ## Port notes
 - The letters are traced from the page font with `glyph-contours.js` (no opentype, no font file in the repo), scaled to em units so the test page's numbers carry over.
@@ -29,4 +29,4 @@ Idan's tunings are `DARK` and `LIGHT` in `src/posters/splintered.js`: glass with
 - The glass test page's light running along the cracks (cap shader) was left out: Idan tuned it to zero.
 
 ## Open
-Phone performance unmeasured (each frame is a scene pass, a depth of field pass and a bloom chain; glass adds a back-face pass). Glass on the white page: ideas in the conversation of 29 Oct (dark-edged glass, smoked glass, a contact shadow); white stays porcelain for now.
+Phone performance unmeasured (each frame is a scene pass, a depth of field pass and a bloom chain; glass adds a back-face pass). Glass on the white page: since 29 Oct, tuned on `docs/posters/prototypes/splintered-glass-white.html`. The bend through the edges is faked (three times one surface's refraction), not traced.
