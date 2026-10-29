@@ -531,7 +531,8 @@ export function mount(stage) {
     const r = placed(i), k = dpr();
     let s = list[i];
     if (!s) s = list[i] = { cv: document.createElement('canvas'), meta: null, w: 0, h: 0, dirty: true };
-    if (s.w !== Math.round(r.w) || s.h !== Math.round(r.h)) { s.w = Math.round(r.w); s.h = Math.round(r.h); s.cv.width = Math.max(1, Math.round(r.w * k)); s.cv.height = Math.max(1, Math.round(r.h * k)); s.dirty = true; }
+    const w = Math.max(1, Math.round(r.w)), h = Math.max(1, Math.round(r.h));   // a stage can report a zero or negative size mid-resize; never paint with it
+    if (s.w !== w || s.h !== h) { s.w = w; s.h = h; s.cv.width = Math.max(1, Math.round(w * k)); s.cv.height = Math.max(1, Math.round(h * k)); s.dirty = true; }
     if (s.dirty || M) {
       const g = s.cv.getContext('2d'); g.setTransform(k, 0, 0, k, 0, 0);
       s.meta = paintSlide(g, i, br, s.w, s.h, M, list === A ? drags : null); s.dirty = !!M;
