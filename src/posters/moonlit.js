@@ -15,6 +15,7 @@
 import { getGL } from '../engine.js';
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 import { createReveal, grid, corners, arrow, label, titleBlock, ink as rvInk } from './reveal.js';
+import { linesFor, lettersFor } from '../name.js';
 
 const FAMILY = 'Bitter', NAME = 'IdanSegv';
 const DEF = { density: 2.6, moon: 50, ripple: 1.25, gust: 50, last: 3.9, edge: 0, weight: 900, trace: 0.16, foam: 0.8 };   // Idan's tuning, 25 Oct 2026
@@ -117,10 +118,11 @@ export async function mount(stage) {
 
   // ---------- the face: Bitter from Google Fonts, only the letters of the name ----------
   const link = document.createElement('link'); link.rel = 'stylesheet';
-  link.href = `https://fonts.googleapis.com/css2?family=${FAMILY}:wght@100..900&text=${encodeURIComponent(NAME)}&display=block`;
+  const LETTERS = lettersFor(stage, NAME), LINES = linesFor(stage, ['Idan', 'Segev']);   // a visitor's name: its letters in the subset, one line per word
+  link.href = `https://fonts.googleapis.com/css2?family=${FAMILY}:wght@100..900&text=${encodeURIComponent(LETTERS)}&display=block`;
   document.head.appendChild(link);
   await Promise.race([new Promise((r) => { link.onload = r; link.onerror = r; }), new Promise((r) => setTimeout(r, 2500))]);
-  try { await Promise.race([document.fonts.load(`${P.weight} 100px "${FAMILY}"`, NAME), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the fallback face */ }
+  try { await Promise.race([document.fonts.load(`${P.weight} 100px "${FAMILY}"`, LETTERS), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the fallback face */ }
 
   // ---------- GL ----------
   const progs = [];
@@ -162,13 +164,13 @@ export async function mount(stage) {
     mc.width = W; mc.height = H; mx.fillStyle = '#000'; mx.fillRect(0, 0, W, H);
     const face = (s) => `${P.weight} ${s}px "${FAMILY}", Georgia, serif`;
     mx.font = face(100);
-    const a = mx.measureText('Idan'), b = mx.measureText('Segev'), lead = 92;
-    const blockH = a.actualBoundingBoxAscent + lead + b.actualBoundingBoxDescent, blockW = Math.max(a.width, b.width);
+    const ms = LINES.map((l) => mx.measureText(l)), a = ms[0], b = ms[ms.length - 1], lead = 92;
+    const blockH = a.actualBoundingBoxAscent + lead * (LINES.length - 1) + b.actualBoundingBoxDescent, blockW = Math.max(...ms.map((x) => x.width));
     const m = Math.max(24, Math.min(W, H) * 0.07), foot = 48;
     const s = Math.min((W - 2 * m) / blockW, (H - 2 * m - foot) / blockH) * 100;
     mx.font = face(s); mx.fillStyle = '#fff'; mx.textAlign = 'center';
     const top = (H - foot - blockH * s / 100) / 2 + a.actualBoundingBoxAscent * s / 100;
-    mx.fillText('Idan', W / 2, top); mx.fillText('Segev', W / 2, top + lead * s / 100);
+    LINES.forEach((l, i) => mx.fillText(l, W / 2, top + i * lead * s / 100));
     gl.bindTexture(gl.TEXTURE_2D, maskT); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, mc); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
@@ -252,7 +254,7 @@ export async function mount(stage) {
       { name: 'Wind', items: [Ctl('ripple', 'Ripple strength', 0.2, 2, 0.05), Ctl('gust', 'Gust size (px)', 30, 200, 5), Ctl('last', 'How long a gust lasts (s)', 0.5, 8, 0.1), Ctl('trace', 'Breeze at rest (the name shows)', 0, 0.3, 0.01), Ctl('foam', 'Gale foam', 0, 2, 0.05)] },
       { name: 'Type', items: [Ctl('edge', 'Slick edge softness', 0, 4, 0.1), Ctl('weight', 'Type weight', 200, 900, 10)] },
     ],
-    set(key, v) { P[key] = v; if (key === 'weight') document.fonts.load(`${v} 100px "${FAMILY}"`, NAME).then(buildMask, buildMask); },
+    set(key, v) { P[key] = v; if (key === 'weight') document.fonts.load(`${v} 100px "${FAMILY}"`, LETTERS).then(buildMask, buildMask); },
     reset() { Object.assign(P, DEF); buildMask(); },
   };
 

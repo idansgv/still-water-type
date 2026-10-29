@@ -9,6 +9,7 @@
 //   prompt   what the footer's Prompt button copies: a brief to recreate the poster in your own AI tool
 //   draft    not in the random rotation, no share page; still reachable with ?p=<slug> while it is worked on
 //   nameable the poster draws stage.words (the visitor's own name, one line per word) instead of its own type
+//   face     for a nameable poster: { family, weight } on Google Fonts, the face its named share image is set in
 
 export const POSTERS = [
   {
@@ -21,6 +22,7 @@ export const POSTERS = [
     hint: null,
     themes: { dark: 0, light: 1 },
     nameable: true,              // takes the visitor's own name (stage.words); see src/name.js
+    face: { family: 'Bitter', weight: 350 },   // the face a named share image is set in (api/og.js)
     load: () => import('./still-water.js'),
   },
   {
@@ -256,6 +258,8 @@ export const POSTERS = [
     blurb: 'The name floats as ink on water. Stir it, drag to comb it into marbled patterns, tap to drop more ink.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    nameable: true,
+    face: { family: 'Bitter', weight: 900, italic: true },
     load: () => import('./marbled.js'),
     prompt: "The name \"Idan Segev\" as ink floating on water, like Japanese suminagashi marbling, as black-and-white vector shapes on a canvas. Set it in a heavy Helvetica-style black (Arial Black) and trace its outline into closed loops of points and apply every move to those points so the ink stays sharp. A tap drops ink: push all the ink outward around the tap keeping its area (p' = c + (p - c) * sqrt(1 + r^2 / |p - c|^2)), then drop clear water into the middle so it lands as a ring. A drag combs: drag every point beside the stroke along it, less the farther away (an exponential falloff), and keep curves smooth by inserting a point wherever a stretch has opened a gap. A mouse moving over the ink without a button gently stirs it: draw the ink displaced by a springy field that the mouse pushes and that swings back and settles, never changing the shapes. Pressing and holding makes the ink give slightly under the finger. Nothing ever resets by itself.",
   },
@@ -268,6 +272,8 @@ export const POSTERS = [
     hint: null,
     themes: { dark: 1, light: 0 },
     darkOnly: true,              // black only: a lamp in the dark has no white version; the shell always shows it dark (themes alone is only a hint for previews)
+    nameable: true,
+    face: { family: 'Archivo', weight: 900, upper: true },
     load: () => import('./glint.js'),
     prompt: "The name \"Idan Segev\" as a bevelled slab in black on black, nearly invisible, seen only where a small lamp low over the page catches the edges of the letters, rendered with WebGL2. Build a height field of the type with a smooth bevel, light it with a point lamp (specular on the bevel, a bloom from a blurred copy), and add volumetric light: a screen-space light-scattering pass marched from each pixel toward the lamp that the letters block, so beams spread from the lamp and the letters throw shafts of shadow away from it. The lamp follows the pointer.",
   },
@@ -279,6 +285,8 @@ export const POSTERS = [
     blurb: 'The name as thousands of soft splats. Press to scatter them, drag to push them along; they drift home.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    nameable: true,
+    face: { family: 'Archivo', weight: 900, upper: true },
     load: () => import('./splat-type.js'),
     prompt: "The name \"Idan Segev\" in heavy Archivo as thousands of soft, translucent splats, rendered with WebGL2: sample about 40,000 to 110,000 points inside the letters; each is an instanced quad drawn as a gaussian (exp(-4.2 r^2)), premultiplied alpha over the page, sized to fit inside the letter (the radius is capped by its distance to the nearest edge, so nothing reaches past it), with a random rest angle and aspect so the body looks grainy and painterly. A press throws the splats near it outward (the push falls off as (1 - d/R)^1.3, most grains a little and a few far, with a little jitter and a slight lift); a drag pushes them along the stroke; a mouse moving over it only breathes on it. Each splat is a spring toward its home with damping, so the letters close up again; while it flies, stretch its quad along its velocity and fade it a little. Draw nothing while everything is at rest. Black and white only.",
   },
@@ -320,6 +328,8 @@ export const POSTERS = [
     blurb: 'A Voronoi crackle where the name is never drawn: cells split inside the letters until it shows. Stir it; tap to knock a hole.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    nameable: true,
+    face: { family: 'Fraunces', weight: 900 },
     load: () => import('./crystallize.js'),
     prompt: "The name \"Idan Segev\" condensing out of a Voronoi diagram, on a 2D canvas with d3-delaunay. Never draw the type: render it once (Fraunces 900, two lines) into a hidden mask. Start with about 160 random seeds and draw only the Voronoi cell edges as thin lines. Every frame do one weighted Lloyd step: sample points over the page, kept with a probability equal to the density (1 inside the letters, 0.28 outside); move each seed to the centroid of the samples in its cell, and split any cell holding more than 1.6 times its share (a second seed beside it), up to about 9000 cells. The letters fill with fine cells while the field stays coarse, so the name appears. Drag stirs the seeds, a tap clears a disk down to a few big cells that refine back, hold jitters the cells under the finger, double tap starts over.",
   },
@@ -353,6 +363,8 @@ export const POSTERS = [
     blurb: 'The name cut from cloth and hung from pegs. Stir the air, pull a peg, and pull hard enough to tear it.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    nameable: true,
+    face: { family: 'Alfa Slab One', weight: 400, upper: true },
     load: () => import('./torn.js'),
     prompt: "The name \"Idan Segev\" in Alfa Slab One cut from black cloth and hung from a row of pegs along the top of each letter, rendered with WebGL. Make each letter a triangle mesh cut from the glyph, a little larger than the letter, and step it with a position-based cloth solver in 3D (stretch and fold constraints, gravity) so it drapes and folds out of the page; each peg pins a small patch. Every triangle edge is a thread that snaps when stretched past about 2.25 times its length and takes its triangles with it, so a hard pull rips the cloth along the line of most stress and the pieces fall and pile on the floor. A moving pointer pushes air at the cloth; drag pulls it; a tap pulls out the nearest peg; double tap drops everything and lowers a fresh set on its pegs. Black and white only.",
   },
@@ -375,6 +387,8 @@ export const POSTERS = [
     hint: null,
     themes: { dark: 1, light: 0 },
     darkOnly: true,              // black only: a night sea
+    nameable: true,
+    face: { family: 'Bitter', weight: 900 },
     load: () => import('./moonlit.js'),
     prompt: "The name \"Idan Segev\" in Bitter 900 as a slick on a night sea seen from straight above, with WebGL2. A slick damps the smallest ripples: inside the letters short waves are almost gone, mid waves halved, the swell untouched. Sum about 28 directional waves (5 to 380 px, gravity-capillary dispersion); ripples too fine for a pixel become slope variance. Light it with a moon outside the frame through a Beckmann slope distribution and draw the glints as a Poisson count per small cell, so rough water is a field of separate sparkles and the letters stay dark mirrors. A quarter-size wind field (pointer moves inject gusts that drift downwind and decay) plus a light breeze everywhere outside the letters, so the name shows at rest. Hold for a gale: swell, foam on the crests, the slick tears into strands and later heals. Black and white only.",
   },

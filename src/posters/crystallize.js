@@ -15,6 +15,7 @@
 import { Delaunay } from '../vendor/d3-delaunay.es.js';
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
 import { createReveal, ink as rvInk } from './reveal.js';
+import { linesFor, lettersFor } from '../name.js';
 
 const FAMILY = 'Fraunces', WEIGHT = 900, NAME = 'Idan Segev';
 const DEF = { cells: 9000, out: 0.28, speed: 0.35, line: 1.3 };
@@ -31,7 +32,7 @@ export async function mount(stage) {
 
   // ---------- the face: Fraunces from Google Fonts, only the letters of the name ----------
   const link = document.createElement('link'); link.rel = 'stylesheet';
-  link.href = `https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,${WEIGHT}&text=${encodeURIComponent('IdanSegv')}&display=block`;
+  link.href = `https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,${WEIGHT}&text=${encodeURIComponent(lettersFor(stage, 'IdanSegv'))}&display=block`;
   document.head.appendChild(link);
   await Promise.race([new Promise((r) => { link.onload = r; link.onerror = r; }), new Promise((r) => setTimeout(r, 2500))]);
   try { await Promise.race([document.fonts.load(`${WEIGHT} 100px "${FAMILY}"`, NAME), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the fallback face */ }
@@ -45,13 +46,13 @@ export async function mount(stage) {
     const face = (px) => `${WEIGHT} ${px}px "${FAMILY}", Georgia, serif`;
     mctx.setTransform(1, 0, 0, 1, 0, 0); mctx.clearRect(0, 0, mw, mh);
     mctx.font = face(100);
-    const m1 = mctx.measureText('Idan'), m2 = mctx.measureText('Segev');
-    const wmax = Math.max(m1.width, m2.width) / 100;
-    const asc = m1.actualBoundingBoxAscent / 100, desc = m2.actualBoundingBoxDescent / 100, lh = 0.92, total = asc + lh + desc;
+    const lines = linesFor(stage, ['Idan', 'Segev']), ms = lines.map((l) => mctx.measureText(l));   // a visitor's name: one line per word
+    const wmax = Math.max(...ms.map((m) => m.width)) / 100;
+    const asc = ms[0].actualBoundingBoxAscent / 100, desc = ms[ms.length - 1].actualBoundingBoxDescent / 100, lh = 0.92, total = asc + lh * (lines.length - 1) + desc;
     const fs = Math.min(W * 0.84 / wmax, H * 0.70 / total);
-    const b1 = (H - total * fs) / 2 + asc * fs, b2 = b1 + lh * fs;
+    const b1 = (H - total * fs) / 2 + asc * fs;
     mctx.scale(0.5, 0.5); mctx.font = face(fs); mctx.textAlign = 'center'; mctx.fillStyle = '#000';
-    mctx.fillText('Idan', W / 2, b1); mctx.fillText('Segev', W / 2, b2);
+    lines.forEach((l, i) => mctx.fillText(l, W / 2, b1 + i * lh * fs));
     const d = mctx.getImageData(0, 0, mw, mh).data;
     mask = new Uint8Array(mw * mh);
     for (let i = 0; i < mask.length; i++) mask[i] = d[i * 4 + 3];

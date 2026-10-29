@@ -11,6 +11,13 @@
       ]
     }
   ],
+  "rewrites": [
+    {
+      "source": "/p/:slug/",
+      "has": [{ "type": "query", "key": "n" }],
+      "destination": "/api/share?slug=:slug"
+    }
+  ],
   "redirects": [
     {
       "source": "/p/jazz-fan/",
@@ -21,16 +28,6 @@
       "source": "/p/fan-color/",
       "destination": "/p/fan/",
       "permanent": true
-    },
-    {
-      "source": "/p/marbled/",
-      "destination": "/",
-      "permanent": false
-    },
-    {
-      "source": "/p/glint/",
-      "destination": "/",
-      "permanent": false
     },
     {
       "source": "/p/rigged/",

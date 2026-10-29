@@ -13,5 +13,8 @@
     "ship": "NODE_PATH=$(npm root -g) node tools/ship.cjs",
     "previews": "NODE_PATH=$(npm root -g) node tools/previews.cjs",
     "colours": "NODE_PATH=$(npm root -g) node tools/colour-sheet.cjs"
+  },
+  "dependencies": {
+    "@vercel/og": "0.8.6"
   }
 }

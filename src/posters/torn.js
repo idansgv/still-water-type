@@ -14,6 +14,7 @@
 
 import { createReveal, corners, titleBlock, ink as rvInk } from './reveal.js';
 import { pressTracker, TAP, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
+import { linesFor } from '../name.js';
 
 // The face: Alfa Slab One (open licence, from Google Fonts), loaded before the first layout; a slab serif stands in if it does not arrive.
 const FACE = new URLSearchParams(location.search).get('font') || 'Alfa Slab One';
@@ -77,9 +78,9 @@ export async function mount(stage) {
     ready = false; W = stage.W; H = stage.H;
     const w = Math.ceil(W), h = Math.ceil(H), m = document.createElement('canvas'); m.width = w; m.height = h;
     const x = m.getContext('2d', { willReadFrequently: true });
-    const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], TR = 0.07;
+    const portrait = W / H < 0.8, lines = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }), TR = 0.07;
     x.font = FONT(100);
-    const adv = {}; for (const ch of 'IDANSEGV') adv[ch] = x.measureText(ch).width / 100;
+    const adv = {}; for (const ch of lines.join('')) adv[ch] = x.measureText(ch).width / 100;
     const lw = (l, sz) => [...l].reduce((a, ch) => a + adv[ch] * sz, 0) + TR * sz * (l.length - 1);
     const cap = x.measureText('H').actualBoundingBoxAscent / 100 || 0.72;
     let size = Math.min(...lines.map((l) => W * 0.84 / lw(l, 1)));
@@ -89,14 +90,14 @@ export async function mount(stage) {
     x.font = FONT(size); x.textBaseline = 'alphabetic';
     const base0 = (H - total(size)) / 2 + capH - H * 0.07;
     let li = 0; letters = [];
-    lines.forEach((l, k) => {
+    lines.forEach((l, k) => {                                          // each letter its own red: up to 15 letters (a visitor's name is at most 14)
       let cx = (W - lw(l, size)) / 2; const by = base0 + k * capH * lead;
-      for (const ch of l) { x.fillStyle = `rgb(${(li + 1) * 20},0,0)`; x.fillText(ch, cx, by); letters.push(ch); cx += adv[ch] * size + TR * size; li++; }
+      for (const ch of l) { x.fillStyle = `rgb(${(li + 1) * 16},0,0)`; x.fillText(ch, cx, by); letters.push(ch); cx += adv[ch] * size + TR * size; li++; }
     });
     const d = x.getImageData(0, 0, w, h).data, A = new Uint8Array(w * h), Lb = new Int8Array(w * h).fill(-1);
     let area = 0, bx0 = w, by0 = h, bx1 = 0, by1 = 0;
     for (let i = 0; i < w * h; i++) if (d[i * 4 + 3] > 110) {
-      A[i] = 1; Lb[i] = Math.round(d[i * 4] / 20) - 1; area++;
+      A[i] = 1; Lb[i] = Math.round(d[i * 4] / 16) - 1; area++;
       const px = i % w, py = (i / w) | 0; if (px < bx0) bx0 = px; if (px > bx1) bx1 = px; if (py < by0) by0 = py; if (py > by1) by1 = py;
     }
     if (!area) return;

@@ -15,6 +15,7 @@ import { getGL } from '../engine.js';
 import { colourOf } from '../colour.js';
 import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './reveal.js';
 import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
+import { linesFor } from '../name.js';
 
 const FACE = '900 100px Archivo, "Arial Black", "Helvetica Neue", sans-serif';
 const DEF = { settle: 1, breath: 0, reach: 115, force: 2400, back: 0.5, grain: 2.5 };
@@ -88,9 +89,9 @@ export async function mount(stage) {
     if (!alive) return;
     const m = document.createElement('canvas'); m.width = Math.ceil(W); m.height = Math.ceil(H);
     const x = m.getContext('2d', { willReadFrequently: true });
-    const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    const portrait = W / H < 0.8, lines = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true });
     x.font = FACE; const widest = Math.max(...lines.map((l) => x.measureText(l).width));
-    const size = Math.min(W * 0.84 / widest * 100, H * (portrait ? 0.22 : 0.34));
+    const size = Math.min(W * 0.84 / widest * 100, H * Math.min(portrait ? 0.22 : 0.34, 0.68 / lines.length));
     x.font = FACE.replace('100px', size + 'px'); x.textAlign = 'center'; x.textBaseline = 'alphabetic'; x.fillStyle = '#000';
     const lead = size * 0.93, top = H / 2 - (lines.length * lead) / 2 + size * 0.78 - H * 0.02;
     lines.forEach((l, i) => x.fillText(l, W / 2, top + i * lead));

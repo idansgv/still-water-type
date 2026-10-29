@@ -16,6 +16,7 @@ import { getGL } from '../engine.js';
 import { pressTracker } from '../gestures.js';
 import { colourOf, GLSL_PAGE_GRADIENT } from '../colour.js';
 import { createReveal, grid, corners, label, titleBlock, ink as rvInk } from './reveal.js';
+import { linesFor } from '../name.js';
 
 const FACE = '900 100px Archivo, "Arial Black", "Helvetica Neue", sans-serif';
 const DEF = { haze: 1.9, height: 80, reach: 300, sharp: 120, bloom: 1.4, bevel: 2, face: 0,
@@ -116,9 +117,9 @@ export async function mount(stage) {
     if (!alive) return;
     const k = Math.min(1, 1400 / Math.max(W, H)); texW = Math.round(W * k); texH = Math.round(H * k);
     const m = document.createElement('canvas'); m.width = texW; m.height = texH; const x = m.getContext('2d', { willReadFrequently: true });
-    const portrait = W / H < 0.8, lines = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    const portrait = W / H < 0.8, lines = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true });
     x.font = FACE; const widest = Math.max(...lines.map((l) => x.measureText(l).width));
-    const size = Math.min(texW * 0.84 / widest * 100, texH * (portrait ? 0.22 : 0.34));
+    const size = Math.min(texW * 0.84 / widest * 100, texH * Math.min(portrait ? 0.22 : 0.34, 0.68 / lines.length));
     x.font = FACE.replace('100px', size + 'px'); x.textAlign = 'center'; x.fillStyle = '#fff';
     const lead = size * 0.93, top = texH / 2 - (lines.length * lead) / 2 + size * 0.78 - texH * 0.02;
     lines.forEach((l, i) => x.fillText(l, texW / 2, top + i * lead));

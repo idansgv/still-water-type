@@ -9,8 +9,8 @@ Status as of 29 Oct 2026. Tick items off here as they land.
 | 6 | Torn: look better and fix performance | Done | Letters sleep when still (solver about 35 ms to about 1.3 ms while one letter is dragged, 0 at rest). Starch keeps each untouched letter in shape, so SEGEV no longer hangs as SFCFV
 | 8 | Share image: improve it | Done | Each published poster has its own share image (`assets/og-<slug>.png`, made by `tools/og-posters.cjs`), with a per-poster alt text
 | 10 | Review every poster: click clears, and double tap has an effect on the letters | Open | Audit table below. Needs a run of each poster to confirm |
-| 13 | Customize interaction: more posters take the visitor's name | Open | Only Still Water takes it so far. Each poster opts in with `nameable: true` and needs its letters drawn from `stage.words` |
-| 14 | Customize share: the name in the share preview | Decision | The link carries the name and the poster draws it (checked in the browser). The title, preview image and description stay generic: they are static, and crawlers do not run the script. Options: accept that, or render a preview per name on a server |
+| 13 | Customize interaction: more posters take the visitor's name | Partly done | Seven take it: Still Water, Marbled, Glint, Splat type, Crystallize, Torn, Moonlit. Still Idan-only: Fan, Rain, Wash, Fontapalloza, Soft type, Metal, Explode, Collapse, Goblet, Splintered, Slinky type, Brandbook |
+| 14 | Customize share: the name in the share preview | Done (not yet deployed) | `api/share.js` serves a named link's share page with the name in its title; `api/og.js` draws the name in the poster's face. Only links with `?n=` go there (vercel.json) |
 
 **Proposals (not built, for approval)**
 

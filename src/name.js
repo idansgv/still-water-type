@@ -26,3 +26,13 @@ export function saveName(name) {
 export function nameWords(name) {
   return name ? name.split(' ') : null;
 }
+
+// For a poster: the lines it sets. The visitor's words, one per line (in capitals for a poster set in capitals), or its own lines.
+export function linesFor(stage, own, { upper = false } = {}) {
+  if (!stage.words || !stage.words.length) return own;
+  return upper ? stage.words.map((w) => w.toLocaleUpperCase()) : stage.words.slice();
+}
+// The letters a poster has to load a font subset for: its own, plus the visitor's.
+export function lettersFor(stage, own) {
+  return stage.words ? own + stage.words.join('') + stage.words.join('').toLocaleUpperCase() : own;
+}
