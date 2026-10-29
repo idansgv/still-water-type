@@ -256,7 +256,8 @@ body.index-open .menu-corner .lbl::after { content: "Close"; font-size: 12px; }
 .index-list li:first-child { border-top: 1px solid color-mix(in srgb, var(--fg) 16%, transparent); }
 .index-list a {
   display: flex; align-items: baseline; justify-content: space-between; gap: 24px; padding: 0.16em 0 0.2em; color: var(--fg); text-decoration: none;
-  font: 500 clamp(26px, min(6.2vw, calc((100vh - 150px) / (var(--rows, 8) * 1.46))), 68px)/1.08 var(--ui); letter-spacing: -0.02em;
+  /* every row fits: a row is 1.44em (line 1.08 + padding 0.36) and a 1px rule; the window less the 144px of .index padding and a margin */
+  font: 500 clamp(16px, min(6.2vw, calc((100dvh - 170px) / (var(--rows, 8) * 1.44))), 68px)/1.08 var(--ui); letter-spacing: -0.02em;
   transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
 }
 .index-list li { display: grid; align-items: baseline; }                   /* the row and its Copy prompt share one cell and one baseline, so the prompt sits on the same line as the number */
