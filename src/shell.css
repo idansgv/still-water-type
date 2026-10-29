@@ -131,6 +131,30 @@ body {
 }
 #toast.on { opacity: 1; }
 
+/* the visitor's name: one line, centred above the footer; Customize in the footer's links, or start typing */
+.name-form {
+  position: fixed; z-index: 35; left: 50%; transform: translateX(-50%);
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  width: min(88vw, 440px); display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 6px 18px;
+}
+.name-form[hidden] { display: none; }
+.name-form input {
+  flex: 1 1 200px; min-width: 0; padding: 4px 0; border: 0; border-radius: 0; border-bottom: 1px solid var(--dim);
+  background: transparent; color: var(--fg); outline: none; text-align: center;
+  font: 500 clamp(22px, 4vw, 30px) / 1.2 var(--sans, system-ui, sans-serif); letter-spacing: -0.01em;
+}
+.name-form input:focus-visible { border-bottom-color: var(--fg); }
+.name-form button {
+  padding: 0; border: 0; background: none; color: var(--dim); cursor: pointer; font: inherit; font-size: 13px;
+  text-decoration: underline; text-underline-offset: 0.2em;
+}
+.name-err { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--dim); text-align: center; }
+.name-err:empty { display: none; }
+#btn-customize {
+  padding: 0; border: 0; background: none; color: inherit; cursor: pointer; font: inherit;
+  text-decoration: underline; text-underline-offset: 0.2em;
+}
+
 /* ---------- click spark: ascii glyphs that pop and fade ---------- */
 .spark {
   position: fixed; z-index: 25; pointer-events: none;

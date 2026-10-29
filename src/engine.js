@@ -83,7 +83,7 @@ export function askTilt() {
 if (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission !== 'function') askTilt();
 
 // ---------- the stage ----------
-export function createStage(root, { seed = 1, theme = THEMES.dark, toast = () => {}, setBackdrop = () => {} } = {}) {
+export function createStage(root, { seed = 1, theme = THEMES.dark, toast = () => {}, setBackdrop = () => {}, words = null } = {}) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const canvas = document.createElement('canvas');
   canvas.className = 'poster-canvas';
@@ -95,6 +95,7 @@ export function createStage(root, { seed = 1, theme = THEMES.dark, toast = () =>
 
   const ctx = {
     root, canvas, seed, theme, reduced, toast, setBackdrop,
+    words,                                          // the visitor's name as lines (one per word), or null for the poster's own
     rand: mulberry32(seed),
     W: 1, H: 1, dpr: 1, scale: 1, pw: 1, ph: 1,    // css size, device ratio, quality scale, canvas px
     t: 0, dt: 0,

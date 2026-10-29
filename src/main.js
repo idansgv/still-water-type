@@ -4,6 +4,7 @@ import { POSTERS, PUBLISHED, bySlug } from './posters/index.js';
 import { createStage, THEMES, fontsReady } from './engine.js';
 import { rollColour, colourPass, clearColourPass } from './colour.js';
 import { createPanel } from './panel.js';
+import { validateName, savedName, saveName, nameWords } from './name.js';
 
 const $ = (id) => document.getElementById(id);
 const stageEl = $('stage');
@@ -11,6 +12,8 @@ const hintEl = $('hint');
 const toastEl = $('toast');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const params = new URLSearchParams(location.search);
+const urlName = validateName(params.get('n')).name || null;     // a shared link carries its name: it shows for that visit only
+let myName = urlName || savedName();                           // the visitor's own name, or null for each poster's own
 
 let shuffles = 0;         // counts shuffles; posters that can swap black and white do so on every odd one
 let current = null;       // { poster, stage, seed, theme }
@@ -196,7 +199,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   setChrome(poster);
   clearColourPass();
 
-  const stage = createStage(stageEl, { seed, theme, toast, setBackdrop });
+  const stage = createStage(stageEl, { seed, theme, toast, setBackdrop, words: poster.nameable ? nameWords(myName) : null });
   stage.refreshPanel = syncPanel;                                   // a poster whose settings change (a mode switch) asks for the panel to be rebuilt
   stage.flip = theme.name === 'dark';
   stage.colour = poster.standalone ? null : rollColour(params, Math.random, { dark: theme.name === 'dark' });          // about one showing in twenty is in colour (src/colour.js)
@@ -235,7 +238,8 @@ async function shuffle() {
 async function share() {
   if (!current) return;
   const { poster, seed } = current;
-  const url = `${location.origin}/p/${poster.slug}/#s=${seed.toString(36)}`;
+  const q = myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : '';
+  const url = `${location.origin}/p/${poster.slug}/${q}#s=${seed.toString(36)}`;
   const data = { title: `${poster.title} · Idan Segev`, text: poster.blurb, url };
   if (navigator.share) {
     try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; }
@@ -332,8 +336,44 @@ indexEl.addEventListener('click', async (e) => {
   else if (!e.target.closest('.index-list')) closeIndex();                      // a click beside the list closes it
 });
 
+// ---------- the visitor's name: the posters that take one draw it, one line per word. Set it from the footer (Customize), or start typing on a keyboard. ----------
+const nameForm = $('name-form'), nameInput = $('name-input'), nameErr = $('name-err');
+let nameOpen = false;
+function openName(first = '') {
+  if (nameOpen) return;
+  nameOpen = true;
+  nameInput.value = first || myName || '';
+  nameErr.textContent = '';
+  nameForm.hidden = false;
+  nameInput.focus();
+  nameInput.setSelectionRange(nameInput.value.length, nameInput.value.length);
+}
+function closeName() { nameOpen = false; nameForm.hidden = true; nameInput.blur(); }
+// The name is kept per viewer. The current poster redraws in place (same seed, same colours); a poster that takes no name hands over to one that does.
+async function setName(name) {
+  myName = name || null;
+  saveName(myName);
+  closeName();
+  if (!current || busy) return;
+  if (current.poster.nameable) { await show(current.poster, { seed: current.seed, themeName: current.theme.name }); return; }
+  const pool = PUBLISHED.filter((p) => p.nameable);
+  if (!pool.length) return;
+  shuffles++;
+  if (location.pathname !== '/') history.replaceState(null, '', '/');
+  await show(pool[Math.floor(Math.random() * pool.length)]);
+}
+nameForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = validateName(nameInput.value);
+  if (v.error) { nameErr.textContent = v.error; return; }
+  setName(v.name);
+});
+$('name-reset').addEventListener('click', () => setName(null));
+nameForm.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeName(); } });
+
 // ---------- wiring ----------
 nameBtn.addEventListener('click', () => setLinks(!whoEl.classList.contains('open')));
+$('btn-customize').addEventListener('click', () => { setLinks(false); openName(); });
 addEventListener('pointerdown', (e) => { if (whoEl.classList.contains('open') && !e.target.closest('.who')) setLinks(false); });
 addEventListener('keydown', (e) => { restShuffle(); if (e.key === 'Escape') { setLinks(false); closeIndex(); } });
 $('btn-shuffle').addEventListener('click', shuffle);
@@ -359,6 +399,8 @@ addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const rows = [...listEl.querySelectorAll('a')], i = rows.indexOf(document.activeElement), n = e.key === 'ArrowDown' ? (i + 1) % rows.length : (i <= 0 ? rows.length - 1 : i - 1); rows[n].focus(); }
     return;
   }
+  // typing a letter starts the name (r, s and t keep their shortcuts)
+  if (!nameOpen && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key) && !'rRsStT'.includes(e.key)) { e.preventDefault(); openName(e.key); return; }
   const onControl = e.target.closest && e.target.closest('button, a');
   if (e.key === ' ' || e.key === 'Enter') { if (onControl) return; e.preventDefault(); shuffle(); }
   else if (e.key === 'ArrowRight' || e.key === 'r' || e.key === 'R') { e.preventDefault(); shuffle(); }

@@ -8,6 +8,7 @@
 //   blurb    what a shared link says
 //   prompt   what the footer's Prompt button copies: a brief to recreate the poster in your own AI tool
 //   draft    not in the random rotation, no share page; still reachable with ?p=<slug> while it is worked on
+//   nameable the poster draws stage.words (the visitor's own name, one line per word) instead of its own type
 
 export const POSTERS = [
   {
@@ -19,6 +20,7 @@ export const POSTERS = [
     blurb: 'Type that remembers every touch. Ripples, and a lamp if you find it.',
     hint: null,
     themes: { dark: 0, light: 1 },
+    nameable: true,              // takes the visitor's own name (stage.words); see src/name.js
     load: () => import('./still-water.js'),
   },
   {

@@ -59,16 +59,16 @@ export function mount(ctx) {
     tx.fillStyle = '#000'; tx.fillRect(0, 0, W, H);
     tx.textBaseline = 'alphabetic';
     if ('letterSpacing' in tx) tx.letterSpacing = '0px';
-    const rows = ['Idan', 'Segev'];                                    // not all caps (8 Oct 2026)
+    const rows = ctx.words || ['Idan', 'Segev'];                       // not all caps (8 Oct 2026); a visitor's name gives its own rows, one per word
     const padX = Math.max(14 * dpr, W * 0.045), top = Math.max(18 * dpr, H * 0.04), bottom = 96 * dpr;
-    const availW = W - 2 * padX, availH = H - top - bottom, step = 1.12;
+    const availW = W - 2 * padX, availH = H - top - bottom, step = 1.12, gaps = rows.length - 1;
     tx.font = `${weight} 100px ${FONT}`;
     const cap100 = tx.measureText('H').actualBoundingBoxAscent || 72;
-    const asc100 = tx.measureText(rows[0]).actualBoundingBoxAscent || cap100, desc100 = tx.measureText(rows[1]).actualBoundingBoxDescent || 0;
+    const asc100 = tx.measureText(rows[0]).actualBoundingBoxAscent || cap100, desc100 = tx.measureText(rows[gaps]).actualBoundingBoxDescent || 0;
     let fs = Infinity;
     for (const row of rows) fs = Math.min(fs, availW / (tx.measureText(row).width || 1) * 100);
-    fs = Math.min(fs, availH / (asc100 + step * cap100 + desc100) * 100);       // the block runs from the top of the d to the bottom of the g
-    const k = fs / 100, cap = cap100 * k, block = asc100 * k + step * cap + desc100 * k;
+    fs = Math.min(fs, availH / (asc100 + gaps * step * cap100 + desc100) * 100);   // the block runs from the top of the first row to the bottom of the last
+    const k = fs / 100, cap = cap100 * k, block = asc100 * k + gaps * step * cap + desc100 * k;
     let base = top + (availH - block) / 2 + asc100 * k;
     tx.font = `${weight} ${fs}px ${FONT}`; tx.fillStyle = 'rgb(255,0,0)';
     for (const row of rows) {
