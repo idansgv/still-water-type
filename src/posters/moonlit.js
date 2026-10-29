@@ -8,7 +8,7 @@
 // the slick; a light breeze everywhere outside the letters (Idan's "trace"), so the name shows at rest as dark water in glitter.
 //
 // Gestures (src/gestures.js): hover or drag is wind; tap a puff; hold a gale (swell, foam, the slick tears and later heals);
-// double tap calms the sea (after the re-form beat). Reveal: lightning beyond the frame and a gust across the whole page, under a
+// double tap is a storm passing (lightning, rings of wind from the tap, then calm; after the re-form beat). Reveal: lightning beyond the frame and a gust across the whole page, under a
 // drawing of the wind. Self-demo: once, after 3.5 s untouched, a gust crosses the page; off under reduced motion, where the sea
 // is also frozen (the glitter does not flicker). Black only (darkOnly in the registry): a night sea.
 
@@ -215,9 +215,23 @@ export async function mount(stage) {
     if (!r || !r.tap) return;
     const now = performance.now();
     clearTimeout(reform);
-    if (lastTap >= 0 && now - lastTap < DOUBLE_MS) { lastTap = -1; reform = setTimeout(() => { if (alive && !stage.revealed) calm = 1.2; }, REFORM_DELAY_MS); }
+    if (lastTap >= 0 && now - lastTap < DOUBLE_MS) { lastTap = -1; reform = setTimeout(() => { if (alive && !stage.revealed) storm(q.x, q.y); }, REFORM_DELAY_MS); }
     else { lastTap = now; puff(q.x, q.y, 0.7, P.gust * 1.2); }
   }));
+  // Double tap: a storm passes over the tap. Lightning, then the thunder as rings of wind rolling out from the tap, then the sea
+  // calms. No sound. Under reduced motion there is no flash and no rings: the sea just calms.
+  let calmT = 0;
+  function storm(x, y) {
+    const now = performance.now();
+    clearTimeout(calmT);
+    if (stage.reduced) { calm = 1.2; return; }
+    flashT = now + 40;
+    for (let ring = 0; ring < 3; ring++) for (let i = 0; i < 14; i++) {
+      const a = (i / 14 + ring * 0.03) * Math.PI * 2, r = 30 + ring * 120;
+      scripted.push({ at: now + 160 + ring * 280, x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, str: 0.45 - ring * 0.1, rad: P.gust * 1.1, dx: Math.cos(a), dy: Math.sin(a) });
+    }
+    calmT = setTimeout(() => { if (alive && !stage.revealed) calm = 1.2; }, 2200);
+  }
 
   // ---------- reveal: lightning beyond the frame and a gust across the page; drawn: the wind and the slick ----------
   const rv = createReveal(stage, (c, W_, H_, k) => {
@@ -249,7 +263,7 @@ export async function mount(stage) {
     const now = performance.now();
     if (!stage.reduced) t += dt;                                     // under reduced motion the sea is frozen
     if (!touched && !demoDone && !scripted.length && now - born > 3500) { sweep(now, 2600, 0.38); demoDone = true; }
-    scripted = scripted.filter((s) => { if (s.at <= now) { puff(s.x, s.y, s.str, s.rad, 1, 0); return false; } return true; });
+    scripted = scripted.filter((s) => { if (s.at <= now) { puff(s.x, s.y, s.str, s.rad, s.dx ?? 1, s.dy ?? 0); return false; } return true; });
     gale = press.holding ? Math.min(1, gale + dt / 4.5) : Math.max(0, gale - dt / 3);
     if (calm > 0) { calm -= dt; gale = 0; Eg *= Math.exp(-dt * 3); }
     Eg *= Math.exp(-dt / Math.max(0.8, P.last * 1.6));
@@ -295,7 +309,7 @@ export async function mount(stage) {
     tune,
     debug: { get gale() { return gale; }, puff, sweep: (d = 2600) => sweep(performance.now(), d, 0.38), build },
     destroy() {
-      alive = false; clearTimeout(rt); clearTimeout(reform);
+      alive = false; clearTimeout(rt); clearTimeout(reform); clearTimeout(calmT);
       rv.destroy(); offs.forEach((f) => f());
       sims.forEach(free); gl.deleteTexture(maskT); progs.forEach((p) => gl.deleteProgram(p)); gl.deleteVertexArray(vao);
       link.remove(); stage.setBackdrop(null);
