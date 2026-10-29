@@ -39,8 +39,8 @@ const DARK = { glass: 1, material: 0, depth: 0.05, bevel: 0.05, glassEnv: 3.6, g
   hitSpeed: 1.15, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1, crackTime: 0.16, crackGlow: 0, crackWidth: 0.001,
   lens: 69, aperture: 2.17, maxBlur: 22, follow: 0, yaw: 0, pitch: 0, shake: 0.6,
   flash: 25, glowLevel: 1.6, cool: 0.15, sparks: 220, bloom: 0.6, threshold: 2.5, res: 1.5 };
-const LIGHT = { glass: 1, material: 0, depth: 0.05, bevel: 0.05, glassEnv: 1.4, glassRough: 0.3, clarity: 1, inner: 1.9, bend: 0.17, faceBend: 1,
-  env: 0, exposure: 1.8, shadow: 0, wall: 0.02,
+const LIGHT = { glass: 1, material: 0, depth: 0.05, bevel: 0.036, glassEnv: 3.4, glassRough: 0.3, clarity: 0.98, inner: 3.25, bend: 0.17, faceBend: 1,
+  env: 0, exposure: 0.3, shadow: 0, wall: 0.02,
   pieces: 21, cluster: 0.36, force: 3.7, forward: 1.2, spread: 1, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
   hitSpeed: 1.1, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1, crackTime: 0.36, crackGlow: 0.5, crackWidth: 0.001,
   lens: 87, aperture: 2.17, maxBlur: 20, follow: 0, yaw: 0, pitch: 0, shake: 0.6,
