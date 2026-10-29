@@ -90,8 +90,10 @@ stageEl.addEventListener('pointerdown', (e) => spark(e.clientX, e.clientY));
 stageEl.addEventListener('contextmenu', (e) => e.preventDefault());   // no long-press menu or selection on the poster
 
 // ---------- picking ----------
+// A dark-only poster (Glint, Glitter, Moonlit, Goblet) only comes up on a black turn: the next turn is black when shuffles is odd after the increment.
 function pickOther(slug) {
-  const pool = PUBLISHED.filter((p) => p.slug !== slug);
+  const darkTurn = (shuffles + 1) % 2 === 1;
+  const pool = PUBLISHED.filter((p) => p.slug !== slug && (darkTurn || p.darkOnly !== true));
   if (!pool.length) return PUBLISHED[0];            // only one poster is published: shuffle just reloads it
   return pool[Math.floor(Math.random() * pool.length)];
 }
@@ -101,7 +103,7 @@ function pickFirst() {
   if (fixed && bySlug(fixed)) return bySlug(fixed);
   let last = null;
   try { last = localStorage.getItem('swt:last'); } catch (e) { /* private mode */ }
-  const pool = PUBLISHED.filter((p) => p.slug !== last);
+  const pool = PUBLISHED.filter((p) => p.slug !== last && p.darkOnly !== true);   // the first visit is black on white
   if (!pool.length) return PUBLISHED[0];
   const still = pool.find((p) => p.slug === 'still-water');
   if (still && Math.random() < STILL_WATER_FIRST) return still;                    // Still Water opens the site more than half the time (not twice in a row: the pool leaves out the last one)
