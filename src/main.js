@@ -12,8 +12,11 @@ const hintEl = $('hint');
 const toastEl = $('toast');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const params = new URLSearchParams(location.search);
+// Customize (a visitor's own name) is local only for now (Idan, 29 Oct 2026): on idansegev.com the button and type-to-start are
+// off and a saved name is ignored. A shared link's ?n= still draws its name.
+const CUSTOMIZE = !/(^|\.)idansegev\.com$/.test(location.hostname);
 const urlName = validateName(params.get('n')).name || null;     // a shared link carries its name: it shows for that visit only
-let myName = urlName || savedName();                           // the visitor's own name, or null for each poster's own
+let myName = urlName || (CUSTOMIZE ? savedName() : null);      // the visitor's own name, or null for each poster's own
 
 let shuffles = 0;         // counts shuffles; posters that can swap black and white do so on every odd one
 let current = null;       // { poster, stage, seed, theme }
@@ -380,6 +383,7 @@ nameForm.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preven
 // ---------- wiring ----------
 nameBtn.addEventListener('click', () => setLinks(!whoEl.classList.contains('open')));
 $('btn-customize').addEventListener('click', () => { setLinks(false); openName(); });
+$('btn-customize').hidden = !CUSTOMIZE;
 addEventListener('pointerdown', (e) => { if (whoEl.classList.contains('open') && !e.target.closest('.who')) setLinks(false); });
 addEventListener('keydown', (e) => { restShuffle(); if (e.key === 'Escape') { setLinks(false); closeIndex(); } });
 $('btn-shuffle').addEventListener('click', shuffle);
@@ -406,7 +410,7 @@ addEventListener('keydown', (e) => {
     return;
   }
   // typing a letter starts the name (r, s and t keep their shortcuts)
-  if (!nameOpen && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key) && !'rRsStT'.includes(e.key)) { e.preventDefault(); openName(e.key); return; }
+  if (CUSTOMIZE && !nameOpen && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key) && !'rRsStT'.includes(e.key)) { e.preventDefault(); openName(e.key); return; }
   const onControl = e.target.closest && e.target.closest('button, a');
   if (e.key === ' ' || e.key === 'Enter') { if (onControl) return; e.preventDefault(); shuffle(); }
   else if (e.key === 'ArrowRight' || e.key === 'r' || e.key === 'R') { e.preventDefault(); shuffle(); }
