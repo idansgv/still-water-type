@@ -65,6 +65,11 @@ export async function mount(stage) {
 
   // ---------- the cloth ----------
   let settled = false;                                                 // set by sim(): the cloth has stopped moving
+  let LN = [], LC = [], awake = new Uint8Array(0), quiet = new Uint16Array(0), BB = new Float32Array(0), pegOn = [], floorWas = true;   // per letter: points, threads, awake, quiet steps, bounds
+  // Starch: an untouched letter keeps a gentle pull back to its own shape, so the name reads at rest (SEGEV used to hang as SFCFV).
+  // The first touch takes it out for that letter (a peg pulled, a hand on it, a thread torn) and from then on it is plain cloth.
+  const STARCH = 0.04;
+  let starch = new Uint8Array(0);
   let W = stage.W, H = stage.H, N = 0, X, Y, Z, PX, PY, PZ, IM, HX, HY, LAB, CA, CB, CR, CK, NC = 0, TRI, ALIVE, TRIC, ECNT, EBEND, IDX, nIdx = 0, idxDirty = true;
   let NRM, POS, pegs = [], capH = 100, s = 8, letters = [], ready = false, floorOn = true, lower = null, grab = null, air = null, tears = 0;
 
@@ -167,8 +172,16 @@ export async function mount(stage) {
       }
     }
     POS = new Float32Array(N * 3); NRM = new Float32Array(N * 3); IDX = new Uint16Array(TRI.length); idxDirty = true;
-    grab = null; tears = 0; floorOn = true; lower = null; settled = false; ready = true;
+    // each letter is its own cloth: its points and threads, so a letter that has come to rest can sleep while another moves
+    const NL = letters.length, ln = Array.from({ length: NL }, () => []), lc = Array.from({ length: NL }, () => []);
+    for (let i = 0; i < N; i++) ln[LAB[i]].push(i);
+    for (let c = 0; c < NC; c++) lc[LAB[CA[c]]].push(c);
+    LN = ln.map((a) => Int32Array.from(a)); LC = lc.map((a) => Int32Array.from(a));
+    awake = new Uint8Array(NL).fill(1); starch = new Uint8Array(NL).fill(1); quiet = new Uint16Array(NL); BB = new Float32Array(NL * 4).fill(1e9); for (let l = 0; l < NL; l++) { BB[l * 4] = BB[l * 4 + 1] = -1e9; }
+    pegOn = pegs.map((p) => p.on);
+    grab = null; tears = 0; floorOn = true; floorWas = true; lower = null; settled = false; ready = true;
   }
+  const wake = (l) => { if (l >= 0 && l < awake.length) { awake[l] = 1; quiet[l] = 0; } };
 
   // a snapped thread takes its triangles; their other threads go when no triangle is left to hold them
   function killTri(t) {
@@ -176,6 +189,7 @@ export async function mount(stage) {
     for (let e = 0; e < 3; e++) { const id = TRIC[t * 3 + e]; if (--ECNT[id] <= 0) CK[id] = 0; if (EBEND[id] >= 0) CK[EBEND[id]] = 0; }
   }
   function snap(id) {
+    starch[LAB[CA[id]]] = 0;
     for (let t = 0; t < ALIVE.length; t++) if (ALIVE[t] && (TRIC[t * 3] === id || TRIC[t * 3 + 1] === id || TRIC[t * 3 + 2] === id)) killTri(t);
     CK[id] = 0; tears++;
   }
@@ -183,46 +197,76 @@ export async function mount(stage) {
   // ---------- the solver ----------
   function sim(dt) {
     const SUB = 4, ITER = 3, h = dt / SUB, g = P.grav * h * h, damp = 0.993, floor = H - 3, tear = lower ? 99 : P.tear, broke = [];
+    let lowOff = 0;                                                    // how far above home the set still hangs while it comes down (the starch follows it)
     if (lower) {                                                       // a fresh set comes down on its pegs (on simulation time; no tearing meanwhile)
       lower.t += dt * 1000; const k = Math.min(1, lower.t / lower.ms), e = 0.5 - 0.5 * Math.cos(Math.PI * k);
-      for (const p of pegs) p.y = HY[p.v] - lower.drop * (1 - e);
+      lowOff = lower.drop * (1 - e);
+      for (const p of pegs) p.y = HY[p.v] - lowOff;
       if (k >= 1 && lower.t > lower.ms + 900) lower = null;
     }
+    // what wakes a sleeping letter: a set coming down, the floor opening, a peg coming out, a hand on it, air near it
+    const NL = awake.length, held = grab && grab.nodes.length ? LAB[grab.nodes[0].i] : -1;
+    if (lower || floorOn !== floorWas) { floorWas = floorOn; awake.fill(1); quiet.fill(0); }
+    for (let k = 0; k < pegs.length; k++) if (pegs[k].on !== pegOn[k]) { pegOn[k] = pegs[k].on; wake(pegs[k].label); if (!pegs[k].on) starch[pegs[k].label] = 0; }
+    wake(held); if (held >= 0) starch[held] = 0;
+    if (air) for (let l = 0; l < NL; l++) { const o = l * 4, r = air.r; if (air.x > BB[o] - r && air.x < BB[o + 2] + r && air.y > BB[o + 1] - r && air.y < BB[o + 3] + r) wake(l); }
     for (let sI = 0; sI < SUB; sI++) {
-      for (let i = 0; i < N; i++) {
-        if (IM[i] === 0) continue;
-        const vx = (X[i] - PX[i]) * damp, vy = (Y[i] - PY[i]) * damp, vz = (Z[i] - PZ[i]) * damp;
-        PX[i] = X[i]; PY[i] = Y[i]; PZ[i] = Z[i]; X[i] += vx; Y[i] += vy + g; Z[i] += vz;
-      }
-      if (air) {                                                        // air pushed by the moving pointer: along its path and out of the page
-        const r2 = air.r * air.r;
-        for (let i = 0; i < N; i++) {
-          if (!IM[i]) continue; const dx = X[i] - air.x, dy = Y[i] - air.y, q = dx * dx + dy * dy; if (q > r2) continue;
-          const f = (1 - q / r2) * P.air * h * 60;
-          PX[i] -= air.vx * f * 0.05; PY[i] -= air.vy * f * 0.05; PZ[i] -= air.sp * f * 0.06 * air.sign;
+      for (let l = 0; l < NL; l++) {
+        if (!awake[l]) continue; const pts = LN[l];
+        for (let k = 0; k < pts.length; k++) {
+          const i = pts[k]; if (IM[i] === 0) continue;
+          const vx = (X[i] - PX[i]) * damp, vy = (Y[i] - PY[i]) * damp, vz = (Z[i] - PZ[i]) * damp;
+          PX[i] = X[i]; PY[i] = Y[i]; PZ[i] = Z[i]; X[i] += vx; Y[i] += vy + g; Z[i] += vz;
+        }
+        if (air) {                                                      // air pushed by the moving pointer: along its path and out of the page
+          const r2 = air.r * air.r;
+          for (let k = 0; k < pts.length; k++) {
+            const i = pts[k]; if (!IM[i]) continue; const dx = X[i] - air.x, dy = Y[i] - air.y, q = dx * dx + dy * dy; if (q > r2) continue;
+            const f = (1 - q / r2) * P.air * h * 60;
+            PX[i] -= air.vx * f * 0.05; PY[i] -= air.vy * f * 0.05; PZ[i] -= air.sp * f * 0.06 * air.sign;
+          }
         }
       }
-      for (const p of pegs) if (p.on) for (const q of p.patch) { X[q.i] = p.x + q.ox; Y[q.i] = p.y + q.oy; Z[q.i] = 0; }
+      for (const p of pegs) if (p.on && awake[p.label]) for (const q of p.patch) { X[q.i] = p.x + q.ox; Y[q.i] = p.y + q.oy; Z[q.i] = 0; }
       for (let it = 0; it < ITER; it++) {
-        for (let c = 0; c < NC; c++) {
-          const kc = CK[c]; if (kc === 0) continue;
-          const a = CA[c], b = CB[c], wa = IM[a], wb = IM[b], ws = wa + wb; if (!ws) continue;
-          const k = kc < 0 ? P.bend : 1;
-          const dx = X[b] - X[a], dy = Y[b] - Y[a], dz = Z[b] - Z[a], d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < 1e-6) continue;
-          if (kc > 0 && it === ITER - 1 && d > CR[c] * tear) { broke.push(c); continue; }
-          const f = (d - CR[c]) / (d * ws) * k;
-          X[a] += dx * f * wa; Y[a] += dy * f * wa; Z[a] += dz * f * wa; X[b] -= dx * f * wb; Y[b] -= dy * f * wb; Z[b] -= dz * f * wb;
+        for (let l = 0; l < NL; l++) {
+          if (!awake[l]) continue; const cs = LC[l];
+          for (let m = 0; m < cs.length; m++) {
+            const c = cs[m], kc = CK[c]; if (kc === 0) continue;
+            const a = CA[c], b = CB[c], wa = IM[a], wb = IM[b], ws = wa + wb; if (!ws) continue;
+            const k = kc < 0 ? P.bend : 1;
+            const dx = X[b] - X[a], dy = Y[b] - Y[a], dz = Z[b] - Z[a], d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < 1e-6) continue;
+            if (kc > 0 && it === ITER - 1 && d > CR[c] * tear) { broke.push(c); continue; }
+            const f = (d - CR[c]) / (d * ws) * k;
+            X[a] += dx * f * wa; Y[a] += dy * f * wa; Z[a] += dz * f * wa; X[b] -= dx * f * wb; Y[b] -= dy * f * wb; Z[b] -= dz * f * wb;
+          }
         }
         if (grab) for (const g2 of grab.nodes) { X[g2.i] = grab.x + g2.ox; Y[g2.i] = grab.y + g2.oy; }
       }
-      if (floorOn) for (let i = 0; i < N; i++) if (Y[i] > floor) { Y[i] = floor; PX[i] += (X[i] - PX[i]) * 0.6; PZ[i] += (Z[i] - PZ[i]) * 0.6; }
+      for (let l = 0; l < NL; l++) {
+        if (!awake[l] || !starch[l]) continue; const pts = LN[l];
+        for (let k = 0; k < pts.length; k++) { const i = pts[k]; if (!IM[i]) continue; X[i] += (HX[i] - X[i]) * STARCH; Y[i] += (HY[i] - lowOff - Y[i]) * STARCH; Z[i] -= Z[i] * STARCH; }
+      }
+      if (floorOn) for (let l = 0; l < NL; l++) { if (!awake[l]) continue; const pts = LN[l]; for (let k = 0; k < pts.length; k++) { const i = pts[k]; if (Y[i] > floor) { Y[i] = floor; PX[i] += (X[i] - PX[i]) * 0.6; PZ[i] += (Z[i] - PZ[i]) * 0.6; } } }
       for (const c of broke) if (CK[c] > 0) snap(c);
       broke.length = 0;
     }
     if (air) { air.sp *= 0.5; air.vx *= 0.5; air.vy *= 0.5; if (air.sp < 0.05) air = null; }
-    let mv = 0;                                                        // at rest: nothing moves, no hand and no air on it; the frame loop then skips the solver and the redraw
-    for (let i = 0; i < N; i++) mv = Math.max(mv, Math.abs(X[i] - PX[i]) + Math.abs(Y[i] - PY[i]) + Math.abs(Z[i] - PZ[i]));
-    settled = mv < 1e-3 && !grab && !air && !lower;
+    // a letter that has stopped moving for 30 steps sleeps; the whole cloth at rest lets the frame loop skip the solver and the redraw
+    let any = false;
+    for (let l = 0; l < NL; l++) {
+      if (!awake[l]) continue; const pts = LN[l], o = l * 4;
+      let mv = 0, x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (let k = 0; k < pts.length; k++) {
+        const i = pts[k], x = X[i], y = Y[i];
+        if (IM[i]) mv = Math.max(mv, Math.abs(x - PX[i]) + Math.abs(y - PY[i]) + Math.abs(Z[i] - PZ[i]));   // pinned points (pegs, the hand) never integrate, so they say nothing about motion
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+      BB[o] = x0; BB[o + 1] = y0; BB[o + 2] = x1; BB[o + 3] = y1;
+      if (mv < 0.005 && l !== held && !lower) { if (++quiet[l] > 30) awake[l] = 0; } else quiet[l] = 0;   // under a pixel of drift left: invisible when it stops
+      if (awake[l]) any = true;
+    }
+    settled = !any && !grab && !air && !lower;
   }
 
   // ---------- drawing ----------
@@ -348,7 +392,9 @@ export async function mount(stage) {
 
   return {
     tune,
-    debug: { rehang, run: (k = 1) => { for (let i = 0; i < k; i++) sim(1 / 60); render(); }, counts: () => ({ N, pegs: pegs.filter((p) => p.on).length, tears }) },
+    debug: { rehang, run: (k = 1) => { for (let i = 0; i < k; i++) sim(1 / 60); render(); }, counts: () => ({ N, NC, tris: nIdx / 3, pegs: pegs.filter((p) => p.on).length, tears, awake: awake.reduce((a, b) => a + b, 0), settled }),
+      motion: () => LN.map((pts) => { let mv = 0; for (const i of pts) if (IM[i]) mv = Math.max(mv, Math.abs(X[i] - PX[i]) + Math.abs(Y[i] - PY[i]) + Math.abs(Z[i] - PZ[i])); return +mv.toFixed(4); }),
+      bench: (k = 60) => { let a = performance.now(); for (let i = 0; i < k; i++) sim(1 / 60); const s = (performance.now() - a) / k; a = performance.now(); for (let i = 0; i < k; i++) render(); return { simMs: +s.toFixed(2), renderMs: +((performance.now() - a) / k).toFixed(2) }; } },
     destroy() {
       alive = false; timers.forEach(clearTimeout); rv.destroy(); offs.forEach((f) => f());
       for (const b of [bufP, bufN, bufI]) gl.deleteBuffer(b); gl.deleteProgram(prog);

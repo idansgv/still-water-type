@@ -6,7 +6,7 @@ Status as of 29 Oct 2026. Tick items off here as they land.
 |---|---|---|---|
 | 1 | Slinky: composition, possibly the font, and the coil colour | Open | Needs Idan's target for composition and colour |
 | 5 | Make it clear that a click clears a poster | Open | Needs copy and placement from Idan. Most posters use a single tap for something else, so the clear needs a home that doesn't clash |
-| 6 | Torn: look better and fix performance | Partly done | Rest skip is live (`71c052e`), unmeasured. Still to do: the full-canvas copy each frame while moving, and the look |
+| 6 | Torn: look better and fix performance | Done | Letters sleep when still (solver about 35 ms to about 1.3 ms while one letter is dragged, 0 at rest). Starch keeps each untouched letter in shape, so SEGEV no longer hangs as SFCFV
 | 8 | Share image: improve it | Check | `69c9240` already changed it to an Idan Segev wordmark. Check whether that's what Idan wanted |
 | 10 | Review every poster: click clears, and double tap has an effect on the letters | Open | Audit table below. Needs a run of each poster to confirm |
 | 13 | Customize interaction: more posters take the visitor's name | Open | Only Still Water takes it so far. Each poster opts in with `nameable: true` and needs its letters drawn from `stage.words` |
