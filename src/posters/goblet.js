@@ -11,7 +11,7 @@
 // Gestures (src/gestures.js): drag a letter to carry it (it hangs from the grip under gravity); tap a letter to jiggle it; tapping
 // the background does nothing; hold has no action of its own. Double tap fills every letter again (after the re-form beat).
 // Reveal: the ink's surface in every letter, its fill, and each neck. One self-demo after 3.5 s untouched (the S is nudged and
-// sloshes); off under reduced motion, which also fills the letters at once. Black only (darkOnly in the registry): white ink.
+// sloshes); off under reduced motion, which also fills the letters at once. Black: white ink in clear glass; white: dark ink (both themes take the same code path).
 
 import * as THREE from '../vendor/three.module.min.js';
 import { RoomEnvironment } from '../vendor/room-environment.js';

@@ -93,8 +93,7 @@ export const POSTERS = [
     words: ['Idan', 'Segev'],
     blurb: 'Every letter is a chubby glass bottle half full of ink. Pick one up and the ink sloshes; tip it over and it pours out.',
     hint: null,
-    themes: { dark: 1, light: 0 },
-    darkOnly: true,              // black only: Idan tuned it on black (white ink in clear glass)
+    themes: { dark: 1, light: 1 },
     load: () => import('./goblet.js'),
     prompt: "The name \"Idan Segev\" in Fredoka 700, every letter a chubby 3D glass bottle (three.js): the glyph extruded with a deep rounded bevel, transmissive glass, a small neck and lip on its highest point, about 58% full of white ink on a black page. The ink is the glyph extruded smaller by the glass's thickness, with a shader that discards everything above a plane and paints its back faces as the liquid's top (MinionsArt's Unity liquid trick). The plane's height is the quantile of about 1,400 volume samples along its normal, so the ink keeps its volume at any angle. Each letter is a rigid body on a spring home; dragging holds it at the grip so it hangs under gravity, and the surface tilts against the felt acceleration as a damped spring (wobble). Held by its foot the letter swings over; when the neck is below the surface the fill drops and ink pours out as falling drops. Tap jiggles a letter, double tap refills. Black and white only.",
   },
@@ -297,7 +296,7 @@ export const POSTERS = [
   {
     slug: 'wash-script',
     colour: 'native',            // its own colour, always, on your brush; the writing is black. The shell adds no overlay
-    title: 'Wash script',
+    title: 'Wash',
     words: ['Idan', 'Segev'],
     blurb: 'A wet brush writes the name in watercolour. Drag through it with a brush of coloured water; double tap to blot.',
     hint: null,
