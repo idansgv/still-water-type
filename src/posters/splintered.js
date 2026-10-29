@@ -36,15 +36,15 @@ const MATERIALS = ['chrome', 'graphite', 'black lacquer', 'white ceramic'];
 const DARK = { glass: 1, material: 0, depth: 0.05, bevel: 0.05, glassEnv: 3.6, glassRough: 0, clarity: 1, inner: 0.85, bend: 0, faceBend: 1,
   env: 2.95, exposure: 1.8, shadow: 0.25, wall: 0.02,
   pieces: 26, cluster: 0.24, force: 3.7, forward: 1.2, spread: 1, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
-  hitSpeed: 1.15, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1, crackTime: 0.16,
+  hitSpeed: 1.15, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1, crackTime: 0.16, crackGlow: 0, crackWidth: 0.001,
   lens: 69, aperture: 2.17, maxBlur: 22, follow: 0, yaw: 0, pitch: 0, shake: 0.6,
   flash: 25, glowLevel: 1.6, cool: 0.15, sparks: 220, bloom: 0.6, threshold: 2.5, res: 1.5 };
-const LIGHT = { glass: 1, material: 0, depth: 0.05, bevel: 0.032, glassEnv: 5.65, glassRough: 0.14, clarity: 1, inner: 1.9, bend: 1, faceBend: 0.55,
+const LIGHT = { glass: 1, material: 0, depth: 0.05, bevel: 0.05, glassEnv: 1.4, glassRough: 0.3, clarity: 1, inner: 1.9, bend: 0.17, faceBend: 1,
   env: 0, exposure: 1.8, shadow: 0, wall: 0.02,
-  pieces: 40, cluster: 0.36, force: 3.7, forward: 1.2, spread: 1, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
-  hitSpeed: 1.1, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1, crackTime: 0.16,
+  pieces: 21, cluster: 0.36, force: 3.7, forward: 1.2, spread: 1, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
+  hitSpeed: 1.1, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1, crackTime: 0.36, crackGlow: 0.5, crackWidth: 0.001,
   lens: 87, aperture: 2.17, maxBlur: 20, follow: 0, yaw: 0, pitch: 0, shake: 0.6,
-  flash: 25, glowLevel: 9.5, cool: 0.15, sparks: 220, bloom: 0.57, threshold: 2.5, res: 1.5 };
+  flash: 34, glowLevel: 0, cool: 0.15, sparks: 220, bloom: 0.57, threshold: 2.5, res: 1.5 };
 const WALL = 0.1, VOID = 0.08;   // the white page's glass room: wall width (x 40) and how lit the void round it is
 const DEMO_AFTER = 3.5, DEMO_REWIND = 6.5;
 
@@ -228,17 +228,24 @@ export async function mount(stage) {
   // faces draw first (three's two passes for double-sided transparent), which gives the inner edges seen through the front.
   // What comes through: straight through to the page face-on; toward the edges the light is bent, so it comes from the room instead.
   // A flat face is a slab (light leaves parallel to how it came in), so faces bend only by faceBend.
-  const glassU = { uClar: { value: 1 }, uInner: { value: 1 }, uBend: { value: 0 }, uSlab: { value: 0 }, uTint: { value: new THREE.Color(0, 0, 0) }, uTintA: { value: 0 }, uStain: { value: dark ? 0 : 0.6 } };
-  function glassMaterial() {
+  const glassU = { uClar: { value: 1 }, uInner: { value: 1 }, uBend: { value: 0 }, uSlab: { value: 0 }, uTint: { value: new THREE.Color(0, 0, 0) }, uTintA: { value: 0 }, uStain: { value: dark ? 0 : 0.8 },
+    uHit: { value: new THREE.Vector2() }, uR: { value: 0 }, uI: { value: 0 }, uW: { value: 0.001 }, uDark: { value: dark ? 1 : 0 } };
+  function glassMaterial(own) {
     const m = new THREE.MeshPhysicalMaterial({ color: 0x000000, metalness: 0, ior: 1.5, side: THREE.DoubleSide, transparent: true, depthWrite: true });
     m.blending = THREE.CustomBlending; m.blendEquation = THREE.AddEquation;
     m.blendSrc = THREE.OneFactor; m.blendDst = THREE.OneMinusSrcAlphaFactor; m.blendSrcAlpha = THREE.OneFactor; m.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
     m.envMap = glassEnvRT.texture;
-    m.customProgramCacheKey = () => 'splintered-glass';
+    if (own) m.defines = { CRACKS: '' };
+    m.customProgramCacheKey = () => 'splintered-glass' + (own ? '-cracks' : '');
     m.onBeforeCompile = (sh) => {
-      Object.assign(sh.uniforms, glassU);
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vONrm;').replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvONrm = objectNormal;');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vONrm; uniform float uClar, uInner, uBend, uSlab; uniform vec3 uTint; uniform float uTintA, uStain;').replace('#include <opaque_fragment>', `
+      Object.assign(sh.uniforms, glassU, own || {});
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vONrm; varying vec2 vLoc;').replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvONrm = objectNormal;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLoc = position.xy;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+varying vec3 vONrm; varying vec2 vLoc; uniform float uClar, uInner, uBend, uSlab; uniform vec3 uTint; uniform float uTintA, uStain;
+uniform vec2 uHit; uniform float uR, uI, uW, uDark;
+#ifdef CRACKS
+uniform vec3 uPl[16]; uniform int uN; uniform vec2 uHome;
+#endif`).replace('#include <opaque_fragment>', `
         float NdV = clamp(abs(dot(normal, normalize(vViewPosition))), 0.0, 1.0);
         float Fr = 0.04 + 0.96 * pow(1.0 - NdV, 5.0);
         vec3 col = outgoingLight * (gl_FrontFacing ? 1.0 : uInner);
@@ -251,17 +258,28 @@ export async function mount(stage) {
         #endif
         float a = max(1.0 - tr * (1.0 - bw), clamp(dot(totalEmissiveRadiance, vec3(0.3)), 0.0, 1.0));
         float st = uStain * uTintA * tr;                     // colour on white: the glass is stained in the palette
-        col += st * uTint; a = min(1.0, a + st);
+        vec3 stain = clamp(mix(vec3(dot(uTint, vec3(0.3, 0.59, 0.11))), uTint, 2.2), 0.0, 1.0) * 0.35;   // more saturated than the palette, and dim enough that the tone map doesn't bleach it to white
+        col += st * stain; a = min(1.0, a + st);
+        #ifdef CRACKS
+        if (uI > 0.0) {                                      // the cracks: distance to the nearest cut of this shard's cell, lit out to a front that runs from the hit (dark lines on white)
+          vec2 pg = vLoc + uHome; float d = 1e3;
+          for (int i = 0; i < 16; i++) { if (i >= uN) break; d = min(d, uPl[i].z - dot(uPl[i].xy, pg)); }
+          float g = uI * exp(-d * d / (uW * uW)) * (1.0 - smoothstep(uR - 0.06, uR, length(pg - uHit)));
+          float k = min(1.0, g);
+          if (uDark > 0.5) col += vec3(g); else col *= 1.0 - k;
+          a = max(a, k);
+        }
+        #endif
         gl_FragColor = vec4(col, a);`);
     };
     return m;
   }
   const glassOuter = glassMaterial(), glassInner = glassMaterial();
   glassInner.emissive.set(0xffffff);
-  const GMATS = [glassOuter, glassInner];
+  const GMATS = [glassOuter, glassInner], crackMats = new Set();   // crackMats: each shard's own caps, when the cracks are lit
   function applyGlass() {
-    glassU.uClar.value = P.clarity; glassU.uInner.value = P.inner; glassU.uBend.value = P.bend; glassU.uSlab.value = 1 - P.faceBend;
-    for (const m of GMATS) { m.envMapIntensity = P.glassEnv; m.roughness = P.glassRough; }
+    glassU.uW.value = P.crackWidth; glassU.uClar.value = P.clarity; glassU.uInner.value = P.inner; glassU.uBend.value = P.bend; glassU.uSlab.value = 1 - P.faceBend;
+    for (const m of [...GMATS, ...crackMats]) { m.envMapIntensity = P.glassEnv; m.roughness = P.glassRough; }
   }
   applyGlass();
 
@@ -423,13 +441,21 @@ export async function mount(stage) {
         if (!polys.length) return;
         const solid = [];
         g.solid.tris.forEach((t, k2) => { if (!overlap(cb, g.solid.boxes[k2])) return; const p = clipConvex(t, cell); if (p.length > 2) solid.push(p); });
-        out.push(makePiece(polys, solid, g));
+        const planes = [];                                 // the cuts of this cell (not its padding box), for the lines along them
+        for (let k = 0; k < cell.length && planes.length < 16; k++) {
+          const p = cell[k], q2 = cell[(k + 1) % cell.length];
+          const padE = (p[0] === q2[0] && (p[0] === R[0][0] || p[0] === R[1][0])) || (p[1] === q2[1] && (p[1] === R[0][1] || p[1] === R[2][1]));
+          let nx = q2[1] - p[1], ny = -(q2[0] - p[0]); const l = Math.hypot(nx, ny);
+          if (padE || l < 1e-9) continue;
+          nx /= l; ny /= l; planes.push(new THREE.Vector3(nx, ny, nx * p[0] + ny * p[1]));
+        }
+        out.push(makePiece(polys, solid, g, planes));
       });
     });
     return out;
   }
 
-  function makePiece(polys, solid, g) {
+  function makePiece(polys, solid, g, planes) {
     let A = 0, cx = 0, cy = 0;
     for (const p of polys) for (let i = 1; i < p.length - 1; i++) {
       const a = ((p[i][0] - p[0][0]) * (p[i + 1][1] - p[0][1]) - (p[i + 1][0] - p[0][0]) * (p[i][1] - p[0][1])) / 2;
@@ -475,17 +501,19 @@ export async function mount(stage) {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(O.concat(I), 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(ON.concat(IN), 3));
     geo.addGroup(0, O.length / 3, 0); geo.addGroup(O.length / 3, I.length / 3, 1);
-    const mesh = new THREE.Mesh(geo, P.glass ? GMATS : MATS);
+    const crackMat = P.glass && P.crackGlow > 0 ? glassMaterial({ uPl: { value: Array.from({ length: 16 }, (_, i) => planes[i] || new THREE.Vector3()) }, uN: { value: planes.length }, uHome: { value: new THREE.Vector2(cx, cy) } }) : null;
+    if (crackMat) { crackMat.envMapIntensity = P.glassEnv; crackMat.roughness = P.glassRough; crackMat.specularColor.copy(glassOuter.specularColor); crackMats.add(crackMat); }
+    const mesh = new THREE.Mesh(geo, P.glass ? [crackMat || glassOuter, glassInner] : MATS);
     mesh.castShadow = !P.glass; mesh.receiveShadow = !P.glass;
     mesh.position.set(cx, cy, 0);
-    return { mesh, area: A, outline, home: new THREE.Vector3(cx, cy, 0), p0: new THREE.Vector3(cx, cy, 0), v0: new THREE.Vector3(), q0: new THREE.Quaternion(), w: new THREE.Vector3(), moving: false };
+    return { mesh, crackMat, area: A, outline, home: new THREE.Vector3(cx, cy, 0), p0: new THREE.Vector3(cx, cy, 0), v0: new THREE.Vector3(), q0: new THREE.Quaternion(), w: new THREE.Vector3(), moving: false };
   }
 
   // ---------- motion: closed form in simulated time, so time can run at any speed, or backwards ----------
   let pieces = [], avgArea = 1;
   const group = new THREE.Group(); scene.add(group);
   function setPieces(list) {
-    for (const p of pieces) { group.remove(p.mesh); p.mesh.geometry.dispose(); }
+    for (const p of pieces) { group.remove(p.mesh); p.mesh.geometry.dispose(); if (p.crackMat) { p.crackMat.dispose(); crackMats.delete(p.crackMat); } }
     pieces = list; for (const p of pieces) group.add(p.mesh);
     avgArea = pieces.reduce((s, p) => s + p.area, 0) / Math.max(1, pieces.length);
   }
@@ -504,7 +532,7 @@ export async function mount(stage) {
   }
 
   let mode = 'rest';                                       // rest | crack (the hit has landed, nothing moves yet) | go
-  let crackT = 0;
+  let crackT = 0, crackReach = 1;
   let tau = 0, tr = 0, tauDone = 0;                        // sim time in this base, real time since its kick, sim time of earlier bases
   let stack = [];                                          // earlier bases, so a hold can rewind past a second tap
   const impact = new THREE.Vector3();
@@ -553,6 +581,8 @@ export async function mount(stage) {
     setPieces(fracture(at.x, at.y));
     stack = []; tauDone = 0; tau = 0; tr = 0;
     impact.copy(at); crackT = 0; mode = 'crack';
+    glassU.uHit.value.set(at.x, at.y);
+    crackReach = Math.max(...[[0, 1], [2, 1], [0, 3], [2, 3]].map(([i, j]) => Math.hypot(textBox[i] - at.x, textBox[j] - at.y)));
     if (P.crackTime <= 0) kickFrom(at, 1, true);
   }
   function reform() {
@@ -786,14 +816,14 @@ export async function mount(stage) {
         Ctl('slow', 'Slow-motion speed', 0.005, 1, 0.005), Ctl('rewind', 'Rewind speed (hold)', 0.1, 4, 0.05), Ctl('crackTime', 'Beat before the burst (s)', 0, 0.6, 0.01)] },
       { name: 'Lens', items: [Ctl('lens', 'Lens (mm)', 18, 135, 1), Ctl('aperture', 'Aperture (blur strength)', 0, 3, 0.01), Ctl('maxBlur', 'Largest blur (px)', 2, 60, 1),
         { key: 'follow', label: 'Focus follows a shard', type: 'toggle' }, Ctl('yaw', 'Camera turn', -45, 45, 0.5), Ctl('pitch', 'Camera tilt', -30, 30, 0.5), Ctl('shake', 'Shake at impact', 0, 3, 0.05)] },
-      { name: 'Light', items: [Ctl('flash', 'Flash at impact', 0, 300, 1), Ctl('glowLevel', 'Glow in the cracks', 0, 20, 0.1), Ctl('cool', 'Glow cools over', 0.02, 3, 0.01),
+      { name: 'Light', items: [Ctl('flash', 'Flash at impact', 0, 300, 1), Ctl('glowLevel', 'Glow in the cracks', 0, 20, 0.1), Ctl('crackGlow', 'Lines along the cracks', 0, 30, 0.1), Ctl('cool', 'Glow cools over', 0.02, 3, 0.01),
         Ctl('sparks', 'Sparks', 0, 1500, 10), Ctl('bloom', 'Bloom', 0, 3, 0.01), Ctl('threshold', 'Bloom threshold', 0.1, 8, 0.05), Ctl('res', 'Resolution', 0.5, 2, 0.05)] },
     ],
     set(key2, v) {
       P[key2] = v;
       if (key2 === 'material' || key2 === 'env') applyMaterial();
       else if (key2 === 'depth' || key2 === 'bevel' || key2 === 'glass') rebuild();
-      else if (['glassEnv', 'glassRough', 'clarity', 'inner', 'bend', 'faceBend'].includes(key2)) applyGlass();
+      else if (['glassEnv', 'glassRough', 'clarity', 'inner', 'bend', 'faceBend', 'crackWidth'].includes(key2)) applyGlass();
       else if (key2 === 'res') resize();
       else if (key2 === 'shadow' || key2 === 'wall') placeLights();
     },
@@ -831,7 +861,7 @@ export async function mount(stage) {
     if (colour) {                                          // anodised in the palette once the first press wakes it
       const a = colour.update(dt);
       outerMat.color.copy(outerBase).lerp(tint, a); innerMat.color.copy(innerBase).lerp(tint, a); innerMat.emissive.setRGB(1, 1, 1).lerp(tint, a);
-      for (const m of GMATS) m.specularColor.setRGB(1, 1, 1).lerp(tint, a);
+      for (const m of [...GMATS, ...crackMats]) m.specularColor.setRGB(1, 1, 1).lerp(tint, a);
       glassU.uTint.value.copy(tint); glassU.uTintA.value = a;
       glassInner.emissive.setRGB(1, 1, 1).lerp(tint, a);
     }
@@ -841,6 +871,9 @@ export async function mount(stage) {
     innerMat.emissiveIntensity = go ? P.glowLevel * Math.exp(-T / P.cool) * smooth(0, 0.01, T) : 0;
     glassInner.emissiveIntensity = innerMat.emissiveIntensity;
     glassInner.visible = go;                               // glass crack walls stay hidden until the pieces part
+    if (mode === 'crack') { const u = Math.min(1, crackT / Math.max(1e-3, P.crackTime)); glassU.uR.value = crackReach * Math.pow(u, 0.6) + 0.03; glassU.uI.value = P.crackGlow * smooth(0, 0.012, crackT); }
+    else if (go) { glassU.uR.value = 1e3; glassU.uI.value = P.crackGlow * Math.exp(-T / P.cool); }
+    else glassU.uI.value = 0;
     sparkMat.uniforms.tau.value = tau; sparkMat.uniforms.drag.value = P.drag; sparkMat.uniforms.grav.value = P.gravity;
     sparks.visible = go && P.sparks > 0;
     placeCamera(go && !rewinding && tr < 0.45 ? P.shake * 0.06 * Math.exp(-tr / 0.09) : mode === 'crack' ? P.shake * 0.025 * Math.exp(-crackT / 0.05) : 0);

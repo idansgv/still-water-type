@@ -62,13 +62,13 @@ const FONT_URL = {
 
 // ---------- settings ----------
 const DEF = {
-  page: 'light', glass: 'all letters', material: 'chrome', face: 'Archivo Black', depth: 0.05, bevel: 0.032,
-  glassEnv: 5.65, glassRough: 0.14, clarity: 1, inner: 1.9, bend: 1, wallSize: 0.1, voidLight: 0.08, faceBend: 0.55, env: 0, exposure: 1.8, shadow: 0, wall: 0.02,
-  pieces: 40, cluster: 0.36, force: 3.7, forward: 1.2, spread: 1.0, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
+  page: 'light', glass: 'all letters', material: 'chrome', face: 'Archivo Black', depth: 0.05, bevel: 0.05,
+  glassEnv: 1.4, glassRough: 0.3, clarity: 1, inner: 1.9, bend: 0.17, wallSize: 0.1, voidLight: 0.08, faceBend: 1, env: 0, exposure: 1.8, shadow: 0, wall: 0.02,
+  pieces: 21, cluster: 0.36, force: 3.7, forward: 1.2, spread: 1.0, spin: 5.6, reach: 3.2, gravity: 0, drag: 0.31,
   hitSpeed: 1.1, hold: 0.04, ramp: 0.35, slow: 0.04, rewind: 1.0,
-  crackTime: 0.16, crackGlow: 0, crackWidth: 0.001, keep: 0,
+  crackTime: 0.36, crackGlow: 0.5, crackWidth: 0.001, keep: 0,
   lens: 87, aperture: 2.17, maxBlur: 20, focusMode: 'on the name', yaw: 0, pitch: 0, shake: 0.6,
-  flash: 25, glow: 'white', glowLevel: 9.5, cool: 0.15, sparks: 220, bloom: 0.57, threshold: 2.5, res: 1.5,
+  flash: 34, glow: 'white', glowLevel: 0, cool: 0.15, sparks: 220, bloom: 0.57, threshold: 2.5, res: 1.5,
 };
 const SPEC = [
   ['Look'],
@@ -130,7 +130,7 @@ const SPEC = [
   ['threshold', 'Bloom threshold', 0.1, 8, 0.05],
   ['res', 'Resolution', 0.5, 2, 0.05],
 ];
-const KEY = 'splintered-glass-white-2';
+const KEY = 'splintered-glass-white-3';
 const P = { ...DEF };
 try { Object.assign(P, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* defaults */ }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) { /* fine */ } };

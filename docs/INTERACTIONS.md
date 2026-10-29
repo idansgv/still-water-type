@@ -268,7 +268,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | | Splintered |
 |---|---|
 | At rest | bevelled glass type on black (after the PP Fragment posters: dark faces, the edges catch the light); on white the same glass with dark rims, as if seen against a white wall in a dark room; still |
-| Tap on a letter | it is cut into Voronoi shards at that point (finer near the hit) and, a beat after the hit (0.16 s), blows apart toward the camera: a forceful hit (flash, sparks, a small shake), then an ease into slow motion, shards blurring as they pass the lens (under 250 ms, 8 px) |
+| Tap on a letter | it is cut into Voronoi shards at that point (finer near the hit) and, a beat after the hit (0.16 s on black; 0.36 s on white, while dark crack lines run out from the hit), blows apart toward the camera: a forceful hit (flash, sparks, a small shake), then an ease into slow motion, shards blurring as they pass the lens (under 250 ms, 8 px) |
 | Tap on a flying shard | the pieces are kicked again from there |
 | Tap on background | nothing |
 | Drag (once it has burst) | turns the camera round the middle of the flying pieces |
