@@ -229,6 +229,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     showFallback(poster);
   }
   window.__poster = { slug: poster.slug, seed, theme: theme.name, colour: stage.colour ? stage.colour.name : null, stage: current.stage, inst };
+  history.replaceState(null, '', `/p/${poster.slug}/${urlName ? `?n=${encodeURIComponent(urlName)}` : ''}#s=${seed.toString(36)}`);   // the address bar follows the poster: copy it, or reload to see the same one
   track('poster_view', { slug: poster.slug, theme: theme.name, first: shuffles === 0, named: !!(myName && poster.nameable), failed: !current.stage });
   try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
   requestAnimationFrame(() => stageEl.classList.remove('swap'));
@@ -240,7 +241,6 @@ async function shuffle() {
   const next = pickOther(current.poster.slug);
   track('shuffle', { from: current.poster.slug, to: next.slug });
   shuffles++;
-  if (location.pathname !== '/') history.replaceState(null, '', '/');
   await show(next);
 }
 
@@ -325,7 +325,6 @@ async function openPoster(slug) {
   const poster = bySlug(slug);
   if (!poster || busy || !current || current.poster.slug === slug) return;
   shuffles++;
-  if (location.pathname !== '/') history.replaceState(null, '', '/');
   await show(poster);
 }
 menuBtn.addEventListener('click', () => (indexOpen ? closeIndex() : openIndex()));
@@ -372,7 +371,6 @@ async function setName(name) {
   const pool = PUBLISHED.filter((p) => p.nameable);
   if (!pool.length) return;
   shuffles++;
-  if (location.pathname !== '/') history.replaceState(null, '', '/');
   await show(pool[Math.floor(Math.random() * pool.length)]);
 }
 nameForm.addEventListener('submit', (e) => {
