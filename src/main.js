@@ -91,6 +91,7 @@ function spark(x, y) {
   }
 }
 stageEl.addEventListener('pointerdown', (e) => spark(e.clientX, e.clientY));
+stageEl.addEventListener('click', (e) => track('poster_click', { slug: current?.poster.slug, clicks: Math.min(e.detail, 3) }));   // 1, 2 or 3 for a single, double or triple click
 stageEl.addEventListener('contextmenu', (e) => e.preventDefault());   // no long-press menu or selection on the poster
 
 // ---------- picking ----------
@@ -237,6 +238,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
 async function shuffle() {
   if (busy || !current || document.documentElement.dataset.bare !== undefined) return;       // a standalone page does not shuffle
   const next = pickOther(current.poster.slug);
+  track('shuffle', { from: current.poster.slug, to: next.slug });
   shuffles++;
   if (location.pathname !== '/') history.replaceState(null, '', '/');
   await show(next);
@@ -306,6 +308,7 @@ function peekShow(slug, e) {
 }
 function openIndex() {
   if (indexOpen || document.documentElement.dataset.bare !== undefined) return;
+  track('menu_open', { slug: current?.poster.slug });
   indexOpen = true; if (!listEl.children.length) buildIndex();
   indexEl.hidden = false; document.body.classList.add('index-open'); menuBtn.setAttribute('aria-expanded', 'true');
   requestAnimationFrame(() => indexEl.classList.add('on'));
@@ -337,6 +340,7 @@ indexEl.addEventListener('click', async (e) => {
   const cp = e.target.closest('.cp');
   if (cp) {                                                                    // copy this poster's prompt; the button says so, then goes back
     const ok = await copyPrompt(bySlug(cp.dataset.slug)); cp.textContent = ok ? 'Copied' : 'Copy failed'; cp.classList.add('done');
+    track('copy_prompt', { slug: cp.dataset.slug, copied: ok });
     clearTimeout(cp._t); cp._t = setTimeout(() => { cp.textContent = 'Copy prompt'; cp.classList.remove('done'); }, 1800); return;
   }
   const a = e.target.closest('a');
@@ -381,7 +385,8 @@ $('name-reset').addEventListener('click', () => setName(null));
 nameForm.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeName(); } });
 
 // ---------- wiring ----------
-nameBtn.addEventListener('click', () => setLinks(!whoEl.classList.contains('open')));
+nameBtn.addEventListener('click', () => { track('name_click', { slug: current?.poster.slug }); setLinks(!whoEl.classList.contains('open')); });
+$('links').addEventListener('click', (e) => { if (e.target.closest('a')) track('linkedin_click', { slug: current?.poster.slug }); });
 $('btn-customize').addEventListener('click', () => { setLinks(false); openName(); });
 $('btn-customize').hidden = !CUSTOMIZE;
 addEventListener('pointerdown', (e) => { if (whoEl.classList.contains('open') && !e.target.closest('.who')) setLinks(false); });
