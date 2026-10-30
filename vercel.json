@@ -13,6 +13,12 @@
   ],
   "redirects": [
     {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.idansegev.com" }],
+      "destination": "https://idansegev.com/:path*",
+      "permanent": true
+    },
+    {
       "source": "/p/jazz-fan/",
       "destination": "/p/fan/",
       "permanent": true

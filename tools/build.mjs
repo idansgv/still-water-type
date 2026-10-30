@@ -20,7 +20,8 @@ for (const p of POSTERS) {
   const own = existsSync(join(root, 'assets', `og-${p.slug}.png`));                  // made by tools/og-posters.cjs
   const image = own ? `${ORIGIN}/assets/og-${p.slug}.png` : `${ORIGIN}/assets/og.png`;
   const alt = own ? `${p.title}: ${p.blurb}` : null;
-  let html = home
+  // the homepage's intro paragraph is for the home page only; each share page has its own title and description
+  let html = home.replace(/<p class="sr-only">[\s\S]*?<\/p>\n?/, '')
     .replace('<html lang="en">', `<html lang="en" data-poster="${p.slug}"${p.standalone ? ' data-bare' : ''}>`)
     .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`)
     .replace(/(<meta name="description" content=")[^"]*(")/, `$1${esc(p.blurb)}$2`)
@@ -38,3 +39,11 @@ for (const p of POSTERS) {
   writeFileSync(join(dir, 'index.html'), html);
   console.log('wrote p/' + p.slug + '/index.html');
 }
+
+// The sitemap lists the homepage and the published share pages; robots.txt allows everything and points to it.
+const today = new Date().toISOString().slice(0, 10);
+const urls = [`${ORIGIN}/`, ...POSTERS.filter((p) => !p.standalone).map((p) => `${ORIGIN}/p/${p.slug}/`)];
+writeFileSync(join(root, 'sitemap.xml'), '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+  urls.map((u) => `  <url><loc>${u}</loc><lastmod>${today}</lastmod></url>`).join('\n') + '\n</urlset>\n');
+writeFileSync(join(root, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${ORIGIN}/sitemap.xml\n`);
+console.log('wrote sitemap.xml (' + urls.length + ' urls) and robots.txt');
