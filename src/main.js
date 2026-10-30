@@ -384,7 +384,7 @@ nameForm.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preven
 
 // ---------- wiring ----------
 nameBtn.addEventListener('click', () => { track('name_click', { slug: current?.poster.slug }); setLinks(!whoEl.classList.contains('open')); });
-$('links').addEventListener('click', (e) => { if (e.target.closest('a')) track('linkedin_click', { slug: current?.poster.slug }); });
+$('links').addEventListener('click', (e) => { const a = e.target.closest('a'); if (a) track(a.dataset.track, { slug: current?.poster.slug }); });
 $('btn-customize').addEventListener('click', () => { setLinks(false); openName(); });
 $('btn-customize').hidden = !CUSTOMIZE;
 addEventListener('pointerdown', (e) => { if (whoEl.classList.contains('open') && !e.target.closest('.who')) setLinks(false); });
