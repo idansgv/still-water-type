@@ -27,14 +27,15 @@ TYPE.font = `"${FACE}", Arial Black, Helvetica Neue, Helvetica, sans-serif`;
 const SAVED = await fetch(new URL('./params/slinky-type.json', import.meta.url)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
 const shapeOf = (ch, fine) => ringShape(ch, { fine, font: TYPE.font, weight: TYPE.weight });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-// A visitor's name keeps the poster's composition: one word is split into the lines the poster uses (3 in portrait, 2 in landscape),
-// so a single name still reads as two or three lines, like Idan Segev does. More words than lines are kept as they are.
+// A visitor's name keeps the poster's composition: a single word is split into the lines the poster uses (3 in portrait, 2 in landscape),
+// the longest word first, and never into pieces shorter than two letters. More words than lines are kept as they are.
 const balanced = (words, want) => {
   const out = [...words];
-  while (out.length < want) {                                                  // split the longest word in half, so the words stay whole where they can
-    const i = out.reduce((best, w, k) => (w.length > out[best].length ? k : best), 0);
-    if (out[i].length < 2) break;
-    const h = Math.ceil(out[i].length / 2); out.splice(i, 1, out[i].slice(0, h), out[i].slice(h));
+  while (out.length < want) {
+    const i = out.reduce((best, w, k) => (w.length >= 4 && (best < 0 || w.length > out[best].length) ? k : best), -1);
+    if (i < 0) break;
+    const h = Math.ceil(out[i].length / 2);
+    out.splice(i, 1, out[i].slice(0, h), out[i].slice(h));
   }
   return out;
 };
@@ -121,9 +122,7 @@ export function mount(stage) {
       const left = xs[0] + ext(cs[0])[0], right = xs[cs.length - 1] + ext(cs[cs.length - 1])[1], c = (left + right) / 2;
       return { xs: xs.map((x) => x - c), span: right - left };
     };
-    const rl = rows.map(rowXs);
-    const refRows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];       // the wall is at least as wide as the poster's own name, so a shorter name keeps its scale and zoom
-    const maxW = Math.max(...rl.map((r) => r.span), ...refRows.map((r) => rowXs(r).span));
+    const rl = rows.map(rowXs), maxW = Math.max(...rl.map((r) => r.span));
     R = Math.min(W * 0.78 / maxW, H * 0.62 / (rows.length * rowK + 1.6), Math.min(W, H) * 0.11 * 1.6);
     rw = Math.max(2, R * P.wire * 0.5);
     wallW = (maxW + 1.2) * R / 2; wallH = (rows.length * rowK + 0.8) * R;
