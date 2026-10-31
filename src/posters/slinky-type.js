@@ -121,7 +121,9 @@ export function mount(stage) {
       const left = xs[0] + ext(cs[0])[0], right = xs[cs.length - 1] + ext(cs[cs.length - 1])[1], c = (left + right) / 2;
       return { xs: xs.map((x) => x - c), span: right - left };
     };
-    const rl = rows.map(rowXs), maxW = Math.max(...rl.map((r) => r.span));
+    const rl = rows.map(rowXs);
+    const refRows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];       // the wall is at least as wide as the poster's own name, so a shorter name keeps its scale and zoom
+    const maxW = Math.max(...rl.map((r) => r.span), ...refRows.map((r) => rowXs(r).span));
     R = Math.min(W * 0.78 / maxW, H * 0.62 / (rows.length * rowK + 1.6), Math.min(W, H) * 0.11 * 1.6);
     rw = Math.max(2, R * P.wire * 0.5);
     wallW = (maxW + 1.2) * R / 2; wallH = (rows.length * rowK + 0.8) * R;
