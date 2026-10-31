@@ -54,7 +54,7 @@ export async function mount(stage) {
   // ---------- canvases: the stage canvas holds the picture; the cloth is drawn offscreen with WebGL and laid on it ----------
   const rx = stage.canvas.getContext('2d');
   const glc = document.createElement('canvas'); glc.width = stage.pw; glc.height = stage.ph;
-  const gl = glc.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true, depth: true, preserveDrawingBuffer: true });
+  const gl = glc.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true, depth: true, preserveDrawingBuffer: false });
   if (!gl) throw new Error('webgl2 unavailable');
   const prog = gl.createProgram();
   for (const [t, s] of [[gl.VERTEX_SHADER, VS], [gl.FRAGMENT_SHADER, FS]]) { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); gl.attachShader(prog, x); }
