@@ -221,7 +221,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     showFallback(poster);
   }
   window.__poster = { slug: poster.slug, seed, theme: theme.name, colour: stage.colour ? stage.colour.name : null, stage: current.stage, inst };
-  history.replaceState(null, '', `/p/${poster.slug}/${urlName ? `?n=${encodeURIComponent(urlName)}` : ''}`);   // the address bar follows the poster: copy it to share it
+  history.replaceState(null, '', `/p/${poster.slug}/${myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : ''}`);   // the address bar follows the poster, with the visitor's name when it shows: copy it to share it
   track('poster_view', { slug: poster.slug, theme: theme.name, first: shuffles === 0, named: !!(myName && poster.nameable), failed: !current.stage });
   try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
   requestAnimationFrame(() => stageEl.classList.remove('swap'));
