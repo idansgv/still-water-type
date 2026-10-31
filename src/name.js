@@ -2,14 +2,14 @@
 // Each space starts a new line in the poster, so the name is handed to a poster as its words.
 
 export const NAME_MAX = 14;
-const ALLOWED = /^[\p{L}\p{M}' -]+$/u;
+const ALLOWED = /^[\p{L}\p{M}0-9' -]+$/u;
 
 // Returns { name } for a usable name, or { error } with a short message for the editor.
 export function validateName(raw) {
   const name = String(raw ?? '').replace(/\s+/g, ' ').trim();
   if (!name) return { error: 'Type a name, or reset to Idan Segev.' };
   if (name.length > NAME_MAX) return { error: `Up to ${NAME_MAX} characters.` };
-  if (!ALLOWED.test(name)) return { error: 'Letters, spaces, hyphens and apostrophes only.' };
+  if (!ALLOWED.test(name)) return { error: 'Letters, numbers, spaces, hyphens and apostrophes only.' };
   return { name };
 }
 
