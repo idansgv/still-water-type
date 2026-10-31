@@ -11,6 +11,7 @@ import { createView } from './slinky-view.js';
 import { colourOf } from '../colour.js';
 import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
 import { TAP } from '../gestures.js';
+import { linesFor } from '../name.js';
 
 // The face: Bungee Inline (open licence, from Google Fonts), loaded before the first layout; Arial Black stands in if it does not arrive.
 const FACE = new URLSearchParams(location.search).get('font') || 'Bungee Inline';
@@ -78,7 +79,7 @@ export function mount(stage) {
   function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul) * (W / H < 0.85 ? Math.min(cam3.zoom, 1) : cam3.zoom); V.zoomMul += (f - V.zoomMul) * 0.15; }
   function layout() {
     W = stage.W; H = stage.H;
-    const portrait = W / H < 0.85, rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], rowK = 3.7;
+    const portrait = W / H < 0.85, rows = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }), rowK = 3.7;
     const fine = (ch) => shapeOf(ch, true) || [];
     const prof = (ch) => {                                                                                // a letter's left and right edge at each height (across the wall, in radii)
       const K = 40, lo = new Array(K).fill(NaN), hi = new Array(K).fill(NaN);

@@ -67,6 +67,8 @@ export const POSTERS = [
     blurb: 'Flat type that is really standing columns. Knock one over and watch them fall on each other.',
     hint: null,
     themes: { dark: 1, light: 0 },
+    nameable: true,
+    face: { family: 'Archivo', weight: 900, upper: true },
     load: () => import('./collapse.js'),
   },
   {
@@ -78,6 +80,8 @@ export const POSTERS = [
     blurb: 'Flat type that is really solid. Touch a letter and it shatters, and the pieces set off the rest.',
     hint: null,
     themes: { dark: 1, light: 0 },
+    nameable: true,
+    face: { family: 'Archivo', weight: 900, upper: true },
     load: () => import('./explode.js'),
   },
   {
@@ -164,6 +168,8 @@ export const POSTERS = [
     blurb: 'The name as liquid metal: black, with a few bright highlights. Pull it, scatter it, fuse it.',
     hint: null,
     themes: { dark: 0.15, light: 0.85 },
+    nameable: true,
+    face: { family: 'Archivo', weight: 900, upper: true },
     load: () => import('./liquid-metal.js'),
   },
   {
@@ -205,6 +211,8 @@ export const POSTERS = [
     prompt: "The name \"Idan Segev\" as condensed solid slinkys stood on an upright backdrop, each letter a coiled slinky chain standing out from the wall with its solid cap facing the viewer, flat and still at rest. Simulate each chain as a row of rigid rings with a rigid-body solver, one chain per letter, each in its own vertical plane running out from the wall toward the viewer, rendered with WebGL. Tap a letter and it lets go of the wall, drops onto a ledge in front and bounces there. Tap it again and it is pushed off the ledge and falls off the screen; a moment later it is back on the wall. Drag empty space to turn the view. Keys 1 to 6 jump between fixed views, X puts every letter back on the wall, L locks the camera. One colour: black on white, or white on black. Black and white only.",
     hint: null,
     themes: { dark: 0, light: 1 },
+    nameable: true,
+    face: { family: 'Archivo', weight: 900, upper: true },
     load: () => import('./slinky-type.js'),
   },
   {

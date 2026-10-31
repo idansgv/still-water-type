@@ -12,7 +12,8 @@
 
 import { loadRapier, Sim } from './physics.js';
 import { perspective, ortho, lookAt, mul, invert, transformPoint } from './lib3d.js';
-import { SKELETON, ratio } from './lettering.js';
+import { SKELETON, ratio, lettered } from './lettering.js';
+import { linesFor } from '../name.js';
 import { compile } from '../engine.js';
 import { colourOf, GLSL_PAGE_GRADIENT } from '../colour.js';
 import { shatterBox } from './shatter.js';
@@ -182,7 +183,7 @@ export async function mountColumns(stage, mode) {
   // ---------- layout (pixels), same composition as Soft type ----------
   function layoutPx() {
     const portrait = W / H < 0.85;
-    const rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    const rows = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }).map(lettered).filter(Boolean);   // a visitor's name, one line per word
     const padX = Math.max(14, W * 0.045), top = Math.max(18, H * 0.04), bottom = 96;
     const availW = W - 2 * padX, availH = H - top - bottom, gap = fontMode ? 0.07 : 0.12;
     const advance = fontMode ? (c, h) => h * (glyphBoxes(c, FACE, FACE_W).adv + gap) : (c, h) => h * (0.6 * SKELETON[c].wf + 2 * ratio(c, SKELETON[c].wf * h, h) / h + gap);

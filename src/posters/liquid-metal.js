@@ -19,7 +19,8 @@
 
 import { getGL, compile } from '../engine.js';
 import { colourOf, GLSL_PAGE_GRADIENT } from '../colour.js';
-import { SKELETON, ratio, radiusFor } from './lettering.js';
+import { SKELETON, ratio, radiusFor, lettered } from './lettering.js';
+import { linesFor } from '../name.js';
 import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -116,7 +117,7 @@ export function mount(stage) {
   // ---------- layout: the same composition as the other type posters ----------
   function layout() {
     const portrait = W / H < 0.85;
-    const rows = portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'];
+    const rows = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }).map(lettered).filter(Boolean);   // a visitor's name, one line per word
     const padX = Math.max(14, W * 0.045), top = Math.max(18, H * 0.04), bottom = 96;
     const availW = W - 2 * padX, availH = H - top - bottom, gap = 0.06;
     const advance = (c, h) => h * (0.6 * SKELETON[c].wf + 2 * ratio(c, SKELETON[c].wf * h, h) / h + gap);
