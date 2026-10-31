@@ -96,7 +96,7 @@ export function mount(stage) {
     for (const c of corners3()) { const q = V.project(c, r, ox0, oy0); x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
     return [ox0 + W / 2 - (x0 + x1) / 2 + cam3.panX * W, oy0 + (H - 40) / 2 - (y0 + y1) / 2 + cam3.panY * H, x1 - x0, y1 - y0];
   }
-  function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul) * (W / H < 0.85 ? Math.min(cam3.zoom, 1) : cam3.zoom); V.zoomMul += (f - V.zoomMul) * 0.15; }
+  function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul) * (W / H < 0.85 ? 1.8 : cam3.zoom); V.zoomMul += (f - V.zoomMul) * 0.15; }
   function layout() {
     W = stage.W; H = stage.H;
     const portrait = W / H < 0.85, rowK = P.leading;
@@ -125,7 +125,7 @@ export function mount(stage) {
       return { xs: xs.map((x) => x - c), span: right - left };
     };
     const rl = rows.map(rowXs), maxW = Math.max(...rl.map((r) => r.span));
-    R = Math.min(W * 0.78 / maxW, H * 0.62 / (rows.length * rowK + 1.6), Math.min(W, H) * 0.11 * 1.6);
+    R = Math.min(W * 0.78 / maxW, H * 0.62 / (rows.length * rowK + 1.6), portrait ? W * 0.5 : Math.min(W, H) * 0.11 * 1.6);   // on a phone the letters may grow to fill the width
     rw = Math.max(2, R * P.wire * 0.5);
     wallW = (maxW + 1.2) * R / 2; wallH = (rows.length * rowK + 0.8) * R;
     letters = [];
