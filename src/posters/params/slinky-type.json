@@ -5,6 +5,11 @@
   "push": 9.5,
   "pull": 1.7,
   "pull2": 2.8,
+  "coilAlpha": 0.05,
+  "font": "Boldonse",
+  "weight": 300,
+  "tracking": -0.21,
+  "leading": 2.25,
   "size": 0.11,
   "wire": 0.02,
   "spring": 958,
@@ -31,7 +36,7 @@
   "capInertia": 3,
   "yaw": 29.16875,
   "pitch": 0,
-  "zoom": 1.5,
-  "panX": 0,
-  "panY": 0
+  "zoom": 1.3455129124590341,
+  "panX": -0.17,
+  "panY": 0.105
 }

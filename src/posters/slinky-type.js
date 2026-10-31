@@ -209,7 +209,7 @@ export function mount(stage) {
       ctx.fillStyle = tone;                                                          // the head ring is a solid cap: the letter itself; the rest of the coil is wire
       const oa = Math.min(1, L.fade / 0.4), fa = Math.min(1, Math.max(0, (L.fade - 0.4) / 0.6)), se = (t) => t * t * (3 - 2 * t);   // back on the wall: the outline fades in first, then the letter fills
       if (i === 0) { ctx.globalAlpha = se(fa); ctx.fill('evenodd'); }
-      if (i > 0 || L.fade < 1) { ctx.globalAlpha = se(oa); ctx.stroke(); ctx.globalAlpha = 1; }                // (a settled cap is the fill alone, so the face's inline stays open)
+      if (i > 0 || L.fade < 1) { ctx.globalAlpha = se(oa) * (i > 0 ? P.coilAlpha : 1); ctx.stroke(); ctx.globalAlpha = 1; }                // (a settled cap is the fill alone, so the face's inline stays open)
     }
   }
 
