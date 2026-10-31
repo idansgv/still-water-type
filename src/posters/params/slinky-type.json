@@ -5,7 +5,7 @@
   "push": 9.5,
   "pull": 1.7,
   "pull2": 2.8,
-  "coilAlpha": 0.05,
+  "coilAlpha": 0.2,
   "font": "Boldonse",
   "weight": 300,
   "tracking": -0.21,
