@@ -8,12 +8,12 @@
 // the slick; a light breeze everywhere outside the letters (Idan's "trace"), so the name shows at rest as dark water in glitter.
 //
 // Gestures (src/gestures.js): hover or drag is wind; tap a puff; hold a gale (swell, foam, the slick tears and later heals);
-// double tap is a storm passing (lightning, rings of wind from the tap, then calm; after the re-form beat). Reveal: lightning beyond the frame and a gust across the whole page, under a
+// a tap is a storm passing (lightning, rings of wind from the tap, then calm). Reveal: lightning beyond the frame and a gust across the whole page, under a
 // drawing of the wind. Self-demo: once, after 3.5 s untouched, a gust crosses the page; off under reduced motion, where the sea
 // is also frozen (the glitter does not flicker). Black only (darkOnly in the registry): a night sea.
 
 import { getGL } from '../engine.js';
-import { pressTracker, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
+import { pressTracker } from '../gestures.js';
 import { createReveal, grid, corners, arrow, label, titleBlock, ink as rvInk } from './reveal.js';
 import { linesFor, lettersFor } from '../name.js';
 
@@ -196,7 +196,7 @@ export async function mount(stage) {
   // ---------- input ----------
   const press = pressTracker();
   const born = performance.now();
-  let touched = false, demoDone = !!stage.reduced, lastTap = -1, reform = 0, last = null;
+  let touched = false, demoDone = !!stage.reduced, last = null;
   const take = () => { touched = true; if (!demoDone) { demoDone = true; scripted = []; } };
   offs.push(stage.on('down', (q, e) => { take(); press.down(q, e.pointerId); last = { x: q.x, y: q.y, t: performance.now() }; }));
   offs.push(stage.on('move', (q, e) => {
@@ -215,12 +215,9 @@ export async function mount(stage) {
     const r = press.up(q, e.pointerId);
     if (q.type !== 'mouse') last = null;
     if (!r || !r.tap) return;
-    const now = performance.now();
-    clearTimeout(reform);
-    if (lastTap >= 0 && now - lastTap < DOUBLE_MS) { lastTap = -1; reform = setTimeout(() => { if (alive && !stage.revealed) storm(q.x, q.y); }, REFORM_DELAY_MS); }
-    else { lastTap = now; puff(q.x, q.y, 0.7, P.gust * 1.2); }
+    if (!stage.revealed) storm(q.x, q.y);                                        // a tap: a storm passes over it
   }));
-  // Double tap: a storm passes over the tap. Lightning, then the thunder as rings of wind rolling out from the tap, then the sea
+  // Tap: a storm passes over the tap. Lightning, then the thunder as rings of wind rolling out from the tap, then the sea
   // calms. No sound. Under reduced motion there is no flash and no rings: the sea just calms.
   let calmT = 0;
   function storm(x, y) {
@@ -311,7 +308,7 @@ export async function mount(stage) {
     tune,
     debug: { get gale() { return gale; }, puff, sweep: (d = 2600) => sweep(performance.now(), d, 0.38), build },
     destroy() {
-      alive = false; clearTimeout(rt); clearTimeout(reform); clearTimeout(calmT);
+      alive = false; clearTimeout(rt); clearTimeout(calmT);
       rv.destroy(); offs.forEach((f) => f());
       sims.forEach(free); gl.deleteTexture(maskT); progs.forEach((p) => gl.deleteProgram(p)); gl.deleteVertexArray(vao);
       link.remove(); stage.setBackdrop(null);
