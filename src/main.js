@@ -243,7 +243,7 @@ async function share() {
   const url = `${location.origin}/p/${poster.slug}/${q}`;
   const data = { title: `${poster.title} · Idan Segev`, text: poster.blurb, url };
   track('share', { slug: poster.slug, named: !!q });
-  if (navigator.share) {
+  if (navigator.share && matchMedia('(pointer: coarse)').matches) {       // a phone or touch screen: the system share sheet; a computer copies the link
     try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; }
   }
   try { await navigator.clipboard.writeText(url); toast('Link copied'); }
