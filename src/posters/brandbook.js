@@ -58,7 +58,6 @@ const RENDER_NAMES = { halftone: '45° halftone', lines: 'engraved line screen',
 const GREYS = [['Ink', 'Graphite', 'Fog', 'Paper'], ['Night', 'Smoke', 'Mist', 'Chalk'], ['Coal', 'Iron', 'Ash', 'Salt'], ['Black', 'Lead', 'Concrete', 'Bone'], ['Tar', 'Slate', 'Dust', 'Milk']];
 const RATIOS = [[6, 3, 1, 1.4], [4, 3, 2, 2], [5, 1.4, 1.4, 3]];
 const SECTIONS = ['The idea', 'Contents', 'Logo', 'Misuse', 'Typography', 'Tone', 'Device', 'Imagery', 'In use', 'In use, again'];
-const NAME = 'Idan Segev';
 // misuse: each rule, its caption, and the drag (x, y in tile widths) it starts from
 const DONT = {
   stretch: { c: 'Don’t stretch it', rest: [0.3, 0] },
@@ -69,6 +68,7 @@ const DONT = {
   outline: { c: 'Don’t outline it', rest: [0.34, 0] },
   crowd: { c: 'Don’t crowd it', rest: [0.3, 0.24] },
 };
+let WORDS = ['Idan', 'Segev'], NAME = 'Idan Segev';                  // set by mount: the visitor's name when they set one
 const PRAISE = ['Better.', 'Thank you.', 'Much better.', 'That’s the one.'];
 const FULL = new Set([0, 11]);    // cover and end span the wall
 const SURFACE = new Set([9, 10]);
@@ -264,7 +264,7 @@ function paintSlide(g, i, B, w, h, M, D) {
   }
   // the lockup: mark, name, venture; centred on (cx, cy) or left-aligned at x
   function lockup(cx, cy, scale, center, color, bg, opt = {}) {
-    const ms = scale * 0.22 * u, ns = scale / 4.6 * u, lines = B.lock === 'stack' ? ['Idan', 'Segev'] : [NAME];
+    const ms = scale * 0.22 * u, ns = scale / 4.6 * u, lines = B.lock === 'stack' ? WORDS : [NAME];
     const lead = B.t[5] * ns, cap = capOf(B, ns), subS = 0.9 * u, gap = 0.6 * u;
     const H2 = ms + gap + cap + (lines.length - 1) * lead + gap + subS;
     let y = cy - H2 / 2;
@@ -299,7 +299,7 @@ function paintSlide(g, i, B, w, h, M, D) {
     const metaRow = [`${NAME} ${B.c.v}`, 'Brand guidelines', `Vol. ${String(B.vol).padStart(2, '0')}`, '2026'];
     metaRow.forEach((s, k) => lab(s, (3 + k * 94 / 3) * u, 3.2 * u, K.ink, 0.8 * u, k === 0 ? 'left' : k === 3 ? 'right' : 'center', 0.1));
     body(`${NAME} ${B.c.v} is ${B.c.what}.`, 3 * u, 4.6 * u, 24 * u, 0.95 * u, K.ink, 1.35);
-    const lines = ['Idan', 'Segev'], size = fitSize(lines, 1.04 * w, 0.76 * h);
+    const lines = WORDS, size = fitSize(lines, 1.04 * w, 0.76 * h);
     dblock(lines, -size * 0.02, h + size * 0.03 - B.t[5] * size, size);
   } else if (i === 1) {                                                            // the idea
     rh('01', 'The idea');
@@ -399,7 +399,7 @@ function paintSlide(g, i, B, w, h, M, D) {
     const P = [5 * u, 6 * u, 24 * u, 24 * 1.4142 * u];
     shadowed(() => box(...P, '#000')); dev(B.field, B.render, ...P, { r: 0.48 }, '#fff');
     lab(B.c.tags[0], P[0] + 0.06 * P[2], P[1] + 0.07 * P[3], '#fff', 0.9 * u, 'left', 0.1); lab(B.c.tags[1], P[0] + 0.94 * P[2], P[1] + 0.07 * P[3], '#fff', 0.9 * u, 'right', 0.1);
-    dblock(['Idan', 'Segev'], P[0] + 0.06 * P[2], P[1] + P[3] * 0.96 - B.t[5] * 5 * u, 5 * u, 'left', '#fff');
+    dblock(WORDS, P[0] + 0.06 * P[2], P[1] + P[3] * 0.96 - B.t[5] * 5 * u, 5 * u, 'left', '#fff');
     const T = [36 * u, 16 * u, 26 * u, 32 * u];
     g.save(); g.strokeStyle = '#e6e6e2'; g.lineWidth = 1.1 * u; g.beginPath(); g.ellipse(T[0] + T[2] / 2, T[1], T[2] * 0.18, T[3] * 0.22, 0, Math.PI, 0); g.stroke(); g.restore();
     shadowed(() => box(...T, '#f4f4f2')); dev(B.field, B.alt[1], T[0] + 0.12 * T[2], T[1] + 0.08 * T[3], 0.76 * T[2], 0.62 * T[3], { r: 0.46 }, '#000');
@@ -408,7 +408,7 @@ function paintSlide(g, i, B, w, h, M, D) {
     g.save(); g.translate(C1[0] + C1[2] / 2, C1[1] + C1[3] / 2); g.rotate(-4 * Math.PI / 180);
     shadowed(() => box(-C1[2] / 2, -C1[3] / 2, C1[2], C1[3], '#fff'));
     lockup(-C1[2] / 2 + 0.08 * C1[2], 0, 9, false, '#000', '#fff');
-    mono('Idan Segev', C1[2] / 2 - 0.08 * C1[2], C1[3] / 2 - 0.1 * C1[3] - 1.1 * u, 0.8 * u, '#000', 'right'); mono('idansegev.com', C1[2] / 2 - 0.08 * C1[2], C1[3] / 2 - 0.1 * C1[3], 0.8 * u, '#000', 'right');
+    mono(NAME, C1[2] / 2 - 0.08 * C1[2], C1[3] / 2 - 0.1 * C1[3] - 1.1 * u, 0.8 * u, '#000', 'right'); if (!stage.words) mono('idansegev.com', C1[2] / 2 - 0.08 * C1[2], C1[3] / 2 - 0.1 * C1[3], 0.8 * u, '#000', 'right');
     g.restore();
     const C2 = [72 * u, 31 * u, 22 * u, 22 * 55 / 85 * u];
     g.save(); g.translate(C2[0] + C2[2] / 2, C2[1] + C2[3] / 2); g.rotate(5 * Math.PI / 180);
@@ -421,7 +421,7 @@ function paintSlide(g, i, B, w, h, M, D) {
       shadowed(() => { g.fillStyle = '#060606'; g.beginPath(); g.arc(34 * u, 23 * u, 14 * u, 0, 6.2832); g.fill(); });
       g.fillStyle = '#ddd'; g.beginPath(); g.arc(34 * u, 23 * u, 2.1 * u, 0, 6.2832); g.fill();
       const S = [5 * u, 8 * u, 30 * u, 30 * u]; shadowed(() => box(...S, '#fff')); dev(B.field, B.render, ...S, { r: 0.5 }, '#000');
-      dblock(['Idan', 'Segev'], S[0] + 0.05 * S[2], S[1] + S[3] * 0.96 - B.t[5] * 4.2 * u, 4.2 * u, 'left', '#000');
+      dblock(WORDS, S[0] + 0.05 * S[2], S[1] + S[3] * 0.96 - B.t[5] * 4.2 * u, 4.2 * u, 'left', '#000');
     } else if (it === 'ticket') {
       const T = [4 * u, 14 * u, 46 * u, 46 / 2.4 * u]; shadowed(() => box(...T, '#fff'));
       dev(B.field, B.render, T[0], T[1], 0.74 * 0.44 * T[2], T[3], { r: 0.5 }, '#000');
@@ -456,7 +456,7 @@ function paintSlide(g, i, B, w, h, M, D) {
   } else if (i === 11) {                                                           // the end
     const size = fitSize([NAME], 1.06 * w, 0.8 * h), cap = capOf(B, size);
     dblock([NAME], -size * 0.02, h / 2 + cap / 2, size);
-    [`${NAME} ${B.c.v}`, B.slogan, 'idansegev.com'].forEach((s, k) => lab(s, (3 + k * 47) * u, h - 2.4 * u, K.ink, 0.85 * u, k === 0 ? 'left' : k === 2 ? 'right' : 'center', 0.1));
+    [`${NAME} ${B.c.v}`, B.slogan, stage.words ? '' : 'idansegev.com'].forEach((s, k) => lab(s, (3 + k * 47) * u, h - 2.4 * u, K.ink, 0.85 * u, k === 0 ? 'left' : k === 2 ? 'right' : 'center', 0.1));
   }
   g.restore();
   return meta;
@@ -465,6 +465,7 @@ function paintSlide(g, i, B, w, h, M, D) {
 // ---------- the poster ----------
 export function mount(stage) {
   const c = stage.canvas.getContext('2d');
+  WORDS = stage.words || ['Idan', 'Segev']; NAME = WORDS.join(' ');
   const dark = stage.theme.name === 'dark';          // the shell's black and white sequence: the desk the slides sit on follows it
   const offs = [], timers = [], links = [];
   let alive = true;

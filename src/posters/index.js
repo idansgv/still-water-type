@@ -346,6 +346,8 @@ export const POSTERS = [
     prompt: "A black-and-white brand book, twelve 16:9 slides, for a venture that does not exist, named after Idan Segev. Every showing rolls a venture (records, a swimming club, hardware, and so on), a display face with its own case and tracking, and a signature device: a field (sphere, letter or monogram, waves, burst, rings) drawn through a screen (halftone, engraved lines, ordered dither, contour bands, coarse bitmap). Slides: cover, idea, contents, logo, misuse, typography, tone, device, imagery, two pages in use, and the end. Section titles are fitted so they never pass the slide edge. Render with 2D canvas or WebGL. Holding morphs the brand into the next one: each display letter changes face at its own moment, the device melts into the next shape, and the new brand shows through growing dots or thickening lines; letting go before halfway rewinds it. Dragging a lockup on the misuse slide breaks that rule by hand; letting go springs it back, corrected. Three taps show the construction: grid, baselines and cap heights, the mark's geometry. Black and white only.",
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
+    nameable: true,
+    face: { family: 'Archivo', weight: 900, upper: true },
     load: () => import('./brandbook.js'),
   },
   {
