@@ -27,7 +27,7 @@ TYPE.font = `"${FACE}", Arial Black, Helvetica Neue, Helvetica, sans-serif`;
 const SAVED = await fetch(new URL('./params/slinky-type.json', import.meta.url)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
 const shapeOf = (ch, fine) => ringShape(ch, { fine, font: TYPE.font, weight: TYPE.weight });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-// A visitor's name keeps the poster's composition: a single word is split into the lines the poster uses (3 in portrait, 2 in landscape),
+// A visitor's name on a phone (portrait): a single word is split into the lines the poster uses (3),
 // the longest word first, and never into pieces shorter than two letters. More words than lines are kept as they are.
 const balanced = (words, want) => {
   const out = [...words];
@@ -99,7 +99,8 @@ export function mount(stage) {
   function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul) * (W / H < 0.85 ? Math.min(cam3.zoom, 1) : cam3.zoom); V.zoomMul += (f - V.zoomMul) * 0.15; }
   function layout() {
     W = stage.W; H = stage.H;
-    const portrait = W / H < 0.85, rows = balanced(linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }), portrait ? 3 : 2), rowK = P.leading;
+    const portrait = W / H < 0.85, rows = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }), rowK = P.leading;
+    if (portrait) rows = balanced(rows, 3);                                      // on a phone the name fills the height: a single word is set in three lines (two letters at least)
     const fine = (ch) => shapeOf(ch, true) || [];
     const prof = (ch) => {                                                                                // a letter's left and right edge at each height (across the wall, in radii)
       const K = 40, lo = new Array(K).fill(NaN), hi = new Array(K).fill(NaN);
