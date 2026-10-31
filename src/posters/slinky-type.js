@@ -27,7 +27,7 @@ TYPE.font = `"${FACE}", Arial Black, Helvetica Neue, Helvetica, sans-serif`;
 const SAVED = await fetch(new URL('./params/slinky-type.json', import.meta.url)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
 const shapeOf = (ch, fine) => ringShape(ch, { fine, font: TYPE.font, weight: TYPE.weight });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-// A visitor's name on a phone (portrait): a single word is split into the lines the poster uses (3),
+// A visitor's name on a phone (portrait): a single word is split into two lines,
 // the longest word first, and never into pieces shorter than two letters. More words than lines are kept as they are.
 const balanced = (words, want) => {
   const out = [...words];
@@ -100,7 +100,7 @@ export function mount(stage) {
   function layout() {
     W = stage.W; H = stage.H;
     const portrait = W / H < 0.85, rows = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }), rowK = P.leading;
-    if (portrait) rows = balanced(rows, 3);                                      // on a phone the name fills the height: a single word is set in three lines (two letters at least)
+    if (portrait) rows = balanced(rows, 2);                                      // on a phone a single word is set in two lines (never fewer than two letters a line)
     const fine = (ch) => shapeOf(ch, true) || [];
     const prof = (ch) => {                                                                                // a letter's left and right edge at each height (across the wall, in radii)
       const K = 40, lo = new Array(K).fill(NaN), hi = new Array(K).fill(NaN);
