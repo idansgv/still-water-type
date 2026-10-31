@@ -139,21 +139,17 @@ body {
 }
 .name-form[hidden] { display: none; }
 .name-form input {
-  flex: 1 1 200px; min-width: 0; padding: 4px 0; border: 0; border-radius: 0; border-bottom: 1px solid var(--dim);
+  flex: 1 1 200px; min-width: 0; padding: 0.08em 0; border: 0; border-radius: 0; border-bottom: 1px solid color-mix(in srgb, var(--fg) 16%, transparent);
   background: transparent; color: var(--fg); outline: none; text-align: center;
-  font: 500 clamp(22px, 4vw, 30px) / 1.2 var(--sans, system-ui, sans-serif); letter-spacing: -0.01em;
+  font: 500 clamp(28px, 6.2vw, 68px) / 1.08 var(--ui); letter-spacing: -0.02em;   /* the menu's type */
 }
 .name-form input:focus-visible { border-bottom-color: var(--fg); }
 .name-form button {
-  padding: 0; border: 0; background: none; color: var(--dim); cursor: pointer; font: inherit; font-size: 13px;
+  padding: 0; border: 0; background: none; color: var(--dim); cursor: pointer; font: 400 12px/1 var(--mono);   /* the menu's small mono, as on Copy prompt */
   text-decoration: underline; text-underline-offset: 0.2em;
 }
 .name-err { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--dim); text-align: center; }
 .name-err:empty { display: none; }
-#btn-customize {
-  padding: 0; border: 0; background: none; color: inherit; cursor: pointer; font: inherit;
-  text-decoration: underline; text-underline-offset: 0.2em;
-}
 
 /* ---------- click spark: ascii glyphs that pop and fade ---------- */
 .spark {
@@ -215,17 +211,17 @@ body {
 /* Shuffle: after a few quiet seconds one band of colour sweeps across the word (a different colour each time), like the shimmer on text while an AI is "thinking", then rests, then sweeps again.
    main.js adds .nudge after the visitor has been idle (and takes it away on any input, a shuffle, hover or focus). */
 @keyframes sweep { 0% { background-position: 100% 0; } 38%, 100% { background-position: 0% 0; } }   /* the image is 3x the word: at 100% and 0% the word shows only dim; at 50% the colour band is over it */
-#btn-shuffle.nudge {
+.actions button.nudge {
   color: transparent;
   background: linear-gradient(100deg, var(--dim) 0%, var(--dim) 38%, var(--nc, #ff4fe0) 50%, var(--dim) 62%, var(--dim) 100%) 0 0 / 300% 100% no-repeat;   /* one colour per sweep: main.js sets --nc, a new one each time */
   -webkit-background-clip: text; background-clip: text;
   animation: sweep 5.5s ease-in-out infinite;
 }
-#btn-shuffle.nudge:hover, #btn-shuffle.nudge:focus-visible, #btn-shuffle.nudge:active { animation: none; background: none; color: var(--fg); }
+.actions button.nudge:hover, .actions button.nudge:focus-visible, .actions button.nudge:active { animation: none; background: none; color: var(--fg); }
 
 @media (prefers-reduced-motion: reduce) {
   .stage, .hint, #toast { transition: none; }
-  #btn-shuffle.nudge { animation: none; background: none; color: inherit; }
+  .actions button.nudge { animation: none; background: none; color: inherit; }
 }
 
 noscript .plain {

@@ -41,11 +41,6 @@ function syncPanel() {
     panel = createPanel(current.inst.tune, { toast, slug: current.poster.slug, onClose: () => { wantPanel = false; panel = null; } });
   }
 }
-function togglePanel() {
-  wantPanel = !wantPanel;
-  if (wantPanel && !(current && current.inst && current.inst.tune)) { toast('This poster has no settings'); wantPanel = false; }
-  syncPanel();
-}
 
 // The footer reads: name, a fixed role line, then one of these asides, chosen at random on each load.
 const ASIDES = [
@@ -176,13 +171,12 @@ function setChrome(poster) {
 function armHint(poster, stage) {
   clearTimeout(hintTimer);
   hintEl.classList.remove('on');
-  const hint = poster.hint || (matchMedia('(pointer: fine)').matches && document.documentElement.dataset.bare === undefined ? 'Type your name' : null);   // a keyboard can type a name: say so
-  if (!hint) return;
+  if (!poster.hint) return;
   const hide = () => { hintEl.classList.remove('on'); clearTimeout(hintTimer); };
   stage.on('down', hide);
   stage.on('move', () => { if (stage.ptr.down) hide(); });
   hintTimer = setTimeout(() => {
-    if (!stage.interacted) { hintEl.textContent = hint; hintEl.classList.add('on'); }
+    if (!stage.interacted) { hintEl.textContent = poster.hint; hintEl.classList.add('on'); }
   }, 6500);
 }
 
@@ -388,13 +382,13 @@ addEventListener('pointerdown', (e) => { if (whoEl.classList.contains('open') &&
 addEventListener('keydown', (e) => { restShuffle(); if (e.key === 'Escape') { setLinks(false); closeIndex(); } });
 $('btn-shuffle').addEventListener('click', shuffle);
 let restShuffle = () => {};                                                    // set below; the shell's existing keydown handler calls it (a third window keydown listener would trip the gate's count)
-// After NUDGE_MS without any input the Shuffle word shimmers (CSS .nudge); any input, or a shuffle, puts it back to rest and restarts the wait. Off under reduced motion.
+// After NUDGE_MS without any input the Shuffle and Make it yours words shimmer (CSS .nudge); any input, or a shuffle, puts them back to rest and restarts the wait. Off under reduced motion.
 {
-  const NUDGE_MS = 7000, b = $('btn-shuffle'), COLOURS = ['#ff4fe0', '#2ee6ff', '#d4f01a', '#ff8a2b', '#a66bff'];
+  const NUDGE_MS = 7000, BTNS = [$('btn-shuffle'), $('btn-customize')], COLOURS = ['#ff4fe0', '#2ee6ff', '#d4f01a', '#ff8a2b', '#a66bff'];
   let t = null, ci = Math.floor(Math.random() * COLOURS.length);
-  const swap = () => { ci = (ci + 1 + Math.floor(Math.random() * (COLOURS.length - 1))) % COLOURS.length; b.style.setProperty('--nc', COLOURS[ci]); };   // one colour per sweep, never the same twice in a row
-  b.addEventListener('animationiteration', swap);
-  const rest = () => { b.classList.remove('nudge'); clearTimeout(t); if (!matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.dataset.bare === undefined) t = setTimeout(() => { swap(); b.classList.add('nudge'); }, NUDGE_MS); };
+  const swap = () => { ci = (ci + 1 + Math.floor(Math.random() * (COLOURS.length - 1))) % COLOURS.length; BTNS.forEach((b) => b.style.setProperty('--nc', COLOURS[ci])); };   // one colour per sweep, never the same twice in a row
+  BTNS.forEach((b) => b.addEventListener('animationiteration', swap));
+  const rest = () => { BTNS.forEach((b) => b.classList.remove('nudge')); clearTimeout(t); if (!matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.dataset.bare === undefined) t = setTimeout(() => { swap(); BTNS.forEach((b) => b.classList.add('nudge')); }, NUDGE_MS); };
   for (const ev of ['pointerdown', 'pointermove', 'wheel', 'touchstart']) addEventListener(ev, rest, { passive: true });
   restShuffle = rest; rest();
 }
@@ -410,12 +404,10 @@ addEventListener('keydown', (e) => {
     return;
   }
   // typing a letter starts the name (r, s and t keep their shortcuts)
-  if (!nameOpen && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key) && !'rRsStT'.includes(e.key)) { e.preventDefault(); openName(e.key); return; }
+  if (!nameOpen && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key)) { e.preventDefault(); openName(e.key); return; }
   const onControl = e.target.closest && e.target.closest('button, a');
   if (e.key === ' ' || e.key === 'Enter') { if (onControl) return; e.preventDefault(); shuffle(); }
-  else if (e.key === 'ArrowRight' || e.key === 'r' || e.key === 'R') { e.preventDefault(); shuffle(); }
-  else if ((e.key === 's' || e.key === 'S') && !$('btn-share').hidden) { share(); }
-  else if (e.key === 't' || e.key === 'T') { togglePanel(); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); shuffle(); }
 });
 
 const first = pickFirst();
