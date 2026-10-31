@@ -4,7 +4,6 @@ Status as of 31 Oct 2026. Tick items off here as they land.
 
 | # | Item | Status | Notes |
 |---|---|---|---|
-| 1 | Slinky: composition, possibly the font, and the coil colour | Open | Needs Idan's target for composition and colour |
 | 5 | Make it clear that a click clears a poster | Open | Needs copy and placement from Idan. Most posters use a single tap for something else, so the clear needs a home that doesn't clash |
 | 10 | Review every poster: click clears, and double tap has an effect on the letters | Open | Audit table below. Needs a run of each poster to confirm |
 
