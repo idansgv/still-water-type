@@ -27,6 +27,17 @@ TYPE.font = `"${FACE}", Arial Black, Helvetica Neue, Helvetica, sans-serif`;
 const SAVED = await fetch(new URL('./params/slinky-type.json', import.meta.url)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
 const shapeOf = (ch, fine) => ringShape(ch, { fine, font: TYPE.font, weight: TYPE.weight });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// A visitor's name keeps the poster's composition: one word is split into the lines the poster uses (3 in portrait, 2 in landscape),
+// so a single name still reads as two or three lines, like Idan Segev does. More words than lines are kept as they are.
+const balanced = (words, want) => {
+  const out = [...words];
+  while (out.length < want) {                                                  // split the longest word in half, so the words stay whole where they can
+    const i = out.reduce((best, w, k) => (w.length > out[best].length ? k : best), 0);
+    if (out[i].length < 2) break;
+    const h = Math.ceil(out[i].length / 2); out.splice(i, 1, out[i].slice(0, h), out[i].slice(h));
+  }
+  return out;
+};
 const TH = -Math.PI / 2;                       // every chain runs along -z: out of the wall, toward you
 
 export function mount(stage) {
@@ -87,7 +98,7 @@ export function mount(stage) {
   function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul) * (W / H < 0.85 ? Math.min(cam3.zoom, 1) : cam3.zoom); V.zoomMul += (f - V.zoomMul) * 0.15; }
   function layout() {
     W = stage.W; H = stage.H;
-    const portrait = W / H < 0.85, rows = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }), rowK = P.leading;
+    const portrait = W / H < 0.85, rows = balanced(linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }), portrait ? 3 : 2), rowK = P.leading;
     const fine = (ch) => shapeOf(ch, true) || [];
     const prof = (ch) => {                                                                                // a letter's left and right edge at each height (across the wall, in radii)
       const K = 40, lo = new Array(K).fill(NaN), hi = new Array(K).fill(NaN);
