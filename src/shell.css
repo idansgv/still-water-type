@@ -126,7 +126,7 @@ body {
 .hint.on { opacity: 1; }
 
 #toast {
-  position: fixed; z-index: 40; top: calc(max(14px, 2vh) + env(safe-area-inset-top, 0px)); right: var(--gutter);
+  position: fixed; z-index: 40; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); right: var(--gutter);   /* just above the footer, by Share and Shuffle */
   color: var(--dim); opacity: 0; transition: opacity 400ms ease; pointer-events: none;
 }
 #toast.on { opacity: 1; }
