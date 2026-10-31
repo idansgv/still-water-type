@@ -151,6 +151,15 @@ body {
 .name-err { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--dim); text-align: center; }
 .name-err:empty { display: none; }
 
+/* On a phone or a touch screen, Make it yours moves to the top right, where the menu corner's label sits at the top left. */
+@media (max-width: 720px), (pointer: coarse) {
+  #btn-customize {
+    position: fixed; top: 0; right: var(--gutter); z-index: 45; margin: 0; padding: calc(18px + env(safe-area-inset-top, 0px)) 0 0;
+    font: 400 12px/1.2 var(--mono); color: var(--dim); background: none; border: 0;
+  }
+  #btn-customize.nudge { color: transparent; }
+}
+
 /* ---------- click spark: ascii glyphs that pop and fade ---------- */
 .spark {
   position: fixed; z-index: 25; pointer-events: none;
