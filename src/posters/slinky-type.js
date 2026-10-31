@@ -44,7 +44,7 @@ export function mount(stage) {
   const LIGHT = (() => { const l = [-0.5, 0.75, 0.55], n = Math.hypot(...l); return l.map((v) => v / n); })();
 
   const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS, spring: 958, gravity: 23, bounce: 0.81, inertia: 0.3 };   // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (14 Oct 2026)
-  const OWN = { coils: 20, ledge: 10, bump: 2.9, push: 9.5, pull: 1.7, pull2: 2.8, coilAlpha: 0.5, font: FACE, weight: 400 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
+  const OWN = { coils: 20, ledge: 10, bump: 2.9, push: 9.5, pull: 1.7, pull2: 2.8, coilAlpha: 0.5, font: FACE, weight: 400, tracking: 0, leading: 3.7 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
   const CAM = { yaw: 30, pitch: 10, zoom: 1.5, panX: 0, panY: 0 };                                    // Idan's camera (14 Oct 2026); zoom and pan are a multiplier on the fitted scene and a share of the screen
   for (const [k, v] of Object.entries(SAVED)) { if (k in CAM) CAM[k] = v; else if (k in OWN) OWN[k] = v; else if (k in shared) shared[k] = v; }
   const DEFAULTS = { ...shared, ...OWN, ...CAM };
@@ -87,7 +87,7 @@ export function mount(stage) {
   function fit() { const r = V.rot(), [, , w, h] = origin2(r), f = Math.min(0.92 * W / (w / r.z), 0.8 * H / (h / r.z)) / (r.z / V.zoomMul) * (W / H < 0.85 ? Math.min(cam3.zoom, 1) : cam3.zoom); V.zoomMul += (f - V.zoomMul) * 0.15; }
   function layout() {
     W = stage.W; H = stage.H;
-    const portrait = W / H < 0.85, rows = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }), rowK = 3.7;
+    const portrait = W / H < 0.85, rows = linesFor(stage, portrait ? ['IDAN', 'SE', 'GEV'] : ['IDAN', 'SEGEV'], { upper: true }), rowK = P.leading;
     const fine = (ch) => shapeOf(ch, true) || [];
     const prof = (ch) => {                                                                                // a letter's left and right edge at each height (across the wall, in radii)
       const K = 40, lo = new Array(K).fill(NaN), hi = new Array(K).fill(NaN);
@@ -106,7 +106,7 @@ export function mount(stage) {
       return hi;
     };
     const rowXs = (row) => {                                                                              // each letter's origin along the row, centred on the row's ink
-      const cs = [...row], xs = [0]; for (let j = 1; j < cs.length; j++) xs.push(xs[j - 1] + pairShift(cs[j - 1], cs[j]));
+      const cs = [...row], xs = [0]; for (let j = 1; j < cs.length; j++) xs.push(xs[j - 1] + pairShift(cs[j - 1], cs[j]) + P.tracking);
       const left = xs[0] + ext(cs[0])[0], right = xs[cs.length - 1] + ext(cs[cs.length - 1])[1], c = (left + right) / 2;
       return { xs: xs.map((x) => x - c), span: right - left };
     };
@@ -294,7 +294,7 @@ export function mount(stage) {
         { name: 'Scene', items: [Ctl('ledge', 'How deep the ledge is (radii, re-forms)', 1.2, 14, 0.1), Ctl('bump', 'How hard the first bump is (radii / s)', 0.5, 8, 0.1), Ctl('pull', 'How far the first bump pulls the cap ahead (radii)', 0, 4, 0.1), Ctl('pull2', 'How far the second bump pulls it (radii)', 0, 5, 0.1), Ctl('push', 'How hard the second bump is (radii / s)', 3, 18, 0.1), Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
         { name: 'Rings', items: [Ctl('coilAlpha', 'Coil opacity', 0, 1, 0.05), Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path', 0, 2, 0.05), Ctl('spring', 'Wire stiffness', 5, 4000, 1), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction', 0, 1.5, 0.05), Ctl('bounce', 'Bounce', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05)] },
-        { name: 'Type', items: [{ key: 'font', label: 'Font (Google Fonts family)', type: 'text', rows: 1 }, Ctl('weight', 'Weight', 100, 900, 100)] },
+        { name: 'Type', items: [{ key: 'font', label: 'Font (Google Fonts family)', type: 'text', rows: 1 }, Ctl('weight', 'Weight', 100, 900, 100), Ctl('tracking', 'Letter spacing, kerning (radii)', -0.5, 0.5, 0.01), Ctl('leading', 'Line spacing, leading (radii)', 2, 6, 0.05)] },
         { name: 'Camera', items: [Ctl('yaw', 'Turn (deg)', -90, 90, 1), Ctl('pitch', 'Tilt (deg)', 0, 89, 1), Ctl('zoom', 'Zoom', 0.3, 4, 0.01), Ctl('panX', 'Shift left / right', -0.6, 0.6, 0.005), Ctl('panY', 'Shift up / down', -0.6, 0.6, 0.005)] },
       ],
       actions: {
@@ -305,7 +305,7 @@ export function mount(stage) {
       set(key, value) {
         P[key] = value;
         if (key === 'font' || key === 'weight') { clearTimeout(typeT); typeT = setTimeout(() => applyType(P.font, P.weight), 500); }   // a font loads once typing pauses
-        else if (['coils', 'size', 'gap', 'wire', 'ledge'].includes(key)) layout();
+        else if (['coils', 'size', 'gap', 'wire', 'ledge', 'tracking', 'leading'].includes(key)) layout();
       },
       reset() { Object.assign(P, DEFAULTS); setCamera(CAM); applyType(P.font, P.weight); layout(); },
     },
