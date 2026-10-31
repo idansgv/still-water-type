@@ -14,16 +14,18 @@ import { TAP } from '../gestures.js';
 import { linesFor } from '../name.js';
 
 // The face: Bungee Inline (open licence, from Google Fonts), loaded before the first layout; Arial Black stands in if it does not arrive.
-const FACE = new URLSearchParams(location.search).get('font') || 'Bungee Inline';
-{
-  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(FACE).replace(/%20/g, '+')}&display=swap`;
+let FACE = new URLSearchParams(location.search).get('font') || 'Bungee Inline';   // the family the type is set in: ?font=, the Font field in the settings panel, or the saved default
+const TYPE = { font: '', weight: 400 };                                              // what the shapes are cut from (see applyType in mount)
+async function loadFace(name) {
+  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, '+')}&display=swap`;
   await new Promise((r) => { l.onload = r; l.onerror = r; setTimeout(r, 2500); document.head.appendChild(l); });
-  try { await Promise.race([document.fonts.load(`400 100px "${FACE}"`), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the stand-in */ }
+  try { await Promise.race([document.fonts.load(`400 100px "${name}"`), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* the stand-in */ }
 }
-const FONT = `"${FACE}", Arial Black, Helvetica Neue, Helvetica, sans-serif`;
+await loadFace(FACE);
+TYPE.font = `"${FACE}", Arial Black, Helvetica Neue, Helvetica, sans-serif`;
 // Defaults saved from the settings panel (Save as defaults, local dev server): src/posters/params/slinky-type.json, over the built-in ones below.
 const SAVED = await fetch(new URL('./params/slinky-type.json', import.meta.url)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
-const shapeOf = (ch, fine) => ringShape(ch, { fine, font: FONT, weight: 400 });
+const shapeOf = (ch, fine) => ringShape(ch, { fine, font: TYPE.font, weight: TYPE.weight });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const TH = -Math.PI / 2;                       // every chain runs along -z: out of the wall, toward you
 
@@ -42,11 +44,17 @@ export function mount(stage) {
   const LIGHT = (() => { const l = [-0.5, 0.75, 0.55], n = Math.hypot(...l); return l.map((v) => v / n); })();
 
   const shared = { ...SHARED_DEFAULTS, ...POSTER_DEFAULTS, spring: 958, gravity: 23, bounce: 0.81, inertia: 0.3 };   // Idan's tuned Slinky: the rings, the wire, the contact, gravity and friction (14 Oct 2026)
-  const OWN = { coils: 20, ledge: 10, bump: 2.9, push: 9.5, pull: 1.7, pull2: 2.8 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
+  const OWN = { coils: 20, ledge: 10, bump: 2.9, push: 9.5, pull: 1.7, pull2: 2.8, coilAlpha: 0.5, font: FACE, weight: 400 };                      // rings in a letter; how deep the ledge is; how far the first and the second bump carry the head (radii)
   const CAM = { yaw: 30, pitch: 10, zoom: 1.5, panX: 0, panY: 0 };                                    // Idan's camera (14 Oct 2026); zoom and pan are a multiplier on the fitted scene and a share of the screen
   for (const [k, v] of Object.entries(SAVED)) { if (k in CAM) CAM[k] = v; else if (k in OWN) OWN[k] = v; else if (k in shared) shared[k] = v; }
   const DEFAULTS = { ...shared, ...OWN, ...CAM };
   const P = bindParams(shared, OWN);
+  let typeT = 0;
+  async function applyType(font, weight) {                              // a new family loads, then the letters are cut again
+    if (font !== FACE) { FACE = font; await loadFace(font); }
+    TYPE.font = `"${FACE}", Arial Black, Helvetica Neue, Helvetica, sans-serif`; TYPE.weight = +weight || 400; layout();
+  }
+  if (P.font !== FACE || +P.weight !== TYPE.weight) applyType(P.font, P.weight);   // a saved font or weight
   const V = createView(stage, { yaw: CAM.yaw, pitch: CAM.pitch }); V.setView('iso');
   const cam3 = { zoom: CAM.zoom, panX: CAM.panX, panY: CAM.panY };
   const camGet = { yaw: () => V.target.yaw, pitch: () => V.target.pitch, zoom: () => cam3.zoom, panX: () => cam3.panX, panY: () => cam3.panY };
@@ -184,7 +192,8 @@ export function mount(stage) {
     for (const { L, i } of items) {
       if (i > 0 && L.open < 0.01) continue;                                         // squeezed behind the cap: nothing to see
       const tone = ink;
-      ctx.strokeStyle = col && i > 0 ? col.css(i / Math.max(1, L.ring.n - 1)) : tone;       // a coil ring: its place along the spring picks its colour
+      ctx.strokeStyle = col && i > 0 ? col.css(i / Math.max(1, L.ring.n - 1)) : tone;
+      ctx.globalAlpha = i > 0 ? P.coilAlpha : 1;                                  // the coil is see-through; the cap stays solid       // a coil ring: its place along the spring picks its colour
       const a = L.ring.a[i], ux = Math.cos(a), uy = Math.sin(a), cx = L.ring.x[0] + (L.ring.x[i] - L.ring.x[0]) * L.open, cy = L.ring.y[0] + (L.ring.y[i] - L.ring.y[0]) * L.open;
       ctx.beginPath();
       for (const loop of (i === 0 ? L.cap : L.shape)) {
@@ -283,8 +292,9 @@ export function mount(stage) {
       title: 'Slinky', persist: true, values: P, defaults: DEFAULTS,
       groups: [
         { name: 'Scene', items: [Ctl('ledge', 'How deep the ledge is (radii, re-forms)', 1.2, 14, 0.1), Ctl('bump', 'How hard the first bump is (radii / s)', 0.5, 8, 0.1), Ctl('pull', 'How far the first bump pulls the cap ahead (radii)', 0, 4, 0.1), Ctl('pull2', 'How far the second bump pulls it (radii)', 0, 5, 0.1), Ctl('push', 'How hard the second bump is (radii / s)', 3, 18, 0.1), Ctl('coils', 'Rings in a letter (re-forms)', 4, 40, 1), Ctl('gap', 'Closest the coils get (re-forms)', 0.02, 0.3, 0.005), Ctl('wire', 'Wire thickness', 0.02, 0.2, 0.005)] },
-        { name: 'Rings', items: [Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path', 0, 2, 0.05), Ctl('spring', 'Wire stiffness', 5, 4000, 1), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05)] },
+        { name: 'Rings', items: [Ctl('coilAlpha', 'Coil opacity', 0, 1, 0.05), Ctl('lean', 'Most a ring may lean off the path (deg)', 15, 85, 1), Ctl('leanK', 'How hard that limit is held', 0.05, 3, 0.05), Ctl('square', 'Rings square to the path', 0, 2, 0.05), Ctl('spring', 'Wire stiffness', 5, 4000, 1), Ctl('inertia', 'Ring inertia', 0.1, 2, 0.05)] },
         { name: 'World', items: [Ctl('gravity', 'Gravity', 4, 60, 1), Ctl('grip', 'Friction', 0, 1.5, 0.05), Ctl('bounce', 'Bounce', 0.05, 0.95, 0.01), Ctl('damping', 'Air drag', 0, 4, 0.05)] },
+        { name: 'Type', items: [{ key: 'font', label: 'Font (Google Fonts family)', type: 'text', rows: 1 }, Ctl('weight', 'Weight', 100, 900, 100)] },
         { name: 'Camera', items: [Ctl('yaw', 'Turn (deg)', -90, 90, 1), Ctl('pitch', 'Tilt (deg)', 0, 89, 1), Ctl('zoom', 'Zoom', 0.3, 4, 0.01), Ctl('panX', 'Shift left / right', -0.6, 0.6, 0.005), Ctl('panY', 'Shift up / down', -0.6, 0.6, 0.005)] },
       ],
       actions: {
@@ -292,8 +302,12 @@ export function mount(stage) {
         'M  Renderer (line / solid)': () => { render = RENDERERS[(RENDERERS.indexOf(render) + 1) % RENDERERS.length]; },
         'Face on': () => setCamera({ ...CAM, yaw: 0, pitch: 0 }), 'From above': () => setCamera({ ...CAM, yaw: 25, pitch: 55 }), '0  Default camera': () => setCamera(CAM),
       },
-      set(key, value) { P[key] = value; if (['coils', 'size', 'gap', 'wire', 'ledge'].includes(key)) layout(); },
-      reset() { Object.assign(P, DEFAULTS); setCamera(CAM); layout(); },
+      set(key, value) {
+        P[key] = value;
+        if (key === 'font' || key === 'weight') { clearTimeout(typeT); typeT = setTimeout(() => applyType(P.font, P.weight), 500); }   // a font loads once typing pauses
+        else if (['coils', 'size', 'gap', 'wire', 'ledge'].includes(key)) layout();
+      },
+      reset() { Object.assign(P, DEFAULTS); setCamera(CAM); applyType(P.font, P.weight); layout(); },
     },
     debug: { run: (n) => { for (let i = 0; i < n; i++) stepAll(); draw(); }, letters: () => letters, V, click: (i) => click(letters[i]), tap: (i) => click(letters[i]) },
     destroy() { removeEventListener('keydown', onKey); rv.destroy(); offs.forEach((f) => f()); V.destroy(); stage.setBackdrop(null); },
