@@ -10,7 +10,7 @@ import { ringShape } from './slinky-shape.js';
 import { createView } from './slinky-view.js';
 import { colourOf } from '../colour.js';
 import { createReveal, ink as rvInk, grid, corners, label, titleBlock } from './reveal.js';
-import { TAP } from '../gestures.js';
+import { TAP, DOUBLE_MS } from '../gestures.js';
 import { linesFor } from '../name.js';
 
 // The face: Bungee Inline (open licence, from Google Fonts), loaded before the first layout; Arial Black stands in if it does not arrive.
@@ -285,9 +285,14 @@ export function mount(stage) {
     if (!pressed && down && !orbiting && Math.hypot(q.x - down.x, q.y - down.y) > 10) { orbiting = true; V.orbit.start(down); }
     if (orbiting) V.orbit.move(q);
   }));
+  let lastTap = -1;                                                            // when the last tap landed: two within DOUBLE_MS put every letter back on the wall
   offs.push(stage.on('up', (q, e) => {
     if (e.pointerId !== pid) return;
-    if (!(hand && !hand.auto) && !orbiting && pressed && performance.now() - down.t < TAP.ms && Math.hypot(q.x - down.x, q.y - down.y) < TAP.px) click(pressed);
+    if (!(hand && !hand.auto) && !orbiting && pressed && performance.now() - down.t < TAP.ms && Math.hypot(q.x - down.x, q.y - down.y) < TAP.px) {
+      const now = performance.now();
+      if (lastTap >= 0 && now - lastTap < DOUBLE_MS) { lastTap = -1; layout(); }
+      else { lastTap = now; click(pressed); }
+    }
     if (hand && !hand.auto) { hand.L.state = 'drop'; hand.L.clicks = Math.max(hand.L.clicks, 1); wake(hand.L); }                                      // let go of the cap: it falls from where it was held
     panning = null; if (orbiting) V.orbit.end(); if (hand && !hand.auto) hand = null; pressed = null; down = null; orbiting = false; pid = null;
   }));
