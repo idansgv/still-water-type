@@ -1,0 +1,7 @@
+# Internal notes and tooling: not part of the public site
+BRIEF.md
+docs/
+tools/
+work/
+output/
+test-results/
