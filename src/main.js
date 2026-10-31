@@ -221,7 +221,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     showFallback(poster);
   }
   window.__poster = { slug: poster.slug, seed, theme: theme.name, colour: stage.colour ? stage.colour.name : null, stage: current.stage, inst };
-  history.replaceState(null, '', `/p/${poster.slug}/${urlName ? `?n=${encodeURIComponent(urlName)}` : ''}#s=${seed.toString(36)}`);   // the address bar follows the poster: copy it, or reload to see the same one
+  history.replaceState(null, '', `/p/${poster.slug}/${urlName ? `?n=${encodeURIComponent(urlName)}` : ''}`);   // the address bar follows the poster: copy it to share it
   track('poster_view', { slug: poster.slug, theme: theme.name, first: shuffles === 0, named: !!(myName && poster.nameable), failed: !current.stage });
   try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
   requestAnimationFrame(() => stageEl.classList.remove('swap'));
@@ -240,7 +240,7 @@ async function share() {
   if (!current) return;
   const { poster, seed } = current;
   const q = myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : '';
-  const url = `${location.origin}/p/${poster.slug}/${q}#s=${seed.toString(36)}`;
+  const url = `${location.origin}/p/${poster.slug}/${q}`;
   const data = { title: `${poster.title} · Idan Segev`, text: poster.blurb, url };
   track('share', { slug: poster.slug, named: !!q });
   if (navigator.share) {
