@@ -18,7 +18,7 @@ import { createReveal, ink as rvInk } from './reveal.js';
 import { linesFor, lettersFor } from '../name.js';
 
 const FAMILY = 'Fraunces', WEIGHT = 900, NAME = 'Idan Segev';
-const DEF = { cells: 9000, out: 0.28, speed: 0.35, line: 1.3 };
+const DEF = { cells: 12000, out: 0.28, speed: 0.35, line: 1.3 };
 const DOT = 1;                                     // reveal: the radius of a seed, Idan's dot size from the test page
 const REBOOT_MS = 5000;                            // Idan (29 Oct 2026): once the name has condensed and nobody touches it, it starts over after this long
 const MELT = 0.03;                                // the share of cells that merge away each frame while it starts over (about 2 s back to coarse)
