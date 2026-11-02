@@ -421,6 +421,19 @@ export const POSTERS = [
     load: () => import('./moonlit.js'),
     prompt: "The name \"Idan Segev\" in Bitter 900 as a slick on a night sea seen from straight above, with WebGL2. A slick damps the smallest ripples: inside the letters short waves are almost gone, mid waves halved, the swell untouched. Sum about 28 directional waves (5 to 380 px, gravity-capillary dispersion); ripples too fine for a pixel become slope variance. Light it with a moon outside the frame through a Beckmann slope distribution and draw the glints as a Poisson count per small cell, so rough water is a field of separate sparkles and the letters stay dark mirrors. A quarter-size wind field (pointer moves inject gusts that drift downwind and decay) plus a light breeze everywhere outside the letters, so the name shows at rest. Hold for a gale: swell, foam on the crests, the slick tears into strands and later heals. Black and white only.",
   },
+  {
+    slug: 'gyosho',
+    title: 'Gyosho',
+    words: ['Idan', 'Segev'],
+    blurb: 'An album title written huge with a dry brush over its song names. Drag to paint with the same brush; tap to write it again.',
+    hint: null,
+    themes: { dark: 0.5, light: 0.5 },
+    draft: true,
+    nameable: true,
+    face: { family: 'Inter Tight', weight: 800 },
+    load: () => import('./gyosho.js'),
+    prompt: "An album title written huge with a dry calligraphic brush over the album's song names, after the Amiens jazz festival poster, on a 2D canvas. Render each letter in a heavy sans (Inter Tight 800), thin it to a one-pixel centre line (Zhang-Suen) and walk that into strokes. Place the letters big and overlapping, a few to a row, each turned and scaled a little; warp the strokes with a slow wobble, press in at the start, end blunt or in a flick that curls off, and join strokes into movements with thin hairlines so the brush rarely lifts (Gyosho, semi-cursive). Paint with a brush of about a hundred bristles, each with its own ink, breaking on its own in short runs as the brush dries along the stroke, plus thin white fibre cuts along the stroke and a little paper grain. Under it, the song names in Inter Tight 500, large and left-aligned, each after its length. On load the brush writes the title live; a drag paints with the same brush (slow is heavy and wet, fast thin and dry, a quick release flicks); a tap writes it again with a new hand. Black and white only.",
+  },
 ];
 
 export const bySlug = (slug) => POSTERS.find((p) => p.slug === slug);

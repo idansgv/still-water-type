@@ -313,6 +313,22 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Self-demo | the light swings once at 3.5 s, then every 9 to 13 s, until the first touch; off under reduced motion |
 | Idle | light eases home after 4 s |
 
+## In the pipeline (draft): Gyosho (2 Nov 2026)
+
+| | Gyosho |
+|---|---|
+| Load | the brush writes the title in one breath: slow through turns, quick on straight runs, short lifts between movements; under reduced motion the still is drawn at once |
+| Drag | paints with the same brush: slow is heavy and wet, fast thin and dry; a quick release flicks off (starts after 8 px) |
+| Tap | writes it again with a new hand, after a 420 ms beat (under 250 ms, 8 px); a second tap in the beat is the same rewrite |
+| Tap on background | the same (the whole page is the poster) |
+| Hold | nothing |
+| Double tap | one rewrite |
+| Three taps (reveal) | page inverts; each movement's centre line, the brush's width, where it presses and lifts, a title block |
+| Self-demo | none (the live writing on load is the intro) |
+| Words | the ink writes the name or the album title; the songs are one of 12 albums with tracklists (a title without one shows one of the 12 instead) |
+| Colour (rare) | the framework's colour pass, on the first press |
+| Multi-touch | one pointer |
+
 ## Slinky
 
 | | Slinky |

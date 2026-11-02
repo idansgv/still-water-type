@@ -1,0 +1,578 @@
+<title>Gyosho</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter+Tight:wght@500;800&family=Caveat:wght@700&family=Nothing+You+Could+Do&display=swap">
+<style>
+/* Layout: an album title written huge in a dry, streaky brush over its song names in a plain sans. A quiet foot line and a test-only settings sheet. */
+:root {
+  --bg: #ffffff; --ink: #000000; --dim: #707070; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(255, 255, 255, 0.96);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+:root[data-theme="dark"] { --bg: #000000; --ink: #ffffff; --dim: #8c8c8c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row input:not([type]) { grid-column: 1 / -1; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 5px 6px; }
+.row select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 5px 6px; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; flex-wrap: wrap; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="An album title written huge with a dry brush, over its song names set in a plain sans. Drag to paint with the same brush; tap to write it again."></canvas>
+<div class="foot"><span><b>Gyosho</b> &nbsp;test &nbsp;<span id="albumName"></span></span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row" for="album"><span>Album</span><select id="album"></select></label>
+  <label class="row" for="name"><span>Your name (make it your own)</span><input id="name" maxlength="14" autocomplete="off" spellcheck="false" placeholder="the album title"></label>
+  <label class="row" for="face"><span>Letters from</span><select id="face"></select></label>
+  <label class="row" for="brush"><span>Brush width</span><output id="brushO"></output><input type="range" id="brush" min="0.4" max="2.2" step="0.05"></label>
+  <label class="row" for="exag"><span>Movement</span><output id="exagO"></output><input type="range" id="exag" min="0" max="1.6" step="0.05"></label>
+  <label class="row" for="flow"><span>Flow (strokes run together)</span><output id="flowO"></output><input type="range" id="flow" min="0" max="1" step="0.05"></label>
+  <label class="row" for="dry"><span>Dry brush</span><output id="dryO"></output><input type="range" id="dry" min="0" max="2" step="0.05"></label>
+  <label class="row" for="speed"><span>Writing speed</span><output id="speedO"></output><input type="range" id="speed" min="0.5" max="8" step="0.1"></label>
+  <label class="row" for="grain"><span>Paper grain</span><output id="grainO"></output><input type="range" id="grain" min="0" max="1" step="0.05"></label>
+  <label class="row" for="overlap"><span>Where ink meets type</span><select id="overlap"><option value="0">They merge</option><option value="1">Knock out</option></select></label>
+  <label class="row tog" for="type"><span>Song names underneath</span><input type="checkbox" id="type"></label>
+  <label class="row tog" for="dark"><span>Black page</span><input type="checkbox" id="dark"></label>
+  <div class="acts"><button id="again" type="button">Write it again</button><button id="next" type="button">Next album</button><button id="copy" type="button">Copy settings</button></div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c'), cx = cv.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+  const DEF = { album: 7, face: 0, brush: 1.4, exag: 1.55, flow: 0.25, dry: 0.2, grain: 1, speed: 7.3, overlap: 0, name: '', type: true, dark: false, seed: 304174 };   // Idan's tuned values, 2 Nov 2026
+  const P = { ...DEF };
+  try { Object.assign(P, JSON.parse(localStorage.getItem('gyosho') || '{}')); } catch (e) { /* defaults */ }
+  const save = () => { try { localStorage.setItem('gyosho', JSON.stringify(P)); } catch (e) { /* fine */ } };
+
+  // ---------- albums: the title goes in ink, the songs go underneath, each after its length ----------
+  const ALBUMS = [
+    ['Kind of Blue', 'Miles Davis', [['So What', '9:22'], ['Freddie Freeloader', '9:46'], ['Blue in Green', '5:37'], ['All Blues', '11:33'], ['Flamenco Sketches', '9:26']]],
+    ['A Love Supreme', 'John Coltrane', [['Acknowledgement', '7:47'], ['Resolution', '7:22'], ['Pursuance', '10:42'], ['Psalm', '7:05']]],
+    ['Blue Train', 'John Coltrane', [['Blue Train', '10:43'], ["Moment's Notice", '9:10'], ['Locomotion', '7:14'], ["I'm Old Fashioned", '7:58'], ['Lazy Bird', '7:00']]],
+    ['Giant Steps', 'John Coltrane', [['Giant Steps', '4:43'], ['Cousin Mary', '5:45'], ['Countdown', '2:21'], ['Spiral', '5:56'], ["Syeeda's Song Flute", '7:00'], ['Naima', '4:21'], ['Mr. P.C.', '6:57']]],
+    ['Time Out', 'The Dave Brubeck Quartet', [['Blue Rondo à la Turk', '6:44'], ['Strange Meadow Lark', '7:22'], ['Take Five', '5:24'], ['Three to Get Ready', '5:24'], ["Kathy's Waltz", '4:48'], ["Everybody's Jumpin'", '4:23'], ['Pick Up Sticks', '4:16']]],
+    ['Mingus Ah Um', 'Charles Mingus', [['Better Git It in Your Soul', '7:23'], ['Goodbye Pork Pie Hat', '5:44'], ['Boogie Stop Shuffle', '3:41'], ['Self-Portrait in Three Colors', '3:09'], ['Open Letter to Duke', '5:51'], ['Bird Calls', '3:12'], ['Fables of Faubus', '8:13'], ['Pussy Cat Dues', '6:27'], ['Jelly Roll', '6:17']]],
+    ['Bitches Brew', 'Miles Davis', [["Pharaoh's Dance", '20:06'], ['Bitches Brew', '26:58'], ['Spanish Key', '17:34'], ['John McLaughlin', '4:22'], ['Miles Runs the Voodoo Down', '14:01'], ['Sanctuary', '10:56']]],
+    ['Pink Moon', 'Nick Drake', [['Pink Moon', '2:06'], ['Place to Be', '2:43'], ['Road', '2:02'], ['Which Will', '2:58'], ['Horn', '1:23'], ['Things Behind the Sun', '3:57'], ['Know', '2:26'], ['Parasite', '3:36'], ['Free Ride', '3:06'], ['Harvest Breed', '1:37'], ['From the Morning', '2:30']]],
+    ['Mezzanine', 'Massive Attack', [['Angel', '6:18'], ['Risingson', '5:58'], ['Teardrop', '5:29'], ['Inertia Creeps', '5:56'], ['Exchange', '4:11'], ['Dissolved Girl', '6:06'], ['Man Next Door', '5:55'], ['Black Milk', '6:20'], ['Mezzanine', '5:54'], ['Group Four', '8:13'], ['(Exchange)', '4:08']]],
+    ['Blue', 'Joni Mitchell', [['All I Want', '3:32'], ['My Old Man', '3:33'], ['Little Green', '3:25'], ['Carey', '3:00'], ['Blue', '3:00'], ['California', '3:48'], ['This Flight Tonight', '2:50'], ['River', '4:00'], ['A Case of You', '4:20'], ['The Last Time I Saw Richard', '4:13']]],
+    ['Low', 'David Bowie', [['Speed of Life', '2:46'], ['Breaking Glass', '1:51'], ['What in the World', '2:23'], ['Sound and Vision', '3:03'], ['Always Crashing in the Same Car', '3:29'], ['Be My Wife', '2:55'], ['A New Career in a New Town', '2:51'], ['Warszawa', '6:20'], ['Art Decade', '3:43'], ['Weeping Wall', '3:26'], ['Subterraneans', '5:39']]],
+    ['Kid A', 'Radiohead', [['Everything in Its Right Place', '4:11'], ['Kid A', '4:44'], ['The National Anthem', '5:51'], ['How to Disappear Completely', '5:56'], ['Treefingers', '3:42'], ['Optimistic', '5:15'], ['In Limbo', '3:31'], ['Idioteque', '5:09'], ['Morning Bell', '4:35'], ['Motion Picture Soundtrack', '7:01']]],
+  ];
+  const FACES = [
+    { label: 'Sans skeleton (Inter Tight)', family: 'Inter Tight', weight: 800 },
+    { label: 'Hand (Caveat)', family: 'Caveat', weight: 700 },
+    { label: 'Monoline hand (Nothing You Could Do)', family: 'Nothing You Could Do', weight: 400 },
+  ];
+
+  // ---------- small maths ----------
+  const mulberry = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const hash = (i, j) => { let h = Math.imul(i, 374761393) + Math.imul(j, 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  const vn = (x, y) => {   // value noise, 0..1
+    const i = Math.floor(x), j = Math.floor(y), u = x - i, v = y - j, su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
+    const a = hash(i, j), b = hash(i + 1, j), c = hash(i, j + 1), d = hash(i + 1, j + 1);
+    return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv;
+  };
+  const n1 = (x, o) => vn(x, o * 17.13);
+
+  // ---------- a letter's centre line, from the face ----------
+  const SK = new Map(), F = 200;
+  function skeleton(ch, f) {
+    const key = f.family + '|' + ch; if (SK.has(key)) return SK.get(key);
+    const w = Math.round(F * 2), h = Math.round(F * 1.7), ox = F * 0.3, base = F * 1.25;
+    const m = document.createElement('canvas'); m.width = w; m.height = h;
+    const x = m.getContext('2d', { willReadFrequently: true });
+    x.font = `${f.weight} ${F}px "${f.family}"`; x.fillStyle = '#000'; x.textBaseline = 'alphabetic';
+    x.fillText(ch, ox, base);
+    const adv = x.measureText(ch).width / F;
+    const d = x.getImageData(0, 0, w, h).data, img = new Uint8Array(w * h);
+    let x0 = w, y0 = h, x1 = 0, y1 = 0;
+    for (let i = 0; i < w * h; i++) if (d[i * 4 + 3] > 110) { img[i] = 1; const px = i % w, py = (i / w) | 0; if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py; }
+    const out = { adv, strokes: [] };
+    if (x1 <= x0) { SK.set(key, out); return out; }
+    x0 = Math.max(1, x0 - 2); y0 = Math.max(1, y0 - 2); x1 = Math.min(w - 2, x1 + 2); y1 = Math.min(h - 2, y1 + 2);
+    // blobs too small to thin (the dot on an i) become a short dab
+    const lab = new Int32Array(w * h), blobs = [];
+    for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+      const i0 = py * w + px; if (!img[i0] || lab[i0]) continue;
+      const st = [i0], b = { n: 0, sx: 0, sy: 0, maxD: 0, x0: px, x1: px, y0: py, y1: py }; lab[i0] = blobs.length + 1;
+      while (st.length) { const i = st.pop(), qx = i % w, qy = (i / w) | 0; b.n++; b.sx += qx; b.sy += qy; b.x0 = Math.min(b.x0, qx); b.x1 = Math.max(b.x1, qx); b.y0 = Math.min(b.y0, qy); b.y1 = Math.max(b.y1, qy);
+        for (const j of [i - 1, i + 1, i - w, i + w]) if (img[j] && !lab[j]) { lab[j] = blobs.length + 1; st.push(j); } }
+      blobs.push(b);
+    }
+    // thin to a one-pixel centre line (Zhang-Suen)
+    for (let changed = true; changed;) {
+      changed = false;
+      for (let pass = 0; pass < 2; pass++) {
+        const del = [];
+        for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+          const i = py * w + px; if (!img[i]) continue;
+          const p2 = img[i - w], p3 = img[i - w + 1], p4 = img[i + 1], p5 = img[i + w + 1], p6 = img[i + w], p7 = img[i + w - 1], p8 = img[i - 1], p9 = img[i - w - 1];
+          const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9; if (B < 2 || B > 6) continue;
+          const A = (!p2 && p3) + (!p3 && p4) + (!p4 && p5) + (!p5 && p6) + (!p6 && p7) + (!p7 && p8) + (!p8 && p9) + (!p9 && p2); if (A !== 1) continue;
+          if (pass === 0 ? (p2 && p4 && p6) || (p4 && p6 && p8) : (p2 && p4 && p8) || (p2 && p6 && p8)) continue;
+          del.push(i);
+        }
+        for (const i of del) img[i] = 0; if (del.length) changed = true;
+      }
+    }
+    for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+      const i = py * w + px; if (!img[i]) continue;
+      const p2 = img[i - w], p3 = img[i - w + 1], p4 = img[i + 1], p5 = img[i + w + 1], p6 = img[i + w], p7 = img[i + w - 1], p8 = img[i - 1], p9 = img[i - w - 1];
+      if (p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 !== 2) continue;
+      if ((p2 && p4) || (p4 && p6) || (p6 && p8) || (p8 && p2)) img[i] = 0;
+    }
+    // walk the centre line into strokes, as straight as the line allows, each from its leftmost loose end
+    const N8 = [-w - 1, -w, -w + 1, -1, 1, w - 1, w, w + 1], DX = [-1, 0, 1, -1, 1, -1, 0, 1], DY = [-1, -1, -1, 0, 0, 1, 1, 1];
+    const used = new Uint8Array(w * h), pix = [];
+    for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) if (img[py * w + px]) pix.push(py * w + px);
+    const free = (i) => { const r = []; for (let k = 0; k < 8; k++) { const j = i + N8[k]; if (img[j] && !used[j]) r.push(k); } return r; };
+    const paths = [];
+    for (;;) {
+      let start = -1, bs = Infinity;
+      for (const i of pix) if (!used[i] && free(i).length <= 1) { const sc = (i % w) + ((i / w) | 0) * 0.35; if (sc < bs) { bs = sc; start = i; } }
+      if (start < 0) for (const i of pix) if (!used[i]) { start = i; break; }
+      if (start < 0) break;
+      const path = [start]; used[start] = 1; let cur = start, dx = 0, dy = 0;
+      for (;;) {
+        const fr = free(cur); if (!fr.length) break;
+        let best = fr[0], sb = -9;
+        for (const k of fr) { const sc = (DX[k] * dx + DY[k] * dy) / Math.hypot(DX[k], DY[k]) + (DX[k] && DY[k] ? 0 : 0.05); if (sc > sb) { sb = sc; best = k; } }
+        const nx = cur + N8[best];
+        for (const k of fr) used[cur + N8[k]] = 1;
+        dx = dx * 0.6 + DX[best] * 0.4; dy = dy * 0.6 + DY[best] * 0.4;
+        path.push(nx); used[nx] = 1; cur = nx;
+      }
+      paths.push(path);
+    }
+    const covered = new Set();
+    for (const path of paths) {
+      if (path.length < 10) continue;
+      for (const i of path) covered.add(lab[i]);
+      let q = path.map((i) => [i % w, (i / w) | 0]);
+      for (let it = 0; it < 4; it++) q = q.map((p, k) => (k === 0 || k === q.length - 1 ? p : [(q[k - 1][0] + 2 * p[0] + q[k + 1][0]) / 4, (q[k - 1][1] + 2 * p[1] + q[k + 1][1]) / 4]));
+      out.strokes.push(q.map(([a, b]) => [(a - ox) / F, (b - base) / F]));
+    }
+    blobs.forEach((b, k) => {
+      if (covered.has(k + 1) || b.n < F * F * 0.0015) return;
+      const cx0 = b.sx / b.n, cy0 = b.sy / b.n, r = Math.max(Math.max(b.x1 - b.x0, b.y1 - b.y0) * 0.35, F * 0.07);
+      out.strokes.push([[cx0 - r, cy0 - r * 0.7], [cx0, cy0], [cx0 + r * 0.5, cy0 + r * 0.8]].map(([a, c]) => [(a - ox) / F, (c - base) / F]));
+    });
+    SK.set(key, out); return out;
+  }
+
+  // ---------- the hand: place letters, join strokes, warp, flick ----------
+  function splitRows(title, aspect) {
+    const k = Math.max(3, Math.round(1.6 + 3 * aspect)), words = [];
+    for (const wd of title.split(/\s+/)) {
+      if (wd.length <= k + 1) { words.push(wd); continue; }
+      const n = Math.ceil(wd.length / k), m = Math.ceil(wd.length / n);
+      for (let i = 0; i < wd.length; i += m) words.push(wd.slice(i, i + m));
+    }
+    const rows = [];
+    for (let i = 0; i < words.length; i++) {
+      const wd = words[i];
+      if (wd.length <= 2 && i + 1 < words.length && (wd + words[i + 1]).length <= k) { rows.push(wd + ' ' + words[i + 1]); i++; }
+      else rows.push(wd);
+    }
+    return rows;
+  }
+  const lenOf = (pts) => { let s = 0; for (let i = 1; i < pts.length; i++) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return s; };
+  function resample(pts, ds) {   // pts: [x, y, hair]
+    const out = [pts[0].slice()]; let carry = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 1e-6) continue;
+      let t = ds - carry;
+      while (t <= L) { const u = t / L; out.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]); t += ds; }
+      carry = L - (t - ds);
+    }
+    const last = pts[pts.length - 1]; if (Math.hypot(last[0] - out[out.length - 1][0], last[1] - out[out.length - 1][1]) > ds * 0.3) out.push(last.slice());
+    return out;
+  }
+  const tangentAt = (pts, i, back) => {
+    const a = pts[Math.max(0, back ? i - 4 : i)], b = pts[Math.min(pts.length - 1, back ? i : i + 4)];
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1; return [dx / L, dy / L];
+  };
+  function connector(a, b, ta, tb) {   // a thin hairline swing from the end of one stroke into the start of the next
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1]), k = d * 0.4, out = [], n = Math.max(4, Math.ceil(d / 3));
+    const c1 = [a[0] + ta[0] * k, a[1] + ta[1] * k], c2 = [b[0] - tb[0] * k, b[1] - tb[1] * k];
+    for (let i = 1; i < n; i++) {
+      const t = i / n, mt = 1 - t, hair = Math.min(1, Math.min(t, 1 - t) * 4);
+      out.push([mt * mt * mt * a[0] + 3 * mt * mt * t * c1[0] + 3 * mt * t * t * c2[0] + t * t * t * b[0], mt * mt * mt * a[1] + 3 * mt * mt * t * c1[1] + 3 * mt * t * t * c2[1] + t * t * t * b[1], hair]);
+    }
+    return out;
+  }
+
+  function compose(rng, W, H) {
+    const al = ALBUMS[P.album], f = FACES[P.face], rows = splitRows(P.name || al[0], W / H), ex = P.exag;
+    const KERN = 0.86;   // letters crowd and overlap
+    const rowEm = rows.map((r) => [...r].reduce((s, ch) => s + (ch === ' ' ? 0.22 : skeleton(ch, f).adv * KERN), 0));
+    const e = Math.min(W * 0.98 / Math.max(...rowEm), H * 1.2 / rows.length, H * 0.75, W * 0.9);
+    const lead = e * 0.7, W0 = e * 0.13 * P.brush;
+    const letters = [];
+    rows.forEach((r, ri) => {
+      const base = H / 2 + (ri - (rows.length - 1) / 2) * lead + e * 0.28;
+      let x = (W - rowEm[ri] * e) / 2 + (rng() - 0.5) * W * 0.04 + (ri % 2 ? 1 : -1) * W * 0.025 * ex;
+      for (const ch of r) {
+        if (ch === ' ') { x += 0.22 * e; continue; }
+        const sk = skeleton(ch, f), aw = sk.adv * e;
+        const s = e * (1 + (rng() - 0.5) * 0.3 * ex), rot = (rng() - 0.5) * 0.4 * ex, dy = (rng() - 0.5) * 0.16 * e * ex;
+        const pcx = x + aw / 2, pcy = base - 0.33 * e + dy, co = Math.cos(rot), si = Math.sin(rot);
+        const strokes = sk.strokes.map((st) => st.map(([u, v]) => { const px = (u - sk.adv / 2) * s, py = (v + 0.33) * s; return [pcx + px * co - py * si, pcy + px * si + py * co, 0]; }));
+        letters.push(strokes);
+        x += aw * KERN;
+      }
+    });
+    // join strokes into movements (Gyosho: the brush rarely lifts)
+    const pIn = Math.min(1, P.flow * 1.6), pAcross = Math.max(0, P.flow * 2 - 1);
+    const moves = [];
+    let cur = null;
+    letters.forEach((strokes, li) => {
+      strokes.forEach((st, si) => {
+        if (cur) {
+          const end = cur.pts[cur.pts.length - 1];
+          const dA = Math.hypot(st[0][0] - end[0], st[0][1] - end[1]), dB = Math.hypot(st[st.length - 1][0] - end[0], st[st.length - 1][1] - end[1]);
+          if (dB < dA * 0.7) st = st.slice().reverse();
+          const join = si === 0 ? rng() < pAcross : rng() < pIn;
+          if (join) {
+            const rs = resample(st, 2), rc = resample(cur.pts, 2);
+            cur.pts = cur.pts.concat(connector(end, st[0], tangentAt(rc, rc.length - 1, true), tangentAt(rs, 0, false)), st);
+            return;
+          }
+          moves.push(cur);
+        }
+        cur = { pts: st.slice(), fresh: si === 0 || !cur || true, letter: li };
+      });
+    });
+    if (cur) moves.push(cur);
+    return { moves, e, W0, rng, ex };
+  }
+
+  // each movement becomes samples: position, tangent, width, how dry, whether it is a hairline or a flick
+  function shape(mv, C) {
+    const { e, W0, rng, ex } = C, ds = Math.max(1.2, W0 / 16);
+    let pts = resample(mv.pts, ds);
+    for (let it = 0; it < 7; it++) pts = pts.map((p, k) => (k === 0 || k === pts.length - 1 ? p : [(pts[k - 1][0] + 2 * p[0] + pts[k + 1][0]) / 4, (pts[k - 1][1] + 2 * p[1] + pts[k + 1][1]) / 4, p[2]]));
+    // a slow wobble across the line: the hand's own movement
+    const o = rng() * 100, amp = ex * W0 * 0.9;
+    let s = 0;
+    pts = pts.map((p, k) => {
+      if (k) s += ds; const t = tangentAt(pts, k, false), w = (n1(s / (e * 0.45), o) - 0.5) * 2 * amp;
+      return [p[0] - t[1] * w, p[1] + t[0] * w, p[2]];
+    });
+    // the end: a flick that curls off, or a blunt stop
+    const flick = pts[pts.length - 1][2] < 0.5 && rng() < 0.55;
+    const tail = [];
+    if (flick) {
+      let [tx, ty] = tangentAt(pts, pts.length - 1, true), [x, y] = pts[pts.length - 1];
+      const L = W0 * (1.2 + 2.6 * ex * rng()), n = Math.ceil(L / ds), curl = (rng() - 0.5) * 2.6 * (0.4 + ex);
+      for (let j = 1; j <= n; j++) {
+        const a = curl / n, c = Math.cos(a), sn = Math.sin(a); [tx, ty] = [tx * c - ty * sn, tx * sn + ty * c];
+        x += tx * ds; y += ty * ds; tail.push([x, y, 0, j / n]);
+      }
+    }
+    pts = pts.map((p) => [p[0], p[1], p[2], 0]).concat(tail);
+    // per sample: tangent, speed (straight runs are fast), width, dryness
+    const n = pts.length, out = new Array(n);
+    let dep = 0; s = 0;
+    const o2 = rng() * 100, press = 1.15 + rng() * 0.2;
+    const ang = (i) => { const t = tangentAt(pts, i, false); return Math.atan2(t[1], t[0]); };
+    let prevA = ang(0), speedS = 0.6;
+    for (let i = 0; i < n; i++) {
+      const p = pts[i]; if (i) s += ds;
+      const t = tangentAt(pts, i, false), a = ang(i);
+      let da = a - prevA; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI; prevA = a;
+      const speed = 1 - Math.min(1, Math.abs(da) / ds * W0 * 1.3);
+      speedS = speedS * 0.9 + speed * 0.1;
+      const hair = p[2], tl = p[3];
+      const wf = (1 - hair * 0.9) * (tl ? Math.pow(1 - tl, 1.3) * 0.92 + 0.04 : 1);
+      const w = W0 * wf * (1 + (press - 1) * Math.exp(-s / (W0 * 0.9))) * (0.86 + 0.28 * n1(s / (W0 * 3), o2)) * (1.08 - 0.18 * speedS);
+      dep += ds / (e * 1.3) * (0.45 + speedS) * (1 + hair * 2.5);
+      out[i] = { x: p[0], y: p[1], tx: t[0], ty: t[1], w, s, dep: Math.min(1.3, dep), hair, tl, sp: speedS };
+    }
+    return { S: out, blunt: !flick && pts[n - 1][2] < 0.5, ds };
+  }
+
+  // ---------- the brush: many bristles, each with its own ink ----------
+  let Nb = 60;
+  function brushFor(S, blunt, ds, rng, W0) {   // one stroke ready to paint: its samples and its bristles
+    const sd1 = rng() * 1000, sd2 = rng() * 1000, sd3 = rng() * 1000, br = [];
+    for (let b = 0; b < Nb; b++) {
+      const u = -1 + 2 * (b + 0.5) / Nb + (rng() - 0.5) * 0.9 / Nb, au = Math.abs(u);
+      br.push({ u, au, wobA: 0.012 + 0.03 * au * au, wobF: 0.5 + rng(), wobP: rng() * 6.28, bo: b * 3.7 + sd3,
+        late: au > 0.75 ? rng() * W0 * 0.5 * (au - 0.75) * 4 : 0,   // edge hairs touch down a little late: a ragged start
+        load: (0.7 + rng() * 0.6) * (1 - 0.3 * au * au), gl: rng(), state: true, lastI: -1, lastV: true });
+    }
+    return { S, blunt, ds, W0, sd1, sd2, sd3, br };
+  }
+  // Each piece is painted into a small scratch canvas first, so the fibre cuts open white only in the stroke being painted, never in ink already down.
+  const scratch = document.createElement('canvas'), sc = scratch.getContext('2d');
+  // paints samples a..b; a === 0 adds the press, last adds the blunt stop
+  function paintRange(ctx, st, a, b, dpr, last) {
+    const { S, W0, sd1, sd3, ds } = st, dry = P.dry;
+    if (b <= a) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = a; i <= b; i++) { const p = S[i], r = p.w; x0 = Math.min(x0, p.x - r); y0 = Math.min(y0, p.y - r); x1 = Math.max(x1, p.x + r); y1 = Math.max(y1, p.y + r); }
+    const pad = W0 * 0.7, bx = Math.floor((x0 - pad) * dpr), by = Math.floor((y0 - pad) * dpr), bw = Math.ceil((x1 - x0 + 2 * pad) * dpr) + 2, bh = Math.ceil((y1 - y0 + 2 * pad) * dpr) + 2;
+    if (scratch.width < bw || scratch.height < bh) { scratch.width = Math.max(scratch.width, bw); scratch.height = Math.max(scratch.height, bh); }
+    sc.setTransform(1, 0, 0, 1, 0, 0); sc.globalCompositeOperation = 'source-over'; sc.globalAlpha = 1; sc.clearRect(0, 0, bw, bh);
+    sc.setTransform(1, 0, 0, 1, -bx, -by);
+    sc.strokeStyle = fg; sc.lineCap = 'round'; sc.lineJoin = 'round'; sc.lineWidth = Math.max(0.6, W0 * dpr / Nb * 1.5);
+    const fresh = (p) => Math.exp(-p.s / (W0 * 0.8));
+    sc.beginPath();
+    for (const br of st.br) {
+      const { u, au, wobA, wobF, wobP, bo, late, load, gl } = br;
+      const vis = (i) => {
+        if (i === br.lastI) return br.lastV;
+        const p = S[i], fr = fresh(p); br.lastI = i;
+        if (p.s < late) return (br.lastV = false);
+        // big dry patches: neighbouring bristles run out together as the brush empties
+        const coarse = 0.6 * vn(u * 13 + sd1, p.s / (W0 * 1.1)) + 0.4 * vn(u * 31 + sd3, p.s / (W0 * 0.5));
+        const thr = dry * (0.55 * Math.pow(Math.min(1, p.dep), 1.8) + 0.2 * Math.pow(au, 6)) + p.tl * p.tl * 0.65 + p.hair * 0.3 - 0.35 * fr;
+        // each bristle also skips on its own, in short runs: broken fibres rather than parallel lines
+        const pOff = Math.min(0.9, (dry * (0.04 + 0.4 * Math.pow(Math.min(1, p.dep), 1.5)) * (1 - fr) + 0.3 * dry * Math.pow(au, 8) + p.tl * 0.35 + p.hair * 0.2) / load);
+        const gap = W0 * (0.1 + 0.35 * gl);
+        if (br.state) { if (pOff > 0.001 && Math.random() < ds / (gap * (1 - pOff) / pOff)) br.state = false; }
+        else if (Math.random() < ds / gap) br.state = true;
+        return (br.lastV = coarse > thr && br.state);
+      };
+      const pos = (i) => { const p = S[i], spl = (vn(bo, p.s / (W0 * 1.4)) - 0.5) * 0.32 * Math.min(1, p.dep + p.tl) * dry, off = (u + spl + wobA * Math.sin(p.s / W0 * wobF + wobP)) * p.w / 2; return [(p.x - p.ty * off) * dpr, (p.y + p.tx * off) * dpr]; };
+      let on = false;
+      // the press: a round start (and a round stop when the stroke ends blunt)
+      if (a === 0) { if (vis(0)) { const p = S[0], c = Math.sqrt(Math.max(0, 1 - u * u)) * p.w * 0.5, q = pos(0); sc.moveTo(q[0] - p.tx * c * dpr, q[1] - p.ty * c * dpr); sc.lineTo(q[0], q[1]); on = true; } }
+      else if (vis(a)) { const q = pos(a); sc.moveTo(q[0], q[1]); on = true; }
+      for (let i = a + 1; i <= b; i++) {
+        const v = vis(i), q = pos(i);
+        if (v) { if (on) sc.lineTo(q[0], q[1]); else sc.moveTo(q[0], q[1]); }
+        else if (on && Math.random() < 0.3 * dry) {   // a bristle running out flicks a speck just past where it lifted
+          const p = S[i], d = W0 * (0.08 + 0.3 * Math.random()) * dpr, j = (Math.random() - 0.5) * 2;
+          sc.moveTo(q[0] + p.tx * d - p.ty * j, q[1] + p.ty * d + p.tx * j); sc.lineTo(q[0] + p.tx * (d + 0.4), q[1] + p.ty * (d + 0.4));
+        }
+        on = v;
+      }
+      if (last && st.blunt && on) { const p = S[b], c = Math.sqrt(Math.max(0, 1 - u * u)) * p.w * 0.5 * (0.6 + 0.4 * vn(u * 5 + sd3, 3)), q = pos(b); sc.lineTo(q[0] + p.tx * c * dpr, q[1] + p.ty * c * dpr); }
+    }
+    sc.stroke();
+    // fibre cuts: thin white streaks that run with the stroke, long and fine, more of them as the brush dries
+    sc.globalCompositeOperation = 'destination-out'; sc.lineCap = 'butt';
+    for (let i = a; i < b; i++) {
+      const p = S[i];
+      let k = (dry * (0.2 + 1.7 * Math.pow(Math.min(1, p.dep), 1.5)) * (1 - fresh(p)) + p.tl * 2 + p.hair * 1.2) * ds / W0 * 8;
+      for (; k > 0 && Math.random() < k; k--) {
+        const long = Math.random() < 0.35, L = W0 * (long ? 0.4 + 1.2 * Math.random() : 0.08 + 0.25 * Math.random());
+        const u = (Math.random() * 2 - 1) * 0.95, drift = (Math.random() - 0.5) * 0.12;
+        sc.lineWidth = (long ? 0.45 + Math.random() * 0.8 : 0.6 + Math.random() * 1.3) * Math.max(1, dpr * 0.8);
+        sc.globalAlpha = 0.55 + 0.45 * Math.random();
+        sc.beginPath();
+        for (let j = i; j <= b && S[j].s - p.s <= L; j++) {
+          const q = S[j], off = (u + drift * (q.s - p.s) / W0) * q.w / 2, x = (q.x - q.ty * off) * dpr, y = (q.y + q.tx * off) * dpr;
+          if (j === i) sc.moveTo(x, y); else sc.lineTo(x, y);
+        }
+        sc.stroke();
+      }
+    }
+    sc.globalCompositeOperation = 'source-over'; sc.globalAlpha = 1;
+    ctx.drawImage(scratch, 0, 0, bw, bh, bx, by, bw, bh);
+  }
+
+  let grainTile = null;
+  function grain(ctx, w, h, dpr) {
+    if (P.grain <= 0) return;
+    if (!grainTile) {
+      const t = document.createElement('canvas'); t.width = t.height = 256; const g = t.getContext('2d'), r = mulberry(99);
+      for (let i = 0; i < 1800; i++) { g.globalAlpha = 0.3 + r() * 0.7; g.beginPath(); g.arc(r() * 256, r() * 256, 0.3 + r() * r() * 1.1, 0, 6.283); g.fill(); }
+      for (let i = 0; i < 90; i++) { const x = r() * 256, y = r() * 256, a = r() * 6.283, L = 3 + r() * 9; g.globalAlpha = 0.5; g.lineWidth = 0.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke(); }
+      grainTile = t;
+    }
+    ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.globalAlpha = Math.min(1, P.grain * 0.85);
+    ctx.fillStyle = ctx.createPattern(grainTile, 'repeat'); ctx.setTransform(Math.max(1, dpr * 0.75), 0, 0, Math.max(1, dpr * 0.75), 0, 0); ctx.fillRect(0, 0, w, h); ctx.restore();
+  }
+
+  // ---------- the song names: plain, big, hyphenated where a word won't fit ----------
+  function paintType(ctx, W, H, dpr, ink) {
+    const tracks = ALBUMS[P.album][2], x0 = Math.max(16, W * 0.06), maxW = W - 2 * x0;
+    const font = (s) => `500 ${s}px "Inter Tight"`;
+    const set = (s) => {
+      ctx.font = font(s); if ('letterSpacing' in ctx) ctx.letterSpacing = `${-0.035 * s}px`;
+      const m = (t) => ctx.measureText(t).width, lines = [];
+      for (const [name, len] of tracks) {
+        let line = '';
+        for (const wd of `${len.replace(/^0(?=\d)/, '')} ${name}`.split(' ')) {
+          const test = line ? line + ' ' + wd : wd;
+          if (m(test) <= maxW) { line = test; continue; }
+          if (line) lines.push(line);
+          let rest = wd;
+          while (m(rest) > maxW && rest.length > 3) { let k = rest.length - 1; while (k > 2 && m(rest.slice(0, k) + '-') > maxW) k--; lines.push(rest.slice(0, k) + '-'); rest = rest.slice(k); }
+          line = rest;
+        }
+        if (line) lines.push(line);
+      }
+      return lines;
+    };
+    let s = Math.min(H * 0.085, W * 0.11), lines;
+    for (;;) { lines = set(s); if (lines.length * s * 0.9 <= H * 0.74 || s < 11) break; s *= 0.95; }
+    ctx.save(); ctx.scale(dpr, dpr); ctx.fillStyle = ink; ctx.textBaseline = 'alphabetic';
+    const lead = s * 0.9, top = (H - lines.length * lead) / 2 + s * 0.78;
+    lines.forEach((l, i) => ctx.fillText(l, x0, top + i * lead));
+    ctx.restore();
+  }
+
+  // ---------- build: lay out the poster, then write it (live, or all at once) ----------
+  const ink = document.createElement('canvas'), typ = document.createElement('canvas'), view = document.createElement('canvas');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let busy = false, again = false, againLive = false, C = null, dpr = 1, bg = '#fff', fg = '#000', dirty = false;
+  let writer = null, user = null;
+  function present() {
+    const v = view.getContext('2d');
+    v.globalCompositeOperation = 'source-over'; v.clearRect(0, 0, view.width, view.height); v.drawImage(ink, 0, 0); grain(v, view.width, view.height, dpr);
+    cx.globalCompositeOperation = 'source-over'; cx.clearRect(0, 0, cv.width, cv.height);
+    cx.drawImage(typ, 0, 0);
+    cx.globalCompositeOperation = P.overlap === 1 ? 'xor' : 'source-over'; cx.drawImage(view, 0, 0);
+    cx.globalCompositeOperation = 'destination-over'; cx.fillStyle = bg; cx.fillRect(0, 0, cv.width, cv.height);
+    cx.globalCompositeOperation = 'source-over';
+  }
+  const inkCtx = () => { const c = ink.getContext('2d'); c.strokeStyle = fg; c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = Math.max(0.6, C.W0 * dpr / Nb * 1.7); return c; };
+  // time to cross one sample: slow through turns, quick on straight runs and through flicks and hairlines
+  const cost = (st, i) => { const p = st.S[i]; return st.ds / (P.speed * C.e * (0.3 + 1.2 * p.sp) * (1 + p.tl * 1.6 + p.hair * 0.9)); };
+  function frame(t) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.05, (t - (frame.t || t)) / 1000); frame.t = t;
+    let budget = dt;
+    while (writer && budget > 0) {
+      if (writer.pause > 0) { const d = Math.min(writer.pause, budget); writer.pause -= d; budget -= d; continue; }
+      const st = writer.list[writer.k]; if (!st) { writer = null; break; }
+      const n = st.S.length, i0 = writer.i; let i = i0;
+      writer.acc += budget; budget = 0;
+      while (i < n - 1 && writer.acc >= cost(st, i)) { writer.acc -= cost(st, i); i++; }
+      if (i > i0) { paintRange(inkCtx(), st, i0, i, dpr, i >= n - 1); dirty = true; }
+      writer.i = i;
+      if (i >= n - 1) { writer.k++; writer.i = 0; budget = writer.acc; writer.acc = 0; const nx = writer.list[writer.k]; writer.pause = nx && nx.letter !== st.letter ? 0.16 : 0.07; }
+    }
+    if (user && user.st && user.st.S.length - 1 > user.done) { const b = user.st.S.length - 1; paintRange(inkCtx(), user.st, user.done, b, dpr, false); user.done = b; dirty = true; }
+    if (dirty) { dirty = false; present(); }
+  }
+  async function build(live) {
+    if (busy) { again = true; againLive = againLive || live; return; } busy = true;
+    while (innerWidth < 2 || innerHeight < 2) await new Promise((r) => setTimeout(r, 100));
+    const f = FACES[P.face];
+    await Promise.race([Promise.all([document.fonts.load(`${f.weight} 100px "${f.family}"`), document.fonts.load('500 100px "Inter Tight"')]), new Promise((r) => setTimeout(r, 3000))]).catch(() => {});
+    const W = innerWidth, H = innerHeight; dpr = Math.min(2, devicePixelRatio || 1);
+    for (const c of [cv, ink, typ, view]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+    document.documentElement.dataset.theme = P.dark ? 'dark' : 'light';
+    bg = P.dark ? '#000' : '#fff'; fg = P.dark ? '#fff' : '#000';
+    const rng = mulberry(P.seed * 9973 + P.album * 131 + P.face * 7);
+    C = compose(rng, W, H);
+    Nb = Math.round(Math.max(40, Math.min(170, C.W0 * dpr / 1.3)));
+    const list = [];
+    for (const mv of C.moves) {
+      if (lenOf(mv.pts) < 2) continue;
+      const { S, blunt, ds } = shape(mv, C); if (S.length < 2) continue;
+      const st = brushFor(S, blunt, ds, rng, C.W0); st.letter = mv.letter; list.push(st);
+    }
+    ink.getContext('2d').clearRect(0, 0, ink.width, ink.height); user = null;
+    const tc = typ.getContext('2d'); tc.clearRect(0, 0, typ.width, typ.height);
+    if (P.type) paintType(tc, W, H, dpr, fg);
+    if (live && !reduced) writer = { list, k: 0, i: 0, acc: 0, pause: 0.35 };
+    else { writer = null; const c = inkCtx(); for (const st of list) paintRange(c, st, 0, st.S.length - 1, dpr, true); }
+    present();
+    const al = ALBUMS[P.album]; $('albumName').textContent = P.name ? `${P.name} over ${al[0]}` : `${al[0]}, ${al[1]}`;
+    busy = false; if (again) { const l = againLive; again = againLive = false; build(l); }
+  }
+
+  // ---------- your brush: the same brush, on your drag ----------
+  // slow drags lay heavy wet ink, fast ones go thin and dry; a quick release flicks off
+  const ptr = { down: false, x: 0, y: 0, t: 0, moved: 0, sx: 0, sy: 0, v: 0, vx: 0, vy: 0, lt: 0 };
+  function userSample(x, y, now) {
+    const st = user.st, S = st.S, W0 = C.W0, e = C.e;
+    const last = S[S.length - 1], dx = x - last.x, dy = y - last.y, L = Math.hypot(dx, dy);
+    if (L < st.ds) return;
+    const k = Math.floor(L / st.ds), ux = dx / L, uy = dy / L;
+    for (let j = 1; j <= k; j++) {
+      const p = S[S.length - 1];
+      const tx = p.tx * 0.6 + ux * 0.4, ty = p.ty * 0.6 + uy * 0.4, tl = Math.hypot(tx, ty) || 1;
+      const s = p.s + st.ds, sp = Math.min(1.6, ptr.v / (e * 2.2));
+      const w = W0 * Math.max(0.3, Math.min(1.3, 1.3 - sp * 0.75)) * (1 + 0.25 * Math.exp(-s / (W0 * 0.9))) * (0.9 + 0.2 * n1(s / (W0 * 3), st.sd1));
+      S.push({ x: p.x + ux * st.ds, y: p.y + uy * st.ds, tx: tx / tl, ty: ty / tl, w, s, dep: Math.min(1.3, p.dep + st.ds / (e * 1.3) * (0.35 + sp)), hair: 0, tl: 0, sp });
+    }
+  }
+  cv.addEventListener('pointerdown', (e) => {
+    if (!C) return;
+    cv.setPointerCapture(e.pointerId);
+    Object.assign(ptr, { down: true, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now(), lt: performance.now(), moved: 0, v: 0, vx: 0, vy: 0 });
+    user = null;
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!ptr.down || !C) return;
+    const now = performance.now(), dt = Math.max(1, now - ptr.lt) / 1000, dx = e.clientX - ptr.x, dy = e.clientY - ptr.y;
+    ptr.moved += Math.hypot(dx, dy); ptr.vx = ptr.vx * 0.7 + dx / dt * 0.3; ptr.vy = ptr.vy * 0.7 + dy / dt * 0.3; ptr.v = Math.hypot(ptr.vx, ptr.vy);
+    ptr.x = e.clientX; ptr.y = e.clientY; ptr.lt = now;
+    if (!user && ptr.moved > 8) {
+      const ux = (ptr.x - ptr.sx) / (ptr.moved || 1), uy = (ptr.y - ptr.sy) / (ptr.moved || 1), ul = Math.hypot(ux, uy) || 1;
+      const S = [{ x: ptr.sx, y: ptr.sy, tx: ux / ul, ty: uy / ul, w: C.W0 * 1.25, s: 0, dep: 0, hair: 0, tl: 0, sp: 0 }];
+      user = { st: brushFor(S, true, Math.max(1.2, C.W0 / 16), Math.random, C.W0), done: 0 };
+    }
+    if (user) userSample(ptr.x, ptr.y, now);
+  });
+  const up = () => {
+    if (!ptr.down) return; ptr.down = false;
+    if (!user) { if (ptr.moved < 8 && performance.now() - ptr.t < 250) rewrite(); return; }
+    const st = user.st, S = st.S, fast = performance.now() - ptr.lt < 60 && ptr.v > C.e * 1.4;
+    if (fast) {   // a flick: the brush leaves the paper still moving
+      st.blunt = false;
+      let p = S[S.length - 1], tx = p.tx, ty = p.ty;
+      const L = C.W0 * Math.min(3.5, 0.8 + ptr.v / (C.e * 1.5)), n = Math.ceil(L / st.ds);
+      for (let j = 1; j <= n; j++) { p = S[S.length - 1]; S.push({ x: p.x + tx * st.ds, y: p.y + ty * st.ds, tx, ty, w: p.w, s: p.s + st.ds, dep: p.dep, hair: 0, tl: j / n, sp: p.sp }); }
+      for (let j = S.length - n; j < S.length; j++) S[j].w = S[S.length - n - 1].w * (Math.pow(1 - S[j].tl, 1.3) * 0.92 + 0.04);
+    }
+    paintRange(inkCtx(), st, user.done, S.length - 1, dpr, true); user = null; dirty = true;
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+
+  // ---------- settings ----------
+  ALBUMS.forEach((a, i) => $('album').add(new Option(`${a[0]} (${a[1]})`, i)));
+  FACES.forEach((f, i) => $('face').add(new Option(f.label, i)));
+  const SL = ['brush', 'exag', 'flow', 'dry', 'grain', 'speed'];
+  let tm = 0; const soon = () => { clearTimeout(tm); tm = setTimeout(() => build(false), 90); };
+  for (const k of SL) { const el = $(k); el.value = P[k]; $(k + 'O').textContent = (+P[k]).toFixed(2); el.addEventListener('input', () => { P[k] = +el.value; $(k + 'O').textContent = P[k].toFixed(2); save(); soon(); }); }
+  for (const k of ['album', 'face', 'overlap']) { $(k).value = P[k]; $(k).addEventListener('change', () => { P[k] = +$(k).value; save(); build(k !== 'overlap'); }); }
+  for (const k of ['type', 'dark']) { $(k).checked = P[k]; $(k).addEventListener('change', () => { P[k] = $(k).checked; save(); build(false); }); }
+  $('name').value = P.name;
+  $('name').addEventListener('input', () => {
+    const v = $('name').value.replace(/\s+/g, ' ').trim();
+    if (v && !/^[\p{L}\p{M}0-9' -]+$/u.test(v)) return;
+    P.name = v; save(); clearTimeout(tm); tm = setTimeout(() => build(true), 450);
+  });
+  $('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });
+  function rewrite() { P.seed = (Math.random() * 1e6) | 0; save(); build(true); }
+  $('again').addEventListener('click', rewrite);
+  $('next').addEventListener('click', () => { P.album = (P.album + 1) % ALBUMS.length; $('album').value = P.album; P.seed = (Math.random() * 1e6) | 0; save(); build(true); });
+  $('copy').addEventListener('click', () => {
+    const txt = JSON.stringify(P);
+    navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => ($('copy').textContent = 'Copy settings'), 1200); }).catch(() => {});
+  });
+  let rz = 0; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => build(false), 250); });
+  build(true); requestAnimationFrame(frame);
+})();
+</script>
