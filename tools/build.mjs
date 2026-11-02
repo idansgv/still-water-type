@@ -40,6 +40,18 @@ for (const p of POSTERS) {
   console.log('wrote p/' + p.slug + '/index.html');
 }
 
+// The recording page (/rec/): the shell with no words around the poster, for screen recordings on a phone. Added to the home
+// screen it opens with no browser bar (its own manifest); a tap in the top-right corner shuffles. Kept out of search.
+const rec = home.replace(/<p class="sr-only">[\s\S]*?<\/p>\n?/, '')
+  .replace('<html lang="en">', '<html lang="en" data-rec>')
+  .replace(/<title>[^<]*<\/title>/, '<title>Posters</title>')
+  .replace(/(<link rel="canonical"[^>]*>)/, `$1\n<meta name="robots" content="noindex">\n<link rel="manifest" href="/rec/manifest.webmanifest">\n<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`)
+  .replace(/(<meta name="apple-mobile-web-app-title" content=")[^"]*(")/, '$1Posters$2');
+mkdirSync(join(root, 'rec'), { recursive: true });
+writeFileSync(join(root, 'rec', 'index.html'), rec);
+writeFileSync(join(root, 'rec', 'manifest.webmanifest'), JSON.stringify({ name: 'Posters', short_name: 'Posters', start_url: '/rec/', scope: '/', display: 'fullscreen', background_color: '#000000', theme_color: '#000000', icons: [{ src: '/assets/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }] }, null, 2) + '\n');
+console.log('wrote rec/index.html and rec/manifest.webmanifest');
+
 // The sitemap lists the homepage and the published share pages; robots.txt allows everything and points to it.
 const today = new Date().toISOString().slice(0, 10);
 const urls = [`${ORIGIN}/`, ...POSTERS.filter((p) => !p.standalone).map((p) => `${ORIGIN}/p/${p.slug}/`)];

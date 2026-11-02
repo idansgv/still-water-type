@@ -1,7 +1,7 @@
 // Local font files. The licensed or trial fonts Idan tries (Leida, GT Pantheon, GT Maru) live in assets/fonts, which is NOT
 // committed (they are trial licences and the repository is public), so on the live site these files are simply absent and
 // every poster falls back to the Google fonts it was built with. Locally, the files load here and the posters pick them up.
-const DIR = 'assets/fonts/';
+const DIR = '/assets/fonts/';   // from the site root, so share pages (/p/<slug>/) and the recording page (/rec/) find them too
 const FILES = [
   ['Leida', 200, 'leida-font-family-1761628710-0/LeidaTrial-ExtraLight-BF6476af5861e6a.otf'],
   ['Leida', 300, 'leida-font-family-1761628710-0/LeidaTrial-Light-BF6476af58722bb.otf'],

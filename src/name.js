@@ -27,6 +27,27 @@ export function nameWords(name) {
   return name ? name.split(' ') : null;
 }
 
+// On a tall, narrow screen a long word would set small, so a word of LONG_WORD letters or more is broken over two lines, near
+// its middle and between two consonants where it can be (VALEN / TINE, SCREAMA / DELICA).
+export const LONG_WORD = 8;
+const VOWEL = /[aeiouyàáâãäåèéêëìíîïòóôõöùúûüæø]/i;
+const PAIR = /^(ck|ch|sh|th|ph|wh|gh|qu|[bcdfgpt][lr]|s[cklmnpqtw]|tw)$/i;   // letters that stay together: BLACK / STAR, not BLAC / KSTAR
+export function breakLong(words) {
+  if (!words) return words;
+  return words.flatMap((w) => {
+    if ([...w].length < LONG_WORD) return [w];
+    const ch = [...w], mid = ch.length / 2;
+    let best = Math.round(mid), cost = Infinity;
+    for (let i = 3; i <= ch.length - 3; i++) {
+      const a = ch[i - 1], b = ch[i], c = ch[i + 1] || '', con = (x) => /\p{L}/u.test(x) && !VOWEL.test(x);
+      const soft = con(a) && con(b) && !PAIR.test(a + b) || VOWEL.test(a) && con(b) && (VOWEL.test(c) || PAIR.test(b + c));
+      const k = Math.abs(i - mid) + (soft ? 0 : 1.5);
+      if (k < cost) { cost = k; best = i; }
+    }
+    return [ch.slice(0, best).join(''), ch.slice(best).join('')];
+  });
+}
+
 // For a poster: the lines it sets. The visitor's words, one per line (in capitals for a poster set in capitals), or its own lines.
 export function linesFor(stage, own, { upper = false } = {}) {
   if (!stage.words || !stage.words.length) return own;

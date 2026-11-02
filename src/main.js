@@ -4,7 +4,7 @@ import { POSTERS, PUBLISHED, bySlug } from './posters/index.js';
 import { createStage, THEMES, fontsReady } from './engine.js';
 import { rollColour, colourPass, clearColourPass } from './colour.js';
 import { createPanel } from './panel.js';
-import { validateName, savedName, saveName, nameWords } from './name.js';
+import { validateName, savedName, saveName, nameWords, breakLong } from './name.js';
 import { nextAlbum } from './albums.js';
 
 const $ = (id) => document.getElementById(id);
@@ -13,6 +13,7 @@ const hintEl = $('hint');
 const toastEl = $('toast');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const params = new URLSearchParams(location.search);
+const REC = document.documentElement.dataset.rec !== undefined;   // the recording page (/rec/): no words around the poster, the top-right corner shuffles
 const urlName = validateName(params.get('n')).name || null;     // a shared link carries its name: it shows for that visit only
 let myName = urlName || savedName();                           // the visitor's own name (Customize, or typing on a keyboard), or null for each poster's own
 
@@ -181,6 +182,9 @@ function armHint(poster, stage) {
   }, 6500);
 }
 
+// A phone held upright: long words go over two lines so the type stays big (src/name.js).
+const fitWords = (words) => (matchMedia('(max-width: 700px) and (orientation: portrait)').matches ? breakLong(words) : words);
+
 async function show(poster, { seed = randomSeed(), themeName } = {}) {
   busy = true;
   const darkOnly = poster.darkOnly === true;                          // a poster that only exists on black (Glint): always dark, and the sequence carries on from there
@@ -200,7 +204,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   clearColourPass();
 
   const album = poster.nameable && !myName ? nextAlbum() : null;   // no name of their own: an album title instead (src/albums.js)
-  const stage = createStage(stageEl, { seed, theme, toast, setBackdrop, words: poster.nameable ? nameWords(myName || album.title) : null });
+  const stage = createStage(stageEl, { seed, theme, toast, setBackdrop, words: poster.nameable ? fitWords(nameWords(myName || album.title)) : null });
   stage.refreshPanel = syncPanel;                                   // a poster whose settings change (a mode switch) asks for the panel to be rebuilt
   stage.flip = theme.name === 'dark';
   stage.album = album;                                             // the album the words came from, or null for a visitor's own name
@@ -224,7 +228,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     showFallback(poster);
   }
   window.__poster = { slug: poster.slug, seed, theme: theme.name, colour: stage.colour ? stage.colour.name : null, stage: current.stage, inst };
-  history.replaceState(null, '', `/p/${poster.slug}/${myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : ''}`);   // the address bar follows the poster, with the visitor's name when it shows: copy it to share it
+  if (!REC) history.replaceState(null, '', `/p/${poster.slug}/${myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : ''}`);   // the address bar follows the poster, with the visitor's name when it shows: copy it to share it
   track('poster_view', { slug: poster.slug, theme: theme.name, first: shuffles === 0, named: !!(myName && poster.nameable), album: album ? album.title : null, failed: !current.stage });
   try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
   requestAnimationFrame(() => stageEl.classList.remove('swap'));
@@ -420,11 +424,24 @@ addEventListener('keydown', (e) => {
     return;
   }
   // typing a letter starts the name (r, s and t keep their shortcuts)
-  if (!nameOpen && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key)) { e.preventDefault(); openName(e.key); return; }
+  if (!nameOpen && !REC && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key)) { e.preventDefault(); openName(e.key); return; }
   const onControl = e.target.closest && e.target.closest('button, a');
   if (e.key === ' ' || e.key === 'Enter') { if (onControl) return; e.preventDefault(); shuffle(); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); shuffle(); }
 });
+
+// The recording page's corner: a tap shuffles, and the first one also asks for full screen where the browser allows it (Android, iPad; an iPhone needs the home-screen icon).
+if (REC) {
+  const corner = document.createElement('button');
+  corner.type = 'button'; corner.className = 'rec-next'; corner.setAttribute('aria-label', 'Next poster');
+  corner.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    shuffle();
+  });
+  document.body.appendChild(corner);
+}
 
 const first = pickFirst();
 show(first, { seed: seedFromHash() ?? randomSeed() });

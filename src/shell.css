@@ -260,6 +260,9 @@ noscript .plain {
 
 /* a standalone page (data-bare): the poster alone, without the site's frame */
 html[data-bare] .chrome, html[data-bare] #menu-corner, html[data-bare] #index, html[data-bare] #hint { display: none !important; }
+/* the recording page (data-rec, /rec/): the poster alone too, and an invisible corner that shuffles */
+html[data-rec] .chrome, html[data-rec] #menu-corner, html[data-rec] #index, html[data-rec] #hint, html[data-rec] #toast, html[data-rec] #name-form { display: none !important; }
+.rec-next { position: fixed; top: 0; right: 0; z-index: 60; width: calc(64px + env(safe-area-inset-right)); height: calc(64px + env(safe-area-inset-top)); border: 0; padding: 0; background: transparent; opacity: 0; -webkit-tap-highlight-color: transparent; touch-action: none; }
 
 /* ---------- the menu: a quiet corner, and the posters in large type ---------- */
 .menu-corner {
