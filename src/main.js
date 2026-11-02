@@ -229,11 +229,23 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
   requestAnimationFrame(() => stageEl.classList.remove('swap'));
   busy = false;
+  prepareNext();
+}
+
+// The next shuffle is picked as soon as a poster is up, and its code is fetched once the page is idle, so Shuffle swaps without waiting on the network.
+let upcoming = null, prepTimer = null;
+function prepareNext() {
+  clearTimeout(prepTimer);
+  upcoming = null;
+  if (!current || document.documentElement.dataset.bare !== undefined) return;
+  upcoming = pickOther(current.poster.slug);
+  const next = upcoming;
+  prepTimer = setTimeout(() => (window.requestIdleCallback || setTimeout)(() => { if (upcoming === next) next.load().catch(() => {}); }, { timeout: 3000 }), 1200);   // after the first frames, so it never competes with the poster on screen
 }
 
 async function shuffle() {
   if (busy || !current || document.documentElement.dataset.bare !== undefined) return;       // a standalone page does not shuffle
-  const next = pickOther(current.poster.slug);
+  const next = upcoming && upcoming.slug !== current.poster.slug ? upcoming : pickOther(current.poster.slug);
   track('shuffle', { from: current.poster.slug, to: next.slug });
   shuffles++;
   await show(next);
