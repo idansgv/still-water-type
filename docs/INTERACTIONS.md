@@ -325,7 +325,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Double tap | one rewrite |
 | Three taps (reveal) | page inverts; each movement's centre line, the brush's width, where it presses and lifts, a title block |
 | Self-demo | none (the live writing on load is the intro) |
-| Words | the ink writes the name or the album title; the songs are one of 12 albums with tracklists (a title without one shows one of the 12 instead) |
+| Words | the ink writes the name or the album title; underneath, that album's songs (a name: a random album's); a title with no tracklist is written alone |
 | Colour (rare) | the framework's colour pass, on the first press |
 | Multi-touch | one pointer |
 

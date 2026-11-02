@@ -6,10 +6,9 @@
 // canvas so the cuts never open ink already down.
 //
 // Ported from the test page docs/posters/prototypes/gyosho.html (the dry version); DEF holds Idan's tuned values (2 Nov 2026).
-// Words: the ink writes stage.words. With no name the shell gives an album title (src/albums.js); when this poster has that
-// album's songs they go underneath, otherwise it shows one of its own albums instead and tells the shell (the returned `album`,
-// so a shared link carries what was shown). A visitor's name goes in ink over the songs of one of its albums.
-// Track lengths were written from memory and are not yet checked against a source.
+// Words: the ink writes stage.words. With no name the shell gives an album title (src/albums.js) and its songs go underneath
+// (src/posters/data/tracklists.js, from Wikipedia); a title with no songs there is written alone (stage.album tells an album from
+// a name). A visitor's name goes in ink over a random album's songs.
 //
 // gestures: on load the brush writes the title in one breath. Drag paints with the same brush: slow is heavy and wet, fast goes
 // thin and dry, a quick release flicks off. Tap writes it again with a new hand (after REFORM_DELAY_MS, so a second tap is the
@@ -18,34 +17,22 @@
 import { pressTracker, TAP, REFORM_DELAY_MS } from '../gestures.js';
 import { createReveal, corners, titleBlock, ink as rvInk } from './reveal.js';
 import { lettersFor } from '../name.js';
+import { TRACKLISTS } from './data/tracklists.js';
 
 // Defaults saved from the settings panel (Save as defaults, local dev server): src/posters/params/gyosho.json, over the built-in ones below.
 const SAVED = await fetch(new URL('./params/gyosho.json', import.meta.url)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
-// Idan's tuned values, 2 Nov 2026 (tuned on Pink Moon, album 7). album -1 follows the words; 0..11 forces one of ALBUMS (settings only).
+// Idan's tuned values, 2 Nov 2026 (tuned on Pink Moon). album -1 follows the words (random: the shell's album, or one of ours for a name); 0.. forces one of ALBUMS (settings only).
 const DEF = { album: -1, face: 0, brush: 1.4, exag: 1.55, flow: 0.25, dry: 0.2, grain: 1, speed: 7.3, overlap: 0, type: 1, seed: 304174 };
 
-// ---------- albums: the title goes in ink, the songs go underneath, each after its length (from memory, unchecked) ----------
-const ALBUMS = [
-  ['Kind of Blue', 'Miles Davis', [['So What', '9:22'], ['Freddie Freeloader', '9:46'], ['Blue in Green', '5:37'], ['All Blues', '11:33'], ['Flamenco Sketches', '9:26']]],
-  ['A Love Supreme', 'John Coltrane', [['Acknowledgement', '7:47'], ['Resolution', '7:22'], ['Pursuance', '10:42'], ['Psalm', '7:05']]],
-  ['Blue Train', 'John Coltrane', [['Blue Train', '10:43'], ["Moment's Notice", '9:10'], ['Locomotion', '7:14'], ["I'm Old Fashioned", '7:58'], ['Lazy Bird', '7:00']]],
-  ['Giant Steps', 'John Coltrane', [['Giant Steps', '4:43'], ['Cousin Mary', '5:45'], ['Countdown', '2:21'], ['Spiral', '5:56'], ["Syeeda's Song Flute", '7:00'], ['Naima', '4:21'], ['Mr. P.C.', '6:57']]],
-  ['Time Out', 'The Dave Brubeck Quartet', [['Blue Rondo à la Turk', '6:44'], ['Strange Meadow Lark', '7:22'], ['Take Five', '5:24'], ['Three to Get Ready', '5:24'], ["Kathy's Waltz", '4:48'], ["Everybody's Jumpin'", '4:23'], ['Pick Up Sticks', '4:16']]],
-  ['Mingus Ah Um', 'Charles Mingus', [['Better Git It in Your Soul', '7:23'], ['Goodbye Pork Pie Hat', '5:44'], ['Boogie Stop Shuffle', '3:41'], ['Self-Portrait in Three Colors', '3:09'], ['Open Letter to Duke', '5:51'], ['Bird Calls', '3:12'], ['Fables of Faubus', '8:13'], ['Pussy Cat Dues', '6:27'], ['Jelly Roll', '6:17']]],
-  ['Bitches Brew', 'Miles Davis', [["Pharaoh's Dance", '20:06'], ['Bitches Brew', '26:58'], ['Spanish Key', '17:34'], ['John McLaughlin', '4:22'], ['Miles Runs the Voodoo Down', '14:01'], ['Sanctuary', '10:56']]],
-  ['Pink Moon', 'Nick Drake', [['Pink Moon', '2:06'], ['Place to Be', '2:43'], ['Road', '2:02'], ['Which Will', '2:58'], ['Horn', '1:23'], ['Things Behind the Sun', '3:57'], ['Know', '2:26'], ['Parasite', '3:36'], ['Free Ride', '3:06'], ['Harvest Breed', '1:37'], ['From the Morning', '2:30']]],
-  ['Mezzanine', 'Massive Attack', [['Angel', '6:18'], ['Risingson', '5:58'], ['Teardrop', '5:29'], ['Inertia Creeps', '5:56'], ['Exchange', '4:11'], ['Dissolved Girl', '6:06'], ['Man Next Door', '5:55'], ['Black Milk', '6:20'], ['Mezzanine', '5:54'], ['Group Four', '8:13'], ['(Exchange)', '4:08']]],
-  ['Blue', 'Joni Mitchell', [['All I Want', '3:32'], ['My Old Man', '3:33'], ['Little Green', '3:25'], ['Carey', '3:00'], ['Blue', '3:00'], ['California', '3:48'], ['This Flight Tonight', '2:50'], ['River', '4:00'], ['A Case of You', '4:20'], ['The Last Time I Saw Richard', '4:13']]],
-  ['Low', 'David Bowie', [['Speed of Life', '2:46'], ['Breaking Glass', '1:51'], ['What in the World', '2:23'], ['Sound and Vision', '3:03'], ['Always Crashing in the Same Car', '3:29'], ['Be My Wife', '2:55'], ['A New Career in a New Town', '2:51'], ['Warszawa', '6:20'], ['Art Decade', '3:43'], ['Weeping Wall', '3:26'], ['Subterraneans', '5:39']]],
-  ['Kid A', 'Radiohead', [['Everything in Its Right Place', '4:11'], ['Kid A', '4:44'], ['The National Anthem', '5:51'], ['How to Disappear Completely', '5:56'], ['Treefingers', '3:42'], ['Optimistic', '5:15'], ['In Limbo', '3:31'], ['Idioteque', '5:09'], ['Morning Bell', '4:35'], ['Motion Picture Soundtrack', '7:01']]],
-];
+// ---------- albums: the title goes in ink, the songs go underneath, each after its length ----------
+const ALBUMS = TRACKLISTS.filter((a) => a[2].length);   // every title the shell can give (src/albums.js) that has its songs
 const FACES = [
   { label: 'Sans skeleton (Inter Tight)', family: 'Inter Tight', weight: 800 },
   { label: 'Hand (Caveat)', family: 'Caveat', weight: 700 },
   { label: 'Monoline hand (Nothing You Could Do)', family: 'Nothing You Could Do', weight: 400 },
 ];
 const SONG = { family: 'Inter Tight', weight: 500 };
-const ALL_TEXT = ALBUMS.map(([t, , tr]) => t + tr.map(([n, l]) => n + l).join('')).join('') + '0123456789:- ';
+const ALL_TEXT = [...new Set(ALBUMS.map(([t, , tr]) => t + tr.map(([n, l]) => n + l).join('')).join('') + '0123456789:- ')].join('');   // the letters to ask Google Fonts for
 
 // ---------- small maths ----------
 const mulberry32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -289,10 +276,12 @@ export async function mount(stage) {
   const byTitle = (t) => ALBUMS.findIndex((a) => a[0].toLowerCase() === String(t || '').toLowerCase());
   const given = stage.words ? stage.words.join(' ') : null;
   const fromShell = !!(stage.album && given === stage.album.title);
-  let pick = given ? byTitle(given) : -1, swapped = false;
-  if (pick < 0) { pick = Math.floor(stage.rand() * ALBUMS.length); swapped = fromShell || !given; }
+  let pick = given ? byTitle(given) : -1;
+  const songless = pick < 0 && fromShell;                             // Idan (2 Nov 2026): an album we have no songs for is its title alone
+  if (pick < 0) pick = Math.floor(stage.rand() * ALBUMS.length);
   const albumIx = () => (P.album >= 0 ? P.album | 0 : pick) % ALBUMS.length;
-  const title = () => (P.album >= 0 || swapped ? ALBUMS[albumIx()][0] : given);   // the ink: the visitor's name, the album given, or ours
+  const title = () => (P.album >= 0 || !given ? ALBUMS[albumIx()][0] : given);   // the ink: the visitor's name, the album given, or ours
+  const songs = () => P.type && (P.album >= 0 || !songless);
 
   // ---------- faces: Inter Tight from Google Fonts (the letters the poster can set); the hands only when chosen in settings ----------
   const links = [];
@@ -300,7 +289,7 @@ export async function mount(stage) {
     const id = f.family + f.weight;
     if (!links.some((l) => l.dataset.id === id)) {
       const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.id = id;
-      l.href = `https://fonts.googleapis.com/css2?family=${f.family.replace(/ /g, '+')}:wght@${f.weight}&text=${encodeURIComponent(text)}&display=block`;
+      l.href = `https://fonts.googleapis.com/css2?family=${f.family.replace(/ /g, '+')}:wght@${f.weight}&text=${encodeURIComponent([...new Set(text)].join(''))}&display=block`;
       document.head.appendChild(l); links.push(l);
       await Promise.race([new Promise((r) => { l.onload = r; l.onerror = r; }), new Promise((r) => setTimeout(r, 2500))]);
     }
@@ -414,7 +403,7 @@ export async function mount(stage) {
       const m = (t) => ctx.measureText(t).width, lines = [];
       for (const [name, len] of tracks) {
         let line = '';
-        for (const wd of `${len.replace(/^0(?=\d)/, '')} ${name}`.split(' ')) {
+        for (const wd of `${len ? len.replace(/^0(?=\d)/, '') + ' ' : ''}${name}`.split(' ')) {
           const test = line ? line + ' ' + wd : wd;
           if (m(test) <= maxW) { line = test; continue; }
           if (line) lines.push(line);
@@ -463,7 +452,7 @@ export async function mount(stage) {
       const st = brushFor(S, blunt, ds, rng, C.W0); st.letter = mv.letter; list.push(st);
     }
     user = null;
-    if (P.type) paintType(typ.getContext('2d'), W, H);
+    if (songs()) paintType(typ.getContext('2d'), W, H);
     if (live && !stage.reduced) writer = { list, k: 0, i: 0, acc: 0, pause: 0.35 };
     else { writer = null; const x = inkCtx(); for (const st of list) paintRange(x, st, 0, st.S.length - 1, true); }
     present();
@@ -593,10 +582,8 @@ export async function mount(stage) {
     rv.draw(performance.now());
   }));
 
-  const al = ALBUMS[albumIx()];
   return {
     tune,
-    album: swapped ? { title: al[0], artist: al[1] } : null,          // the shell's album had no songs here: the one shown instead, for a shared link
     debug: { get writing() { return !!writer; }, get moves() { return list.length; }, finish() { while (writer) { const st = writer.list[writer.k]; if (!st) { writer = null; break; } paintRange(inkCtx(), st, writer.i, st.S.length - 1, true); writer.k++; writer.i = 0; } present(); }, dark },
     destroy() {
       alive = false; timers.forEach(clearTimeout);
