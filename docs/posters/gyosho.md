@@ -1,6 +1,6 @@
 # Gyosho (idea)
 
-**Status:** draft, 2 Nov 2026. In the site at `/?p=gyosho` (`src/posters/gyosho.js`, settings with `&tune`). Ported from the dry test page `docs/posters/prototypes/gyosho.html` (Artifact version 4); the wet branch (`gyosho-wet.html`) is not in it.
+**Status:** published 2026-11-02. Test at `/?p=gyosho`. `src/posters/gyosho.js`, settings with `&tune`; ported from the dry test page `docs/posters/prototypes/gyosho.html` (Artifact version 4). The wet branch (`gyosho-wet.html`) is parked.
 
 **Reference.** Amiens jazz festival poster (Gold, European Design Awards 2026): "Jazz" painted huge in a loaded, streaky brush, laid over plain sans information that it half covers.
 
@@ -27,7 +27,7 @@
 - Song names now start with the track length, no leading zero (3:12). Lengths are from memory, not yet checked against a source.
 - Wet branch (2 Nov 2026), `prototypes/gyosho-wet.html`, own Artifact link: inkField idea 3, own code. A half-resolution WebGL1 pass: each pixel keeps the darker of itself and what a wet neighbour gives it, weighted by a fibre paper texture, so fresh ink feathers into the paper for a couple of seconds and then sets. Only the bleed onto bare paper shows; the crisp brush and its fibre cuts stay on top. Settings: Wet ink (0 = the main page), Dark rim. Falls back to no bleed without WebGL.
 
-**In the site (draft, 2 Nov 2026).**
+**In the site (2 Nov 2026).**
 - *Words.* The ink writes `stage.words`. With no name the shell gives an album title (`src/albums.js`) and its songs go underneath (`3:12 Title`, no leading zero), from `src/posters/data/tracklists.js`. A visitor's name goes in ink over the songs of a random album (or the album of the same name).
 - *Tracklists.* One sweep of English Wikipedia (2 Nov 2026) for all 131 titles: the original release, no bonus tracks. 128 have songs; Bleed (The Necks), Squared Roots (Seefeel) and Drumming (Steve Reich) have none. The sweep corrected 20 of the 96 lengths the test page had from memory (Pussy Cat Dues 6:27 was 9:14, Risingson 5:58 was 4:58, and smaller ones).
 - *No songs (Idan, 2 Nov 2026: "Title only, no songs").* An album title with no tracklist is written alone, with no song layer. The shell tells the poster its words are an album (`stage.album`, one line in `src/main.js`) so a visitor's name is never mistaken for one.

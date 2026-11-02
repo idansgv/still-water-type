@@ -428,7 +428,6 @@ export const POSTERS = [
     blurb: 'An album title written huge with a dry brush over its song names. Drag to paint with the same brush; tap to write it again.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
-    draft: true,
     nameable: true,
     face: { family: 'Inter Tight', weight: 800 },
     load: () => import('./gyosho.js'),
