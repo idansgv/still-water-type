@@ -425,13 +425,13 @@ export const POSTERS = [
     slug: 'gyosho',
     title: 'Gyosho',
     words: ['Idan', 'Segev'],
-    blurb: 'An album title written huge with a dry brush over its song names. Drag to paint with the same brush; tap to write it again.',
+    blurb: 'An album title written huge with a loaded brush over its song names. Drag to paint with the same brush; tap to write it again.',
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
     nameable: true,
     face: { family: 'Inter Tight', weight: 800 },
     load: () => import('./gyosho.js'),
-    prompt: "An album title written huge with a dry calligraphic brush over the album's song names, after the Amiens jazz festival poster, on a 2D canvas. Render each letter in a heavy sans (Inter Tight 800), thin it to a one-pixel centre line (Zhang-Suen) and walk that into strokes. Place the letters big and overlapping, a few to a row, each turned and scaled a little; warp the strokes with a slow wobble, press in at the start, end blunt or in a flick that curls off, and join strokes into movements with thin hairlines so the brush rarely lifts (Gyosho, semi-cursive). Paint with a brush of about a hundred bristles, each with its own ink, breaking on its own in short runs as the brush dries along the stroke, plus thin white fibre cuts along the stroke and a little paper grain. Under it, the song names in Inter Tight 500, large and left-aligned, each after its length. On load the brush writes the title live; a drag paints with the same brush (slow is heavy and wet, fast thin and dry, a quick release flicks); a tap writes it again with a new hand. Black and white only.",
+    prompt: "An album title written huge with a dry calligraphic brush over the album's song names, after the Amiens jazz festival poster, on a 2D canvas. Render each letter in a heavy sans (Inter Tight 800), thin it to a one-pixel centre line (Zhang-Suen) and walk that into strokes. Place the letters big and overlapping, a few to a row, each turned and scaled a little; warp the strokes with a slow wobble, press in at the start, end blunt or in a flick that curls off, and join strokes into movements with thin hairlines so the brush rarely lifts (Gyosho, semi-cursive). Paint with a brush of about a hundred bristles, each with its own ink, breaking on its own in short runs as the brush dries along the stroke, plus thin white fibre cuts along the stroke. The brush carries a load of ink that empties along the strokes and is renewed at each letter; where it goes down loaded and slow, a WebGL ping-pong pass lets the ink creep into the paper along a fibre texture for a couple of seconds, then set (no bleed without WebGL). Under it, the song names in Inter Tight 500, large and left-aligned, each after its length. On load the brush writes the title live; a drag paints with the same brush (slow is heavy and wet, fast thin and dry, a quick release flicks); a tap writes it again with a new hand. Black and white only.",
   },
 ];
 

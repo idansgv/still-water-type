@@ -1,6 +1,6 @@
 # Gyosho (idea)
 
-**Status:** published 2026-11-02. Test at `/?p=gyosho`. `src/posters/gyosho.js`, settings with `&tune`; ported from the dry test page `docs/posters/prototypes/gyosho.html` (Artifact version 4). The wet branch (`gyosho-wet.html`) is parked.
+**Status:** published 2026-11-02. Test at `/?p=gyosho`. `src/posters/gyosho.js`, settings with `&tune`; the wet version since 2 Nov 2026, ported from `docs/posters/prototypes/gyosho-wet.html` (it replaced the dry port from `gyosho.html`).
 
 **Reference.** Amiens jazz festival poster (Gold, European Design Awards 2026): "Jazz" painted huge in a loaded, streaky brush, laid over plain sans information that it half covers.
 
@@ -23,7 +23,7 @@
 - Make it your own: the visitor's name goes in ink over the tracklist of the album that would have shown (no new copy invented).
 - inkField (github.com/ileivoivm/inkField) studied for wet ink: its licence reserves modification and derivative works, so no code or shaders are taken. Ideas to reimplement ourselves: per-bristle random breaks with short memory (fixes the parallel-outline look), stroke-direction fibre texture, and a WebGL wet-spread + edge-pooling pass while ink is fresh.
 - Ink v2 (inkField ideas 1+2, own code): each bristle breaks on its own in short runs and flicks a speck where it lifts; fibre cuts (thin white streaks along the stroke, long and fine) open more as the brush dries. Each piece is painted in a scratch canvas so cuts never open ink already down.
-- Defaults: Idan's tuned values (2 Nov 2026, retuned the same day on the fibre version): brush 1.4, movement 0.55, flow 0.3, dry 0.3, grain 0.85, speed 7.3, seed 304174; the album stays random.
+- Dry defaults (superseded by the wet ones below): Idan's tuned values (2 Nov 2026, retuned the same day on the fibre version): brush 1.4, movement 0.55, flow 0.3, dry 0.3, grain 0.85, speed 7.3, seed 304174; the album stays random.
 - Song names now start with the track length, no leading zero (3:12). Lengths are from memory, not yet checked against a source.
 - Wet branch (2 Nov 2026), `prototypes/gyosho-wet.html`, own Artifact link: inkField idea 3, own code. A half-resolution WebGL1 pass: each pixel keeps the darker of itself and what a wet neighbour gives it, weighted by a fibre paper texture, so fresh ink feathers into the paper for a couple of seconds and then sets. Only the bleed onto bare paper shows; the crisp brush and its fibre cuts stay on top. Settings: Wet ink (0 = the main page), Dark rim. Falls back to no bleed without WebGL.
 
@@ -36,4 +36,10 @@
 - *Settings* (`&tune`): album (-1 follows the words: random), face (0 sans, 1 Caveat, 2 monoline, loaded only when chosen), song names, knock out, brush, movement, flow, speed, dry, grain; Write it again, Next album, Save as defaults (`src/posters/params/gyosho.json`, which holds Idan's tuned values). The page's "Black page" is gone: the site's black and white sequence decides.
 - *Under reduced motion* the still is drawn at once; your drag still paints.
 
-**Open.** Real phones not looked at; reveal not reviewed; wet ink (the other branch) parked, may be folded in later.
+**Wet in the site (2 Nov 2026, Idan: "push Gyosho wet to the website").**
+- *What it adds over the dry port.* One shared paper tile (pinholes the ink skips + the soak fibres wet ink runs along); a wet map painted with each stroke (a loaded brush moving slowly is wet, a fast or empty one dry, plus a wet press at the start); a full-resolution WebGL1 ping-pong pass that spreads ink from the wet map along the paper fibres for about 150 frames after new ink, then sets. Without WebGL there is no bleed (the brush as it left the paper). Under reduced motion the spread settles at once.
+- *Ink carriage.* The brush has a load (load, runout, speedDry): it empties along the strokes and goes back to the inkstone at each letter (redip 0 every stroke, 1 every letter, 2 once). empty, edgeDry and cuts set how the emptying shows (streaks, dry edges, white fibre streaks).
+- *Defaults:* Idan's tuned wet values: brush 1.05, movement 0.8, flow 0.6, dry 0.35, grain 0, speed 7.3, wetAmt 0.65, empty 0.2, load 1.05, runout 0.85, speedDry 1.35, redip 1, edgeDry 1, cuts 1, wetLoad 0.4, wetSlow 0.75, press 0.25, reach 0.66, wetTime 0.2, pull 0.7, seed 564784. The album stays random (the test page's album 6 is only its default).
+- *Settings* add two groups, Ink carriage and Wet. The reveal's title block adds the wet amount and reach (or "no WebGL: no bleed").
+
+**Open.** Real phones not looked at (the spread re-uploads the ink to the GPU on every frame with new ink; watch for slow drags on older phones); reveal not reviewed.

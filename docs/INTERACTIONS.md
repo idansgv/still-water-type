@@ -302,7 +302,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 
 | | Gyosho |
 |---|---|
-| Load | the brush writes the title in one breath: slow through turns, quick on straight runs, short lifts between movements; under reduced motion the still is drawn at once |
+| Load | the brush writes the title in one breath: slow through turns, quick on straight runs, short lifts between movements; where it went down wet the ink bleeds into the paper for a couple of seconds, then sets (WebGL; none without); under reduced motion the still is drawn at once |
 | Drag | paints with the same brush: slow is heavy and wet, fast thin and dry; a quick release flicks off (starts after 8 px) |
 | Tap | writes it again with a new hand, after a 420 ms beat (under 250 ms, 8 px); a second tap in the beat is the same rewrite |
 | Tap on background | the same (the whole page is the poster) |

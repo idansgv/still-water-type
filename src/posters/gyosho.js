@@ -3,9 +3,11 @@
 // strokes; a hand places them big and overlapping, turns and scales each a little, wobbles the line, and joins strokes into
 // movements with thin hairlines (the Gyosho part: the brush rarely lifts). Each bristle carries its own ink and breaks on its
 // own in short runs; fibre cuts open thin white streaks along the stroke as the brush dries. Each piece is painted in a scratch
-// canvas so the cuts never open ink already down.
+// canvas so the cuts never open ink already down. The brush carries a load of ink: it empties along the strokes and goes back to
+// the inkstone at each letter. Where it went down loaded and slow it is wet, and a WebGL pass lets that ink creep into the paper
+// along its fibres and close nearby streaks before it sets (without WebGL the ink stays as the brush left it).
 //
-// Ported from the test page docs/posters/prototypes/gyosho.html (the dry version); DEF holds Idan's tuned values (2 Nov 2026).
+// Ported from the test page docs/posters/prototypes/gyosho-wet.html; DEF holds Idan's tuned wet values (2 Nov 2026).
 // Words: the ink writes stage.words. With no name the shell gives an album title (src/albums.js) and its songs go underneath
 // (src/posters/data/tracklists.js, from Wikipedia); a title with no songs there is written alone (stage.album tells an album from
 // a name). A visitor's name goes in ink over a random album's songs.
@@ -21,8 +23,8 @@ import { TRACKLISTS } from './data/tracklists.js';
 
 // Defaults saved from the settings panel (Save as defaults, local dev server): src/posters/params/gyosho.json, over the built-in ones below.
 const SAVED = await fetch(new URL('./params/gyosho.json', import.meta.url)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
-// Idan's tuned values, 2 Nov 2026 (tuned on Pink Moon). album -1 follows the words (random: the shell's album, or one of ours for a name); 0.. forces one of ALBUMS (settings only).
-const DEF = { album: -1, face: 0, brush: 1.4, exag: 0.55, flow: 0.3, dry: 0.3, grain: 0.85, speed: 7.3, overlap: 0, type: 1, seed: 304174 };
+// Idan's tuned wet values, 2 Nov 2026. album -1 follows the words (random: the shell's album, or one of ours for a name); 0.. forces one of ALBUMS (settings only).
+const DEF = { album: -1, face: 0, brush: 1.05, exag: 0.8, flow: 0.6, dry: 0.35, grain: 0, speed: 7.3, wetAmt: 0.65, empty: 0.2, load: 1.05, runout: 0.85, speedDry: 1.35, redip: 1, edgeDry: 1, cuts: 1, wetLoad: 0.4, wetSlow: 0.75, press: 0.25, reach: 0.66, wetTime: 0.2, pull: 0.7, overlap: 0, type: 1, seed: 564784 };
 
 // ---------- albums: the title goes in ink, the songs go underneath, each after its length ----------
 const ALBUMS = TRACKLISTS.filter((a) => a[2].length);   // every title the shell can give (src/albums.js) that has its songs
@@ -218,7 +220,7 @@ function compose(P, title, rng, W, H) {
 }
 
 // each movement becomes samples: position, tangent, width, how dry, whether it is a hairline or a flick
-function shape(mv, C) {
+function shape(mv, C, P) {
   const { e, W0, rng, ex } = C, ds = Math.max(1.2, W0 / 16);
   let pts = resample(mv.pts, ds);
   for (let it = 0; it < 7; it++) pts = pts.map((p, k) => (k === 0 || k === pts.length - 1 ? p : [(pts[k - 1][0] + 2 * p[0] + pts[k + 1][0]) / 4, (pts[k - 1][1] + 2 * p[1] + pts[k + 1][1]) / 4, p[2]]));
@@ -256,8 +258,8 @@ function shape(mv, C) {
     const hair = p[2], tl = p[3];
     const wf = (1 - hair * 0.9) * (tl ? Math.pow(1 - tl, 1.3) * 0.92 + 0.04 : 1);
     const w = W0 * wf * (1 + (press - 1) * Math.exp(-s / (W0 * 0.9))) * (0.86 + 0.28 * n1(s / (W0 * 3), o2)) * (1.08 - 0.18 * speedS);
-    dep += ds / (e * 1.3) * (0.45 + speedS) * (1 + hair * 2.5);
-    out[i] = { x: p[0], y: p[1], tx: t[0], ty: t[1], w, s, dep: Math.min(1.3, dep), hair, tl, sp: speedS };
+    dep += ds / (e * 1.3 * P.runout) * (0.45 + speedS * P.speedDry) * (1 + hair * 2.5);
+    out[i] = { x: p[0], y: p[1], tx: t[0], ty: t[1], w, s, dep, use: dep, hair, tl, sp: speedS };   // dep is set again from use by the ink carriage (build)
   }
   return { S: out, blunt: !flick && pts[n - 1][2] < 0.5, ds };
 }
@@ -312,7 +314,7 @@ export async function mount(stage) {
     return { S, blunt, ds, W0, sd1, sd2, sd3, br };
   }
   // Each piece is painted into a small scratch canvas first, so the fibre cuts open white only in the stroke being painted, never in ink already down.
-  const scratch = document.createElement('canvas'), sc = scratch.getContext('2d');
+  const scratch = document.createElement('canvas'), sc = scratch.getContext('2d'), wetMap = document.createElement('canvas');
   // paints samples a..b; a === 0 adds the press, last adds the blunt stop
   function paintRange(ctx, st, a, b, last) {
     const { S, W0, sd1, sd3, ds } = st, dry = P.dry;
@@ -334,15 +336,15 @@ export async function mount(stage) {
         if (p.s < late) return (br.lastV = false);
         // big dry patches: neighbouring bristles run out together as the brush empties
         const coarse = 0.6 * vn(u * 13 + sd1, p.s / (W0 * 1.1)) + 0.4 * vn(u * 31 + sd3, p.s / (W0 * 0.5));
-        const thr = dry * (0.55 * Math.pow(Math.min(1, p.dep), 1.8) + 0.2 * Math.pow(au, 6)) + p.tl * p.tl * 0.65 + p.hair * 0.3 - 0.35 * fr;
+        const thr = P.empty * 0.55 * Math.pow(Math.min(1, p.dep), 1.8) + dry * 0.2 * P.edgeDry * Math.pow(au, 6) + p.tl * p.tl * 0.65 + p.hair * 0.3 - 0.35 * fr;
         // each bristle also skips on its own, in short runs: broken fibres rather than parallel lines
-        const pOff = Math.min(0.9, (dry * (0.04 + 0.4 * Math.pow(Math.min(1, p.dep), 1.5)) * (1 - fr) + 0.3 * dry * Math.pow(au, 8) + p.tl * 0.35 + p.hair * 0.2) / load);
+        const pOff = Math.min(0.9, ((dry * 0.04 + P.empty * 0.4 * Math.pow(Math.min(1, p.dep), 1.5)) * (1 - fr) + 0.3 * dry * P.edgeDry * Math.pow(au, 8) + p.tl * 0.35 + p.hair * 0.2) / load);
         const gap = W0 * (0.1 + 0.35 * gl);
         if (br.state) { if (pOff > 0.001 && Math.random() < ds / (gap * (1 - pOff) / pOff)) br.state = false; }
         else if (Math.random() < ds / gap) br.state = true;
         return (br.lastV = coarse > thr && br.state);
       };
-      const pos = (i) => { const p = S[i], spl = (vn(bo, p.s / (W0 * 1.4)) - 0.5) * 0.32 * Math.min(1, p.dep + p.tl) * dry, off = (u + spl + wobA * Math.sin(p.s / W0 * wobF + wobP)) * p.w / 2; return [(p.x - p.ty * off) * dpr, (p.y + p.tx * off) * dpr]; };
+      const pos = (i) => { const p = S[i], spl = (vn(bo, p.s / (W0 * 1.4)) - 0.5) * 0.32 * Math.min(1, p.dep + p.tl) * Math.max(dry, P.empty), off = (u + spl + wobA * Math.sin(p.s / W0 * wobF + wobP)) * p.w / 2; return [(p.x - p.ty * off) * dpr, (p.y + p.tx * off) * dpr]; };
       let on = false;
       // the press: a round start (and a round stop when the stroke ends blunt)
       if (a === 0) { if (vis(0)) { const p = S[0], cc = Math.sqrt(Math.max(0, 1 - u * u)) * p.w * 0.5, q = pos(0); sc.moveTo(q[0] - p.tx * cc * dpr, q[1] - p.ty * cc * dpr); sc.lineTo(q[0], q[1]); on = true; } }
@@ -363,7 +365,7 @@ export async function mount(stage) {
     sc.globalCompositeOperation = 'destination-out'; sc.lineCap = 'butt';
     for (let i = a; i < b; i++) {
       const p = S[i];
-      let k = (dry * (0.2 + 1.7 * Math.pow(Math.min(1, p.dep), 1.5)) * (1 - fresh(p)) + p.tl * 2 + p.hair * 1.2) * ds / W0 * 8;
+      let k = ((dry * 0.2 + P.empty * 1.7 * Math.pow(Math.min(1, p.dep), 1.5)) * (1 - fresh(p)) + p.tl * 2 + p.hair * 1.2) * ds / W0 * 8 * P.cuts;
       for (; k > 0 && Math.random() < k; k--) {
         const long = Math.random() < 0.35, L = W0 * (long ? 0.4 + 1.2 * Math.random() : 0.08 + 0.25 * Math.random());
         const u = (Math.random() * 2 - 1) * 0.95, drift = (Math.random() - 0.5) * 0.12;
@@ -379,20 +381,123 @@ export async function mount(stage) {
     }
     sc.globalCompositeOperation = 'source-over'; sc.globalAlpha = 1;
     ctx.drawImage(scratch, 0, 0, bw, bh, bx, by, bw, bh);
+    // how wet each part goes down: a loaded brush moving slowly is wet, a fast or empty one is dry
+    const m = wetMap.getContext('2d'); m.globalCompositeOperation = 'lighten'; m.lineCap = 'round';
+    for (let i = a; i < b; i++) {
+      const p = S[i], q = S[i + 1], full = 1 - Math.min(1, p.dep), slow = 1 - Math.min(1, p.sp);
+      const wl = Math.min(1, ((1 - P.wetLoad + P.wetLoad * full) * (1 - P.wetSlow + P.wetSlow * slow) + P.press * Math.exp(-p.s / (W0 * 1.2))) * (1 - p.tl) * (1 - p.hair) * (1 - 0.4 * dry));
+      const gv = Math.round(255 * Math.pow(wl, 1.4)); if (gv < 4) continue;
+      m.strokeStyle = `rgb(${gv},${gv},${gv})`; m.lineWidth = p.w * dpr; m.beginPath(); m.moveTo(p.x * dpr, p.y * dpr); m.lineTo(q.x * dpr, q.y * dpr); m.stroke();
+    }
+    m.globalCompositeOperation = 'source-over';
   }
 
-  let grainTile = null;
+  // ---------- the paper: one sheet, both for the pinholes the ink skips and for the fibres wet ink runs along ----------
+  const PAPER = 512;
+  const paper = (() => {
+    const r = mulberry32(99), fibres = [];
+    for (let i = 0; i < 2200; i++) {
+      let x = r() * PAPER, y = r() * PAPER, a = r() * 6.283; const L = 8 + r() * 55, pts = [[x, y]];
+      for (let j = 0; j < L; j += 4) { a += (r() - 0.5) * 0.4; x += Math.cos(a) * 4; y += Math.sin(a) * 4; pts.push([x, y]); }
+      fibres.push({ pts, w: 0.6 + r() * 1.3, k: r() });
+    }
+    const line = (g, pts) => { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const q of pts) g.lineTo(q[0], q[1]); g.stroke(); };
+    const tile = () => { const t = document.createElement('canvas'); t.width = t.height = PAPER; return [t, t.getContext('2d')]; };
+    // pinholes: specks where the ink doesn't take, and the odd fibre that lifts it
+    const [holes, h] = tile();
+    for (let i = 0; i < 3200; i++) { h.globalAlpha = 0.3 + r() * 0.7; h.beginPath(); h.arc(r() * PAPER, r() * PAPER, 0.45 + r() * r() * 1.6, 0, 6.283); h.fill(); }
+    h.globalAlpha = 0.5; h.lineWidth = 0.7; h.strokeStyle = '#000'; for (const f of fibres) if (f.k < 0.06) line(h, f.pts);
+    // soak: the same fibres carry wet ink further than the sheet between them
+    const [soak, k] = tile();
+    k.fillStyle = 'rgb(70,70,70)'; k.fillRect(0, 0, PAPER, PAPER);
+    for (const f of fibres) { k.strokeStyle = `rgba(255,255,255,${0.35 + f.k * 0.6})`; k.lineWidth = f.w; line(k, f.pts); }
+    return { holes, soak };
+  })();
   function grain(ctx, w, h) {
     if (P.grain <= 0) return;
-    if (!grainTile) {
-      const t = document.createElement('canvas'); t.width = t.height = 256; const g = t.getContext('2d'), r = mulberry32(99);
-      for (let i = 0; i < 1800; i++) { g.globalAlpha = 0.3 + r() * 0.7; g.beginPath(); g.arc(r() * 256, r() * 256, 0.3 + r() * r() * 1.1, 0, 6.283); g.fill(); }
-      for (let i = 0; i < 90; i++) { const x = r() * 256, y = r() * 256, a = r() * 6.283, L = 3 + r() * 9; g.globalAlpha = 0.5; g.lineWidth = 0.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke(); }
-      grainTile = t;
-    }
     ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.globalAlpha = Math.min(1, P.grain * 0.85);
-    ctx.fillStyle = ctx.createPattern(grainTile, 'repeat'); ctx.setTransform(Math.max(1, dpr * 0.75), 0, 0, Math.max(1, dpr * 0.75), 0, 0); ctx.fillRect(0, 0, w, h); ctx.restore();
+    ctx.fillStyle = ctx.createPattern(paper.holes, 'repeat'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillRect(0, 0, w, h); ctx.restore();
   }
+
+  // ---------- wet ink: where the brush went down wet, ink creeps into the paper, closes the nearby streaks, then sets ----------
+  // A full-resolution WebGL pass. Each pixel keeps the darker of itself and what a wet neighbour gives it, so ink only spreads, never thins.
+  // Wetness comes from the wet map (the brush's load and speed), and the spread follows the same paper as the pinholes. No WebGL: no bleed.
+  const wet = (() => {
+    const cv = document.createElement('canvas');
+    const gl = cv.getContext('webgl', { premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: false, alpha: true });
+    if (!gl) return null;
+    const VS = 'attribute vec2 p; varying vec2 v; void main() { v = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }';
+    const STEP = `precision highp float; varying vec2 v;
+      uniform sampler2D uS, uI, uM, uP; uniform vec2 uPx, uPs, uPo; uniform float uAmt, uDecay, uReach, uPull;
+      void main() {
+        vec4 s = texture2D(uS, v); float ink = texture2D(uI, v).a, src = texture2D(uM, v).r * uAmt;
+        float d = max(s.r, ink), w = max(s.g * uDecay, src > s.a + 0.01 ? src : 0.0);
+        float paper = texture2D(uP, v * uPs + uPo).r;
+        for (int k = 0; k < 8; k++) {
+          float a = float(k) * 0.7853982; vec2 o = vec2(cos(a), sin(a)); o /= max(abs(o.x), abs(o.y));
+          vec4 n = texture2D(uS, v + o * uPx);
+          float give = n.r * n.g * uReach * (1.0 - uPull + uPull * paper * paper);
+          if (give > d) { d = give; w = max(w, n.g * 0.94); }
+        }
+        gl_FragColor = vec4(d, w, max(s.b, ink), max(s.a, src));
+      }`;
+    const SHOW = `precision highp float; varying vec2 v; uniform sampler2D uS; uniform vec3 uFg;
+      void main() { float a = smoothstep(0.3, 0.55, texture2D(uS, v).r); gl_FragColor = vec4(uFg * a, a); }`;   // ink in paper has an edge, not a glow
+    const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+    const prog = (fs) => {
+      const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p);
+      const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name; u[nm] = gl.getUniformLocation(p, nm); }
+      return { p, u };
+    };
+    let step, show;
+    try { step = prog(STEP); show = prog(SHOW); } catch (e) { return null; }
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    const tex = (w, h, src, repeat) => {
+      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, !!src);
+      if (src) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      return t;
+    };
+    const soak = tex(PAPER, PAPER, paper.soak, true);
+    let W = 1, H = 1, S = [], F = [], cur = 0, inkT = null, mapT = null;
+    const put = (t, src) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); };
+    return {
+      canvas: cv, active: 0,
+      reset(w, h) {
+        W = cv.width = Math.max(1, w); H = cv.height = Math.max(1, h);
+        for (const t of [...S, inkT, mapT]) if (t) gl.deleteTexture(t); for (const f of F) gl.deleteFramebuffer(f);
+        S = [tex(W, H), tex(W, H)]; F = S.map((t) => { const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); return f; });
+        inkT = tex(W, H); mapT = tex(W, H); cur = 0; this.active = 0;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      },
+      upload(inkSrc, mapSrc) { put(inkT, inkSrc); put(mapT, mapSrc); },
+      run(n, amount) {
+        gl.viewport(0, 0, W, H); gl.useProgram(step.p); const u = step.u;
+        gl.uniform1i(u.uS, 0); gl.uniform1i(u.uI, 1); gl.uniform1i(u.uM, 2); gl.uniform1i(u.uP, 3);
+        gl.uniform2f(u.uPx, 1 / W, 1 / H); gl.uniform2f(u.uPs, W / PAPER, H / PAPER); gl.uniform2f(u.uPo, 0, -H / PAPER);
+        gl.uniform1f(u.uAmt, amount); gl.uniform1f(u.uDecay, 0.9 + 0.095 * P.wetTime); gl.uniform1f(u.uReach, 0.9 + 0.095 * P.reach); gl.uniform1f(u.uPull, P.pull);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, inkT);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, mapT);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, soak);
+        for (let i = 0; i < n; i++) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, F[1 - cur]); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S[cur]);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); cur = 1 - cur;
+        }
+      },
+      draw(f) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H); gl.useProgram(show.p);
+        gl.uniform1i(show.u.uS, 0); gl.uniform3f(show.u.uFg, f[0], f[1], f[2]);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S[cur]);
+        gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      },
+      destroy() { const x = gl.getExtension('WEBGL_lose_context'); if (x) x.loseContext(); cv.width = cv.height = 0; },
+    };
+  })();
+  const wetOn = () => wet && P.wetAmt > 0;
 
   // ---------- the song names: plain, big, hyphenated where a word won't fit ----------
   function paintType(ctx, W, H) {
@@ -428,7 +533,9 @@ export async function mount(stage) {
   let dirty = false, writer = null, user = null;
   function present() {
     const v = view.getContext('2d');
-    v.globalCompositeOperation = 'source-over'; v.clearRect(0, 0, view.width, view.height); v.drawImage(ink, 0, 0); grain(v, view.width, view.height);
+    v.globalCompositeOperation = 'source-over'; v.clearRect(0, 0, view.width, view.height);
+    if (wetOn()) v.drawImage(wet.canvas, 0, 0, view.width, view.height);
+    v.drawImage(ink, 0, 0); grain(v, view.width, view.height);
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, stage.pw, stage.ph);
     c.drawImage(typ, 0, 0);
@@ -448,13 +555,26 @@ export async function mount(stage) {
     list = [];
     for (const mv of C.moves) {
       if (lenOf(mv.pts) < 2) continue;
-      const { S, blunt, ds } = shape(mv, C); if (S.length < 2) continue;
+      const { S, blunt, ds } = shape(mv, C, P); if (S.length < 2) continue;
       const st = brushFor(S, blunt, ds, rng, C.W0); st.letter = mv.letter; list.push(st);
     }
+    // ink carriage: how full the brush starts, and when it goes back to the inkstone (0 every stroke, 1 every letter, 2 once for the title)
+    let carry = 0, lastLetter = -1;
+    for (const st of list) {
+      if (P.redip === 0 || (P.redip === 1 && st.letter !== lastLetter)) carry = 0;
+      lastLetter = st.letter;
+      for (const p of st.S) p.dep = Math.max(0, Math.min(1.3, carry + p.use - (P.load - 1)));
+      carry += st.S[st.S.length - 1].use;
+    }
     user = null;
+    { const m = wetMap.getContext('2d'); wetMap.width = ink.width; wetMap.height = ink.height; m.fillStyle = '#000'; m.fillRect(0, 0, wetMap.width, wetMap.height); }
+    if (wet) wet.reset(ink.width, ink.height);
     if (songs()) paintType(typ.getContext('2d'), W, H);
     if (live && !stage.reduced) writer = { list, k: 0, i: 0, acc: 0, pause: 0.35 };
-    else { writer = null; const x = inkCtx(); for (const st of list) paintRange(x, st, 0, st.S.length - 1, true); }
+    else {
+      writer = null; const x = inkCtx(); for (const st of list) paintRange(x, st, 0, st.S.length - 1, true);
+      if (wetOn()) { wet.upload(ink, wetMap); wet.run(90, P.wetAmt); wet.draw(stage.colors.fg); }
+    }
     present();
   }
   function rewrite() { P.seed = (Math.random() * 1e6) | 0; build(true); }
@@ -474,7 +594,7 @@ export async function mount(stage) {
       const tx = p.tx * 0.6 + ux * 0.4, ty = p.ty * 0.6 + uy * 0.4, tl = Math.hypot(tx, ty) || 1;
       const s = p.s + st.ds, sp = Math.min(1.6, ptr.v / (e * 2.2));
       const w = W0 * Math.max(0.3, Math.min(1.3, 1.3 - sp * 0.75)) * (1 + 0.25 * Math.exp(-s / (W0 * 0.9))) * (0.9 + 0.2 * n1(s / (W0 * 3), st.sd1));
-      S.push({ x: p.x + ux * st.ds, y: p.y + uy * st.ds, tx: tx / tl, ty: ty / tl, w, s, dep: Math.min(1.3, p.dep + st.ds / (e * 1.3) * (0.35 + sp)), hair: 0, tl: 0, sp });
+      S.push({ x: p.x + ux * st.ds, y: p.y + uy * st.ds, tx: tx / tl, ty: ty / tl, w, s, dep: Math.min(1.3, p.dep + st.ds / (e * 1.3 * P.runout) * (0.35 + sp * P.speedDry)), hair: 0, tl: 0, sp });
     }
   }
   offs.push(stage.on('down', (q, e) => {
@@ -492,7 +612,7 @@ export async function mount(stage) {
     ptr.x = q.x; ptr.y = q.y; ptr.lt = now;
     if (!user && ptr.moved > TAP.px) {
       const ux = (ptr.x - ptr.sx) / (ptr.moved || 1), uy = (ptr.y - ptr.sy) / (ptr.moved || 1), ul = Math.hypot(ux, uy) || 1;
-      const S = [{ x: ptr.sx, y: ptr.sy, tx: ux / ul, ty: uy / ul, w: C.W0 * 1.25, s: 0, dep: 0, hair: 0, tl: 0, sp: 0 }];
+      const S = [{ x: ptr.sx, y: ptr.sy, tx: ux / ul, ty: uy / ul, w: C.W0 * 1.25, s: 0, dep: Math.max(0, 1 - P.load), hair: 0, tl: 0, sp: 0 }];
       user = { st: brushFor(S, true, Math.max(1.2, C.W0 / 16), Math.random, C.W0), done: 0 };
       clearTimeout(tapT);                                             // a drag after a tap: the tap's rewrite would wipe it
     }
@@ -534,7 +654,7 @@ export async function mount(stage) {
       x.fillStyle = col(0.9 * k); x.beginPath(); x.arc(S[0].x, S[0].y, 3, 0, Math.PI * 2); x.fill();   // the press
       const L = S[S.length - 1]; x.beginPath(); x.moveTo(L.x - 4, L.y - 4); x.lineTo(L.x + 4, L.y + 4); x.moveTo(L.x + 4, L.y - 4); x.lineTo(L.x - 4, L.y + 4); x.stroke();   // the lift
     }
-    if (C) titleBlock(x, W, H, ['GYOSHO', `${list.length} movements`, `${Nb} bristles`, `${FACES[P.face] ? FACES[P.face].family : ''} centre line`, `flow ${P.flow}  dry ${P.dry}`], col, k);
+    if (C) titleBlock(x, W, H, ['GYOSHO', `${list.length} movements`, `${Nb} bristles`, `${FACES[P.face] ? FACES[P.face].family : ''} centre line`, `flow ${P.flow}  dry ${P.dry}`, wet ? `wet ${P.wetAmt}  reach ${P.reach}` : 'no WebGL: no bleed'], col, k);
   });
 
   // ---------- settings ----------
@@ -545,13 +665,15 @@ export async function mount(stage) {
       { name: 'Words', items: [Ctl('album', 'Album (-1 follows the words)', -1, ALBUMS.length - 1, 1), Ctl('face', 'Letters from (0 sans, 1 Caveat, 2 monoline)', 0, FACES.length - 1, 1), { key: 'type', label: 'Song names underneath', type: 'toggle' }, { key: 'overlap', label: 'Ink knocks out the type', type: 'toggle' }] },
       { name: 'Hand', items: [Ctl('brush', 'Brush width', 0.4, 2.2, 0.05), Ctl('exag', 'Movement', 0, 1.6, 0.05), Ctl('flow', 'Flow (strokes run together)', 0, 1, 0.05), Ctl('speed', 'Writing speed', 0.5, 8, 0.1)] },
       { name: 'Ink', items: [Ctl('dry', 'Dry brush', 0, 2, 0.05), Ctl('grain', 'Paper grain', 0, 1, 0.05)] },
+      { name: 'Ink carriage', items: [Ctl('load', 'Ink on the brush', 0.2, 2, 0.05), Ctl('runout', 'How far a load lasts', 0.3, 3, 0.05), Ctl('speedDry', 'Speed dries the brush', 0, 2.5, 0.05), Ctl('redip', 'Back to the inkstone (0 every stroke, 1 every letter, 2 once)', 0, 2, 1), Ctl('empty', 'Streaks as it empties', 0, 2, 0.05), Ctl('edgeDry', 'Edges dry first', 0, 3, 0.05), Ctl('cuts', 'White fibre streaks', 0, 3, 0.05)] },
+      { name: 'Wet', items: [Ctl('wetAmt', 'Wet ink', 0, 1, 0.05), Ctl('wetLoad', 'Wet follows the load', 0, 1, 0.05), Ctl('wetSlow', 'Wet follows slowness', 0, 1, 0.05), Ctl('press', 'Wet press at the start', 0, 1.5, 0.05), Ctl('reach', 'How far it bleeds', 0, 1, 0.02), Ctl('wetTime', 'How long it stays wet', 0, 1, 0.02), Ctl('pull', 'Paper fibres pull the ink', 0, 1, 0.05)] },
     ],
     actions: {
       'Write it again': rewrite,
       'Next album': () => { P.album = (albumIx() + 1) % ALBUMS.length; P.seed = (Math.random() * 1e6) | 0; build(true); },
     },
     async set(key, v) {
-      P[key] = key === 'album' || key === 'face' ? Math.round(v) : v;
+      P[key] = key === 'album' || key === 'face' || key === 'redip' ? Math.round(v) : v;
       if (key === 'face') await loadFace(FACES[P.face], letters);
       if (!alive) return;
       if (key === 'overlap' || key === 'grain') { dirty = true; return; }
@@ -578,17 +700,23 @@ export async function mount(stage) {
       if (i >= n - 1) { writer.k++; writer.i = 0; budget = writer.acc; writer.acc = 0; const nx = writer.list[writer.k]; writer.pause = nx && nx.letter !== st.letter ? 0.16 : 0.07; }
     }
     if (user && user.st.S.length - 1 > user.done) { const b = user.st.S.length - 1; paintRange(inkCtx(), user.st, user.done, b, false); user.done = b; dirty = true; }
+    // the wet ink spreads for a couple of seconds after each new ink, then sets (under reduced motion it settles at once)
+    if (wetOn()) {
+      if (dirty) { wet.upload(ink, wetMap); wet.active = 150; }
+      if (wet.active > 0) { const n = stage.reduced ? Math.min(wet.active, 90) : 1; wet.active -= stage.reduced ? wet.active : 1; wet.run(n, P.wetAmt); wet.draw(stage.colors.fg); dirty = true; }
+    }
     if (dirty) { dirty = false; present(); }
     rv.draw(performance.now());
   }));
 
   return {
     tune,
-    debug: { get writing() { return !!writer; }, get moves() { return list.length; }, finish() { while (writer) { const st = writer.list[writer.k]; if (!st) { writer = null; break; } paintRange(inkCtx(), st, writer.i, st.S.length - 1, true); writer.k++; writer.i = 0; } present(); }, dark },
+    debug: { get writing() { return !!writer; }, get moves() { return list.length; }, finish() { while (writer) { const st = writer.list[writer.k]; if (!st) { writer = null; break; } paintRange(inkCtx(), st, writer.i, st.S.length - 1, true); writer.k++; writer.i = 0; } dirty = true; }, dark },
     destroy() {
       alive = false; timers.forEach(clearTimeout);
       rv.destroy(); offs.forEach((f) => f()); links.forEach((l) => l.remove());
-      for (const cv of [ink, typ, view, scratch]) { cv.width = cv.height = 0; }
+      for (const cv of [ink, typ, view, scratch, wetMap]) { cv.width = cv.height = 0; }
+      if (wet) wet.destroy();
       writer = user = null;
     },
   };
