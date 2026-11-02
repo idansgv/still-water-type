@@ -23,7 +23,7 @@
 - Make it your own: the visitor's name goes in ink over the tracklist of the album that would have shown (no new copy invented).
 - inkField (github.com/ileivoivm/inkField) studied for wet ink: its licence reserves modification and derivative works, so no code or shaders are taken. Ideas to reimplement ourselves: per-bristle random breaks with short memory (fixes the parallel-outline look), stroke-direction fibre texture, and a WebGL wet-spread + edge-pooling pass while ink is fresh.
 - Ink v2 (inkField ideas 1+2, own code): each bristle breaks on its own in short runs and flicks a speck where it lifts; fibre cuts (thin white streaks along the stroke, long and fine) open more as the brush dries. Each piece is painted in a scratch canvas so cuts never open ink already down.
-- Defaults: Idan's tuned values (2 Nov 2026), set on the pre-fibre version: Pink Moon, brush 1.4, movement 1.55, flow 0.25, dry 0.2, grain 1, speed 7.3, seed 304174.
+- Defaults: Idan's tuned values (2 Nov 2026, retuned the same day on the fibre version): brush 1.4, movement 0.55, flow 0.3, dry 0.3, grain 0.85, speed 7.3, seed 304174; the album stays random.
 - Song names now start with the track length, no leading zero (3:12). Lengths are from memory, not yet checked against a source.
 - Wet branch (2 Nov 2026), `prototypes/gyosho-wet.html`, own Artifact link: inkField idea 3, own code. A half-resolution WebGL1 pass: each pixel keeps the darker of itself and what a wet neighbour gives it, weighted by a fibre paper texture, so fresh ink feathers into the paper for a couple of seconds and then sets. Only the bleed onto bare paper shows; the crisp brush and its fibre cuts stay on top. Settings: Wet ink (0 = the main page), Dark rim. Falls back to no bleed without WebGL.
 

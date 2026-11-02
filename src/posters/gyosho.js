@@ -22,7 +22,7 @@ import { TRACKLISTS } from './data/tracklists.js';
 // Defaults saved from the settings panel (Save as defaults, local dev server): src/posters/params/gyosho.json, over the built-in ones below.
 const SAVED = await fetch(new URL('./params/gyosho.json', import.meta.url)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
 // Idan's tuned values, 2 Nov 2026 (tuned on Pink Moon). album -1 follows the words (random: the shell's album, or one of ours for a name); 0.. forces one of ALBUMS (settings only).
-const DEF = { album: -1, face: 0, brush: 1.4, exag: 1.55, flow: 0.25, dry: 0.2, grain: 1, speed: 7.3, overlap: 0, type: 1, seed: 304174 };
+const DEF = { album: -1, face: 0, brush: 1.4, exag: 0.55, flow: 0.3, dry: 0.3, grain: 0.85, speed: 7.3, overlap: 0, type: 1, seed: 304174 };
 
 // ---------- albums: the title goes in ink, the songs go underneath, each after its length ----------
 const ALBUMS = TRACKLISTS.filter((a) => a[2].length);   // every title the shell can give (src/albums.js) that has its songs
