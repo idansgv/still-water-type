@@ -5,6 +5,7 @@ import { createStage, THEMES, fontsReady } from './engine.js';
 import { rollColour, colourPass, clearColourPass } from './colour.js';
 import { createPanel } from './panel.js';
 import { validateName, savedName, saveName, nameWords } from './name.js';
+import { nextAlbum } from './albums.js';
 
 const $ = (id) => document.getElementById(id);
 const stageEl = $('stage');
@@ -198,11 +199,12 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   setChrome(poster);
   clearColourPass();
 
-  const stage = createStage(stageEl, { seed, theme, toast, setBackdrop, words: poster.nameable ? nameWords(myName) : null });
+  const album = poster.nameable && !myName ? nextAlbum() : null;   // no name of their own: an album title instead (src/albums.js)
+  const stage = createStage(stageEl, { seed, theme, toast, setBackdrop, words: poster.nameable ? nameWords(myName || album.title) : null });
   stage.refreshPanel = syncPanel;                                   // a poster whose settings change (a mode switch) asks for the panel to be rebuilt
   stage.flip = theme.name === 'dark';
   stage.colour = poster.standalone ? null : rollColour(params, Math.random, { dark: theme.name === 'dark' });          // about one showing in twenty is in colour (src/colour.js)
-  current = { poster, stage, seed, theme };
+  current = { poster, stage, seed, theme, album };
   let inst = null;
   try {
     await fontsReady();
@@ -222,7 +224,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   }
   window.__poster = { slug: poster.slug, seed, theme: theme.name, colour: stage.colour ? stage.colour.name : null, stage: current.stage, inst };
   history.replaceState(null, '', `/p/${poster.slug}/${myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : ''}`);   // the address bar follows the poster, with the visitor's name when it shows: copy it to share it
-  track('poster_view', { slug: poster.slug, theme: theme.name, first: shuffles === 0, named: !!(myName && poster.nameable), failed: !current.stage });
+  track('poster_view', { slug: poster.slug, theme: theme.name, first: shuffles === 0, named: !!(myName && poster.nameable), album: album ? album.title : null, failed: !current.stage });
   try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
   requestAnimationFrame(() => stageEl.classList.remove('swap'));
   busy = false;
@@ -239,7 +241,8 @@ async function shuffle() {
 async function share() {
   if (!current) return;
   const { poster, seed } = current;
-  const q = myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : '';
+  const words = poster.nameable ? myName || (current.album && current.album.title) : null;   // a shared link carries the album it showed
+  const q = words ? `?n=${encodeURIComponent(words)}` : '';
   const url = `${location.origin}/p/${poster.slug}/${q}`;
   const data = { title: `${poster.title} · Idan Segev`, text: poster.blurb, url };
   track('share', { slug: poster.slug, named: !!q });

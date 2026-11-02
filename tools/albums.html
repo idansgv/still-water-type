@@ -1,0 +1,133 @@
+<!doctype html>
+<!-- Album review: step through src/albums.js, see each title on a real poster, drop the ones that don't work, add new ones.
+     Open http://127.0.0.1:<port>/tools/albums.html from tools/dev.py; Save writes the list back to src/albums.js (local only). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Album review</title>
+<style>
+  :root { --ink: #111; --mute: #888; --line: #e4e4e4; --bg: #fff; --off: #c33; }
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; display: grid; grid-template-columns: 280px 1fr; font: 13px/1.4 'IBM Plex Mono', ui-monospace, monospace; color: var(--ink); background: var(--bg); }
+  aside { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  header { padding: 12px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+  ol { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; }
+  li { display: flex; gap: 8px; align-items: baseline; padding: 4px 12px; cursor: pointer; }
+  li .a { color: var(--mute); margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+  li.cur { background: #f2f2f2; }
+  li.off .t { text-decoration: line-through; color: var(--off); }
+  li.new .t::after { content: ' +'; color: var(--mute); }
+  li.sug .t::before { content: '♪ '; color: var(--mute); }
+  li.sug.off .t { text-decoration: none; color: var(--mute); }
+  li.head { cursor: default; color: var(--mute); padding-top: 14px; border-top: 1px solid var(--line); }
+  main { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+  .bar { display: flex; gap: 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bar b { font-size: 15px; }
+  iframe { width: 100%; height: 100%; border: 0; }
+  button, select, input { font: inherit; }
+  button { border: 1px solid var(--line); background: #fff; padding: 4px 10px; cursor: pointer; }
+  button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .row { display: flex; gap: 6px; }
+  .row input { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid var(--line); }
+  .mute { color: var(--mute); }
+  #msg { min-height: 1.4em; }
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <div class="row"><button id="save" class="primary">Save to albums.js</button><span id="count" class="mute"></span></div>
+    <div class="row"><input id="newTitle" placeholder="Title (≤14)" maxlength="14"><input id="newArtist" placeholder="Artist"><button id="add">Add</button></div>
+    <div id="msg" class="mute"></div>
+  </header>
+  <ol id="list"></ol>
+</aside>
+<main>
+  <div class="bar">
+    <b id="title"></b><span id="artist" class="mute"></span>
+    <span class="mute" style="margin-left:auto">on</span>
+    <select id="poster"></select>
+    <button id="rand">Another poster</button>
+    <span class="mute">↑↓ step · X drop/keep · P poster · ♪ from your Spotify, grey until you keep it</span>
+  </div>
+  <iframe id="view" title="Poster preview"></iframe>
+</main>
+<script type="module">
+import { ALBUMS } from '../src/albums.js';
+import { POSTERS } from '../src/posters/index.js';
+import { validateName } from '../src/name.js';
+
+const $ = (id) => document.getElementById(id);
+const items = ALBUMS.map(([title, artist]) => ({ title, artist, off: false, isNew: false }));
+// Suggestions from the listener's own Spotify (tools/albums-suggested.json): listed after the album list, dropped until kept with X.
+const had = new Set(ALBUMS.map(([t]) => t.toLowerCase()));
+const suggested = await fetch('albums-suggested.json').then((r) => r.ok ? r.json() : []).catch(() => []);
+const firstSug = items.length;
+suggested.filter(([t]) => !had.has(t.toLowerCase()) && !validateName(t).error).forEach(([title, artist]) => items.push({ title, artist, off: true, isNew: false, sug: true }));
+const posters = POSTERS.filter((p) => p.nameable && !p.draft && !['moonlit', 'wash-script'].includes(p.slug));
+let cur = items.length > firstSug ? firstSug : 0;   // open on the first suggestion
+
+$('poster').innerHTML = '<option value="">random</option>' + posters.map((p) => `<option value="${p.slug}">${p.title}</option>`).join('');
+
+function render() {
+  $('list').innerHTML = items.map((a, i) =>
+    `<li data-i="${i}" class="${i === cur ? 'cur' : ''} ${a.off ? 'off' : ''} ${a.isNew ? 'new' : ''} ${a.sug ? 'sug' : ''}"><span class="t"></span><span class="a"></span></li>`).join('');
+  [...$('list').children].forEach((li, i) => { li.querySelector('.t').textContent = items[i].title; li.querySelector('.a').textContent = items[i].artist; });
+  const kept = items.filter((a) => !a.off).length;
+  $('count').textContent = `${kept} kept`;
+  const fs = items.findIndex((a) => a.sug);
+  if (fs >= 0) $('list').children[fs].insertAdjacentHTML('beforebegin', '<li class="head">From your Spotify</li>');
+  const a = items[cur];
+  $('title').textContent = a ? a.title : '';
+  $('artist').textContent = a ? a.artist : '';
+  const li = $('list').querySelector(`li[data-i="${cur}"]`); if (li) li.scrollIntoView({ block: 'nearest' });
+}
+
+function preview() {
+  const a = items[cur]; if (!a) return;
+  const slug = $('poster').value || posters[Math.floor(Math.random() * posters.length)].slug;
+  $('view').src = `/p/${slug}/?n=${encodeURIComponent(a.title)}`;
+  render();
+}
+
+function go(i) { cur = Math.max(0, Math.min(items.length - 1, i)); preview(); }
+function toggle() { items[cur].off = !items[cur].off; render(); }
+
+$('list').addEventListener('click', (e) => { const li = e.target.closest('li[data-i]'); if (li) go(+li.dataset.i); });
+$('poster').addEventListener('change', preview);
+$('rand').addEventListener('click', () => { $('poster').value = ''; preview(); });
+
+$('add').addEventListener('click', () => {
+  const v = validateName($('newTitle').value), artist = $('newArtist').value.trim();
+  if (v.error) return void ($('msg').textContent = v.error);
+  if (!artist) return void ($('msg').textContent = 'Add the artist too.');
+  if (items.some((a) => a.title.toLowerCase() === v.name.toLowerCase())) return void ($('msg').textContent = 'Already in the list.');
+  items.push({ title: v.name, artist, off: false, isNew: true });
+  $('newTitle').value = $('newArtist').value = ''; $('msg').textContent = `Added ${v.name}.`;
+  go(items.length - 1);
+});
+
+$('save').addEventListener('click', async () => {
+  const keep = items.filter((a) => !a.off).map((a) => [a.title, a.artist]);
+  if (!keep.length) return void ($('msg').textContent = 'Keep at least one.');
+  const r = await fetch('/__albums', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(keep) }).catch(() => null);
+  if (!r || !r.ok) return void ($('msg').textContent = 'Save failed: run tools/dev.py (it has the /__albums route).');
+  items.splice(0, items.length, ...keep.map(([title, artist]) => ({ title, artist, off: false, isNew: false })));
+  cur = Math.min(cur, items.length - 1);
+  $('msg').textContent = `Saved ${keep.length} albums to src/albums.js.`;
+  render();
+});
+
+addEventListener('keydown', (e) => {
+  if (e.target.closest('input, select')) return;
+  if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); go(cur + 1); }
+  else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); go(cur - 1); }
+  else if (e.key === 'x' || e.key === 'X') toggle();
+  else if (e.key === 'p' || e.key === 'P') { $('poster').value = ''; preview(); }
+});
+
+preview();
+</script>
+</body>
+</html>

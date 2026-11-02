@@ -15,6 +15,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 class H(SimpleHTTPRequestHandler):
     # The settings panel's "Save as defaults": POST /__params/<slug> with the poster's settings as JSON lands in src/posters/params/<slug>.json (local requests only).
     def do_POST(self):
+        if self.path == '/__albums': return self.save_albums()
         m = re.fullmatch(r'/__params/([a-z0-9-]+)', self.path)
         local = self.client_address[0] in ('127.0.0.1', '::1')
         try:
@@ -25,6 +26,27 @@ class H(SimpleHTTPRequestHandler):
             path = os.path.join(ROOT, 'src', 'posters', 'params', m.group(1) + '.json')
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, 'w') as f: json.dump(data, f, indent=2); f.write('\n')
+            self.send_response(200)
+        except Exception:
+            self.send_response(400)
+        self.send_header('Content-Length', '0'); self.end_headers()
+
+    # The album review page (tools/albums.html): POST /__albums with [[title, artist], ...] rewrites the ALBUMS list in src/albums.js (local requests only).
+    def save_albums(self):
+        try:
+            n = int(self.headers.get('Content-Length', '0'))
+            if self.client_address[0] not in ('127.0.0.1', '::1') or n <= 0 or n > 50000: raise ValueError('refused')
+            data = json.loads(self.rfile.read(n))
+            ok = re.compile(r"^[^\W_][\w' -]{0,13}$")
+            if not isinstance(data, list) or not data or not all(isinstance(a, list) and len(a) == 2 and all(isinstance(x, str) for x in a) and ok.match(a[0]) and 0 < len(a[1]) < 60 for a in data): raise ValueError('not albums')
+            path = os.path.join(ROOT, 'src', 'albums.js')
+            src = open(path).read()
+            q = lambda x: json.dumps(x, ensure_ascii=False) if "'" in x else f"'{x}'"   # single quotes, like the rest of src/
+            rows = [', '.join(f'[{q(a[0])}, {q(a[1])}]' for a in data[i:i + 4]) + ',' for i in range(0, len(data), 4)]
+            body = 'export const ALBUMS = [\n' + ''.join('  ' + r + '\n' for r in rows) + '];'
+            src, count = re.subn(r'export const ALBUMS = \[.*?\n\];', lambda _: body, src, flags=re.S)
+            if count != 1: raise ValueError('list not found')
+            with open(path, 'w') as f: f.write(src)
             self.send_response(200)
         except Exception:
             self.send_response(400)
