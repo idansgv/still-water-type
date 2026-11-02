@@ -240,7 +240,7 @@ function prepareNext() {
   if (!current || document.documentElement.dataset.bare !== undefined) return;
   upcoming = pickOther(current.poster.slug);
   const next = upcoming;
-  prepTimer = setTimeout(() => (window.requestIdleCallback || setTimeout)(() => { if (upcoming === next) next.load().catch(() => {}); }, { timeout: 3000 }), 1200);   // after the first frames, so it never competes with the poster on screen
+  prepTimer = setTimeout(() => (window.requestIdleCallback || setTimeout)(() => { if (upcoming === next) next.load().catch(() => {}); }, { timeout: 500 }), 1200);   // after the first frames, so it never competes with the poster on screen; an animated poster is rarely idle, so the wait is short
 }
 
 async function shuffle() {
