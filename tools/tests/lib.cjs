@@ -24,8 +24,9 @@ function watch(page) {
 }
 
 // Open a poster and wait until it has mounted (window.__poster is set after mount).
+// Pinned to "Idan Segev" (the scenes tap where those letters are); without a name the posters draw a random album title (src/albums.js).
 async function open(page, slug, extra = '') {
-  await page.goto(`/?p=${slug}${extra}`, { waitUntil: 'load' });
+  await page.goto(`/?p=${slug}${/[?&]n=/.test(extra) ? '' : '&n=Idan%20Segev'}${extra}`, { waitUntil: 'load' });
   await page.waitForFunction((s) => window.__poster && window.__poster.slug === s, slug, { timeout: 20000 });
   await page.waitForTimeout(800);
 }
