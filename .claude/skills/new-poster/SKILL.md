@@ -1,9 +1,9 @@
 ---
-name: poster-cycle
+name: new-poster
 description: Develop, test visually, refine and ship a poster on idansegev.com (type-posters repo). Use when adding a poster, changing one, or tuning its behaviour, layout or name support. Covers the draft in the registry, local checks on desktop and phone, taste calls left to Idan, and shipping with explicit approval.
 ---
 
-# Poster cycle
+# New poster
 
 Work one poster through four stages. Stop at each gate and say what happened before moving on.
 
