@@ -1,12 +1,12 @@
 {
   "album": -1,
   "face": 0,
-  "brush": 1.05,
-  "exag": 0.8,
-  "flow": 0.6,
+  "brush": 1,
+  "exag": 0.75,
+  "flow": 0.5,
   "dry": 0.35,
   "grain": 0,
-  "speed": 7.3,
+  "speed": 6.2,
   "wetAmt": 0.65,
   "empty": 0.2,
   "load": 1.05,
@@ -21,7 +21,12 @@
   "reach": 0.66,
   "wetTime": 0.2,
   "pull": 0.7,
+  "ease": 0.1,
+  "lenFast": 0,
+  "rhythm": 0.05,
+  "lift": 2.55,
+  "breath": 0.06,
   "overlap": 0,
   "type": 1,
-  "seed": 564784
+  "seed": 253133
 }

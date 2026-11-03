@@ -24,7 +24,7 @@ import { TRACKLISTS } from './data/tracklists.js';
 // Defaults saved from the settings panel (Save as defaults, local dev server): src/posters/params/gyosho.json, over the built-in ones below.
 const SAVED = await fetch(new URL('./params/gyosho.json', import.meta.url)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
 // Idan's tuned wet values, 2 Nov 2026. album -1 follows the words (random: the shell's album, or one of ours for a name); 0.. forces one of ALBUMS (settings only).
-const DEF = { album: -1, face: 0, brush: 1.05, exag: 0.8, flow: 0.6, dry: 0.35, grain: 0, speed: 7.3, wetAmt: 0.65, empty: 0.2, load: 1.05, runout: 0.85, speedDry: 1.35, redip: 1, edgeDry: 1, cuts: 1, wetLoad: 0.4, wetSlow: 0.75, press: 0.25, reach: 0.66, wetTime: 0.2, pull: 0.7, overlap: 0, type: 1, seed: 564784 };
+const DEF = { album: -1, face: 0, brush: 1, exag: 0.75, flow: 0.5, dry: 0.35, grain: 0, speed: 6.2, wetAmt: 0.65, empty: 0.2, load: 1.05, runout: 0.85, speedDry: 1.35, redip: 1, edgeDry: 1, cuts: 1, wetLoad: 0.4, wetSlow: 0.75, press: 0.25, reach: 0.66, wetTime: 0.2, pull: 0.7, ease: 0.1, lenFast: 0, rhythm: 0.05, lift: 2.55, breath: 0.06, overlap: 0, type: 1, seed: 253133 };
 
 // ---------- albums: the title goes in ink, the songs go underneath, each after its length ----------
 const ALBUMS = TRACKLISTS.filter((a) => a[2].length);   // every title the shell can give (src/albums.js) that has its songs
@@ -544,8 +544,18 @@ export async function mount(stage) {
     c.globalCompositeOperation = 'source-over';
   }
   const inkCtx = () => { const x = ink.getContext('2d'); x.strokeStyle = fg; x.lineCap = 'round'; x.lineJoin = 'round'; x.lineWidth = Math.max(0.6, C.W0 * dpr / Nb * 1.7); return x; };
-  // time to cross one sample: slow through turns, quick on straight runs and through flicks and hairlines
-  const cost = (st, i) => { const p = st.S[i]; return st.ds / (P.speed * C.e * (0.3 + 1.2 * p.sp) * (1 + p.tl * 1.6 + p.hair * 0.9)); };
+  // time to cross one sample: slow through turns, quick on straight runs and through flicks and hairlines. Over the whole stroke the
+  // hand eases in from the press, peaks mid-stroke and eases out into a blunt stop (a flick keeps its speed); long strokes run faster
+  // than short ones, and each stroke has its own tempo
+  const cost = (st, i) => {
+    const p = st.S[i], u = st.L > 0 ? p.s / st.L : 0.5, k = st.blunt || u < 0.5 ? 16 * u * u * (1 - u) * (1 - u) : 1;
+    return st.ds / (P.speed * C.e * st.tempo * (1 - 0.78 * P.ease * (1 - k)) * (1 + 0.45 * P.ease) * (0.3 + 1.2 * p.sp) * (1 + p.tl * 1.6 + p.hair * 0.9));
+  };
+  // between strokes the brush lifts and travels through the air; a new letter takes a breath
+  const gap = (st, nx) => {
+    const a = st.S[st.S.length - 1], b = nx.S[0], air = Math.hypot(b.x - a.x, b.y - a.y);
+    return (0.05 + air / (P.speed * C.e * 2.4)) * P.lift * nx.breath + (nx.letter !== st.letter ? P.breath * nx.breath : 0);
+  };
   function build(live) {
     const W = stage.W, H = stage.H; dpr = stage.pw / W;
     for (const cv of [ink, typ, view]) { cv.width = stage.pw; cv.height = stage.ph; }
@@ -557,6 +567,10 @@ export async function mount(stage) {
       if (lenOf(mv.pts) < 2) continue;
       const { S, blunt, ds } = shape(mv, C, P); if (S.length < 2) continue;
       const st = brushFor(S, blunt, ds, rng, C.W0); st.letter = mv.letter; list.push(st);
+    }
+    { // pacing, from its own seed so the strokes keep their look
+      const pr = mulberry32(P.seed * 31 + 7), Ls = list.map((st) => st.S[st.S.length - 1].s).sort((a, b) => a - b), mid = Ls[Ls.length >> 1] || 1;
+      for (const st of list) { st.L = st.S[st.S.length - 1].s; st.tempo = Math.min(1.6, Math.max(0.6, Math.pow(st.L / mid, P.lenFast))) * (1 + (pr() - 0.5) * P.rhythm); st.breath = 1 + (pr() - 0.5) * P.rhythm * 2; }
     }
     // ink carriage: how full the brush starts, and when it goes back to the inkstone (0 every stroke, 1 every letter, 2 once for the title)
     let carry = 0, lastLetter = -1;
@@ -664,6 +678,7 @@ export async function mount(stage) {
     groups: [
       { name: 'Words', items: [Ctl('album', 'Album (-1 follows the words)', -1, ALBUMS.length - 1, 1), Ctl('face', 'Letters from (0 sans, 1 Caveat, 2 monoline)', 0, FACES.length - 1, 1), { key: 'type', label: 'Song names underneath', type: 'toggle' }, { key: 'overlap', label: 'Ink knocks out the type', type: 'toggle' }] },
       { name: 'Hand', items: [Ctl('brush', 'Brush width', 0.4, 2.2, 0.05), Ctl('exag', 'Movement', 0, 1.6, 0.05), Ctl('flow', 'Flow (strokes run together)', 0, 1, 0.05), Ctl('speed', 'Writing speed', 0.5, 8, 0.1)] },
+      { name: 'Pace', items: [Ctl('ease', 'Ease (slow press and stop)', 0, 1.2, 0.05), Ctl('lenFast', 'Long strokes run faster', 0, 1, 0.05), Ctl('rhythm', 'Rhythm (tempo varies)', 0, 0.9, 0.05), Ctl('lift', 'Lift (time in the air)', 0, 3, 0.05), Ctl('breath', 'Breath before a letter', 0, 0.8, 0.02)] },
       { name: 'Ink', items: [Ctl('dry', 'Dry brush', 0, 2, 0.05), Ctl('grain', 'Paper grain', 0, 1, 0.05)] },
       { name: 'Ink carriage', items: [Ctl('load', 'Ink on the brush', 0.2, 2, 0.05), Ctl('runout', 'How far a load lasts', 0.3, 3, 0.05), Ctl('speedDry', 'Speed dries the brush', 0, 2.5, 0.05), Ctl('redip', 'Back to the inkstone (0 every stroke, 1 every letter, 2 once)', 0, 2, 1), Ctl('empty', 'Streaks as it empties', 0, 2, 0.05), Ctl('edgeDry', 'Edges dry first', 0, 3, 0.05), Ctl('cuts', 'White fibre streaks', 0, 3, 0.05)] },
       { name: 'Wet', items: [Ctl('wetAmt', 'Wet ink', 0, 1, 0.05), Ctl('wetLoad', 'Wet follows the load', 0, 1, 0.05), Ctl('wetSlow', 'Wet follows slowness', 0, 1, 0.05), Ctl('press', 'Wet press at the start', 0, 1.5, 0.05), Ctl('reach', 'How far it bleeds', 0, 1, 0.02), Ctl('wetTime', 'How long it stays wet', 0, 1, 0.02), Ctl('pull', 'Paper fibres pull the ink', 0, 1, 0.05)] },
@@ -677,11 +692,12 @@ export async function mount(stage) {
       if (key === 'face') await loadFace(FACES[P.face], letters);
       if (!alive) return;
       if (key === 'overlap' || key === 'grain') { dirty = true; return; }
-      clearTimeout(soonT); soonT = later(() => build(key === 'album' || key === 'face'), 90);
+      clearTimeout(soonT); soonT = later(() => build(key === 'album' || key === 'face' || PACE.includes(key)), key === 'speed' || PACE.includes(key) ? 400 : 90);   // pace shows only while writing, so it writes again
     },
     reset() { Object.assign(P, DEF, SAVED); build(false); },
   };
   let soonT = 0;
+  const PACE = ['ease', 'lenFast', 'rhythm', 'lift', 'breath'];
 
   // ---------- the frame: the live writer, then your brush ----------
   build(true);
@@ -697,7 +713,7 @@ export async function mount(stage) {
       while (i < n - 1 && writer.acc >= cost(st, i)) { writer.acc -= cost(st, i); i++; }
       if (i > i0) { paintRange(inkCtx(), st, i0, i, i >= n - 1); dirty = true; }
       writer.i = i;
-      if (i >= n - 1) { writer.k++; writer.i = 0; budget = writer.acc; writer.acc = 0; const nx = writer.list[writer.k]; writer.pause = nx && nx.letter !== st.letter ? 0.16 : 0.07; }
+      if (i >= n - 1) { writer.k++; writer.i = 0; budget = writer.acc; writer.acc = 0; const nx = writer.list[writer.k]; writer.pause = nx ? gap(st, nx) : 0; }
     }
     if (user && user.st.S.length - 1 > user.done) { const b = user.st.S.length - 1; paintRange(inkCtx(), user.st, user.done, b, false); user.done = b; dirty = true; }
     // the wet ink spreads for a couple of seconds after each new ink, then sets (under reduced motion it settles at once)
