@@ -316,3 +316,21 @@ body.index-open .menu-corner .lbl::after { content: "Close"; font-size: 12px; }
 @keyframes peek-in { from { transform: scale(1.12); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .menu-corner, .index, .index-list a, .peek { transition: none; } .peek.swap img { animation: none; } }
 
+
+/* lyrics mode (?lyrics, src/lyrics.js): the poster alone, plus a small control card that hides with H and while recording */
+html[data-lyrics] .chrome, html[data-lyrics] #menu-corner, html[data-lyrics] #index, html[data-lyrics] #hint, html[data-lyrics] .name-form { display: none !important; }
+.lyr-hud { position: fixed; top: 16px; left: 16px; z-index: 50; display: grid; gap: 8px; padding: 12px 14px; max-width: min(340px, calc(100vw - 32px));
+  font: 500 12px/1.35 'IBM Plex Mono', ui-monospace, monospace; color: #fff; background: rgba(20, 20, 20, 0.86); border-radius: 10px; backdrop-filter: blur(8px); transition: opacity 0.2s; }
+.lyr-hud.off { opacity: 0; pointer-events: none; }
+.lyr-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.lyr-dot { width: 8px; height: 8px; border-radius: 50%; background: #666; flex: none; }
+.lyr-dot.on { background: #1ed760; }
+.lyr-track { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.lyr-word { font-size: 20px; min-height: 26px; }
+.lyr-keys { color: #8a8a8a; }
+.lyr-hud select, .lyr-hud button { font: inherit; color: #fff; background: #333; border: 1px solid #555; border-radius: 6px; padding: 5px 8px; cursor: pointer; }
+.lyr-hud select { max-width: 220px; }
+.lyr-hud button:hover { background: #444; }
+.lyr-rec { color: #ff5a5a !important; }
+.lyr-modes button { min-width: 34px; }
+.lyr-modes button.on { background: #fff; color: #000; border-color: #fff; }

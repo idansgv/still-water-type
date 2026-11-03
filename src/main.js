@@ -6,6 +6,7 @@ import { rollColour, colourPass, clearColourPass } from './colour.js';
 import { createPanel } from './panel.js';
 import { validateName, savedName, saveName, nameWords, breakLong } from './name.js';
 import { nextAlbum } from './albums.js';
+import { startLyrics } from './lyrics.js';
 
 const $ = (id) => document.getElementById(id);
 const stageEl = $('stage');
@@ -16,6 +17,10 @@ const params = new URLSearchParams(location.search);
 const REC = document.documentElement.dataset.rec !== undefined;   // the recording page (/rec/): no words around the poster, the top-right corner shuffles
 const urlName = validateName(params.get('n')).name || null;     // a shared link carries its name: it shows for that visit only
 let myName = urlName || savedName();                           // the visitor's own name (Customize, or typing on a keyboard), or null for each poster's own
+const LYRICS = params.has('lyrics');                           // lyrics mode (src/lyrics.js): the posters that take a name draw the word Spotify is singing
+const LYRICS_SKIP = new Set(['moonlit', 'wash-script']);        // too slow to read a word: Moonlit is nearly invisible at rest, Wash writes itself over seconds (still at ?p=)
+const NAMEABLE = PUBLISHED.filter((p) => p.nameable && !LYRICS_SKIP.has(p.slug));
+if (LYRICS) myName = null;
 
 let shuffles = 0;         // counts shuffles; posters that can swap black and white do so on every odd one
 let current = null;       // { poster, stage, seed, theme }
@@ -92,14 +97,15 @@ stageEl.addEventListener('contextmenu', (e) => e.preventDefault());   // no long
 // A dark-only poster (Glint, Glitter, Moonlit, Goblet) only comes up on a black turn: the next turn is black when shuffles is odd after the increment.
 function pickOther(slug) {
   const darkTurn = (shuffles + 1) % 2 === 1;
-  const pool = PUBLISHED.filter((p) => p.slug !== slug && (darkTurn || p.darkOnly !== true));
+  const pool = (LYRICS ? NAMEABLE : PUBLISHED).filter((p) => p.slug !== slug && (darkTurn || p.darkOnly !== true));
   if (!pool.length) return PUBLISHED[0];            // only one poster is published: shuffle just reloads it
   return pool[Math.floor(Math.random() * pool.length)];
 }
 const STILL_WATER_FIRST = 0.55;                                                   // the chance that a visit opens on Still Water
 function pickFirst() {
   const fixed = document.documentElement.dataset.poster || params.get('p');
-  if (fixed && bySlug(fixed)) return bySlug(fixed);
+  if (fixed && bySlug(fixed) && (!LYRICS || bySlug(fixed).nameable)) return bySlug(fixed);
+  if (LYRICS) return bySlug('still-water') || NAMEABLE[0];
   let last = null;
   try { last = localStorage.getItem('swt:last'); } catch (e) { /* private mode */ }
   const pool = PUBLISHED.filter((p) => p.slug !== last && p.darkOnly !== true);   // the first visit is black on white
@@ -185,7 +191,7 @@ function armHint(poster, stage) {
 // A phone held upright: long words go over two lines so the type stays big (src/name.js).
 const fitWords = (words) => (matchMedia('(max-width: 700px) and (orientation: portrait)').matches ? breakLong(words) : words);
 
-async function show(poster, { seed = randomSeed(), themeName } = {}) {
+async function show(poster, { seed = randomSeed(), themeName, fast = false } = {}) {
   busy = true;
   const darkOnly = poster.darkOnly === true;                          // a poster that only exists on black (Glint): always dark, and the sequence carries on from there
   if (darkOnly && shuffles % 2 === 0) shuffles++;
@@ -193,8 +199,7 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
 
   if (panel) { panel.destroy(); panel = null; }
   if (current) {
-    stageEl.classList.add('swap');
-    await wait(reduced ? 0 : 100);
+    if (!fast) { stageEl.classList.add('swap'); await wait(reduced ? 0 : 100); }   // a new lyric word swaps in place, without the fade
     try { if (current.inst && current.inst.destroy) current.inst.destroy(); } catch (err) { console.error('[poster destroy]', err); }   // the poster's own listeners, overlays and backdrop
     if (current.stage) current.stage.destroy();
     stageEl.querySelectorAll('.fallback').forEach((n) => n.remove());
@@ -203,12 +208,12 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
   setChrome(poster);
   clearColourPass();
 
-  const album = poster.nameable && !myName ? nextAlbum() : null;   // no name of their own: an album title instead (src/albums.js)
-  const stage = createStage(stageEl, { seed, theme, toast, setBackdrop, words: poster.nameable ? fitWords(nameWords(myName || album.title)) : null });
+  const album = poster.nameable && !myName && !LYRICS ? nextAlbum() : null;   // no name of their own: an album title instead (src/albums.js); ?lyrics never shows one
+  const stage = createStage(stageEl, { seed, theme, toast, setBackdrop, words: poster.nameable && (myName || album) ? fitWords(nameWords(myName || album.title)) : null });   // a name, else a lyric (?lyrics), else an album title
   stage.refreshPanel = syncPanel;                                   // a poster whose settings change (a mode switch) asks for the panel to be rebuilt
   stage.flip = theme.name === 'dark';
   stage.album = album;                                             // the album the words came from, or null for a visitor's own name
-  stage.colour = poster.standalone ? null : rollColour(params, Math.random, { dark: theme.name === 'dark' });          // about one showing in twenty is in colour (src/colour.js)
+  stage.colour = poster.standalone || (LYRICS && !params.has('colour')) ? null : rollColour(params, Math.random, { dark: theme.name === 'dark' });          // about one showing in twenty is in colour (src/colour.js)
   current = { poster, stage, seed, theme, album };
   let inst = null;
   try {
@@ -228,7 +233,8 @@ async function show(poster, { seed = randomSeed(), themeName } = {}) {
     showFallback(poster);
   }
   window.__poster = { slug: poster.slug, seed, theme: theme.name, colour: stage.colour ? stage.colour.name : null, stage: current.stage, inst };
-  if (!REC) history.replaceState(null, '', `/p/${poster.slug}/${myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : ''}`);   // the address bar follows the poster, with the visitor's name when it shows: copy it to share it
+  if (LYRICS) history.replaceState(null, '', `/?lyrics${params.has('demo') ? `&demo${params.get('demo') ? `=${encodeURIComponent(params.get('demo'))}` : ''}` : ''}${params.get('words') ? `&words=${encodeURIComponent(params.get('words'))}` : ''}&p=${poster.slug}`);
+  else if (!REC) history.replaceState(null, '', `/p/${poster.slug}/${myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : ''}`);   // the address bar follows the poster, with the visitor's name when it shows: copy it to share it
   track('poster_view', { slug: poster.slug, theme: theme.name, first: shuffles === 0, named: !!(myName && poster.nameable), album: album ? album.title : null, failed: !current.stage });
   try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
   requestAnimationFrame(() => stageEl.classList.remove('swap'));
@@ -424,7 +430,7 @@ addEventListener('keydown', (e) => {
     return;
   }
   // typing a letter starts the name (r, s and t keep their shortcuts)
-  if (!nameOpen && !REC && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key)) { e.preventDefault(); openName(e.key); return; }
+  if (!LYRICS && !nameOpen && !REC && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key)) { e.preventDefault(); openName(e.key); return; }
   const onControl = e.target.closest && e.target.closest('button, a');
   if (e.key === ' ' || e.key === 'Enter') { if (onControl) return; e.preventDefault(); shuffle(); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); shuffle(); }
@@ -445,3 +451,20 @@ if (REC) {
 
 const first = pickFirst();
 show(first, { seed: seedFromHash() ?? randomSeed() });
+
+// Lyrics mode: each new word redraws the current poster in place (same seed, same theme). A word that arrives
+// while a poster is still mounting waits for it; src/lyrics.js keeps only the newest one.
+if (LYRICS) {
+  window.__lyrics = startLyrics({
+    toast,
+    getSlug: () => (current ? current.poster.slug : 'poster'),
+    shuffle: () => shuffle(),
+    setWord: async (word) => {
+      const t0 = performance.now();
+      myName = word;
+      while (busy) await wait(16);
+      if (current) await show(current.poster, { seed: current.seed, themeName: current.theme.name, fast: true });
+      (window.__lyricsLag ||= []).push(Math.round(performance.now() - t0));   // ms from a word arriving to its poster running (read it in the console)
+    },
+  });
+}
