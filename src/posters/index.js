@@ -110,6 +110,18 @@ export const POSTERS = [
     prompt: "The name \"Idan Segev\" in Fredoka 700, every letter a chubby 3D glass bottle (three.js): the glyph extruded with a deep rounded bevel, transmissive glass, a small neck and lip on its highest point, about 58% full of white ink on a black page. The ink is the glyph extruded smaller by the glass's thickness, with a shader that discards everything above a plane and paints its back faces as the liquid's top (MinionsArt's Unity liquid trick). The plane's height is the quantile of about 1,400 volume samples along its normal, so the ink keeps its volume at any angle. Each letter is a rigid body on a spring home; dragging holds it at the grip so it hangs under gravity, and the surface tilts against the felt acceleration as a damped spring (wobble). Held by its foot the letter swings over; when the neck is below the surface the fill drops and ink pours out as falling drops. Tap jiggles a letter, double tap refills. Black and white only.",
   },
   {
+    slug: 'drop',
+    title: 'Drop',
+    words: ['Idan', 'Segev'],
+    blurb: 'The name in thick glass, falling. Hard landings break where they hit; the pieces pile up, then dissolve.',
+    hint: null,
+    themes: { dark: 1, light: 1 },
+    nameable: true,
+    face: { family: 'Archivo Black', weight: 400 },
+    load: () => import('./drop.js'),
+    prompt: "The name \"Idan Segev\" in Archivo Black as thick clear 3D glass letters (three.js MeshPhysicalMaterial: transmission, thickness, Beer-Lambert attenuation so thick parts darken, IOR 1.59), lit by a black studio of thin bright softboxes for hard glints, falling onto a floor that shows only shadows over a flat page, no horizon. A small rigid-body solver: the letters fall all at once; one that lands faster than a threshold breaks where it touches into about 40 Voronoi pieces (2D cells clipped to the glyph, extruded, break faces in rougher glass), seeds crowded toward the contact; the pieces keep the letter's motion at the split plus a kick near the contact, so the bottom stops and the rest falls into it. About a third of the letters land whole. Pieces collide with the floor and each other and heap up, then fade out where they lie 5.5 s later; the title drops again every 14.5 s, in slow motion (0.27). On a narrow screen the letters stay big and fall one at a time into the middle. Black and white only.",
+  },
+  {
     slug: 'skyline',
     title: 'Skyline',
     words: ['Idan', 'Segev'],

@@ -100,6 +100,22 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Theme | black only (darkOnly) |
 | Face | Fredoka 700 (Google Fonts, the name's letters only) |
 
+## Drop (published 3 Nov 2026)
+
+| | Drop |
+|---|---|
+| At rest | the name (or an album title) in thick clear glass (Archivo Black) falls onto a floor that shows only shadows; letters that land hard break where they touch, about a third land whole; the pieces heap up and dissolve where they lie 5.5 s later; the title drops again every 14.5 s (Idan's choice: the loop is its motion) |
+| Narrow screen | the letters stay big and fall one at a time into the middle, 1.6 s apart |
+| Tap on a whole letter | it breaks where you tapped (under 250 ms, 8 px) |
+| Tap on a piece | flicks it up |
+| Tap on background | nothing |
+| Hold | nothing |
+| Double tap | drops the title again now (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | every solid's contact points, which way it is moving, and the letters still whole; the loop waits |
+| Self-demo | the first drop on load; under reduced motion the pile is shown settled and nothing moves |
+| Theme | both: light and dark |
+| Face | Archivo Black (Google Fonts, the name's letters only) |
+
 ## In the pipeline (draft): Rigged (published 21 Oct 2026, back to draft 24 Oct)
 
 | | Rigged |

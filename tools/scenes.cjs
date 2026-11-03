@@ -26,7 +26,8 @@ const SCENES = {
   moonlit: async (p) => { await p.mouse.move(200, 330); for (let i = 0; i <= 30; i++) { await p.mouse.move(200 + i * 26, 330 + Math.sin(i / 5) * 60); await sleep(20); } await sleep(700); },   // a gust drawn across the name
   goblet: async (p) => { await sleep(2200); await p.mouse.move(650, 455); await p.mouse.down(); for (let i = 0; i <= 24; i++) { await p.mouse.move(650 + i * 6, 455 - i * 9); await sleep(16); } await sleep(1100); },   // the S held by its foot, upside down and pouring
   gyosho: async (p) => { await p.evaluate(() => window.__poster.inst.debug.finish()); await p.mouse.move(180, 560); await p.mouse.down(); for (let i = 0; i <= 30; i++) { await p.mouse.move(180 + i * 30, 560 - Math.sin(i / 9) * 90); await sleep(16 + i); } await p.mouse.up(); await sleep(300); },   // written, then one stroke of your own drying out across it
+  drop: async (p) => { await sleep(3600); },   // mid-break: some letters in pieces, the pile building, a whole one standing
 };
 
-const PREVIEW_THEME = { glint: 'dark', glitter: 'dark', moonlit: 'dark', goblet: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
+const PREVIEW_THEME = { glint: 'dark', glitter: 'dark', moonlit: 'dark', goblet: 'dark', drop: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
 module.exports = { SCENES, PREVIEW_THEME, sleep };

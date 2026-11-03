@@ -1,0 +1,558 @@
+<title>Drop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one full-bleed WebGL stage (glass letters falling onto a seamless studio floor), a quiet foot line and a test-only settings sheet. */
+:root {
+  --bg: #141414; --ink: #ffffff; --dim: #8c8c8c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.94);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace; color-scheme: dark;
+}
+:root[data-theme="light"] { --bg: #f1f1f1; --ink: #000000; --dim: #707070; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(255, 255, 255, 0.95); color-scheme: light; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: var(--dim); pointer-events: none;
+}
+.foot b { color: var(--ink); font-weight: 500; }
+.foot button { pointer-events: auto; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.sheet h3 { margin: 6px 0 -4px; font: 500 11px/1 var(--mono); color: var(--dim); letter-spacing: 0.06em; text-transform: uppercase; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 5px 6px; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; flex-wrap: wrap; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="The album title in thick glass, letters falling one after another onto a studio floor and breaking where they land. Tap to drop it again; drag to look around."></canvas>
+<div class="foot"><span><b>Drop</b> &nbsp;test &nbsp;<span id="albumName"></span></span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden></div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import opentype from 'https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.module.js';
+
+const $ = (id) => document.getElementById(id);
+const ALBUMS = [['Pink Moon', 'Nick Drake'], ['Kind of Blue', 'Miles Davis'], ['Blue Train', 'John Coltrane'], ['Giant Steps', 'John Coltrane'], ['Time Out', 'The Dave Brubeck Quartet'],
+  ['Mezzanine', 'Massive Attack'], ['Blue', 'Joni Mitchell'], ['Low', 'David Bowie'], ['Kid A', 'Radiohead'], ['Bitches Brew', 'Miles Davis'], ['Revolver', 'The Beatles'], ['Horses', 'Patti Smith']];
+
+// ---------- settings ----------
+const DEF = {   // Idan's tuned values, 3 Nov 2026 (the same for the light and the dark studio)
+  album: 1, page: 'dark', order: 'all at once',
+  depth: 0.37, rough: 0.04, absorb: 2.7, disp: 1.2, ior: 1.59, env: 3, exposure: 0.9,
+  height: 2.4, gap: 0.62, toughness: 4.5, pieces: 41, cluster: 0.77, spread: 2.2, bounce: 0.67, friction: 0.36, timeScale: 0.27,
+  survive: 0.3, loop: 14.5, life: 5.5, pile: 1, seq: 1.6, go: 'dissolve', fade: 1.4, slope: 0.3, dir: 'toward you',
+};
+const SPEC = [
+  ['Title'],
+  ['album', 'Album', ALBUMS.map((a, i) => [i, `${a[0]} (${a[1]})`])],
+  ['order', 'Letters fall', ['one by one', 'all at once']],
+  ['Glass'],
+  ['page', 'Studio', ['dark', 'light']],
+  ['depth', 'Thickness (next drop)', 0.08, 0.8, 0.01],
+  ['absorb', 'Clearness (thick parts darken less)', 0.15, 4, 0.05],
+  ['rough', 'Roughness', 0, 0.4, 0.005],
+  ['ior', 'Refraction (IOR)', 1, 2.2, 0.01],
+  ['disp', 'Colour fringe', 0, 2, 0.05],
+  ['env', 'Reflections', 0, 3, 0.05],
+  ['exposure', 'Exposure', 0.3, 2.5, 0.05],
+  ['Fall'],
+  ['height', 'Drop height', 0.6, 7, 0.1],
+  ['gap', 'Time between letters (s)', 0, 0.8, 0.01],
+  ['toughness', 'Breaks above (speed)', 0.5, 8, 0.1],
+  ['pieces', 'Pieces per letter', 4, 60, 1],
+  ['cluster', 'Smaller pieces where it hits', 0, 1, 0.01],
+  ['spread', 'Kick at the break', 0, 2.5, 0.05],
+  ['bounce', 'Bounce', 0, 0.8, 0.01],
+  ['friction', 'Friction', 0, 1.2, 0.01],
+  ['timeScale', 'Time (slow motion)', 0.05, 1.5, 0.01],
+  ['survive', 'Letters that land whole', 0, 1, 0.05],
+  ['pile', 'Pieces pile up', [[1, 'on each other'], [0, 'pass through']]],
+  ['Loop'],
+  ['loop', 'Drops again every (s, 0 = only on tap)', 0, 30, 0.5],
+  ['life', 'Pieces go after (s)', 1, 30, 0.5],
+  ['go', 'Then they', ['dissolve', 'slide away', 'sink through the floor']],
+  ['fade', 'Dissolve takes (s)', 0.2, 5, 0.1],
+  ['slope', 'Slope', 0.05, 1, 0.01],
+  ['dir', 'Downhill is', ['away', 'left', 'right', 'toward you']],
+  ['seq', 'Narrow screens: time between letters (s)', 0.3, 5, 0.1],
+];
+const KEY = 'drop-9';
+const P = { ...DEF };
+try { Object.assign(P, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* defaults */ }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) { /* fine */ } };
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- renderer, studio ----------
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+// reflections: a black room with softboxes, so glass shows hard light and dark
+function studioEnv(light) {
+  const s = new THREE.Scene(); s.background = new THREE.Color(light ? 0x9a9a9a : 0x000000);
+  const box = (w, h, x, y, z, v) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })); m.material.color.setScalar(v); m.position.set(x, y, z); m.lookAt(0, 0, 0); s.add(m); };
+  box(16, 3, 0, 9, 3, 22); box(0.8, 12, -8, 2, 5, 30); box(0.8, 10, 8, 2, -3, 16); box(30, 1.2, 0, 1.2, 12, 9); box(0.5, 6, 3, 3, 10, 24); box(6, 6, 2, -6, 5, 0.6); box(24, 9, 0, 7, -10, 2.2); box(40, 40, 0, 14, 0, 0.35);   // bright, thin strips: hard glints on glass
+  return pmrem.fromScene(s, 0.02).texture;
+}
+const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 200);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.enablePan = false; controls.maxPolarAngle = Math.PI * 0.48; controls.minDistance = 3; controls.maxDistance = 40;
+// even light from above: no pool, no falloff; the floor shows only shadows, over a flat page colour, so there is no horizon
+const spot = new THREE.DirectionalLight(0xffffff, 0);
+spot.castShadow = true; spot.shadow.mapSize.set(2048, 2048); spot.shadow.bias = -0.0003;
+Object.assign(spot.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 0.5, far: 40 });
+scene.add(spot, spot.target);
+const fill = new THREE.HemisphereLight(0xffffff, 0x000000, 0.3); scene.add(fill);
+const floorMat = new THREE.ShadowMaterial({ opacity: 0.3 });
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), floorMat);
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, transmission: 1, specularIntensity: 1 });
+const breakMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, transmission: 1, specularIntensity: 1 });
+const MATS = [glassMat, breakMat];
+function applyLook() {
+  const light = P.page === 'light';
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  const bg = light ? 0xf1f1f1 : 0x141414;
+  scene.background = new THREE.Color(bg); scene.fog = null;
+  floorMat.opacity = light ? 0.22 : 0.75;
+  scene.environment = studioEnv(light);
+  spot.intensity = light ? 2.4 : 2.8; fill.intensity = light ? 0.9 : 0.05; scene.environmentIntensity = light ? 1 : 1.4;
+  for (const m of MATS) {
+    m.roughness = m === breakMat ? Math.min(1, P.rough + 0.12) : P.rough;
+    m.ior = P.ior; m.thickness = P.depth; m.dispersion = P.disp;
+    m.attenuationColor.setScalar(light ? 0.5 : 0.45); m.attenuationDistance = P.absorb;   // Beer-Lambert: thick glass darkens
+    m.envMapIntensity = P.env; m.needsUpdate = true;
+  }
+  renderer.toneMappingExposure = P.exposure;
+}
+
+// ---------- type: font to contours to triangles (from Explode slomo) ----------
+const AB64 = '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';
+const font = opentype.parse(Uint8Array.from(atob(AB64), (c) => c.charCodeAt(0)).buffer);
+function flatten(path) {
+  const cs = []; let cur = null, px = 0, py = 0;
+  for (const c of path.commands) {
+    if (c.type === 'M') { cur = [[c.x, -c.y]]; cs.push(cur); px = c.x; py = c.y; }
+    else if (c.type === 'L') { cur.push([c.x, -c.y]); px = c.x; py = c.y; }
+    else if (c.type === 'Q') { const n = 7; for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; cur.push([u * u * px + 2 * u * t * c.x1 + t * t * c.x, -(u * u * py + 2 * u * t * c.y1 + t * t * c.y)]); } px = c.x; py = c.y; }
+    else if (c.type === 'C') { const n = 9; for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; cur.push([u * u * u * px + 3 * u * u * t * c.x1 + 3 * u * t * t * c.x2 + t * t * t * c.x, -(u * u * u * py + 3 * u * u * t * c.y1 + 3 * u * t * t * c.y2 + t * t * t * c.y)]); } px = c.x; py = c.y; }
+  }
+  return cs.map((c) => {
+    const o = [];
+    for (const p of c) { const q = o[o.length - 1]; if (!q || Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-5) o.push(p); }
+    if (o.length > 2 && Math.hypot(o[0][0] - o[o.length - 1][0], o[0][1] - o[o.length - 1][1]) < 1e-5) o.pop();
+    return o;
+  }).filter((c) => c.length > 2);
+}
+const pip = (p, poly) => {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+  }
+  return inside;
+};
+const insideGlyph = (p, contours) => { let n = 0; for (const c of contours) if (pip(p, c)) n++; return n % 2 === 1; };
+const area2 = (poly) => { let s = 0; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) s += poly[j][0] * poly[i][1] - poly[i][0] * poly[j][1]; return s; };
+// the title as glyphs on one line, sitting on y = 0 (the floor)
+function layoutTitle(title) {
+  const w = font.getAdvanceWidth(title, 1), out = [];
+  for (const path of font.getPaths(title, -w / 2, 0, 1)) {
+    const contours = flatten(path); if (!contours.length) continue;
+    const depth = contours.map((c, i) => contours.reduce((n, d, j) => n + (j !== i && pip(c[0], d) ? 1 : 0), 0));
+    const tris = [];
+    contours.forEach((c, i) => {
+      if (depth[i] % 2) return;
+      const holes = contours.filter((h, j) => depth[j] === depth[i] + 1 && pip(h[0], c));
+      const all = [c, ...holes].flat();
+      const faces = THREE.ShapeUtils.triangulateShape(c.map((p) => new THREE.Vector2(p[0], p[1])), holes.map((h) => h.map((p) => new THREE.Vector2(p[0], p[1]))));
+      for (const f of faces) { let t = [all[f[0]], all[f[1]], all[f[2]]]; const a = area2(t); if (Math.abs(a) < 1e-9) continue; if (a < 0) t = [t[0], t[2], t[1]]; tris.push(t); }
+    });
+    const xs = contours.flat().map((p) => p[0]), ys = contours.flat().map((p) => p[1]);
+    out.push({ contours, tris, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] });
+  }
+  return { glyphs: out, width: w };
+}
+
+// ---------- pieces: Voronoi cells clipped to the glyph, extruded; break faces get their own material ----------
+function clipHalf(poly, nx, ny, c) {
+  const out = []; const L = poly.length;
+  for (let i = 0; i < L; i++) {
+    const a = poly[i], b = poly[(i + 1) % L];
+    const da = nx * a[0] + ny * a[1] - c, db = nx * b[0] + ny * b[1] - c;
+    if (da <= 0) out.push(a);
+    if ((da < 0 && db > 0) || (da > 0 && db < 0)) { const t = da / (da - db); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+  }
+  return out;
+}
+function clipConvex(poly, cell) {
+  let out = poly;
+  for (let i = 0; i < cell.length && out.length > 2; i++) { const p = cell[i], q = cell[(i + 1) % cell.length]; const nx = q[1] - p[1], ny = -(q[0] - p[0]); out = clipHalf(out, nx, ny, nx * p[0] + ny * p[1]); }
+  return out;
+}
+const boxOf = (poly) => { let a = 1e9, b = 1e9, c = -1e9, d = -1e9; for (const p of poly) { a = Math.min(a, p[0]); b = Math.min(b, p[1]); c = Math.max(c, p[0]); d = Math.max(d, p[1]); } return [a, b, c, d]; };
+const overlap = (A, B) => A[0] <= B[2] && B[0] <= A[2] && A[1] <= B[3] && B[1] <= A[3];
+// a solid from glyph polygons: faces, side walls; walls inside the glyph are break faces. Centred on its own centroid.
+function solid(polys, contours, depth) {
+  let A = 0, cx = 0, cy = 0;
+  for (const p of polys) for (let i = 1; i < p.length - 1; i++) {
+    const a = ((p[i][0] - p[0][0]) * (p[i + 1][1] - p[0][1]) - (p[i + 1][0] - p[0][0]) * (p[i][1] - p[0][1])) / 2;
+    A += a; cx += a * (p[0][0] + p[i][0] + p[i + 1][0]) / 3; cy += a * (p[0][1] + p[i][1] + p[i + 1][1]) / 3;
+  }
+  cx /= A; cy /= A;
+  const q = (v) => Math.round(v * 2e4), edges = new Map();
+  for (const p of polys) for (let i = 0; i < p.length; i++) {
+    const a = p[i], b = p[(i + 1) % p.length];
+    if (q(a[0]) === q(b[0]) && q(a[1]) === q(b[1])) continue;
+    edges.set(q(a[0]) + ',' + q(a[1]) + '|' + q(b[0]) + ',' + q(b[1]), [a, b]);
+  }
+  const h = depth / 2, O = [], ON = [], I = [], IN = [], pts = [];
+  const push = (arr, nrm, x, y, z, nx, ny, nz) => { arr.push(x - cx, y - cy, z); nrm.push(nx, ny, nz); };
+  for (const p of polys) for (let i = 1; i < p.length - 1; i++) {
+    push(O, ON, p[0][0], p[0][1], h, 0, 0, 1); push(O, ON, p[i][0], p[i][1], h, 0, 0, 1); push(O, ON, p[i + 1][0], p[i + 1][1], h, 0, 0, 1);
+    push(O, ON, p[0][0], p[0][1], -h, 0, 0, -1); push(O, ON, p[i + 1][0], p[i + 1][1], -h, 0, 0, -1); push(O, ON, p[i][0], p[i][1], -h, 0, 0, -1);
+  }
+  for (const [k, [a, b]] of edges) {
+    const [s, e] = k.split('|'); if (edges.has(e + '|' + s)) continue;
+    let nx = b[1] - a[1], ny = -(b[0] - a[0]); const l = Math.hypot(nx, ny); nx /= l; ny /= l;
+    const crack = insideGlyph([(a[0] + b[0]) / 2 + nx * 0.004, (a[1] + b[1]) / 2 + ny * 0.004], contours);
+    const V = crack ? I : O, N = crack ? IN : ON;
+    push(V, N, a[0], a[1], -h, nx, ny, 0); push(V, N, b[0], b[1], -h, nx, ny, 0); push(V, N, b[0], b[1], h, nx, ny, 0);
+    push(V, N, a[0], a[1], -h, nx, ny, 0); push(V, N, b[0], b[1], h, nx, ny, 0); push(V, N, a[0], a[1], h, nx, ny, 0);
+    pts.push([a[0] - cx, a[1] - cy, -h], [a[0] - cx, a[1] - cy, h]);   // the outline is what touches the floor
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(O.concat(I), 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(ON.concat(IN), 3));
+  geo.addGroup(0, O.length / 3, 0); geo.addGroup(O.length / 3, I.length / 3, 1);
+  // contact points: thin the outline to about 120 for big solids
+  const step = Math.max(1, Math.floor(pts.length / 120)), cp = [];
+  for (let i = 0; i < pts.length; i += step) cp.push(new THREE.Vector3(...pts[i]));
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const v of cp) { x0 = Math.min(x0, v.x); y0 = Math.min(y0, v.y); x1 = Math.max(x1, v.x); y1 = Math.max(y1, v.y); }
+  return { geo, cx, cy, area: A, pts: cp, dims: [x1 - x0, y1 - y0, depth], h, bb: [x0, y0, x1, y1], r: Math.hypot(x1 - x0, y1 - y0, depth) / 2 + 0.02,
+    polys: polys.map((p) => p.map(([x, y]) => [x - cx, y - cy])) };
+}
+function fracture(g, lx, ly, depth) {   // lx, ly: the contact point in glyph coordinates
+  const n = Math.round(P.pieces), [bx0, by0, bx1, by1] = g.box, r0 = 0.12 + (1 - P.cluster) * 0.6;
+  const S = []; let tries = 0;
+  while (S.length < n && tries++ < n * 600) {
+    const x = bx0 + Math.random() * (bx1 - bx0), y = by0 + Math.random() * (by1 - by0);
+    if (Math.random() > (1 - P.cluster) * 0.3 + P.cluster * Math.exp(-Math.hypot(x - lx, y - ly) / r0) + 0.03) continue;
+    if (insideGlyph([x, y], g.contours)) S.push([x, y]);
+  }
+  while (S.length < 3) { const x = bx0 + Math.random() * (bx1 - bx0), y = by0 + Math.random() * (by1 - by0); if (insideGlyph([x, y], g.contours)) S.push([x, y]); }
+  const pad = 0.05, R = [[bx0 - pad, by0 - pad], [bx1 + pad, by0 - pad], [bx1 + pad, by1 + pad], [bx0 - pad, by1 + pad]];
+  const triBoxes = g.tris.map(boxOf), out = [];
+  S.forEach((s, i) => {
+    let cell = R;
+    for (let j = 0; j < S.length && cell.length > 2; j++) { if (j === i) continue; const t = S[j], nx = t[0] - s[0], ny = t[1] - s[1]; cell = clipHalf(cell, nx, ny, (t[0] * t[0] + t[1] * t[1] - s[0] * s[0] - s[1] * s[1]) / 2); }
+    if (cell.length < 3) return;
+    const cb = boxOf(cell), polys = [];
+    g.tris.forEach((t, k) => { if (!overlap(cb, triBoxes[k])) return; const p = clipConvex(t, cell); if (p.length > 2 && area2(p) > 1e-8) polys.push(p); });
+    if (polys.length) out.push(solid(polys, g.contours, depth));
+  });
+  return out;
+}
+
+// ---------- physics: rigid bodies against the floor (no body-on-body contact yet) ----------
+const G = 9.8, bodies = [];
+const SLOPE = { away: [0, -1], left: [-1, 0], right: [1, 0], 'toward you': [0, 1] };   // downhill, on the floor (x, z)
+let nextId = 0, realT = 0;
+const _r = new THREE.Vector3(), _v = new THREE.Vector3(), _t = new THREE.Vector3(), _n = new THREE.Vector3(0, 1, 0), _m = new THREE.Matrix3(), _q = new THREE.Quaternion(), _a = new THREE.Vector3();
+function makeBody(sol, glyph, isLetter) {
+  const mesh = new THREE.Mesh(sol.geo, MATS); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+  const mass = Math.max(1e-4, sol.area * sol.dims[2]), [a, b, c] = sol.dims;
+  const I = new THREE.Vector3(mass * (b * b + c * c) / 12, mass * (a * a + c * c) / 12, mass * (a * a + b * b) / 12);
+  return { id: nextId++, mesh, sol, glyph, isLetter, mass, invI: new THREE.Vector3(1 / I.x, 1 / I.y, 1 / I.z), Iw: new THREE.Matrix3(), p: new THREE.Vector3(), q: new THREE.Quaternion(), v: new THREE.Vector3(), w: new THREE.Vector3(),
+    still: 0, asleep: false, wait: 0, tough: P.toughness, dieAt: realT + P.life + (isLetter ? 3 : Math.random()), dying: false, breakAt: null };
+}
+function invIworld(b, out) {   // R diag(invI) R^T
+  const R = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(b.q));
+  const D = new THREE.Matrix3().set(b.invI.x, 0, 0, 0, b.invI.y, 0, 0, 0, b.invI.z);
+  return out.copy(R).multiply(D).multiply(R.clone().transpose());
+}
+const applyI = (M, v) => v.clone().applyMatrix3(M);
+function stepBody(b, dt) {
+  if (b.asleep) return;
+  if (b.wait > 0) { b.wait -= dt; return; }
+  invIworld(b, b.Iw);
+  b.v.y -= G * dt;
+  // going, by sliding: the floor tilts under it, gently at first, and it slides downhill
+  const sliding = b.dying && P.go === 'slide away';
+  if (sliding) { const k = Math.min(1, (realT - b.dieAt) / 1.5), a = P.slope * G * k * dt; b.v.x += SLOPE[P.dir][0] * a; b.v.z += SLOPE[P.dir][1] * a; }
+  b.p.addScaledVector(b.v, dt);
+  // integrate rotation
+  _q.set(b.w.x * dt * 0.5, b.w.y * dt * 0.5, b.w.z * dt * 0.5, 0).multiply(b.q);
+  b.q.x += _q.x; b.q.y += _q.y; b.q.z += _q.z; b.q.w += _q.w; b.q.normalize();
+  b.w.multiplyScalar(1 - 0.4 * dt);
+  // floor contacts
+  let pen = 0, hard = 0, hitAt = null;
+  if (b.dying && P.go === 'sink through the floor') return;   // going, by sinking: the floor no longer holds it
+  const Iw = b.Iw;
+  for (const lp of b.sol.pts) {
+    _r.copy(lp).applyQuaternion(b.q);
+    const y = b.p.y + _r.y; if (y >= 0) continue;
+    pen = Math.max(pen, -y);
+    _v.copy(b.w).cross(_r).add(b.v);
+    const vn = _v.y; if (vn >= 0) continue;
+    if (b.isLetter && -vn > b.tough && -vn > hard) { hard = -vn; hitAt = _r.clone(); }
+    const rn = _r.clone().cross(_n), k = 1 / b.mass + _n.dot(applyI(Iw, rn).cross(_r));
+    const e = vn < -0.6 ? P.bounce : 0, j = -(1 + e) * vn / k;
+    b.v.y += j / b.mass; b.w.add(applyI(Iw, _r.clone().cross(_n).multiplyScalar(j)));
+    // friction
+    _v.copy(b.w).cross(_r).add(b.v); _t.set(_v.x, 0, _v.z); const vt = _t.length();
+    if (vt > 1e-5) {
+      _t.divideScalar(vt);
+      const rt = _r.clone().cross(_t), kt = 1 / b.mass + _t.dot(applyI(Iw, rt).cross(_r));
+      const jt = Math.min(vt / kt, (sliding ? 0.25 : 1) * P.friction * j);
+      b.v.addScaledVector(_t, -jt / b.mass); b.w.add(applyI(Iw, _r.clone().cross(_t).multiplyScalar(-jt)));
+    }
+  }
+  if (hitAt) return { hitAt, speed: hard };
+  if (pen > 0) b.p.y += pen;
+  // sleep when settled
+  if (!(b.dying && P.go !== 'dissolve') && b.v.lengthSq() < 0.0025 && b.w.lengthSq() < 0.01 && pen > 0) { b.still += dt; if (b.still > 0.4) { b.asleep = true; b.v.set(0, 0, 0); b.w.set(0, 0, 0); } } else b.still = 0;
+}
+// a letter breaks: pieces take the letter's motion at the split, those by the contact get a small kick along the floor
+function breakLetter(b, hitAt) {
+  const lc = hitAt.clone().applyQuaternion(b.q.clone().invert());   // contact in the letter's frame
+  const gx = lc.x + b.sol.cx, gy = lc.y + b.sol.cy;
+  const parts = fracture(b.glyph, gx, gy, P.depth);
+  for (const s of parts) {
+    const c = makeBody(s, null, false); c.kin = b.id + 1; c.kinT = simT;
+    const off = new THREE.Vector3(s.cx - b.sol.cx, s.cy - b.sol.cy, 0).applyQuaternion(b.q);
+    c.p.copy(b.p).add(off); c.q.copy(b.q);
+    c.v.copy(b.w).cross(off).add(b.v); c.w.copy(b.w);
+    const d = Math.hypot(s.cx - gx, s.cy - gy), near = Math.exp(-d / 0.18), dir = off.clone().sub(hitAt); dir.y = 0;
+    if (dir.lengthSq() > 1e-6) dir.normalize(); else dir.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+    c.v.addScaledVector(dir, P.spread * near * (0.6 + Math.random() * 0.8)).add(_a.set(0, P.spread * near * 0.5 * Math.random(), (Math.random() - 0.3) * P.spread * near));
+    c.w.add(_a.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(8 * near));
+    c.mesh.position.copy(c.p); c.mesh.quaternion.copy(c.q); invIworld(c, c.Iw);
+    bodies.push(c);
+  }
+  remove(b);
+}
+// ---------- piece on piece: A's outline points against B's solid; a few iterations a step keep the pile from sinking ----------
+const _wp = new THREE.Vector3(), _lp = new THREE.Vector3(), _qi = new THREE.Quaternion(), _nn = new THREE.Vector3(), _rA = new THREE.Vector3(), _rB = new THREE.Vector3(), _vA = new THREE.Vector3(), _vB = new THREE.Vector3(), _x = new THREE.Vector3();
+// inside by a small margin: pieces fresh from one break share faces exactly, and that must not count as contact
+const inConvex = (p, poly) => { for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[j], b = poly[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; if (((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / L < 0.006) return false; } return true; };
+function wake(b) { if (b.asleep) { b.asleep = false; b.still = 0; invIworld(b, b.Iw); } }
+function pointsInto(A, B) {
+  _qi.copy(B.q).invert();
+  const S = B.sol, bb = S.bb;
+  for (const lp of A.sol.pts) {
+    _wp.copy(lp).applyQuaternion(A.q).add(A.p);
+    _lp.copy(_wp).sub(B.p).applyQuaternion(_qi);
+    if (Math.abs(_lp.z) >= S.h || _lp.x <= bb[0] || _lp.x >= bb[2] || _lp.y <= bb[1] || _lp.y >= bb[3]) continue;
+    const q2 = [_lp.x, _lp.y];
+    if (B.isLetter ? !insideGlyph([_lp.x + S.cx, _lp.y + S.cy], B.glyph.contours) : !S.polys.some((pl) => inConvex(q2, pl))) continue;
+    // push out through the nearest side: a face, or the box's nearest edge (outlines are rough, faces exact)
+    const d = [S.h - _lp.z, _lp.z + S.h, _lp.x - bb[0], bb[2] - _lp.x, _lp.y - bb[1], bb[3] - _lp.y];
+    let k = 0; for (let i = 1; i < 6; i++) if (d[i] < d[k]) k = i;
+    _nn.set(k === 2 ? -1 : k === 3 ? 1 : 0, k === 4 ? -1 : k === 5 ? 1 : 0, k === 0 ? 1 : k === 1 ? -1 : 0).applyQuaternion(B.q);
+    resolve(A, B, _wp, _nn, d[k]);
+  }
+}
+function resolve(A, B, wp, n, pen) {
+  _rA.copy(wp).sub(A.p); _rB.copy(wp).sub(B.p);
+  _vA.copy(A.w).cross(_rA).add(A.v); _vB.copy(B.w).cross(_rB).add(B.v);
+  const vn = _x.copy(_vA).sub(_vB).dot(n);
+  if (vn < -0.25) { wake(A); wake(B); }
+  if (A.isLetter && !A.breakAt && -vn > A.tough) A.breakAt = _rA.clone();
+  if (B.isLetter && !B.breakAt && -vn > B.tough) B.breakAt = _rB.clone();
+  const iA = A.asleep ? 0 : 1 / A.mass, iB = B.asleep ? 0 : 1 / B.mass;
+  if (iA + iB === 0) return;
+  // positional: share the overlap by mass, gently
+  const corr = Math.min(pen, 0.02) * 0.5 / (iA + iB);
+  A.p.addScaledVector(n, corr * iA); B.p.addScaledVector(n, -corr * iB);
+  if (vn >= 0) return;
+  const tA = _rA.clone().cross(n).applyMatrix3(A.Iw).cross(_rA), tB = _rB.clone().cross(n).applyMatrix3(B.Iw).cross(_rB);
+  const k = iA + iB + (A.asleep ? 0 : n.dot(tA)) + (B.asleep ? 0 : n.dot(tB));
+  const j = -(1 + Math.min(0.2, P.bounce)) * vn / k;
+  const apply = (b, r, imp, sign) => { if (b.asleep) return; b.v.addScaledVector(imp, sign / b.mass); b.w.add(r.clone().cross(imp).multiplyScalar(sign).applyMatrix3(b.Iw)); };
+  const J = n.clone().multiplyScalar(j); apply(A, _rA, J, 1); apply(B, _rB, J, -1);
+  // friction
+  _vA.copy(A.w).cross(_rA).add(A.v); _vB.copy(B.w).cross(_rB).add(B.v);
+  const vt = _x.copy(_vA).sub(_vB); vt.addScaledVector(n, -vt.dot(n)); const lt = vt.length();
+  if (lt > 1e-5) { const jt = Math.min(lt / k, P.friction * j); const T = vt.multiplyScalar(-jt / lt); apply(A, _rA, T, 1); apply(B, _rB, T, -1); }
+}
+const grid = new Map();
+function collidePairs() {
+  grid.clear();
+  const C = 0.7, key = (x, z) => x * 73856093 ^ z * 19349663;
+  for (const b of bodies) {
+    if (b.wait > 0 || (b.dying && P.go !== 'dissolve')) continue;
+    const r = b.sol.r, x0 = Math.floor((b.p.x - r) / C), x1 = Math.floor((b.p.x + r) / C), z0 = Math.floor((b.p.z - r) / C), z1 = Math.floor((b.p.z + r) / C);
+    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { const k = key(x, z); let c = grid.get(k); if (!c) grid.set(k, (c = [])); c.push(b); }
+  }
+  const seen = new Set();
+  for (const cell of grid.values()) for (let i = 0; i < cell.length; i++) for (let j = i + 1; j < cell.length; j++) {
+    const A = cell[i], B = cell[j]; if (A.asleep && B.asleep) continue;
+    if (A.kin && A.kin === B.kin && simT - A.kinT < 0.15) continue;   // siblings from one break separate before they collide
+    const pk = A.id < B.id ? A.id * 1e6 + B.id : B.id * 1e6 + A.id; if (seen.has(pk)) continue; seen.add(pk);
+    const rr = A.sol.r + B.sol.r; if (A.p.distanceToSquared(B.p) > rr * rr) continue;
+    pointsInto(A, B); pointsInto(B, A);
+  }
+}
+
+function remove(b) { scene.remove(b.mesh); b.mesh.geometry.dispose(); if (b.mesh.material[0] !== glassMat) for (const m of b.mesh.material) m.dispose(); bodies.splice(bodies.indexOf(b), 1); }
+
+// ---------- dropping the title ----------
+let title = null, simT = 0, drops = 0;
+function dropTitle() {
+  const al = ALBUMS[P.album]; $('albumName').textContent = `${al[0]}, ${al[1]}`;
+  title = layoutTitle(al[0]);
+  // keep the pile in check
+  let count = bodies.length; while (count > 900) { remove(bodies[0]); count--; }
+  const z = (drops % 3 - 1) * 0.35 * (drops > 0 ? 1 : 0);
+  title.glyphs.forEach((g, i) => {
+    const sol = solid(g.tris, g.contours, P.depth), b = makeBody(sol, g, true);
+    b.p.set(sol.cx, sol.cy + P.height + Math.random() * 0.25, z + (Math.random() - 0.5) * 0.15);
+    b.q.setFromEuler(new THREE.Euler((Math.random() - 0.5) * 0.35, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.4));
+    b.w.set((Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 2);
+    b.wait = P.order === 'one by one' ? i * P.gap : 0;
+    if (narrow()) { b.p.x = (Math.random() - 0.5) * 0.2; b.wait = i * P.seq * P.timeScale; b.dieAt += i * P.seq; }   // letter by letter, landing on what's left of the one before
+    if (Math.random() < P.survive) b.tough = Infinity;   // this one lands whole
+    b.mesh.position.copy(b.p); b.mesh.quaternion.copy(b.q); b.mesh.visible = b.wait <= 0;
+    bodies.push(b);
+  });
+  drops++; frameCamera(); nextDrop = realT + (narrow() ? Math.max(P.loop, title.glyphs.length * P.seq + P.life) : P.loop);
+}
+function advance(sec) {   // fixed steps, so a test can step time exactly
+  const h = 1 / 240; let n = Math.min(240, Math.round(sec / h));
+  while (n-- > 0) {
+    simT += h;
+    for (const b of [...bodies]) {
+      const hit = stepBody(b, h);
+      if (hit) breakLetter(b, hit.hitAt);
+    }
+    if (P.pile) {
+      collidePairs();
+      for (const b of [...bodies]) if (b.breakAt) breakLetter(b, b.breakAt);
+    }
+  }
+  for (const b of bodies) { b.mesh.position.copy(b.p); b.mesh.quaternion.copy(b.q); b.mesh.visible = b.wait <= 0; }
+}
+
+// ---------- camera: front-on, a little above, the title filling the width ----------
+// a narrow screen keeps the letters big: it frames one letter's width, and the letters come one at a time into the middle
+const narrow = () => innerWidth / innerHeight < 0.9;
+function frameCamera(force) {
+  if (!title || (!force && drops > 1)) return;
+  const w = narrow() ? 2.1 : title.width + 1.2, aspect = innerWidth / innerHeight;
+  const hf = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect);
+  const dist = Math.max(4.5, (w / 2) / Math.tan(hf / 2) * 0.95);
+  controls.target.set(0, 0.45, 0);
+  camera.position.set(0, 0.45 + dist * Math.sin(0.26), dist * Math.cos(0.26));
+  // backlight: the pool sits just behind the title, so the glass is seen against light and its thick edges go dark
+  spot.position.set(-3, 12, 4); spot.target.position.set(0, 0, 0);
+  controls.update();
+}
+function resize() {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  renderer.setPixelRatio(dpr); renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); frameCamera(true);
+}
+addEventListener('resize', resize);
+
+// ---------- loop ----------
+let paused = false, last = performance.now(), nextDrop = 0;
+// pieces go when their time is up: the floor lets go under them and they fall through it into the dark,
+// and anything resting on them wakes and follows them down or settles
+function life() {
+  for (const b of [...bodies]) {
+    if (b.wait > 0 || realT < b.dieAt) continue;
+    if (!b.dying) {
+      b.dying = true;
+      if (P.go === 'dissolve') {   // its own copy of the glass, so it can fade alone where it lies
+        b.mesh.material = MATS.map((m) => { const c = m.clone(); c.transparent = true; c.depthWrite = false; return c; });
+        continue;
+      }
+      wake(b);
+      if (P.go !== 'slide away') b.w.add(_a.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(1.5));   // a slight tumble as it drops
+      for (const o of bodies) if (o.asleep && o.p.distanceTo(b.p) < b.sol.r + o.sol.r + 0.1) wake(o);
+    }
+    if (P.go === 'dissolve' && Array.isArray(b.mesh.material) && b.mesh.material[0] !== glassMat) {
+      const k = Math.min(1, (realT - b.dieAt) / P.fade), o = 1 - k * k * (3 - 2 * k);
+      for (const m of b.mesh.material) m.opacity = o;
+      b.mesh.castShadow = o > 0.35;
+      if (k >= 1) remove(b);
+      continue;
+    }
+    if (b.p.y < -b.sol.r - 0.5 || Math.abs(b.p.x) > 40 || Math.abs(b.p.z) > 40) remove(b);   // gone below the floor, or slid out of sight
+  }
+}
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!paused) { realT += dt; advance(dt * P.timeScale); life(); if (P.loop > 0 && !reduced && realT >= nextDrop) dropTitle(); }
+  controls.update(); renderer.render(scene, camera);
+}
+
+// ---------- gestures: tap drops the title again; drag orbits ----------
+let down = null;
+canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('pointerup', (e) => { if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6) dropTitle(); down = null; });
+addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('.sheet')) return; if (e.code === 'Space') { e.preventDefault(); paused = !paused; } else if (e.code === 'Enter') dropTitle(); });
+
+// ---------- settings sheet (test only) ----------
+function fmt(v, step) { const d = String(step).includes('.') ? String(step).split('.')[1].length : 0; return Number(v).toFixed(d); }
+function buildSheet() {
+  const sh = $('sheet'); sh.innerHTML = '';
+  for (const s of SPEC) {
+    if (s.length === 1) { const h = document.createElement('h3'); h.textContent = s[0]; sh.append(h); continue; }
+    const [k, label, a, b, step] = s, row = document.createElement('label'); row.className = 'row'; row.htmlFor = k;
+    const name = document.createElement('span'); name.textContent = label; row.append(name);
+    if (Array.isArray(a)) {
+      const sel = document.createElement('select'); sel.id = k;
+      for (const o of a) { const [val, txt] = Array.isArray(o) ? o : [o, o]; sel.add(new Option(txt, val)); }
+      sel.value = P[k]; sel.addEventListener('change', () => { P[k] = typeof DEF[k] === 'number' ? +sel.value : sel.value; save(); onChange(k); }); row.append(sel);
+    } else {
+      const out = document.createElement('output'); out.id = k + 'O'; out.textContent = fmt(P[k], step);
+      const r = document.createElement('input'); r.type = 'range'; r.id = k; r.min = a; r.max = b; r.step = step; r.value = P[k];
+      r.addEventListener('input', () => { P[k] = +r.value; out.textContent = fmt(P[k], step); save(); onChange(k); });
+      row.append(out, r);
+    }
+    sh.append(row);
+  }
+  const acts = document.createElement('div'); acts.className = 'acts';
+  const btn = (t, f) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.addEventListener('click', f); acts.append(b); return b; };
+  btn('Drop again', dropTitle);
+  btn('Clear the floor', () => { while (bodies.length) remove(bodies[0]); drops = 0; dropTitle(); });
+  const cp = btn('Copy settings', () => { const t = JSON.stringify(P); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(() => {}); cp.textContent = 'Copied'; setTimeout(() => (cp.textContent = 'Copy settings'), 1200); });
+  btn('Reset', () => { Object.assign(P, DEF); save(); buildSheet(); applyLook(); });
+  sh.append(acts);
+}
+function onChange(k) {
+  if (['page', 'rough', 'ior', 'disp', 'absorb', 'env', 'exposure', 'depth'].includes(k)) applyLook();
+  if (k === 'album') { while (bodies.length) remove(bodies[0]); drops = 0; dropTitle(); }
+}
+$('gear').addEventListener('click', () => { const h = $('sheet').hidden; $('sheet').hidden = !h; $('gear').setAttribute('aria-expanded', String(h)); });
+
+// ---------- start ----------
+window.poster = { advance: (s) => { realT += s / P.timeScale; advance(s); life(); if (P.loop > 0 && realT >= nextDrop) dropTitle(); controls.update(); renderer.render(scene, camera); }, drop: dropTitle, bodies, pause: (v) => { paused = v; } };
+buildSheet(); applyLook(); resize(); dropTitle();
+if (reduced) { paused = true; for (let i = 0; i < 30; i++) advance(0.2); }   // reduced motion: the pile, already settled
+requestAnimationFrame(frame);
+</script>
