@@ -41,6 +41,42 @@ void main(){
 
 const mulberry = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
+// The solver's hot loops, kept small and at module level with their arrays passed in, so the JS engine optimises each one
+// (as one big closure the solver ran about seven times slower: 35 ms a frame instead of 5 on a laptop, far worse on a phone).
+function integrate(pts, X, Y, Z, PX, PY, PZ, IM, damp, g) {
+  for (let k = 0; k < pts.length; k++) {
+    const i = pts[k]; if (IM[i] === 0) continue;
+    const vx = (X[i] - PX[i]) * damp, vy = (Y[i] - PY[i]) * damp, vz = (Z[i] - PZ[i]) * damp;
+    PX[i] = X[i]; PY[i] = Y[i]; PZ[i] = Z[i]; X[i] += vx; Y[i] += vy + g; Z[i] += vz;
+  }
+}
+// air pushed by the moving pointer: along its path and out of the page
+function pushAir(pts, X, Y, PX, PY, PZ, IM, ax, ay, avx, avy, az, r2, kf) {
+  for (let k = 0; k < pts.length; k++) {
+    const i = pts[k]; if (!IM[i]) continue; const dx = X[i] - ax, dy = Y[i] - ay, q = dx * dx + dy * dy; if (q > r2) continue;
+    const f = (1 - q / r2) * kf;
+    PX[i] -= avx * f * 0.05; PY[i] -= avy * f * 0.05; PZ[i] -= az * f * 0.06;
+  }
+}
+// one pass over a letter's threads; tear > 0 on the last pass: a thread stretched past it is noted as broken instead
+function solve(cs, CA, CB, CK, CR, IM, X, Y, Z, bend, tear, broke) {
+  for (let m = 0; m < cs.length; m++) {
+    const c = cs[m], kc = CK[c]; if (kc === 0) continue;
+    const a = CA[c], b = CB[c], wa = IM[a], wb = IM[b], ws = wa + wb; if (!ws) continue;
+    const dx = X[b] - X[a], dy = Y[b] - Y[a], dz = Z[b] - Z[a], d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < 1e-6) continue;
+    if (tear > 0 && kc > 0 && d > CR[c] * tear) { broke.push(c); continue; }
+    const f = (d - CR[c]) / (d * ws) * (kc < 0 ? bend : 1);
+    X[a] += dx * f * wa; Y[a] += dy * f * wa; Z[a] += dz * f * wa; X[b] -= dx * f * wb; Y[b] -= dy * f * wb; Z[b] -= dz * f * wb;
+  }
+}
+// starch: an untouched letter is drawn gently back to its shape
+function starchPass(pts, X, Y, Z, HX, HY, IM, lowOff, k) {
+  for (let j = 0; j < pts.length; j++) { const i = pts[j]; if (!IM[i]) continue; X[i] += (HX[i] - X[i]) * k; Y[i] += (HY[i] - lowOff - Y[i]) * k; Z[i] -= Z[i] * k; }
+}
+function floorPass(pts, X, Y, Z, PX, PZ, floor) {
+  for (let j = 0; j < pts.length; j++) { const i = pts[j]; if (Y[i] > floor) { Y[i] = floor; PX[i] += (X[i] - PX[i]) * 0.6; PZ[i] += (Z[i] - PZ[i]) * 0.6; } }
+}
+
 export async function mount(stage) {
   const dark = stage.theme.name === 'dark';
   const P = { ...DEF };
@@ -104,7 +140,8 @@ export async function mount(stage) {
     const ins = (px, py) => { px |= 0; py |= 0; return px >= 0 && py >= 0 && px < w && py < h && A[py * w + px] === 1; };
     const lab = (px, py) => Lb[(py | 0) * w + (px | 0)];
     const insTol = (px, py, l) => { for (const [ox, oy] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) if (ins(px + ox, py + oy) && lab(px + ox, py + oy) === l) return true; return false; };
-    s = Math.sqrt(area / P.detail);
+    // fewer points on a small screen: a phone shows the same cloth with half the work (the letters are smaller, the weave looks the same)
+    s = Math.sqrt(area / (P.detail * Math.min(1, Math.max(0.5, (W * H) / (1280 * 800)))));
     // a grid over the ink: inside points stay, points just outside snap onto the nearest ink pixel, so the mesh edge follows the outline
     const gx0 = bx0 - s, gy0 = by0 - s, cols = Math.ceil((bx1 - bx0) / s) + 3, rows = Math.ceil((by1 - by0) / s) + 3;
     const gid = new Int32Array(cols * rows).fill(-1), nx = [], ny = [], nl = [], rr = Math.ceil(s * 0.72);
@@ -199,8 +236,8 @@ export async function mount(stage) {
   function sim(dt) {
     const SUB = 4, ITER = 3, h = dt / SUB, g = P.grav * h * h, damp = 0.993, floor = H - 3, tear = lower ? 99 : P.tear, broke = [];
     let lowOff = 0;                                                    // how far above home the set still hangs while it comes down (the starch follows it)
-    if (lower) {                                                       // a fresh set comes down on its pegs (on simulation time; no tearing meanwhile)
-      lower.t += dt * 1000; const k = Math.min(1, lower.t / lower.ms), e = 0.5 - 0.5 * Math.cos(Math.PI * k);
+    if (lower) {                                                       // a fresh set comes down on its pegs (no tearing meanwhile)
+      lower.t = performance.now() - lower.t0; const k = Math.min(1, lower.t / lower.ms), e = 0.5 - 0.5 * Math.cos(Math.PI * k);   // on the clock, so a slow phone still sees it arrive in time (tearing is off meanwhile, so a jump cannot rip it)
       lowOff = lower.drop * (1 - e);
       for (const p of pegs) p.y = HY[p.v] - lowOff;
       if (k >= 1 && lower.t > lower.ms + 900) lower = null;
@@ -213,42 +250,21 @@ export async function mount(stage) {
     if (air) for (let l = 0; l < NL; l++) { const o = l * 4, r = air.r; if (air.x > BB[o] - r && air.x < BB[o + 2] + r && air.y > BB[o + 1] - r && air.y < BB[o + 3] + r) wake(l); }
     for (let sI = 0; sI < SUB; sI++) {
       for (let l = 0; l < NL; l++) {
-        if (!awake[l]) continue; const pts = LN[l];
-        for (let k = 0; k < pts.length; k++) {
-          const i = pts[k]; if (IM[i] === 0) continue;
-          const vx = (X[i] - PX[i]) * damp, vy = (Y[i] - PY[i]) * damp, vz = (Z[i] - PZ[i]) * damp;
-          PX[i] = X[i]; PY[i] = Y[i]; PZ[i] = Z[i]; X[i] += vx; Y[i] += vy + g; Z[i] += vz;
-        }
-        if (air) {                                                      // air pushed by the moving pointer: along its path and out of the page
-          const r2 = air.r * air.r;
-          for (let k = 0; k < pts.length; k++) {
-            const i = pts[k]; if (!IM[i]) continue; const dx = X[i] - air.x, dy = Y[i] - air.y, q = dx * dx + dy * dy; if (q > r2) continue;
-            const f = (1 - q / r2) * P.air * h * 60;
-            PX[i] -= air.vx * f * 0.05; PY[i] -= air.vy * f * 0.05; PZ[i] -= air.sp * f * 0.06 * air.sign;
-          }
-        }
+        if (!awake[l]) continue;
+        integrate(LN[l], X, Y, Z, PX, PY, PZ, IM, damp, g);
+        if (air) pushAir(LN[l], X, Y, PX, PY, PZ, IM, air.x, air.y, air.vx, air.vy, air.sp * air.sign, air.r * air.r, P.air * h * 60);
       }
       for (const p of pegs) if (p.on && awake[p.label]) for (const q of p.patch) { X[q.i] = p.x + q.ox; Y[q.i] = p.y + q.oy; Z[q.i] = 0; }
       for (let it = 0; it < ITER; it++) {
-        for (let l = 0; l < NL; l++) {
-          if (!awake[l]) continue; const cs = LC[l];
-          for (let m = 0; m < cs.length; m++) {
-            const c = cs[m], kc = CK[c]; if (kc === 0) continue;
-            const a = CA[c], b = CB[c], wa = IM[a], wb = IM[b], ws = wa + wb; if (!ws) continue;
-            const k = kc < 0 ? P.bend : 1;
-            const dx = X[b] - X[a], dy = Y[b] - Y[a], dz = Z[b] - Z[a], d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < 1e-6) continue;
-            if (kc > 0 && it === ITER - 1 && d > CR[c] * tear) { broke.push(c); continue; }
-            const f = (d - CR[c]) / (d * ws) * k;
-            X[a] += dx * f * wa; Y[a] += dy * f * wa; Z[a] += dz * f * wa; X[b] -= dx * f * wb; Y[b] -= dy * f * wb; Z[b] -= dz * f * wb;
-          }
-        }
+        const last = it === ITER - 1;
+        for (let l = 0; l < NL; l++) if (awake[l]) solve(LC[l], CA, CB, CK, CR, IM, X, Y, Z, P.bend, last ? tear : 0, broke);
         if (grab) for (const g2 of grab.nodes) { X[g2.i] = grab.x + g2.ox; Y[g2.i] = grab.y + g2.oy; }
       }
       for (let l = 0; l < NL; l++) {
-        if (!awake[l] || !starch[l]) continue; const pts = LN[l];
-        for (let k = 0; k < pts.length; k++) { const i = pts[k]; if (!IM[i]) continue; X[i] += (HX[i] - X[i]) * STARCH; Y[i] += (HY[i] - lowOff - Y[i]) * STARCH; Z[i] -= Z[i] * STARCH; }
+        if (!awake[l]) continue;
+        if (starch[l]) starchPass(LN[l], X, Y, Z, HX, HY, IM, lowOff, STARCH);
+        if (floorOn) floorPass(LN[l], X, Y, Z, PX, PZ, floor);
       }
-      if (floorOn) for (let l = 0; l < NL; l++) { if (!awake[l]) continue; const pts = LN[l]; for (let k = 0; k < pts.length; k++) { const i = pts[k]; if (Y[i] > floor) { Y[i] = floor; PX[i] += (X[i] - PX[i]) * 0.6; PZ[i] += (Z[i] - PZ[i]) * 0.6; } } }
       for (const c of broke) if (CK[c] > 0) snap(c);
       broke.length = 0;
     }
@@ -323,7 +339,7 @@ export async function mount(stage) {
     const drop = H * 0.9;
     for (let i = 0; i < N; i++) { Y[i] -= drop; PY[i] = Y[i]; }
     for (const p of pegs) p.y = HY[p.v] - drop;
-    lower = { t: 0, ms: 1600, drop };
+    lower = { t: 0, t0: performance.now(), ms: 1600, drop };
   }
   function rehang() { floorOn = false; grab = null; for (const p of pegs) unpeg(p); later(() => { if (alive) lowerFresh(); }, 520); }
 
@@ -393,7 +409,7 @@ export async function mount(stage) {
 
   return {
     tune,
-    debug: { rehang, run: (k = 1) => { for (let i = 0; i < k; i++) sim(1 / 60); render(); }, counts: () => ({ N, NC, tris: nIdx / 3, pegs: pegs.filter((p) => p.on).length, tears, awake: awake.reduce((a, b) => a + b, 0), settled }),
+    debug: { prof: (k = 20) => { const a = performance.now(); for (let i = 0; i < k; i++) sim(1 / 60); const b = performance.now(); for (let i = 0; i < k; i++) render(); return { sim: (b - a) / k, render: (performance.now() - b) / k }; }, rehang, run: (k = 1) => { for (let i = 0; i < k; i++) sim(1 / 60); render(); }, counts: () => ({ N, NC, tris: nIdx / 3, pegs: pegs.filter((p) => p.on).length, tears, awake: awake.reduce((a, b) => a + b, 0), settled }),
       motion: () => LN.map((pts) => { let mv = 0; for (const i of pts) if (IM[i]) mv = Math.max(mv, Math.abs(X[i] - PX[i]) + Math.abs(Y[i] - PY[i]) + Math.abs(Z[i] - PZ[i])); return +mv.toFixed(4); }),
       bench: (k = 60) => { let a = performance.now(); for (let i = 0; i < k; i++) sim(1 / 60); const s = (performance.now() - a) / k; a = performance.now(); for (let i = 0; i < k; i++) render(); return { simMs: +s.toFixed(2), renderMs: +((performance.now() - a) / k).toFixed(2) }; } },
     destroy() {
