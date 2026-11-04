@@ -100,6 +100,20 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Theme | black only (darkOnly) |
 | Face | Fredoka 700 (Google Fonts, the name's letters only) |
 
+## Arboretum (published 4 Nov 2026)
+
+| | Arboretum |
+|---|---|
+| At rest | the name (or an album title) grows from each letter's root as a plant of one of 21 species; once grown, each limb lives on its own clock: grows, holds, ages (foliage drifts down), stands bare, fades back from the tip, and a new one grows elsewhere (Idan's choice: the life cycle is its motion) |
+| Move or drag | wind: a gust starts at the pointer and crosses the page in its direction; every twig swings like a spring, leaves flutter, hanging flowers trail |
+| Tap | grows the name again as the next species (after the double-tap beat) |
+| Hold | nothing |
+| Double tap | grows the same species again (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | the skeleton: the centre lines each letter grows from, where they fork, and the grafts that close its loops |
+| Self-demo | the first growth on load; under reduced motion the name is drawn grown and still |
+| Theme | both: light and dark |
+| Face | Inter Tight 600 (Google Fonts, the name's letters only), never drawn: only its centre line |
+
 ## Drop (published 3 Nov 2026)
 
 | | Drop |

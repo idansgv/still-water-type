@@ -122,6 +122,18 @@ export const POSTERS = [
     prompt: "The name \"Idan Segev\" in Archivo Black as thick clear 3D glass letters (three.js MeshPhysicalMaterial: transmission, thickness, Beer-Lambert attenuation so thick parts darken, IOR 1.59), lit by a black studio of thin bright softboxes for hard glints, falling onto a floor that shows only shadows over a flat page, no horizon. A small rigid-body solver: the letters fall all at once; one that lands faster than a threshold breaks where it touches into about 40 Voronoi pieces (2D cells clipped to the glyph, extruded, break faces in rougher glass), seeds crowded toward the contact; the pieces keep the letter's motion at the split plus a kick near the contact, so the bottom stops and the rest falls into it. About a third of the letters land whole. Pieces collide with the floor and each other and heap up, then fade out where they lie 5.5 s later; the title drops again every 14.5 s, in slow motion (0.27). On a narrow screen the letters stay big and fall one at a time into the middle. Black and white only.",
   },
   {
+    slug: 'arboretum',
+    title: 'Arboretum',
+    words: ['Idan', 'Segev'],
+    blurb: 'The name grows as plants, each species a typeface. Move across it for wind; tap to grow it again as another species.',
+    hint: null,
+    themes: { dark: 1, light: 1 },
+    nameable: true,
+    face: { family: 'Inter Tight', weight: 600 },
+    load: () => import('./arboretum.js'),
+    prompt: "The name \"Idan Segev\" grown as plants on a 2D canvas, each species a typeface. Render the name in Inter Tight 600, thin it to a one-pixel centre line (Zhang-Suen), build a BFS tree from each letter's lowest pixel, prune short spurs, carry a per-pixel flow so trunk width follows the pipe model, smooth the chains and graft where a letter's loop meets itself. Each of 21 species (oak, willow, pine, saguaro, birch, cherry, Joshua tree, Douglas fir, apple, dogwood, wisteria, bamboo, mangrove, bonsai juniper, fern, ivy, weeping cherry, baobab, palm, prickly pear, banyan) has its own branching (a 2D port of ez-tree's per-level model, or turtle twigs with gravity), foliage, inflorescences (umbels, corymbs, cymes, racemes, panicles, catkins, bract heads; each flower its own size, tilt, petal count and stage) and bark. The name grows from the roots; then every limb runs a life cycle: grow, hold, age as its leaves drift down, stand bare, fade back from the tip, and regrow elsewhere. Every twig is a damped spring tuned by its thickness and length; a gust starts at the pointer and crosses the page. Tap grows it again as the next species. Black and white only.",
+  },
+  {
     slug: 'skyline',
     title: 'Skyline',
     words: ['Idan', 'Segev'],
