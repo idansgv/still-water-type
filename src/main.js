@@ -237,7 +237,7 @@ async function show(poster, { seed = randomSeed(), themeName, fast = false } = {
   else if (!REC) history.replaceState(null, '', `/p/${poster.slug}/${myName && poster.nameable ? `?n=${encodeURIComponent(myName)}` : ''}`);   // the address bar follows the poster, with the visitor's name when it shows: copy it to share it
   track('poster_view', { slug: poster.slug, theme: theme.name, first: shuffles === 0, named: !!(myName && poster.nameable), album: album ? album.title : null, failed: !current.stage });
   try { localStorage.setItem('swt:last', poster.slug); } catch (e) { /* ignore */ }
-  requestAnimationFrame(() => requestAnimationFrame(() => stageEl.classList.remove('swap')));   // fade in once the new poster has drawn its first frame, not before
+  requestAnimationFrame(() => stageEl.classList.remove('swap'));
   busy = false;
   prepareNext();
 }

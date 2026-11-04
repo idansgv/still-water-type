@@ -50,9 +50,8 @@ body {
   touch-action: none;
   cursor: crosshair;
   background: var(--bg);
-  transition: opacity 200ms ease;
 }
-.stage.swap { opacity: 0; transition-duration: 200ms; }
+.stage.swap { opacity: 0; transition: opacity 200ms ease; }   /* only the fade out: the stage comes back at once when the swap class is removed */
 .colour-pass { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.9s ease; }
 .colour-pass.on { opacity: 1; }   /* the colour pass (src/colour.js): a gradient blended over the stage */
 .stage.colour-dark .poster-canvas { filter: brightness(1.9); transition: filter 0.9s ease; }
