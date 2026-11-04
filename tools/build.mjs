@@ -18,7 +18,7 @@ for (const p of POSTERS) {
   const url = `${ORIGIN}/p/${p.slug}/`;
   const title = `${p.title} · Idan Segev`;
   const own = existsSync(join(root, 'assets', `og-${p.slug}.png`));                  // made by tools/og-posters.cjs
-  const image = own ? `${ORIGIN}/assets/og-${p.slug}.png` : `${ORIGIN}/assets/og.png`;
+  const image = own ? `${ORIGIN}/assets/og-${p.slug}.png` : `${ORIGIN}/assets/og.png?v=2`;
   const alt = own ? `${p.title}: ${p.blurb}` : null;
   // the homepage's intro paragraph is for the home page only; each share page has its own title and description
   let html = home.replace(/<p class="sr-only">[\s\S]*?<\/p>\n?/, '')

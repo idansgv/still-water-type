@@ -1,7 +1,8 @@
 // The site's share image (assets/og.png, 1200 x 630): "Idan Segev" with every letter cut from a different poster's share image,
 // so the preview says what the site does: same name, a different poster every visit. Run tools/og-posters.cjs first; the letters
 // come from those captures. The letter-to-poster map is fixed, so the image only changes when a source capture does.
-//   NODE_PATH=$(npm root -g) node tools/og-ransom.cjs
+//   NODE_PATH=$(npm root -g) node tools/og-ransom.cjs      then bump og.png?v= in index.html and tools/build.mjs, and run tools/build.mjs
+// (link previews cache the image by URL, so a new image needs a new URL)
 const { chromium } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
