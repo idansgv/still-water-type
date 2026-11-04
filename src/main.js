@@ -199,7 +199,7 @@ async function show(poster, { seed = randomSeed(), themeName, fast = false } = {
 
   if (panel) { panel.destroy(); panel = null; }
   if (current) {
-    if (!fast) { stageEl.classList.add('swap'); await wait(reduced ? 0 : 100); }   // a new lyric word swaps in place, without the fade
+    if (!fast) { stageEl.classList.add('swap'); await wait(reduced ? 0 : 200); }   // a new lyric word swaps in place, without the fade; the wait matches the 0.2s fade in shell.css
     try { if (current.inst && current.inst.destroy) current.inst.destroy(); } catch (err) { console.error('[poster destroy]', err); }   // the poster's own listeners, overlays and backdrop
     if (current.stage) current.stage.destroy();
     stageEl.querySelectorAll('.fallback').forEach((n) => n.remove());
