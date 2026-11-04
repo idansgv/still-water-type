@@ -11,8 +11,8 @@
 //
 // Gestures (src/gestures.js): tap plays forward to the end (a tap at the end plays again from the letters); hold rewinds while held,
 // spinning up; a sideways drag scrubs; a double tap rewinds all the way (a beat later, so a third tap can still mean reveal). Reveal:
-// every particle as a dot, the tape and where the bake has got to. The first play on load is the intro; under reduced motion the
-// letters stand still until touched.
+// every particle as a dot, the tape and where the bake has got to. The letters stand still until the first touch (Idan, 4 Nov 2026):
+// no intro, no self-demo.
 
 import { getGL } from '../engine.js';
 import { pressTracker, TAP, DOUBLE_MS, REFORM_DELAY_MS } from '../gestures.js';
@@ -397,7 +397,7 @@ export async function mount(stage) {
   }
 
   // ---------- the playhead: the interaction only moves a time t through the bake ----------
-  const S = { t: 0, target: 0, mode: 'idle', demoAt: Infinity, rewStart: 0, dirty: true, drawnT: -1 };
+  const S = { t: 0, target: 0, mode: 'idle', rewStart: 0, dirty: true, drawnT: -1 };
   const bakedT = () => Math.max(0, (bake.done - 1) / FPS);
   const endT = () => Math.max(0, (bake.frames - 1) / FPS);
 
@@ -416,7 +416,7 @@ export async function mount(stage) {
   offs.push(stage.on('down', (q, e) => {
     if (!press.down(q, e.pointerId)) return;
     clearTimeout(reform);
-    S.mode = 'idle'; S.target = S.t; S.demoAt = Infinity;   // grabbing the tape stops it
+    S.mode = 'idle'; S.target = S.t;   // grabbing the tape stops it
     drag = { lx: q.x, scrub: false, hold: false };
   }));
   offs.push(stage.on('move', (q, e) => {
@@ -473,7 +473,6 @@ export async function mount(stage) {
     const now = performance.now();
     dt = Math.min(dt, 0.05);
     if (press.active && drag && !drag.scrub && !drag.hold && press.holding) { drag.hold = true; S.mode = 'rewind'; S.rewStart = now; }
-    if (S.mode === 'demo' && now >= S.demoAt) S.mode = 'play';
     if (S.mode === 'play') {
       S.t = Math.min(S.t + dt * P.speed, bakedT());   // slow motion; the playhead waits at the baked frontier
       if (S.t >= endT() - 1e-6) { S.t = endT(); S.mode = 'idle'; }
@@ -495,7 +494,6 @@ export async function mount(stage) {
   }
 
   build();
-  if (!stage.reduced) { S.mode = 'demo'; S.demoAt = performance.now() + 700; }   // the intro: the letters let go once
   offs.push(stage.frame((dt) => frame(dt)));
   let rt = 0;
   offs.push(stage.on('resize', () => { S.dirty = true; clearTimeout(rt); rt = setTimeout(() => { if (alive) build(); }, 200); }));
@@ -515,7 +513,7 @@ export async function mount(stage) {
 
   return {
     tune,
-    debug: { S, bake, setT(t) { S.mode = 'idle'; S.demoAt = Infinity; S.t = S.target = t; S.dirty = true; }, get layout() { return layout; } },
+    debug: { S, bake, setT(t) { S.mode = 'idle'; S.t = S.target = t; S.dirty = true; }, get layout() { return layout; } },
     destroy() {
       alive = false; clearTimeout(rt); clearTimeout(reform); clearTimeout(bt);
       stopBake(); if (workerURL) URL.revokeObjectURL(workerURL);

@@ -3,7 +3,7 @@
 **Status:** published 2026-11-04. Test at `/?p=rewind`.
 
 ## What it is
-The name (or an album title) in Anton, one word per line, as a block of liquid. On load the letters let go once: they collapse, fall and splash, in slow motion, until the liquid settles above the foot line. The surprise is running it backwards: the splash climbs back up into crisp letters.
+The name (or an album title) in Anton, one word per line, as a block of liquid. The letters stand still until touched. A tap lets them go: they collapse, fall and splash, in slow motion, until the liquid settles above the foot line. The surprise is running it backwards: the splash climbs back up into crisp letters.
 
 **Family: baked time.** After [mjurczyk/alembic](https://github.com/mjurczyk/alembic), a JS reader for Alembic (.abc) caches: a simulation is baked frame by frame and played back by sampling it at a time t, so it scrubs both ways. Nothing the visitor does feeds back into the simulation.
 
@@ -13,7 +13,7 @@ The name (or an album title) in Anton, one word per line, as a block of liquid. 
 - **Sideways drag:** scrubs time, eased like handling tape.
 - **Double tap:** rewinds all the way to the letters (a 420 ms beat later, so a third tap can still mean reveal), from where the first tap found the tape.
 - **Three taps:** reveal: every particle as a dot (one frame of the cache), the tape with how far the bake has got, and the playhead.
-- **Load:** the intro plays after 0.7 s. **Reduced motion:** the letters stand still until touched.
+- **Load:** the letters stand still until the first touch; no intro, no self-demo (Idan, 4 Nov 2026).
 
 ## How it works
 - *Sim:* about 14,500 particles (about 10,000 on a phone) seeded on a hex lattice inside the letters. 2D double-density relaxation liquid (Clavet et al. 2005) with a uniform-grid spatial hash, 8 steps per baked frame. Negative pressure is the surface tension; viscosity damps; the screen edges are walls and the floor sits just above the site's foot line.

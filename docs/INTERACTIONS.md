@@ -134,14 +134,14 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 
 | | Rewind |
 |---|---|
-| At rest | the name (or an album title) in Anton, one word per line, as a block of liquid; on load it lets go once and splashes in slow motion until it settles above the foot line, then nothing moves |
+| At rest | the name (or an album title) in Anton, one word per line, as a block of liquid, standing still until touched; a tap lets it splash in slow motion until it settles above the foot line, then nothing moves |
 | Tap | plays forward (0.6x) until the liquid settles; at the end, plays again from the letters |
 | Tap on background | the whole poster is the liquid: same as a tap |
 | Hold | runs time backwards while held, spinning up and easing into the letters |
 | Drag | sideways scrubs time |
 | Double tap | rewinds all the way to the letters (a beat later, so a third tap can still mean reveal) |
 | Three taps (reveal) | every particle as a dot, the tape (how far the bake has got) and the playhead |
-| Self-demo | the first play on load (after 0.7 s); under reduced motion the letters stand still |
+| Self-demo | none: the letters hold still until the first touch (Idan's call, 4 Nov 2026) |
 | Theme | both: light and dark |
 | Face | Anton (Google Fonts, the name's letters only) |
 
