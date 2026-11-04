@@ -31,5 +31,6 @@ const COLOUR_SCENES = {
   goblet: async (p) => { await sleep(2200); await p.mouse.click(660, 420); await sleep(1500); },   // the pass wakes on a press (a jiggle of the S)
   gyosho: async (p) => { await sleep(1500); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press (a tap also writes it again)
   drop: async (p) => { await sleep(2200); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press
+  rewind: async (p) => { await sleep(2200); await p.mouse.click(400, 250); await sleep(1500); },   // the pass wakes on a press (a tap also plays the splash)
 };
 module.exports = { COLOUR_SCENES };

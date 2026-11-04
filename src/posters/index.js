@@ -134,6 +134,18 @@ export const POSTERS = [
     prompt: "The name \"Idan Segev\" grown as plants on a 2D canvas, each species a typeface. Render the name in Inter Tight 600, thin it to a one-pixel centre line (Zhang-Suen), build a BFS tree from each letter's lowest pixel, prune short spurs, carry a per-pixel flow so trunk width follows the pipe model, smooth the chains and graft where a letter's loop meets itself. Each of 21 species (oak, willow, pine, saguaro, birch, cherry, Joshua tree, Douglas fir, apple, dogwood, wisteria, bamboo, mangrove, bonsai juniper, fern, ivy, weeping cherry, baobab, palm, prickly pear, banyan) has its own branching (a 2D port of ez-tree's per-level model, or turtle twigs with gravity), foliage, inflorescences (umbels, corymbs, cymes, racemes, panicles, catkins, bract heads; each flower its own size, tilt, petal count and stage) and bark. The name grows from the roots; then every limb runs a life cycle: grow, hold, age as its leaves drift down, stand bare, fade back from the tip, and regrow elsewhere. Every twig is a damped spring tuned by its thickness and length; a gust starts at the pointer and crosses the page. Tap grows it again as the next species. Black and white only.",
   },
   {
+    slug: 'rewind',
+    title: 'Rewind',
+    words: ['Idan', 'Segev'],
+    blurb: 'The name as a block of liquid. Tap and it splashes in slow motion; hold and the splash runs back into the letters.',
+    hint: null,
+    themes: { dark: 1, light: 1 },
+    nameable: true,
+    face: { family: 'Anton', weight: 400 },
+    load: () => import('./rewind.js'),
+    prompt: "The name \"Idan Segev\" in Anton, one word per line, as a block of black liquid on a white page (white on black in the dark version), drawn with raw WebGL2. About 14,500 particles are seeded on a hex lattice inside the letters and a 2D particle liquid (double-density relaxation after Clavet et al. 2005: viscosity, surface tension, gravity, a floor at the bottom of the screen) is baked once in a Web Worker, 10 s at 30 frames a second, into a cache of positions, like an Alembic points cache. The picture only samples that cache at a time t: each frame splats the particles into a soft Gaussian field plus a droplet disc and thresholds it into one smooth body (metaballs); at t = 0 the crisp letter mask takes over. A tap plays the splash forward in slow motion (0.6x) until the liquid settles; hold rewinds, spinning up like a motor and easing into the letters; a sideways drag scrubs; a double tap rewinds all the way. On load the letters let go once. Black and white only.",
+  },
+  {
     slug: 'skyline',
     title: 'Skyline',
     words: ['Idan', 'Segev'],

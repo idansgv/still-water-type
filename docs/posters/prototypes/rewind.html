@@ -1,0 +1,636 @@
+<title>Rewind</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Fraunces:wght@900&family=Inter+Tight:wght@900&display=block">
+<style>
+/* Layout: one full-bleed poster, the name as a block of liquid that is released, collapses and splashes; the splash can be pulled back up into the letters. A quiet mono line at the foot; a settings sheet for this test only. White page by default, black in the dark slot. */
+:root {
+  --bg: #ffffff; --ink: #000000; --dim: #8a8a8a; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(252, 252, 252, 0.96);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+:root.dark { --bg: #000000; --ink: #ffffff; --dim: #7c7c7c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+/* the liquid pools over the foot line, so it inverts against whatever is under it */
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: #8a8a8a; pointer-events: none; mix-blend-mode: difference;
+}
+.foot b { color: #ffffff; font-weight: 500; }
+.foot button { pointer-events: auto; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.row select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 3px 4px; }
+.row input[type="text"] { grid-column: 1 / -1; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 4px 6px; min-width: 0; }
+.sub { color: var(--dim); border-top: 1px solid var(--line); padding-top: 8px; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="Idan Segev, set as a block of liquid. It is released, collapses and splashes; drag sideways to run the splash backwards into the letters."></canvas>
+<div class="foot"><span><b>Rewind</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row tog" for="dark"><span>Black page (white ink)</span><input type="checkbox" id="dark"></label>
+  <label class="row" for="words"><span>Words (empty: an album title)</span><input type="text" id="words" maxlength="14" autocomplete="off" spellcheck="false"></label>
+  <div class="acts"><button id="nextAlbum" type="button">Next album</button></div>
+  <label class="row" for="font"><span>Face</span><select id="font"></select></label>
+  <label class="row" for="render"><span>Render</span><select id="render">
+    <option value="rewind">Splash (strands and droplets)</option>
+    <option value="chrono">Liquid body (from Chronophotograph)</option>
+  </select></label>
+  <label class="row" for="blob"><span>Liquid body: blob size</span><output id="blobO"></output><input type="range" id="blob" min="0.6" max="1.8" step="0.05"></label>
+  <div class="sub">Bake (changing these re-bakes)</div>
+  <label class="row" for="n"><span>Particles</span><output id="nO"></output><input type="range" id="n" min="3000" max="16000" step="500"></label>
+  <label class="row" for="visc"><span>Viscosity</span><output id="viscO"></output><input type="range" id="visc" min="0" max="1" step="0.01"></label>
+  <label class="row" for="tens"><span>Surface tension</span><output id="tensO"></output><input type="range" id="tens" min="0" max="2" step="0.05"></label>
+  <label class="row" for="grav"><span>Splash (gravity)</span><output id="gravO"></output><input type="range" id="grav" min="0.4" max="2" step="0.05"></label>
+  <label class="row" for="len"><span>Bake length (s)</span><output id="lenO"></output><input type="range" id="len" min="2" max="20" step="0.5"></label>
+  <div class="sub">Playback and look</div>
+  <label class="row" for="speed"><span>Play speed</span><output id="speedO"></output><input type="range" id="speed" min="0.2" max="1" step="0.05"></label>
+  <label class="row" for="sens"><span>Scrub sensitivity</span><output id="sensO"></output><input type="range" id="sens" min="0.3" max="3" step="0.05"></label>
+  <label class="row" for="th"><span>Metaball threshold</span><output id="thO"></output><input type="range" id="th" min="0.2" max="0.8" step="0.01"></label>
+  <label class="row" for="blur"><span>Metaball blur</span><output id="blurO"></output><input type="range" id="blur" min="0.5" max="1.8" step="0.05"></label>
+  <label class="row" for="drop"><span>Droplet size</span><output id="dropO"></output><input type="range" id="drop" min="0" max="1.2" step="0.05"></label>
+  <div class="acts"><button id="copy" type="button">Copy settings</button><button id="reset" type="button">Reset</button></div>
+</div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const FONTS = {
+  archivo: { label: 'Archivo Black', fam: 'Archivo Black', w: 400 },
+  inter: { label: 'Inter Tight 900', fam: 'Inter Tight', w: 900 },
+  fraunces: { label: 'Fraunces 900', fam: 'Fraunces', w: 900 },
+  anton: { label: 'Anton', fam: 'Anton', w: 400 },
+};
+// The site's default words (src/albums.js): with no name of their own, posters set an album title, one word per line.
+const ALBUMS = ["Rubber Soul","Revolver","Abbey Road","Let It Be","Pet Sounds","Blue","Hejira","Thriller","Off the Wall","Purple Rain","Nevermind","In Utero","OK Computer","Kid A","Amnesiac","In Rainbows","The Bends","Graceland","Kind of Blue","Bitches Brew","A Love Supreme","Blue Train","Time Out","Mingus Ah Um","Hunky Dory","Low","Heroes","Blackstar","Let It Bleed","Sticky Fingers","Harvest","Astral Weeks","Pink Moon","Horses","Marquee Moon","Parallel Lines","London Calling","Closer","Loveless","Screamadelica","Doolittle","Surfer Rosa","Ten","Dummy","Mezzanine","Blue Lines","Homogenic","Violator","Lust for Life","Ready to Die","Aquemini","Stankonia","Parklife","Yeezus","Graduation","Blonde","Channel Orange","Frank","Back to Black","Ctrl","1989","21","Discovery","Moon Safari","Sea Change","Rain Dogs","Bone Machine","Blood Money","Closing Time","Geogaddi","Inferno","SOS","GNX","DAMN","ye","Demon Days","Plastic Beach","Donuts","Half Moon Bay","On the Beach","Harvest Moon","Wish","Bryter Layter","Dream River","Skeleton Tree","Play","Cheat Codes","Wildflower","Odelay","Mutations","Fun House","The Idiot","Old Ideas","Dirt","Stony Hill","Third","Giant Steps","Ascension","Knock Knock","Person Pitch","Treasure","Endless Summer","X's","Black Earth","Raw Power","Longing","18","Black One","Travel","Bleed","Piñata","Mosaic","Venice","Meditations","Natty Dread","Uprising","Squared Roots","Small Change","Blue Valentine","Alice","Bad as Me","Real Gone","Hi Scores","Sun","Ruff Draft","Talkie Walkie","Homework","Go","Sleep","Drumming","The Blueprint"];
+let album = ALBUMS[Math.floor(Math.random() * ALBUMS.length)];
+const nextAlbum = () => { let a; do a = ALBUMS[Math.floor(Math.random() * ALBUMS.length)]; while (a === album); album = a; };
+const WORDS_OK = /^[\p{L}\p{M}0-9' -]+$/u; // same rule as the site's names (src/name.js)
+const text = () => (P.words && WORDS_OK.test(P.words.trim()) ? P.words : album).replace(/\s+/g, ' ').trim();
+const DEF = { dark: false, words: '', render: 'rewind', blob: 0.75, font: 'anton', n: 14500, visc: 0.89, tens: 1.4, grav: 0.5, len: 10, speed: 0.6, sens: 0.3, th: 0.31, blur: 1.15, drop: 0.55, k: 0.3, kn: 0.5, dmax: 0.05 };
+const P = Object.assign({}, DEF);
+try { Object.assign(P, JSON.parse(localStorage.getItem('rewind') || '{}')); } catch (e) { /* defaults */ }
+if (!FONTS[P.font]) P.font = DEF.font;
+const save = () => { try { localStorage.setItem('rewind', JSON.stringify(P)); } catch (e) { /* fine */ } };
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const FPS = 30, SUB = 8; // baked frames per second (playback lerps between them); sim steps per baked frame
+
+// ---------- the simulation (runs only during the bake; never touched by the interaction) ----------
+// 2D particle liquid, double-density relaxation (Clavet et al. 2005) with a uniform-grid spatial hash.
+// Units: lattice spacing = 1. Positions are written out in CSS px, one Float32 (x, y) pair per particle per frame.
+function makeSim(o) {
+  const N = o.N, W = o.W, H = o.H, sub = o.sub, dt = 1 / (o.fps * sub), h = o.h, ih = 1 / h, h2 = h * h;
+  const x = Float32Array.from(o.x), y = Float32Array.from(o.y);
+  const vx = new Float32Array(N), vy = new Float32Array(N), ox = new Float32Array(N), oy = new Float32Array(N);
+  const rho = new Float32Array(N), rhoN = new Float32Array(N), pr = new Float32Array(N), prN = new Float32Array(N);
+  const gw = Math.floor(W * ih) + 1, gh = Math.floor(H * ih) + 1, NC = gw * gh;
+  const start = new Int32Array(NC + 1), cur = new Int32Array(NC), cell = new Int32Array(N), idx = new Int32Array(N);
+  const M = 40, nb = new Int32Array(N * M), nq = new Float32Array(N * M), nux = new Float32Array(N * M), nuy = new Float32Array(N * M), cnt = new Int32Array(N);
+  const g = o.g, K = o.k, KN = o.kn, TENS = o.tens, SIG = o.sig, BETA = o.beta, rho0 = o.rho0, RN0 = o.rhoN0 || 0, vmax = 0.9 * h / dt, s = o.s;
+  const id = new Int32Array(N); for (let i = 0; i < N; i++) id[i] = i; // slot -> original particle
+  const tmp = new Float32Array(N), tmpI = new Int32Array(N);
+  let nstep = 0;
+  // every few steps, store particles in grid order so neighbours sit close in memory (output order is unchanged)
+  function reorder() {
+    for (const A of [x, y, vx, vy, ox, oy]) { for (let k = 0; k < N; k++) tmp[k] = A[idx[k]]; A.set(tmp); }
+    for (let k = 0; k < N; k++) tmpI[k] = id[idx[k]]; id.set(tmpI);
+    for (let k = 0; k < N; k++) tmpI[k] = cell[idx[k]]; cell.set(tmpI);
+    for (let k = 0; k < N; k++) idx[k] = k;
+  }
+  const m = 0.5, DMAX = o.dmax || 1e9, HX = [0, 1, -1, 0, 1], HY = [0, 0, 1, 1, 1];
+  function grid() {
+    start.fill(0);
+    for (let i = 0; i < N; i++) {
+      let cx = (x[i] * ih) | 0, cy = (y[i] * ih) | 0;
+      if (cx < 0) cx = 0; else if (cx >= gw) cx = gw - 1;
+      if (cy < 0) cy = 0; else if (cy >= gh) cy = gh - 1;
+      const c = cy * gw + cx; cell[i] = c; start[c + 1]++;
+    }
+    for (let c = 0; c < NC; c++) { start[c + 1] += start[c]; cur[c] = start[c]; }
+    for (let i = 0; i < N; i++) idx[cur[cell[i]]++] = i;
+  }
+  function neighbours() {
+    for (let i = 0; i < N; i++) {
+      const xi = x[i], yi = y[i], c = cell[i], cx = c % gw, cy = (c / gw) | 0, base = i * M;
+      let n = 0;
+      // half stencil: each pair is found once (own cell with j > i, plus four forward cells)
+      for (let s4 = 0; s4 < 5; s4++) {
+        const xx = cx + HX[s4], yy = cy + HY[s4];
+        if (xx < 0 || xx >= gw || yy >= gh) continue;
+        const cc = yy * gw + xx, e = start[cc + 1];
+        for (let k = start[cc]; k < e; k++) {
+          const j = idx[k];
+          if (s4 === 0 && j <= i) continue;
+          const dx = x[j] - xi, dy = y[j] - yi, r2 = dx * dx + dy * dy;
+          if (r2 >= h2 || n >= M) continue;
+          const r = Math.sqrt(r2) || 1e-6;
+          nb[base + n] = j; nq[base + n] = r * ih; nux[base + n] = dx / r; nuy[base + n] = dy / r; n++;
+        }
+      }
+      cnt[i] = n;
+    }
+  }
+  function viscosity() {
+    if (SIG <= 0 && BETA <= 0) return;
+    for (let i = 0; i < N; i++) {
+      const base = i * M, n = cnt[i];
+      for (let k = 0; k < n; k++) {
+        const j = nb[base + k], ux = nux[base + k], uy = nuy[base + k];
+        const u = (vx[i] - vx[j]) * ux + (vy[i] - vy[j]) * uy;
+        if (u <= 0) continue;
+        let f = (1 - nq[base + k]) * (SIG + BETA * u * dt);
+        if (f > 0.5) f = 0.5;
+        const I = f * u;
+        vx[i] -= I * ux; vy[i] -= I * uy; vx[j] += I * ux; vy[j] += I * uy;
+      }
+    }
+  }
+  function relax() {
+    rho.fill(0); rhoN.fill(0);
+    for (let i = 0; i < N; i++) {
+      const base = i * M, n = cnt[i];
+      for (let k = 0; k < n; k++) {
+        const j = nb[base + k], a = 1 - nq[base + k], a2 = a * a, a3 = a2 * a;
+        rho[i] += a2; rho[j] += a2; rhoN[i] += a3; rhoN[j] += a3;
+      }
+    }
+    for (let i = 0; i < N; i++) {
+      let p = K * (rho[i] - rho0);
+      if (p < 0) p *= TENS;
+      const pn = rhoN[i] - RN0; pr[i] = p; prN[i] = pn > 0 ? KN * pn : 0;
+    }
+    for (let i = 0; i < N; i++) {
+      const base = i * M, n = cnt[i];
+      for (let k = 0; k < n; k++) {
+        const j = nb[base + k], a = 1 - nq[base + k];
+        let D = 0.25 * ((pr[i] + pr[j]) * a + (prN[i] + prN[j]) * a * a);
+        if (D > DMAX) D = DMAX; else if (D < -DMAX) D = -DMAX;
+        const dx = D * nux[base + k], dy = D * nuy[base + k];
+        x[i] -= dx; y[i] -= dy; x[j] += dx; y[j] += dy;
+      }
+    }
+  }
+  let first = true;
+  function step() {
+    for (let i = 0; i < N; i++) vy[i] += g * dt;
+    if (first) { grid(); neighbours(); first = false; }
+    if (nstep % 2 === 0) viscosity(); // every other step, at double strength: same feel, less cost
+    for (let i = 0; i < N; i++) {
+      let a = vx[i], b = vy[i];
+      const sp = Math.sqrt(a * a + b * b);
+      if (sp > vmax) { a *= vmax / sp; b *= vmax / sp; }
+      ox[i] = x[i]; oy[i] = y[i]; x[i] += a * dt; y[i] += b * dt;
+    }
+    grid(); if (++nstep % 6 === 0) reorder(); neighbours(); relax();
+    for (let i = 0; i < N; i++) {
+      let xi = x[i], yi = y[i];
+      if (yi > H - m) { yi = H - m; xi = ox[i] + (xi - ox[i]) * 0.92; } // floor, a little friction
+      else if (yi < m) yi = m;
+      if (xi < m) xi = m; else if (xi > W - m) xi = W - m;
+      x[i] = xi; y[i] = yi;
+      vx[i] = (xi - ox[i]) / dt; vy[i] = (yi - oy[i]) / dt;
+    }
+  }
+  return {
+    frame(out, off) {
+      for (let k = 0; k < sub; k++) step();
+      for (let i = 0; i < N; i++) { const q = off + 2 * id[i]; out[q] = x[i] * s; out[q + 1] = y[i] * s; }
+    },
+  };
+}
+
+// The worker is built from makeSim's own source, so the main-thread fallback and the worker run the same code.
+const WORKER_SRC = `'use strict';
+const makeSim = ${makeSim.toString()};
+self.onmessage = (e) => {
+  const o = e.data, N = o.N, sim = makeSim(o), t0 = performance.now();
+  let f = 1;
+  while (f < o.frames) {
+    const n = Math.min(6, o.frames - f), buf = new Float32Array(n * N * 2);
+    for (let k = 0; k < n; k++) sim.frame(buf, k * N * 2);
+    self.postMessage({ id: o.id, from: f, count: n, buf, ms: performance.now() - t0 }, [buf.buffer]);
+    f += n;
+  }
+};`;
+let workerURL = null;
+try { workerURL = URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' })); } catch (e) { workerURL = null; }
+
+// ---------- layout + mask ----------
+const cv = $('c');
+const gl = cv.getContext('webgl2', { antialias: false, premultipliedAlpha: false, alpha: false });
+let W = 0, H = 0, dpr = 1;
+const maskCanvas = document.createElement('canvas');
+const mctx = maskCanvas.getContext('2d', { willReadFrequently: true });
+let layout = null; // { s, N, x0: Float32Array (px), interior }
+
+function drawMask() {
+  const F = FONTS[P.font];
+  const mw = Math.round(W * dpr), mh = Math.round(H * dpr);
+  maskCanvas.width = mw; maskCanvas.height = mh;
+  const ctx = mctx;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, mw, mh);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const lines = text().split(' '); // each word on its own line, as on the site
+  const ref = 200;
+  ctx.font = `${F.w} ${ref}px "${F.fam}"`;
+  const ms = lines.map((l) => ctx.measureText(l));
+  const asc = Math.max(...ms.map((m) => m.actualBoundingBoxAscent)), desc = Math.max(...ms.map((m) => m.actualBoundingBoxDescent));
+  const lineH = (asc + desc) * 1.12;
+  const blockW = Math.max(...ms.map((m) => m.actualBoundingBoxLeft + m.actualBoundingBoxRight));
+  const blockH = lineH * (lines.length - 1) + asc + desc;
+  const maxW = W - 2 * Math.max(24, W * 0.07), maxH = H * [0.3, 0.42, 0.52, 0.58][Math.min(3, lines.length - 1)];
+  const sc = Math.min(maxW / blockW, maxH / blockH);
+  const size = ref * sc;
+  ctx.font = `${F.w} ${size}px "${F.fam}"`;
+  ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
+  const top = H * 0.4 - (blockH * sc) / 2;
+  lines.forEach((l, k) => {
+    const m = ms[k];
+    const lw = (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) * sc;
+    const xL = (W - lw) / 2 + m.actualBoundingBoxLeft * sc;
+    ctx.fillText(l, xL, top + asc * sc + k * lineH * sc);
+  });
+  return ctx.getImageData(0, 0, mw, mh).data;
+}
+
+function seed(px) {
+  const mw = maskCanvas.width;
+  const at = (x, y) => px[(Math.round(y * dpr) * mw + Math.round(x * dpr)) * 4] > 127;
+  // area in CSS px^2
+  let a = 0; const st = 2;
+  for (let y = 0; y < H; y += st) for (let x = 0; x < W; x += st) if (at(x, y)) a += st * st;
+  const s = Math.sqrt((2 * a) / (Math.sqrt(3) * P.n));
+  const pts = [];
+  const dy = s * Math.sqrt(3) / 2;
+  for (let r = 0, y = dy / 2; y < H; r++, y += dy) {
+    for (let x = (r & 1 ? s / 2 : 0) + s / 4; x < W; x += s) if (at(x, y)) pts.push(x, y);
+  }
+  return { s, N: pts.length / 2, x0: Float32Array.from(pts) };
+}
+
+// rest density and the splat field of a filled hex lattice (spacing 1) — what "inside the liquid" means
+function latticeSum(fn, R) {
+  let sum = 0; const dy = Math.sqrt(3) / 2;
+  for (let r = -R; r <= R; r++) for (let c = -R; c <= R; c++) {
+    const x = c + (r & 1 ? 0.5 : 0), y = r * dy, d = Math.hypot(x, y);
+    if (d > 0) sum += fn(d);
+  }
+  return sum;
+}
+const SIM_H = 2.1;
+const RHO0 = latticeSum((d) => (d < SIM_H ? (1 - d / SIM_H) ** 2 : 0), 6);
+const RHON0 = latticeSum((d) => (d < SIM_H ? (1 - d / SIM_H) ** 3 : 0), 6);
+
+// ---------- the bake ----------
+const bake = { id: 0, N: 0, frames: 0, done: 0, data: null, worker: null, timer: 0, ms: 0, t0: 0 };
+function startBake() {
+  if (bake.worker) { bake.worker.terminate(); bake.worker = null; }
+  clearTimeout(bake.timer);
+  const L = layout, N = L.N, frames = Math.round(P.len * FPS) + 1;
+  bake.id++; bake.N = N; bake.frames = frames; bake.done = 1; bake.ms = 0; bake.t0 = performance.now();
+  bake.data = new Float32Array(frames * N * 2);
+  bake.data.set(L.x0, 0);
+  const s = L.s, xs = new Float32Array(N), ys = new Float32Array(N);
+  for (let i = 0; i < N; i++) { xs[i] = L.x0[2 * i] / s; ys[i] = L.x0[2 * i + 1] / s; }
+  // gravity scales with the screen height so a fall across the page takes the same time on any device
+  const o = {
+    id: bake.id, N, frames, fps: FPS, sub: SUB, h: SIM_H, s, W: W / s, H: H / s, x: xs, y: ys,
+    g: (1.56 * H * P.grav) / s, k: P.k, kn: P.kn, dmax: P.dmax, tens: P.tens, sig: P.visc * 0.6, beta: P.visc * 0.4, rho0: RHO0 * 0.98, rhoN0: RHON0,
+  };
+  const onChunk = (m) => {
+    if (m.id !== bake.id) return;
+    bake.data.set(m.buf instanceof Float32Array ? m.buf : new Float32Array(m.buf), m.from * N * 2);
+    bake.done = m.from + m.count; bake.ms = performance.now() - bake.t0;
+    if (bake.done >= bake.frames) { window.__bakeStats = { frames: bake.frames, particles: N, ms: Math.round(bake.ms), worker: !!bake.worker }; }
+  };
+  let w = null;
+  if (workerURL) { try { w = new Worker(workerURL); } catch (e) { w = null; } }
+  if (w) {
+    bake.worker = w;
+    w.onmessage = (e) => onChunk(e.data);
+    w.onerror = () => { w.terminate(); bake.worker = null; mainThreadBake(o, onChunk); };
+    w.postMessage(o, [o.x.buffer, o.y.buffer]);
+  } else mainThreadBake(o, onChunk);
+}
+function mainThreadBake(o, onChunk) {
+  const sim = makeSim(o), N = o.N, id = o.id;
+  let f = bake.done;
+  const tick = () => {
+    if (id !== bake.id) return;
+    const t0 = performance.now(), from = f, out = [];
+    while (f < o.frames && performance.now() - t0 < 10) {
+      const buf = new Float32Array(N * 2); sim.frame(buf, 0); out.push(buf); f++;
+    }
+    const all = new Float32Array(out.length * N * 2);
+    out.forEach((b, k) => all.set(b, k * N * 2));
+    onChunk({ id, from, count: out.length, buf: all });
+    if (f < o.frames) bake.timer = setTimeout(tick, 0);
+  };
+  tick();
+}
+
+// ---------- WebGL ----------
+function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+function prog(vs, fs) { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
+const splatP = prog(`#version 300 es
+layout(location=0) in vec2 aA; layout(location=1) in vec2 aB; uniform float uMix; uniform vec2 uRes; uniform float uSize;
+void main() { vec2 p = mix(aA, aB, uMix); gl_Position = vec4(p.x / uRes.x * 2.0 - 1.0, 1.0 - p.y / uRes.y * 2.0, 0.0, 1.0); gl_PointSize = uSize; }`,
+`#version 300 es
+precision highp float; uniform float uR; uniform float uSig; uniform float uDisc; uniform float uScale; out vec4 o;
+void main() {
+  float d = length(gl_PointCoord * 2.0 - 1.0) * uR;
+  if (d > uR) discard;
+  float w = exp(-d * d / (uSig * uSig)) * uScale;
+  float a = clamp(uDisc - d + 0.5, 0.0, 1.0);
+  o = vec4(w, 0.0, 0.0, a);
+}`);
+const compP = prog(`#version 300 es
+void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`,
+`#version 300 es
+precision highp float; uniform sampler2D uField; uniform sampler2D uMask; uniform vec2 uPx; uniform float uInv; uniform float uTh; uniform float uW;
+uniform vec3 uBg; uniform vec3 uInk; out vec4 o;
+void main() {
+  vec2 uv = gl_FragCoord.xy * uPx;
+  vec4 f = texture(uField, uv);
+  float v = max(f.r * uInv * 0.5 / uTh, f.a);
+  float m = texture(uMask, vec2(uv.x, 1.0 - uv.y)).r;
+  v = mix(m, v, uW);
+  float aa = max(fwidth(v), 1e-4);
+  float c = clamp((v - 0.5) / (aa * 1.4) + 0.5, 0.0, 1.0);
+  o = vec4(mix(uBg, uInk, c), 1.0);
+}`);
+// the Chronophotograph body: a (1 - r^2)^3 kernel per particle, summed, cut at a threshold by signed distance
+const blobP = prog(`#version 300 es
+layout(location=0) in vec2 aA; layout(location=1) in vec2 aB; uniform float uMix; uniform vec2 uRes; uniform float uSize;
+void main() { vec2 p = mix(aA, aB, uMix); gl_Position = vec4(p.x / uRes.x * 2.0 - 1.0, 1.0 - p.y / uRes.y * 2.0, 0.0, 1.0); gl_PointSize = uSize; }`,
+`#version 300 es
+precision highp float; uniform float uGain; out vec4 o;
+void main() { vec2 d = gl_PointCoord * 2.0 - 1.0; float r2 = dot(d, d); if (r2 >= 1.0) discard; float w = 1.0 - r2; o = vec4(w * w * w * uGain, 0.0, 0.0, 0.0); }`);
+const blobCompP = prog(`#version 300 es
+void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`,
+`#version 300 es
+precision highp float; uniform sampler2D uField; uniform sampler2D uMask; uniform vec2 uPx; uniform float uK; uniform float uW;
+uniform vec3 uBg; uniform vec3 uInk; out vec4 o;
+float fv(vec2 uv) { float f = texture(uField, uv).r * uK; float m = texture(uMask, vec2(uv.x, 1.0 - uv.y)).r; return mix(m, f, uW); }
+void main() {
+  vec2 uv = gl_FragCoord.xy * uPx; float v = fv(uv);
+  float gx = fv(uv + vec2(uPx.x, 0.0)) - fv(uv - vec2(uPx.x, 0.0));
+  float gy = fv(uv + vec2(0.0, uPx.y)) - fv(uv - vec2(0.0, uPx.y));
+  float sd = (v - 0.5) / max(length(vec2(gx, gy)) * 0.5, 1e-5);
+  o = vec4(mix(uBg, uInk, clamp(sd + 0.5, 0.0, 1.0)), 1.0);
+}`);
+const U = (p, n) => gl.getUniformLocation(p, n);
+const uB = { mix: U(blobP, 'uMix'), res: U(blobP, 'uRes'), size: U(blobP, 'uSize'), gain: U(blobP, 'uGain') };
+const uBC = { field: U(blobCompP, 'uField'), mask: U(blobCompP, 'uMask'), px: U(blobCompP, 'uPx'), k: U(blobCompP, 'uK'), w: U(blobCompP, 'uW'), bg: U(blobCompP, 'uBg'), ink: U(blobCompP, 'uInk') };
+const uS = { mix: U(splatP, 'uMix'), res: U(splatP, 'uRes'), size: U(splatP, 'uSize'), r: U(splatP, 'uR'), sig: U(splatP, 'uSig'), disc: U(splatP, 'uDisc'), scale: U(splatP, 'uScale') };
+const uC = { field: U(compP, 'uField'), mask: U(compP, 'uMask'), px: U(compP, 'uPx'), inv: U(compP, 'uInv'), th: U(compP, 'uTh'), w: U(compP, 'uW'), bg: U(compP, 'uBg'), ink: U(compP, 'uInk') };
+const floatOK = !!gl.getExtension('EXT_color_buffer_float');
+const maxPoint = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1];
+const vao = gl.createVertexArray(), bufA = gl.createBuffer(), bufB = gl.createBuffer();
+gl.bindVertexArray(vao);
+const locA = gl.getAttribLocation(splatP, 'aA'), locB = gl.getAttribLocation(splatP, 'aB');
+gl.bindBuffer(gl.ARRAY_BUFFER, bufA); gl.enableVertexAttribArray(locA); gl.vertexAttribPointer(locA, 2, gl.FLOAT, false, 0, 0);
+gl.bindBuffer(gl.ARRAY_BUFFER, bufB); gl.enableVertexAttribArray(locB); gl.vertexAttribPointer(locB, 2, gl.FLOAT, false, 0, 0);
+gl.bindVertexArray(null);
+const emptyVao = gl.createVertexArray();
+let fieldTex = null, fbo = null, maskTex = gl.createTexture();
+
+function makeTargets() {
+  const w = cv.width, h = cv.height;
+  if (fieldTex) gl.deleteTexture(fieldTex);
+  if (fbo) gl.deleteFramebuffer(fbo);
+  fieldTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, fieldTex);
+  if (floatOK) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fieldTex, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.bindTexture(gl.TEXTURE_2D, maskTex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskCanvas);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+
+let lastFrames = [-1, -1];
+function draw(t) {
+  if (!layout || !bake.data) return;
+  const N = bake.N, f = Math.max(0, Math.min(t * FPS, bake.done - 1));
+  const i0 = Math.floor(f), i1 = Math.min(i0 + 1, bake.done - 1), mx = f - i0;
+  if (lastFrames[0] !== i0 || lastFrames[1] !== i1) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufA); gl.bufferData(gl.ARRAY_BUFFER, bake.data.subarray(i0 * N * 2, (i0 + 1) * N * 2), gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufB); gl.bufferData(gl.ARRAY_BUFFER, bake.data.subarray(i1 * N * 2, (i1 + 1) * N * 2), gl.DYNAMIC_DRAW);
+    lastFrames = [i0, i1];
+  }
+  const s = layout.s, sig = P.blur * s * dpr, disc = P.drop * 0.5 * s * dpr;
+  const R = Math.min(Math.max(3 * sig, disc + 1), maxPoint / 2);
+  const interior = layout.field = 1 + latticeSum((d) => Math.exp(-(d * d) / (P.blur * P.blur)), 6);
+  const scale = floatOK ? 1 : 0.35 / interior;
+  // 1. splat the particles: red adds a soft field, alpha keeps the largest droplet disc
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.viewport(0, 0, cv.width, cv.height);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendEquationSeparate(gl.FUNC_ADD, gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
+  const body = P.render === 'chrono', gainB = floatOK ? 1 : 1 / 8;
+  const tw = Math.min(1, Math.max(0, t / 0.14)), mixW = tw * tw * (3 - 2 * tw);
+  const ink = P.dark ? [1, 1, 1] : [0, 0, 0], bg = P.dark ? [0, 0, 0] : [1, 1, 1];
+  if (body) {
+    gl.useProgram(blobP);
+    gl.uniform1f(uB.mix, mx); gl.uniform2f(uB.res, W, H); gl.uniform1f(uB.size, Math.min(maxPoint, 4 * s * dpr * P.blob)); gl.uniform1f(uB.gain, gainB);
+  } else {
+    gl.useProgram(splatP);
+    gl.uniform1f(uS.mix, mx); gl.uniform2f(uS.res, W, H); gl.uniform1f(uS.size, 2 * R); gl.uniform1f(uS.r, R);
+    gl.uniform1f(uS.sig, sig); gl.uniform1f(uS.disc, disc); gl.uniform1f(uS.scale, scale);
+  }
+  gl.bindVertexArray(vao); gl.drawArrays(gl.POINTS, 0, N);
+  gl.disable(gl.BLEND);
+  // 2. threshold into one smooth body; at t=0 the true letter mask takes over so the type reads crisp
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  if (body) {
+    gl.useProgram(blobCompP);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fieldTex); gl.uniform1i(uBC.field, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, maskTex); gl.uniform1i(uBC.mask, 1);
+    gl.uniform2f(uBC.px, 1 / cv.width, 1 / cv.height); gl.uniform1f(uBC.k, 0.5 / gainB); gl.uniform1f(uBC.w, mixW);
+    gl.uniform3fv(uBC.bg, bg); gl.uniform3fv(uBC.ink, ink);
+    gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    return;
+  }
+  gl.useProgram(compP);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fieldTex); gl.uniform1i(uC.field, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, maskTex); gl.uniform1i(uC.mask, 1);
+  gl.uniform2f(uC.px, 1 / cv.width, 1 / cv.height);
+  gl.uniform1f(uC.inv, 1 / (interior * scale)); gl.uniform1f(uC.th, P.th);
+  gl.uniform1f(uC.w, mixW);
+  gl.uniform3fv(uC.bg, bg); gl.uniform3fv(uC.ink, ink);
+  gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+// ---------- playhead ----------
+// The interaction only moves a time t through the bake; nothing here feeds back into the simulation.
+const S = { t: 0, target: 0, mode: 'idle', demoAt: Infinity, rewStart: 0, dirty: true, drawnT: -1 };
+const bakedT = () => (bake.done - 1) / FPS;
+const endT = () => (bake.frames - 1) / FPS;
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (S.mode === 'demo' && now >= S.demoAt) S.mode = 'play';
+  if (S.mode === 'play') {
+    S.t = Math.min(S.t + dt * P.speed, bakedT()); // slow motion: the splash plays out longer than it took
+    if (S.t >= endT() - 1e-6) { S.t = endT(); S.mode = 'idle'; }
+    S.target = S.t;
+  } else if (S.mode === 'rewind') {
+    const held = (now - S.rewStart) / 1000;
+    let rate = Math.min(1.7, 0.35 + held * 2.2);
+    rate = Math.min(rate, 0.06 + S.t * 2.4); // ease into the letters
+    S.t = Math.max(0, S.t - rate * dt);
+    if (S.t <= 0) { S.t = 0; S.mode = 'idle'; }
+    S.target = S.t;
+  } else if (S.mode === 'scrub' || S.mode === 'ease') {
+    S.target = Math.max(0, Math.min(S.target, bakedT()));
+    S.t += (S.target - S.t) * (1 - Math.exp(-dt * 13));
+    if (S.mode === 'ease' && Math.abs(S.target - S.t) < 2e-4) { S.t = S.target; S.mode = 'idle'; }
+  }
+  if (S.dirty || S.t !== S.drawnT) { draw(S.t); S.drawnT = S.t; S.dirty = false; }
+  requestAnimationFrame(frame);
+}
+
+// ---------- gestures: tap plays, double tap rewinds all the way, hold rewinds, drag scrubs ----------
+let ptr = null, holdTimer = 0, lastTap = null;
+cv.addEventListener('pointerdown', (e) => {
+  if (e.button > 0 || ptr) return;
+  cv.setPointerCapture(e.pointerId);
+  ptr = { id: e.pointerId, x0: e.clientX, y0: e.clientY, lx: e.clientX, t0: performance.now(), kind: 'pending' };
+  S.mode = 'idle'; S.target = S.t; S.demoAt = Infinity; // grabbing the tape stops it
+  holdTimer = setTimeout(() => {
+    if (ptr && ptr.kind === 'pending') { ptr.kind = 'hold'; S.mode = 'rewind'; S.rewStart = performance.now(); }
+  }, 250);
+});
+cv.addEventListener('pointermove', (e) => {
+  if (!ptr || e.pointerId !== ptr.id) return;
+  if (ptr.kind !== 'scrub' && Math.hypot(e.clientX - ptr.x0, e.clientY - ptr.y0) > 8) {
+    clearTimeout(holdTimer); ptr.kind = 'scrub'; S.mode = 'scrub'; S.target = S.t; ptr.lx = ptr.x0;
+  }
+  if (ptr.kind === 'scrub') {
+    S.target += ((e.clientX - ptr.lx) * P.sens * endT()) / Math.max(320, W);
+    S.target = Math.max(0, Math.min(S.target, bakedT()));
+    ptr.lx = e.clientX;
+  }
+});
+function release(e, cancelled) {
+  if (!ptr || e.pointerId !== ptr.id) return;
+  clearTimeout(holdTimer);
+  const now = performance.now(), quick = now - ptr.t0 < 250;
+  if (ptr.kind === 'scrub') S.mode = 'ease';
+  else if (ptr.kind === 'hold') S.mode = 'idle';
+  else if (!cancelled && quick) {
+    if (lastTap && now - lastTap.at < 380) {
+      // a double tap rewinds all the way to the letters (from where the first tap found the tape)
+      S.t = lastTap.t; S.mode = 'rewind'; S.rewStart = now; lastTap = null;
+    } else {
+      // a tap lets the tape run until the liquid settles
+      lastTap = { at: now, t: S.t };
+      if (S.t >= endT() - 0.02) S.t = 0; // at the end, play it again from the letters
+      S.mode = 'play';
+    }
+  }
+  ptr = null;
+}
+cv.addEventListener('pointerup', (e) => release(e, false));
+cv.addEventListener('pointercancel', (e) => release(e, true));
+cv.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ---------- build ----------
+let buildId = 0;
+async function build(rebakeOnly) {
+  const my = ++buildId;
+  clearTimeout(bt);
+  if (!rebakeOnly) {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const F = FONTS[P.font];
+    try { await document.fonts.load(`${F.w} 200px "${F.fam}"`, text()); } catch (e) { /* falls back */ }
+    cv.setAttribute('aria-label', `${text()}, set as a block of liquid. It is released, collapses and splashes; drag sideways to run the splash backwards into the letters.`);
+    if (my !== buildId) return; // a newer build started while the face loaded
+    const px = drawMask();
+    layout = seed(px);
+    makeTargets();
+  } else {
+    const px = mctx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
+    layout = seed(px);
+  }
+  lastFrames = [-1, -1];
+  startBake();
+  S.t = 0; S.target = 0; S.mode = 'idle'; S.dirty = true;
+}
+
+let booted = false, bt = 0;
+async function boot() {
+  await build(false);
+  booted = true;
+  if (!reduced) { S.mode = 'demo'; S.demoAt = performance.now() + 700; }
+  requestAnimationFrame((t) => { last = t; frame(t); });
+}
+let rt = 0;
+addEventListener('resize', () => { if (!booted) return; clearTimeout(rt); rt = setTimeout(() => build(false), 200); });
+
+// ---------- settings sheet ----------
+const KEYS = ['n', 'visc', 'tens', 'grav', 'len', 'speed', 'sens', 'th', 'blur', 'drop', 'blob'];
+const REBAKE = new Set(['n', 'visc', 'tens', 'grav', 'len']);
+for (const [k, f] of Object.entries(FONTS)) { const op = document.createElement('option'); op.value = k; op.textContent = f.label; $('font').appendChild(op); }
+const fmt = (v) => (Math.abs(v) >= 10 ? v.toFixed(0) : (Math.abs(v) >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(/\.?0+$/, '')) || '0';
+function syncUI() {
+  document.documentElement.classList.toggle('dark', !!P.dark);
+  $('dark').checked = !!P.dark; $('font').value = P.font; $('render').value = P.render;
+  $('words').value = P.words || ''; $('words').placeholder = album;
+  for (const k of KEYS) { $(k).value = P[k]; $(k + 'O').textContent = fmt(+P[k]); }
+}
+for (const k of KEYS) {
+  $(k).addEventListener('input', () => {
+    P[k] = +$(k).value; $(k + 'O').textContent = fmt(P[k]); save();
+    if (REBAKE.has(k)) { clearTimeout(bt); const re = k !== 'n'; bt = setTimeout(() => build(re), 250); }
+    else S.dirty = true;
+  });
+}
+let wt = 0;
+$('words').addEventListener('input', () => {
+  const v = $('words').value; if (v.trim() && !WORDS_OK.test(v.trim())) return;
+  P.words = v; save(); clearTimeout(wt); wt = setTimeout(() => build(false).then(demoSoon), 500);
+});
+const demoSoon = () => { if (!reduced) { S.mode = 'demo'; S.demoAt = performance.now() + 700; } };
+$('nextAlbum').addEventListener('click', () => { P.words = ''; $('words').value = ''; save(); nextAlbum(); $('words').placeholder = album; build(false).then(demoSoon); });
+$('render').addEventListener('change', () => { P.render = $('render').value; save(); S.dirty = true; });
+$('font').addEventListener('change', () => { P.font = $('font').value; save(); build(false); });
+$('dark').addEventListener('change', () => { P.dark = $('dark').checked; save(); syncUI(); S.dirty = true; });
+$('gear').addEventListener('click', () => { const sh = $('sheet'); sh.hidden = !sh.hidden; $('gear').setAttribute('aria-expanded', String(!sh.hidden)); });
+$('copy').addEventListener('click', () => { const txt = JSON.stringify(P);
+  navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1200); },
+    () => { $('copy').textContent = txt; }); });
+$('reset').addEventListener('click', () => { Object.assign(P, DEF); save(); syncUI(); build(false); });
+syncUI();
+window.__rewind = { S, P, bake, get layout() { return layout; }, setT(t) { S.mode = 'idle'; S.demoAt = Infinity; S.t = t; S.target = t; S.dirty = true; } };
+boot();
+</script>

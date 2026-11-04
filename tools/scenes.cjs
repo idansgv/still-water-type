@@ -28,6 +28,7 @@ const SCENES = {
   gyosho: async (p) => { await p.evaluate(() => window.__poster.inst.debug.finish()); await p.mouse.move(180, 560); await p.mouse.down(); for (let i = 0; i <= 30; i++) { await p.mouse.move(180 + i * 30, 560 - Math.sin(i / 9) * 90); await sleep(16 + i); } await p.mouse.up(); await sleep(300); },   // written, then one stroke of your own drying out across it
   arboretum: async (p) => { await sleep(4200); await p.mouse.move(150, 300); for (let i = 0; i <= 24; i++) { await p.mouse.move(150 + i * 36, 300); await sleep(16); } await sleep(500); },   // grown, with a gust crossing it
   drop: async (p) => { await sleep(3600); },   // mid-break: some letters in pieces, the pile building, a whole one standing
+  rewind: async (p) => { await sleep(2300); },   // mid-splash: the letters let go on load and fall in slow motion
 };
 
 const PREVIEW_THEME = { glint: 'dark', glitter: 'dark', moonlit: 'dark', goblet: 'dark', drop: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
