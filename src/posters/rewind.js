@@ -24,7 +24,7 @@ const FAMILY = 'Anton', WEIGHT = 400, OWN = ['Idan', 'Segev'];
 const DEF = { n: 14500, visc: 0.89, tens: 1.4, grav: 0.5, len: 10, speed: 0.6, sens: 0.3, th: 0.31, blur: 1.15, drop: 0.55, k: 0.3, kn: 0.5, dmax: 0.05 };
 const FPS = 30, SUB = 8;            // baked frames per second (playback lerps between them); sim steps per baked frame
 const SIM_H = 2.1;                  // interaction radius, in lattice spacings
-const FOOT = 52;                    // css px kept clear at the bottom: the liquid pools above the site's foot line, so it stays readable
+const FOOT = 52;                    // css px kept clear at the bottom at least: the liquid pools above the site's foot line, so it stays readable
 
 // ---------- the simulation (runs only during the bake; never touched by the interaction) ----------
 // Units: lattice spacing = 1. Positions are written out in CSS px, one Float32 (x, y) pair per particle per frame.
@@ -324,7 +324,7 @@ export async function mount(stage) {
     for (let i = 0; i < N; i++) { xs[i] = L.x0[2 * i] / s; ys[i] = L.x0[2 * i + 1] / s; }
     // gravity scales with the screen height, so a fall across the page takes the same time on any device
     const o = {
-      id: bake.id, N, frames, fps: FPS, sub: SUB, h: SIM_H, s, W: W / s, H: (H - Math.max(FOOT, H * 0.07)) / s, x: xs, y: ys,
+      id: bake.id, N, frames, fps: FPS, sub: SUB, h: SIM_H, s, W: W / s, H: (H - floorGap()) / s, x: xs, y: ys,
       g: (1.56 * H * P.grav) / s, k: P.k, kn: P.kn, dmax: P.dmax, tens: P.tens, sig: P.visc * 0.6, beta: P.visc * 0.4, rho0: RHO0 * 0.98, rhoN0: RHON0,
     };
     const onChunk = (m) => {
@@ -400,6 +400,12 @@ export async function mount(stage) {
   const S = { t: 0, target: 0, mode: 'idle', rewStart: 0, dirty: true, drawnT: -1 };
   const bakedT = () => Math.max(0, (bake.done - 1) / FPS);
   const endT = () => Math.max(0, (bake.frames - 1) / FPS);
+
+  // the floor sits above the footer (three lines on a phone), measured, so the pool never covers its words
+  function floorGap() {
+    const chrome = document.querySelector('.chrome');
+    return Math.max(FOOT, H * 0.07, ((chrome && chrome.offsetHeight) || 0) + 8);
+  }
 
   function build() {
     W = stage.W; H = stage.H; dpr = stage.pw / stage.W;
