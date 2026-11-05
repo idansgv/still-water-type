@@ -409,6 +409,7 @@ export const POSTERS = [
     themes: { dark: 0.5, light: 0.5 },
     nameable: true,
     face: { family: 'Archivo', weight: 900, upper: true },
+    draft: true,                 // pulled from the stack (5 Nov 2026): out of the shuffle, still at ?p=brandbook
     load: () => import('./brandbook.js'),
   },
   {

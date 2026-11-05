@@ -47,6 +47,11 @@
       "source": "/p/lace/",
       "destination": "/",
       "permanent": false
+    },
+    {
+      "source": "/p/brandbook/",
+      "destination": "/",
+      "permanent": false
     }
   ]
 }
