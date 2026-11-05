@@ -379,11 +379,12 @@ export async function mount(stage) {
     seedPairs(Math.round(P.pairs), false);
     seedPairs(Math.round(P.thorns), true);
     if (P.axis) {
-      // the centre spikes leave from the type's top and bottom edge on the axis, never through the letters
+      // the centre spikes leave from the type's top and bottom edge on the axis, never through the letters,
+      // and only where a letter sits on the axis (between two words they would float)
       const w0 = P.width * F.cap * 1.15;
       let y0 = F.top, y1 = F.bot, hit = false;
-      for (let y = F.top; y <= F.bot; y++) if (sample(F, F.cx, y) < 0) { if (!hit) y0 = y; y1 = y; hit = true; }
-      for (const dir of [-1, 1]) spike({ x: F.cx, y: (dir < 0 ? y0 : y1) - dir * w0 * 0.5, th: dir * Math.PI / 2, w0, L: w0 * 0.5 + P.len * F.cap * 1.3, k: 0, side: 0, twin: false, axis: true });
+      for (let y = F.top; y <= F.bot; y++) if (sample(F, F.cx, y) < -w0 * 0.25) { if (!hit) y0 = y; y1 = y; hit = true; }
+      if (hit) for (const dir of [-1, 1]) spike({ x: F.cx, y: (dir < 0 ? y0 : y1) - dir * w0 * 0.5, th: dir * Math.PI / 2, w0, L: w0 * 0.5 + P.len * F.cap * 1.3, k: 0, side: 0, twin: false, axis: true });
     }
     for (const n of nodes) growNode(n);
   }
