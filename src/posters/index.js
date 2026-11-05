@@ -134,6 +134,19 @@ export const POSTERS = [
     prompt: "The name \"Idan Segev\" grown as plants on a 2D canvas, each species a typeface. Render the name in Inter Tight 600, thin it to a one-pixel centre line (Zhang-Suen), build a BFS tree from each letter's lowest pixel, prune short spurs, carry a per-pixel flow so trunk width follows the pipe model, smooth the chains and graft where a letter's loop meets itself. Each of 21 species (oak, willow, pine, saguaro, birch, cherry, Joshua tree, Douglas fir, apple, dogwood, wisteria, bamboo, mangrove, bonsai juniper, fern, ivy, weeping cherry, baobab, palm, prickly pear, banyan) has its own branching (a 2D port of ez-tree's per-level model, or turtle twigs with gravity), foliage, inflorescences (umbels, corymbs, cymes, racemes, panicles, catkins, bract heads; each flower its own size, tilt, petal count and stage) and bark. The name grows from the roots; then every limb runs a life cycle: grow, hold, age as its leaves drift down, stand bare, fade back from the tip, and regrow elsewhere. Every twig is a damped spring tuned by its thickness and length; a gust starts at the pointer and crosses the page. Tap grows it again as the next species. Black and white only.",
   },
   {
+    slug: 'embers',
+    title: 'Embers',
+    words: ['Idan', 'Segev'],
+    blurb: 'Glowing strands held inside the name, melting into blobs. Tap and they drift out into the dark, then are drawn back.',
+    hint: null,
+    themes: { dark: 1, light: 0 },
+    darkOnly: true,              // black only: glowing strands have no white version, like Glitter
+    nameable: true,
+    face: { family: 'Inter Tight', weight: 600 },
+    load: () => import('./embers.js'),
+    prompt: "The name \"Idan Segev\" on a black page made only of glowing strands, with WebGL2. Render the name in Inter Tight 600 into a mask and turn it into a full-page signed distance field on the CPU (exact Euclidean distance transform). About 8,000 particles follow the curl of a slowly changing 3D Perlin noise field, so they swirl without bunching; while held, the field's walls stop them leaving a letter and outside they are pulled back along the distance field; they live and fade inside the letters and are reborn at random inside them. Each frame every particle draws its last step as a line into a half-float trail buffer that fades a little each frame; the trail is blurred with repeated small Gaussian passes at half resolution and thresholded like a metaball field, so neighbouring strands merge into soft white blobs, a slow lava lamp in the shape of the name. A tap lets go of the hold: the blobs drift out into the black, then are drawn back. Drag stirs them; hold is a gust, faster and brighter; a double tap calls them back at once. Black and white only.",
+  },
+  {
     slug: 'jet',
     title: 'Jet',
     words: ['Idan', 'Segev'],

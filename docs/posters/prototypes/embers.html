@@ -1,0 +1,448 @@
+<title>Embers</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter+Tight:wght@600&display=block">
+<style>
+/* Layout: one full-bleed poster, the name made of glowing strands held inside the letterforms, blurred and thresholded so they merge into blobs. Black page only. A quiet mono line at the foot; a settings sheet for this test only. White page by default, black in the dark slot. */
+:root {
+  --bg: #ffffff; --ink: #000000; --dim: #8a8a8a; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(252, 252, 252, 0.96);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+:root.dark { --bg: #000000; --ink: #ffffff; --dim: #7c7c7c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: #8a8a8a; pointer-events: none; mix-blend-mode: difference;
+}
+.foot b { color: #ffffff; font-weight: 500; }
+.foot button { pointer-events: auto; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.row select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 3px 4px; }
+.row input[type="text"] { grid-column: 1 / -1; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 4px 6px; min-width: 0; }
+.sub { color: var(--dim); border-top: 1px solid var(--line); padding-top: 8px; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="Idan Segev, made of glowing strands that merge into blobs, held inside the letters. Tap to let them go; they drift out and are drawn back in."></canvas>
+<div class="foot"><span><b>Embers</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row" for="words"><span>Words (empty: an album title)</span><input type="text" id="words" maxlength="14" autocomplete="off" spellcheck="false"></label>
+  <div class="acts"><button id="nextAlbum" type="button">Next album</button></div>
+  <div class="sub">Strands</div>
+  <label class="row" for="count"><span>Strands</span><output id="countO"></output><input type="range" id="count" min="300" max="12000" step="100"></label>
+  <label class="row" for="speed"><span>Flow speed</span><output id="speedO"></output><input type="range" id="speed" min="0.05" max="2" step="0.01"></label>
+  <label class="row" for="curl"><span>Curl size</span><output id="curlO"></output><input type="range" id="curl" min="0.05" max="1.5" step="0.01"></label>
+  <label class="row" for="evolve"><span>Field change</span><output id="evolveO"></output><input type="range" id="evolve" min="0" max="1.5" step="0.01"></label>
+  <label class="row" for="life"><span>Strand life (s)</span><output id="lifeO"></output><input type="range" id="life" min="0.5" max="12" step="0.1"></label>
+  <div class="sub">Glow</div>
+  <label class="row" for="trail"><span>Trail length (s)</span><output id="trailO"></output><input type="range" id="trail" min="0.02" max="1.5" step="0.01"></label>
+  <label class="row" for="bright"><span>Brightness</span><output id="brightO"></output><input type="range" id="bright" min="0.05" max="3" step="0.01"></label>
+  <label class="row" for="gain"><span>Exposure</span><output id="gainO"></output><input type="range" id="gain" min="0.2" max="6" step="0.05"></label>
+  <label class="row" for="spark"><span>Bright sparks</span><output id="sparkO"></output><input type="range" id="spark" min="0" max="1" step="0.01"></label>
+  <div class="sub">Blobs</div>
+  <label class="row" for="blob"><span>Blob size</span><output id="blobO"></output><input type="range" id="blob" min="1" max="4" step="0.1"></label>
+  <label class="row" for="th"><span>Threshold</span><output id="thO"></output><input type="range" id="th" min="0.05" max="0.95" step="0.01"></label>
+  <label class="row" for="soft"><span>Edge softness</span><output id="softO"></output><input type="range" id="soft" min="0.005" max="0.3" step="0.005"></label>
+  <label class="row" for="mix"><span>Strands on top</span><output id="mixO"></output><input type="range" id="mix" min="0" max="1" step="0.01"></label>
+  <label class="row tog" for="rim"><span>Outline only</span><input type="checkbox" id="rim"></label>
+  <div class="sub">Hold and release</div>
+  <label class="row" for="wall"><span>Wall strength</span><output id="wallO"></output><input type="range" id="wall" min="0" max="3" step="0.05"></label>
+  <label class="row" for="push"><span>Release push</span><output id="pushO"></output><input type="range" id="push" min="0" max="3" step="0.05"></label>
+  <label class="row" for="away"><span>Time let go (s)</span><output id="awayO"></output><input type="range" id="away" min="0.2" max="6" step="0.1"></label>
+  <label class="row" for="back"><span>Drawn back over (s)</span><output id="backO"></output><input type="range" id="back" min="0.5" max="12" step="0.1"></label>
+  <label class="row" for="pull"><span>Pull back</span><output id="pullO"></output><input type="range" id="pull" min="0.1" max="4" step="0.05"></label>
+  <label class="row" for="stir"><span>Stir reach</span><output id="stirO"></output><input type="range" id="stir" min="0.2" max="3" step="0.05"></label>
+  <label class="row" for="blow"><span>Hold gust</span><output id="blowO"></output><input type="range" id="blow" min="0" max="3" step="0.05"></label>
+  <div class="acts"><button id="copy" type="button">Copy settings</button><button id="reset" type="button">Reset</button></div>
+</div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+document.documentElement.classList.add('dark'); // black page only
+// The site's default words (src/albums.js): with no name of their own, posters set an album title.
+const ALBUMS = ["Rubber Soul","Revolver","Abbey Road","Let It Be","Pet Sounds","Blue","Hejira","Thriller","Off the Wall","Purple Rain","Nevermind","In Utero","OK Computer","Kid A","Amnesiac","In Rainbows","The Bends","Graceland","Kind of Blue","Bitches Brew","A Love Supreme","Blue Train","Time Out","Mingus Ah Um","Hunky Dory","Low","Heroes","Blackstar","Let It Bleed","Sticky Fingers","Harvest","Astral Weeks","Pink Moon","Horses","Marquee Moon","Parallel Lines","London Calling","Closer","Loveless","Screamadelica","Doolittle","Surfer Rosa","Ten","Dummy","Mezzanine","Blue Lines","Homogenic","Violator","Lust for Life","Ready to Die","Aquemini","Stankonia","Parklife","Yeezus","Graduation","Blonde","Channel Orange","Frank","Back to Black","Ctrl","1989","21","Discovery","Moon Safari","Sea Change","Rain Dogs","Bone Machine","Blood Money","Closing Time","Geogaddi","Inferno","SOS","GNX","DAMN","ye","Demon Days","Plastic Beach","Donuts","Half Moon Bay","On the Beach","Harvest Moon","Wish","Bryter Layter","Dream River","Skeleton Tree","Play","Cheat Codes","Wildflower","Odelay","Mutations","Fun House","The Idiot","Old Ideas","Dirt","Stony Hill","Third","Giant Steps","Ascension","Knock Knock","Person Pitch","Treasure","Endless Summer","X's","Black Earth","Raw Power","Longing","18","Black One","Travel","Bleed","Piñata","Mosaic","Venice","Meditations","Natty Dread","Uprising","Squared Roots","Small Change","Blue Valentine","Alice","Bad as Me","Real Gone","Hi Scores","Sun","Ruff Draft","Talkie Walkie","Homework","Go","Sleep","Drumming","The Blueprint"];
+let album = ALBUMS[Math.floor(Math.random() * ALBUMS.length)];
+const nextAlbum = () => { let a; do a = ALBUMS[Math.floor(Math.random() * ALBUMS.length)]; while (a === album); album = a; };
+const WORDS_OK = /^[\p{L}\p{M}0-9' -]+$/u; // same rule as the site's names (src/name.js)
+const text = () => (P.words && WORDS_OK.test(P.words.trim()) ? P.words : album).replace(/\s+/g, ' ').trim();
+const DEF = { blob: 2.9, th: 0.95, soft: 0.07, mix: 0, rim: false, words: '', count: 8300, speed: 1.18, curl: 1.15, evolve: 0.5, life: 4.6, trail: 1.18, bright: 2.23, gain: 1.6, spark: 0.66, wall: 1.45, push: 0.45, away: 3.1, back: 0.5, pull: 1.5, stir: 0.65, blow: 1.2 }; // Idan's tuning, 5 Nov 2026
+const P = Object.assign({}, DEF);
+try { Object.assign(P, JSON.parse(localStorage.getItem('embers-blob') || '{}')); } catch (e) { /* defaults */ }
+const save = () => { try { localStorage.setItem('embers-blob', JSON.stringify(P)); } catch (e) { /* fine */ } };
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+const cv = $('c');
+const gl = cv.getContext('webgl2', { antialias: false, alpha: false });
+gl.getExtension('EXT_color_buffer_float'); gl.getExtension('EXT_color_buffer_half_float');
+let W = 0, H = 0, dpr = 1;
+let F = null; // { sd, gw, gh, gs, cap, cells }
+
+// ---------- the shape: text mask -> full-page signed distance field (Felzenszwalb EDT), in CSS px ----------
+function edt1(f, n, d, v, z) {
+  let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
+  for (let q = 1; q < n; q++) {
+    let s;
+    do { const r = v[k]; s = ((f[q] + q * q) - (f[r] + r * r)) / (2 * q - 2 * r); } while (s <= z[k] && --k >= 0);
+    k++; v[k] = q; z[k] = s; z[k + 1] = 1e20;
+  }
+  k = 0;
+  for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; const r = v[k]; d[q] = (q - r) * (q - r) + f[r]; }
+}
+function edt(grid, w, h) {
+  const n = Math.max(w, h), f = new Float64Array(n), d = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
+  for (let x = 0; x < w; x++) { for (let y = 0; y < h; y++) f[y] = grid[y * w + x]; edt1(f, h, d, v, z); for (let y = 0; y < h; y++) grid[y * w + x] = d[y]; }
+  for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) f[x] = grid[y * w + x]; edt1(f, w, d, v, z); for (let x = 0; x < w; x++) grid[y * w + x] = d[x]; }
+}
+function layoutLines() {
+  const t = text();
+  if (W / H < 1 && t.includes(' ')) {
+    const mid = t.length / 2; let best = -1;
+    for (let i = 0; i < t.length; i++) if (t[i] === ' ' && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i;
+    return [t.slice(0, best), t.slice(best + 1)];
+  }
+  return [t];
+}
+function field() {
+  const lines = layoutLines();
+  const gs = 0.5; // grid cells per CSS px
+  const gw = Math.ceil(W * gs), gh = Math.ceil(H * gs);
+  const c = document.createElement('canvas'); c.width = gw; c.height = gh;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  const font = (s) => `600 ${s}px "Inter Tight", "Helvetica Neue", Arial, sans-serif`;
+  x.font = font(200);
+  const cap200 = x.measureText('H').actualBoundingBoxAscent;
+  const ms = lines.map((t) => x.measureText(t));
+  const maxW = Math.max(...ms.map((m) => m.actualBoundingBoxLeft + m.actualBoundingBoxRight));
+  const lh = 1.12;
+  const k = Math.min(0.86 * W / maxW, (lines.length > 1 ? 0.58 : 0.4) * H / (cap200 * (1 + (lines.length - 1) * lh * 1.2)));
+  const fs = 200 * k, cap = cap200 * k, step = cap * lh * 1.2;
+  x.font = font(fs * gs); x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  lines.forEach((t, i) => {
+    const yc = H / 2 + (i - (lines.length - 1) / 2) * step; // cap centre of this line
+    x.fillText(t, W / 2 * gs, (yc + cap / 2) * gs);
+  });
+  const a = x.getImageData(0, 0, gw, gh).data;
+  const n = gw * gh, o = new Float64Array(n), ii = new Float64Array(n), sd = new Float32Array(n);
+  const cells = [];
+  for (let i = 0; i < n; i++) { const inside = a[i * 4 + 3] > 127; o[i] = inside ? 0 : 1e20; ii[i] = inside ? 1e20 : 0; if (inside) cells.push(i); }
+  edt(o, gw, gh); edt(ii, gw, gh);
+  for (let i = 0; i < n; i++) sd[i] = (o[i] > 0 ? Math.sqrt(o[i]) - 0.5 : 0.5 - Math.sqrt(ii[i])) / gs;
+  return { sd, gw, gh, gs, cap, cells: Int32Array.from(cells) };
+}
+// distance (CSS px) and its gradient at a point; off the grid it keeps growing
+let SG = [0, 0];
+function sample(px, py) {
+  const g = F, fx = clamp(px * g.gs - 0.5, 0, g.gw - 1.001), fy = clamp(py * g.gs - 0.5, 0, g.gh - 1.001);
+  const x0 = fx | 0, y0 = fy | 0, tx = fx - x0, ty = fy - y0, i = y0 * g.gw + x0, s = g.sd;
+  const a = s[i], b = s[i + 1], c = s[i + g.gw], d = s[i + g.gw + 1];
+  SG[0] = ((b - a) * (1 - ty) + (d - c) * ty); SG[1] = ((c - a) * (1 - tx) + (d - b) * tx);
+  const l = Math.hypot(SG[0], SG[1]) || 1; SG[0] /= l; SG[1] /= l;
+  const ox = px * g.gs - 0.5 - fx, oy = py * g.gs - 0.5 - fy;
+  return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty + Math.hypot(ox, oy) / g.gs;
+}
+
+// ---------- the flow: curl of 3D Perlin noise (x, y, time) ----------
+const perm = new Uint8Array(512);
+{ const p = Array.from({ length: 256 }, (_, i) => i); for (let i = 255; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } for (let i = 0; i < 512; i++) perm[i] = p[i & 255]; }
+const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+function grad(h, x, y, z) { const u = h < 8 ? x : y, v = h < 4 ? y : (h === 12 || h === 14 ? x : z); return ((h & 1) ? -u : u) + ((h & 2) ? -v : v); }
+function noise(x, y, z) {
+  const X = Math.floor(x) & 255, Y = Math.floor(y) & 255, Z = Math.floor(z) & 255;
+  x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+  const u = fade(x), v = fade(y), w = fade(z);
+  const A = perm[X] + Y, AA = perm[A] + Z, AB = perm[A + 1] + Z, B = perm[X + 1] + Y, BA = perm[B] + Z, BB = perm[B + 1] + Z;
+  const l = (a, b, t) => a + t * (b - a);
+  return l(l(l(grad(perm[AA] & 15, x, y, z), grad(perm[BA] & 15, x - 1, y, z), u), l(grad(perm[AB] & 15, x, y - 1, z), grad(perm[BB] & 15, x - 1, y - 1, z), u), v),
+    l(l(grad(perm[AA + 1] & 15, x, y, z - 1), grad(perm[BA + 1] & 15, x - 1, y, z - 1), u), l(grad(perm[AB + 1] & 15, x, y - 1, z - 1), grad(perm[BB + 1] & 15, x - 1, y - 1, z - 1), u), v), w);
+}
+
+// ---------- strands ----------
+let N = 0, x, y, px, py, vx, vy, age, life, br;
+const S = { hold: 1, holdAt: 0, recall: 0, pres: 0, t: 0, demo: 0, touched: false, holding: false, ms: 0 };
+function spawn(i) {
+  const c = F.cells[(Math.random() * F.cells.length) | 0];
+  x[i] = ((c % F.gw) + Math.random()) / F.gs; y[i] = (((c / F.gw) | 0) + Math.random()) / F.gs;
+  px[i] = x[i]; py[i] = y[i]; vx[i] = 0; vy[i] = 0;
+  age[i] = 0; life[i] = P.life * (0.5 + Math.random());
+  br[i] = Math.random() < P.spark * 0.25 ? 2.5 + Math.random() * 2 : 0.35 + Math.random() * 0.65;
+}
+function alloc() {
+  N = Math.round(P.count);
+  x = new Float32Array(N); y = new Float32Array(N); px = new Float32Array(N); py = new Float32Array(N);
+  vx = new Float32Array(N); vy = new Float32Array(N); age = new Float32Array(N); life = new Float32Array(N); br = new Float32Array(N);
+  for (let i = 0; i < N; i++) { spawn(i); age[i] = Math.random() * life[i]; }
+  vbuf = new Float32Array(N * 6);
+}
+let stirP = null; // { x, y, vx, vy } while dragging
+function step(dt) {
+  S.t += dt;
+  const cap = F.cap, f = 1 / (P.curl * cap), zt = S.t * P.evolve * 0.4;
+  const gust = 1 + S.pres * P.blow;
+  const sp = P.speed * cap * gust * (reduced ? 0.35 : 1);
+  // the hold: let go on a tap, then it comes back
+  const since = S.t - S.holdAt;
+  S.hold = S.recall > 0 ? 1 : (S.holdAt ? clamp((since - P.away) / P.back, 0, 1) : 1);
+  S.recall = Math.max(0, S.recall - dt);
+  const h = S.hold * S.hold * (3 - 2 * S.hold), pull = P.pull * cap * (S.recall > 0 ? 4 : 1.2) * h;
+  const e = 0.01, rad = P.stir * 0.6 * cap;
+  for (let i = 0; i < N; i++) {
+    px[i] = x[i]; py[i] = y[i];
+    const nx = x[i] * f, ny = y[i] * f;
+    let cx = (noise(nx, ny + e, zt) - noise(nx, ny - e, zt)) / (2 * e), cy = -(noise(nx + e, ny, zt) - noise(nx - e, ny, zt)) / (2 * e);
+    const k = Math.min(1, dt * 3);
+    vx[i] += (cx * sp - vx[i]) * k; vy[i] += (cy * sp - vy[i]) * k;
+    const d = sample(x[i], y[i]), gx = SG[0], gy = SG[1];
+    if (d < 0) age[i] += dt;
+    if (h > 0) {
+      const m = 0.03 * cap;
+      if (d > -m) {
+        const vn = vx[i] * gx + vy[i] * gy;
+        if (vn > 0) { vx[i] -= gx * vn * h * P.wall; vy[i] -= gy * vn * h * P.wall; }
+        if (d > 0) { const a = pull * (0.4 + Math.min(1, d / cap)); vx[i] -= gx * a * dt * 3; vy[i] -= gy * a * dt * 3; vx[i] *= 1 - Math.min(1, dt * 1.5 * h); vy[i] *= 1 - Math.min(1, dt * 1.5 * h); }
+        else { vx[i] -= gx * (d + m) / m * cap * P.wall * h * dt * 1.5; vy[i] -= gy * (d + m) / m * cap * P.wall * h * dt * 1.5; }
+      }
+    }
+    if (stirP) {
+      const dx = x[i] - stirP.x, dy = y[i] - stirP.y, w = Math.exp(-(dx * dx + dy * dy) / (rad * rad));
+      if (w > 0.01) { vx[i] += (stirP.vx - vx[i]) * w * Math.min(1, dt * 10); vy[i] += (stirP.vy - vy[i]) * w * Math.min(1, dt * 10); }
+    }
+    x[i] += vx[i] * dt; y[i] += vy[i] * dt;
+    if (age[i] > life[i] && h > 0.98) spawn(i);
+  }
+}
+// a tap lets go: every strand gets a nudge out of its letter, and the walls open
+function letGo() {
+  S.holdAt = S.t || 1e-6; S.recall = 0;
+  const cap = F.cap;
+  for (let i = 0; i < N; i++) {
+    sample(x[i], y[i]);
+    const ox = x[i] - W / 2, oy = y[i] - H / 2, ol = Math.hypot(ox, oy) || 1;
+    const a = P.push * cap * (0.4 + Math.random() * 0.9);
+    vx[i] += (SG[0] * 0.6 + ox / ol * 0.4) * a; vy[i] += (SG[1] * 0.6 + oy / ol * 0.4) * a;
+  }
+}
+function callBack() { S.recall = 1.6; S.holdAt = 0; }
+
+// ---------- render: line segments into a fading float trail buffer ----------
+function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+function prog(vs, fs) { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
+const QVS = `#version 300 es
+out vec2 uv; void main(){ vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); uv = p; gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+const FADE = `#version 300 es
+precision highp float; uniform float uK; out vec4 o; void main(){ o = vec4(0.0, 0.0, 0.0, uK); }`;
+const LVS = `#version 300 es
+layout(location = 0) in vec3 a; uniform vec2 uView; out float v;
+void main(){ v = a.z; gl_Position = vec4(a.x / uView.x * 2.0 - 1.0, 1.0 - a.y / uView.y * 2.0, 0.0, 1.0); }`;
+const LFS = `#version 300 es
+precision highp float; in float v; out vec4 o; void main(){ o = vec4(v, v, v, 1.0); }`;
+// blobs: the trail buffer blurred (separable Gaussian, half res), then thresholded like a metaball field
+const BLUR = `#version 300 es
+precision highp float; in vec2 uv; uniform sampler2D uT; uniform vec2 uStep; out vec4 o;
+void main(){
+  float w[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
+  float s = texture(uT, uv).r * w[0];
+  for (int i = 1; i < 5; i++) { vec2 d = uStep * float(i); s += (texture(uT, uv + d).r + texture(uT, uv - d).r) * w[i]; }
+  o = vec4(s, 0.0, 0.0, 1.0);
+}`;
+const SHOW = `#version 300 es
+precision highp float; in vec2 uv; uniform sampler2D uT, uB; uniform float uGain, uTh, uSoft, uMix, uRim; out vec4 o;
+void main(){
+  float raw = 1.0 - exp(-texture(uT, uv).r * uGain);
+  float f = 1.0 - exp(-texture(uB, uv).r * uGain);
+  float b = smoothstep(uTh - uSoft, uTh + uSoft, f);
+  if (uRim > 0.5) b = b * (1.0 - smoothstep(uTh + uSoft, uTh + uSoft * 3.0 + 0.04, f));
+  o = vec4(vec3(max(b, raw * uMix)), 1.0);
+}`;
+let pFade, pLine, pShow, pBlur, uni = {}, tex = null, fbo = null, bt1 = null, bf1 = null, bt2 = null, bf2 = null, bw = 0, bh = 0, vbo, vao, vbuf = new Float32Array(0);
+const emptyVao = gl.createVertexArray();
+function initGL() {
+  pFade = prog(QVS, FADE); pLine = prog(LVS, LFS); pShow = prog(QVS, SHOW); pBlur = prog(QVS, BLUR);
+  uni = { k: gl.getUniformLocation(pFade, 'uK'), view: gl.getUniformLocation(pLine, 'uView'), t: gl.getUniformLocation(pShow, 'uT'), gain: gl.getUniformLocation(pShow, 'uGain'),
+    b: gl.getUniformLocation(pShow, 'uB'), th: gl.getUniformLocation(pShow, 'uTh'), soft: gl.getUniformLocation(pShow, 'uSoft'), mix: gl.getUniformLocation(pShow, 'uMix'), rim: gl.getUniformLocation(pShow, 'uRim'),
+    bt: gl.getUniformLocation(pBlur, 'uT'), step: gl.getUniformLocation(pBlur, 'uStep') };
+  vbo = gl.createBuffer(); vao = gl.createVertexArray();
+  gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+  gl.bindVertexArray(null);
+}
+function makeTarget() {
+  if (tex) { gl.deleteTexture(tex); gl.deleteFramebuffer(fbo); }
+  tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, cv.width, cv.height, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  fbo = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  // two half-res buffers for the blur
+  for (const t of [bt1, bt2]) if (t) gl.deleteTexture(t);
+  for (const f of [bf1, bf2]) if (f) gl.deleteFramebuffer(f);
+  bw = Math.max(1, cv.width >> 1); bh = Math.max(1, cv.height >> 1);
+  const mk = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, bw, bh, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); return [t, f]; };
+  [bt1, bf1] = mk(); [bt2, bf2] = mk();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+function draw(dt) {
+  // segments: each strand's last step, brightest mid-life
+  const glow = P.bright * (1 + S.pres * P.blow * 0.8);
+  let n = 0;
+  for (let i = 0; i < N; i++) {
+    const u = clamp(age[i] / life[i], 0, 1), env = Math.sin(Math.PI * Math.min(u, 0.999)) ** 0.5;
+    const v = br[i] * glow * (age[i] > life[i] ? 0 : (u > 0 ? env : 1));
+    if (v <= 0) continue;
+    vbuf[n++] = px[i]; vbuf[n++] = py[i]; vbuf[n++] = v; vbuf[n++] = x[i]; vbuf[n++] = y[i]; vbuf[n++] = v;
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, cv.width, cv.height);
+  gl.enable(gl.BLEND);
+  gl.useProgram(pFade); gl.blendFunc(gl.ZERO, gl.SRC_ALPHA); gl.uniform1f(uni.k, Math.exp(-dt / P.trail));
+  gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.useProgram(pLine); gl.blendFunc(gl.ONE, gl.ONE); gl.uniform2f(uni.view, W, H);
+  gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, vbuf.subarray(0, n), gl.STREAM_DRAW);
+  gl.drawArrays(gl.LINES, 0, n / 3);
+  gl.disable(gl.BLEND);
+  // blur: repeated small horizontal + vertical passes (wide taps alias into stripes); more passes, bigger blobs
+  const passes = Math.max(1, Math.round(P.blob * P.blob)), r = 1.25;
+  gl.useProgram(pBlur); gl.viewport(0, 0, bw, bh); gl.uniform1i(uni.bt, 0); gl.activeTexture(gl.TEXTURE0); gl.bindVertexArray(emptyVao);
+  for (let k = 0; k < passes; k++) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, bf1); gl.bindTexture(gl.TEXTURE_2D, k ? bt2 : tex); gl.uniform2f(uni.step, (k ? r : r * 2) / bw, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, bf2); gl.bindTexture(gl.TEXTURE_2D, bt1); gl.uniform2f(uni.step, 0, r / bh); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, cv.width, cv.height);
+  gl.useProgram(pShow); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, bt2); gl.uniform1i(uni.b, 1);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(uni.t, 0); gl.uniform1f(uni.gain, P.gain);
+  gl.uniform1f(uni.th, P.th); gl.uniform1f(uni.soft, P.soft); gl.uniform1f(uni.mix, P.mix); gl.uniform1f(uni.rim, P.rim ? 1 : 0);
+  gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+// ---------- loop ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
+  if (F && N) {
+    const t0 = performance.now();
+    S.pres += ((S.holding ? 1 : 0) - S.pres) * (1 - Math.exp(-dt * (S.holding ? 2 : 3)));
+    if (S.demo && now >= S.demo) { S.demo = 0; letGo(); }
+    step(dt); draw(dt);
+    S.ms = S.ms * 0.95 + (performance.now() - t0) * 0.05;
+  }
+  requestAnimationFrame(frame);
+}
+// the one self-demo: a single release, until the first touch
+function startDemo() { if (!reduced && !S.touched) S.demo = performance.now() + 1600; }
+
+// ---------- gestures: drag stirs, tap lets go, hold blows on them, double tap calls them back ----------
+let ptr = null, holdTimer = 0, lastTap = 0;
+cv.addEventListener('pointerdown', (e) => {
+  if (e.button > 0 || ptr || !F) return;
+  cv.setPointerCapture(e.pointerId);
+  S.touched = true; S.demo = 0;
+  ptr = { id: e.pointerId, x0: e.clientX, y0: e.clientY, lx: e.clientX, ly: e.clientY, lt: performance.now(), t0: performance.now(), kind: 'pending', vx: 0, vy: 0 };
+  holdTimer = setTimeout(() => { if (ptr && ptr.kind === 'pending') { ptr.kind = 'hold'; S.holding = true; } }, 250);
+});
+cv.addEventListener('pointermove', (e) => {
+  if (!ptr || e.pointerId !== ptr.id) return;
+  const now = performance.now();
+  if (ptr.kind !== 'drag' && Math.hypot(e.clientX - ptr.x0, e.clientY - ptr.y0) > 8) { clearTimeout(holdTimer); ptr.kind = 'drag'; S.holding = false; }
+  if (ptr.kind === 'drag') {
+    const dts = Math.max(4, now - ptr.lt) / 1000;
+    ptr.vx = ptr.vx * 0.4 + ((e.clientX - ptr.lx) / dts) * 0.6; ptr.vy = ptr.vy * 0.4 + ((e.clientY - ptr.ly) / dts) * 0.6;
+    stirP = { x: e.clientX, y: e.clientY, vx: ptr.vx, vy: ptr.vy };
+  }
+  ptr.lx = e.clientX; ptr.ly = e.clientY; ptr.lt = now;
+});
+function up(e, cancelled) {
+  if (!ptr || e.pointerId !== ptr.id) return;
+  clearTimeout(holdTimer);
+  const now = performance.now();
+  S.holding = false; stirP = null;
+  if (ptr.kind === 'pending' && !cancelled && now - ptr.t0 < 250) {
+    if (now - lastTap < 380) { lastTap = 0; callBack(); }
+    else { lastTap = now; letGo(); }
+  }
+  ptr = null;
+}
+cv.addEventListener('pointerup', (e) => up(e, false));
+cv.addEventListener('pointercancel', (e) => up(e, true));
+cv.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ---------- build ----------
+let buildId = 0;
+async function build() {
+  const my = ++buildId;
+  dpr = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  try { await document.fonts.load('600 220px "Inter Tight"', text()); } catch (e) { /* falls back */ }
+  if (my !== buildId) return;
+  cv.setAttribute('aria-label', `${text()}, made of glowing strands that merge into blobs, held inside the letters. Tap to let them go; they drift out and are drawn back in.`);
+  F = field();
+  S.hold = 1; S.holdAt = 0; S.recall = 0;
+  alloc(); makeTarget();
+}
+let booted = false;
+async function boot() {
+  initGL();
+  await build();
+  booted = true; startDemo();
+  requestAnimationFrame((t) => { last = t; frame(t); });
+}
+let rt = 0;
+addEventListener('resize', () => { if (!booted) return; clearTimeout(rt); rt = setTimeout(build, 200); });
+
+// ---------- settings sheet ----------
+const KEYS = ['blob', 'th', 'soft', 'mix', 'count', 'speed', 'curl', 'evolve', 'life', 'trail', 'bright', 'gain', 'spark', 'wall', 'push', 'away', 'back', 'pull', 'stir', 'blow'];
+const REBUILD = new Set(['count', 'spark']);
+const fmt = (v) => (Math.abs(v) >= 10 ? v.toFixed(0) : (Math.abs(v) >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(/\.?0+$/, '')) || '0';
+function syncUI() {
+  $('words').value = P.words || ''; $('words').placeholder = album; $('rim').checked = !!P.rim;
+  for (const k of KEYS) { $(k).value = P[k]; $(k + 'O').textContent = fmt(+P[k]); }
+}
+let bt = 0;
+for (const k of KEYS) {
+  $(k).addEventListener('input', () => {
+    P[k] = +$(k).value; $(k + 'O').textContent = fmt(P[k]); save();
+    if (REBUILD.has(k)) { clearTimeout(bt); bt = setTimeout(() => { if (F) alloc(); }, 250); }
+  });
+}
+let wt = 0;
+$('words').addEventListener('input', () => {
+  const v = $('words').value; if (v.trim() && !WORDS_OK.test(v.trim())) return;
+  P.words = v; save(); clearTimeout(wt); wt = setTimeout(build, 500);
+});
+$('nextAlbum').addEventListener('click', () => { P.words = ''; $('words').value = ''; save(); nextAlbum(); $('words').placeholder = album; build(); });
+$('rim').addEventListener('change', () => { P.rim = $('rim').checked; save(); });
+$('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });
+$('copy').addEventListener('click', () => { const txt = JSON.stringify(P);
+  navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1200); },
+    () => { $('copy').textContent = txt; }); });
+$('reset').addEventListener('click', () => { Object.assign(P, DEF); save(); syncUI(); build(); });
+syncUI();
+window.__embersBlob = { P, S, get F() { return F; }, letGo, callBack, build, stats() { let out = 0; for (let i = 0; i < N; i++) if (sample(x[i], y[i]) > 0) out++; return { N, out, ms: +S.ms.toFixed(2), hold: +S.hold.toFixed(2) }; } };
+boot();
+</script>

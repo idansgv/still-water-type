@@ -130,6 +130,21 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Theme | both: light and dark |
 | Face | Archivo Black (Google Fonts, the name's letters only) |
 
+## Embers (published 5 Nov 2026)
+
+| | Embers |
+|---|---|
+| At rest | the name (or an album title) as glowing strands curling inside Inter Tight 600 letters, their trails melted into soft white blobs; it flows at rest (Idan's call) |
+| Drag | stirs the strands under the finger; any pulled out of a letter are drawn back |
+| Tap | lets go of the hold: the blobs drift out into the black, then are drawn back |
+| Tap on background | the same: the whole page is the field |
+| Hold | a gust: faster and brighter while held |
+| Double tap | calls the strands back at once (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | the distance field's contours (the walls) and every strand |
+| Self-demo | one release, until the first touch; off under reduced motion (the picture then stands still until touched) |
+| Theme | black only (darkOnly) |
+| Face | Inter Tight 600 (Google Fonts, the name's letters only) |
+
 ## Jet (published 5 Nov 2026)
 
 | | Jet |
