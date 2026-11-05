@@ -124,7 +124,7 @@ const GENRES = {
   death: { pairs: 48, thorns: 60, len: 0.85, lenVar: 0.6, width: 0.1, taper: 1.2, wing: 3, up: 1, down: 0.8, side: 0.7, curve: 1.1, outward: 0.8, wiggle: 0.5, vert: 0.6, gravity: 0, fan: 0.35, branch: 1.2, bAngle: 34, bScale: 0.55, melt: 0.6 },
   black: { pairs: 80, thorns: 20, len: 0.75, lenVar: 0.8, width: 0.05, taper: 0.9, wing: 1.2, up: 0.8, down: 1.6, side: 0.3, curve: 0.3, outward: 0.5, wiggle: 2.4, vert: 1.2, gravity: 0.35, fan: 0.1, branch: 2.6, bAngle: 24, bScale: 0.6, melt: 1.2 },
   wings: { pairs: 16, thorns: 30, len: 0.8, lenVar: 0.5, width: 0.1, taper: 1.4, wing: 5, up: 1, down: 0.5, side: 1.2, curve: 1.6, outward: 1, wiggle: 0.3, vert: 0.2, gravity: 0, fan: 1.1, branch: 1, bAngle: 40, bScale: 0.5, melt: 1.8 },
-  brutal: { pairs: 110, thorns: 80, len: 0.4, lenVar: 0.9, width: 0.11, taper: 0.8, wing: 1.2, up: 1, down: 1, side: 1, curve: 0.8, outward: 0.4, wiggle: 3, vert: 0.2, gravity: 0, fan: 0.2, branch: 3, bAngle: 45, bScale: 0.6, melt: 2.4 },
+  brutal: { pairs: 147, thorns: 178, len: 0.97, lenVar: 0.9, width: 0.155, taper: 1.9, wing: 8, up: 0.8, down: 1.75, side: 1.45, curve: 0.95, outward: 0.64, wiggle: 3, vert: 0.65, gravity: 0.71, fan: 0.9, branch: 2.9, bAngle: 45, bScale: 0.6, melt: 2.4 },
 };
 for (const g in GENRES) GENRES[g] = Object.assign({ antler: false, tines: 3, blunt: 0, gnarl: 0, knuckle: 1 }, GENRES[g]);
 const DEF = Object.assign({ words: '', genre: 'antler', face: 'pirata', paper: false, axis: true, fold: false, mirrors: 6, pad: 0.18, ax: 'curve', ay: 'rise', sens: 1, reach: 1.4, tearS: 0.45, jag: 0.5, jolt: 1, punch: 1, flash: 1, shake: 2.3, blood: '#a3080c', soft: 0.04, size: 0.5, grow: 1.6 }, GENRES.antler);
