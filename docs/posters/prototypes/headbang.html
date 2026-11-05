@@ -104,6 +104,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   <label class="row" for="soft"><span>Edge softness</span><output id="softO"></output><input type="range" id="soft" min="0.005" max="0.2" step="0.005"></label>
   <label class="row" for="size"><span>Name size</span><output id="sizeO"></output><input type="range" id="size" min="0.2" max="0.9" step="0.01"></label>
   <label class="row" for="grow"><span>Grow time (s)</span><output id="growO"></output><input type="range" id="grow" min="0.2" max="5" step="0.05"></label>
+  <label class="row" for="hold"><span>Name alone first (s)</span><output id="holdO"></output><input type="range" id="hold" min="0" max="2" step="0.05"></label>
+  <label class="row" for="stagger"><span>Middle → outside (s)</span><output id="staggerO"></output><input type="range" id="stagger" min="0" max="3" step="0.05"></label>
   <div class="acts"><button id="copy" type="button">Copy settings</button><button id="reset" type="button">Reset</button></div>
 </div>
 
@@ -127,7 +129,7 @@ const GENRES = {
   brutal: { pairs: 147, thorns: 178, len: 0.97, lenVar: 0.9, width: 0.155, taper: 1.9, wing: 8, up: 0.8, down: 1.75, side: 1.45, curve: 0.95, outward: 0.64, wiggle: 3, vert: 0.65, gravity: 0.71, fan: 0.9, branch: 2.9, bAngle: 45, bScale: 0.6, melt: 2.4 },
 };
 for (const g in GENRES) GENRES[g] = Object.assign({ antler: false, tines: 3, blunt: 0, gnarl: 0, knuckle: 1 }, GENRES[g]);
-const DEF = Object.assign({ words: '', genre: 'antler', face: 'pirata', paper: false, axis: true, fold: false, mirrors: 6, pad: 0.18, ax: 'curve', ay: 'rise', sens: 1, reach: 1.4, tearS: 0.45, jag: 0.5, jolt: 1, punch: 1, flash: 1, shake: 2.3, blood: '#a3080c', soft: 0.04, size: 0.5, grow: 1.6 }, GENRES.antler);
+const DEF = Object.assign({ words: '', genre: 'antler', face: 'pirata', paper: false, axis: true, fold: false, mirrors: 6, pad: 0.18, ax: 'curve', ay: 'rise', sens: 1, reach: 1.4, tearS: 0.45, jag: 0.5, jolt: 1, punch: 1, flash: 1, shake: 2.3, blood: '#a3080c', soft: 0.04, size: 0.5, grow: 1.6, hold: 0.7, stagger: 1.2 }, GENRES.antler);
 const P = Object.assign({}, DEF);
 try { Object.assign(P, JSON.parse(localStorage.getItem('metal-logo-2') || '{}')); } catch (e) { /* defaults */ }
 const save = () => { try { localStorage.setItem('metal-logo-2', JSON.stringify(P)); } catch (e) { /* fine */ } };
@@ -295,8 +297,9 @@ function seedPairs(count, small) {
     spike({ x: e.x - e.nx * w0 * 0.6, y: e.y - e.ny * w0 * 0.6, th, w0, L, k, side, ox: tw.x - (2 * cx - e.x), oy: tw.y - e.y, gen: small ? 3 : 0 });
     if (P.antler && !small) {
       // the burr: a ring of knobs where the antler leaves the letter
-      const a = agents[agents.length - 1];
-      for (let i = 0; i < 9; i++) { const g = i / 9 * Math.PI * 2 + rnd() * 0.4; stamp(a, a.x + Math.cos(g) * w0 * 1.05, a.y + Math.sin(g) * w0 * 1.05, w0 * (0.22 + 0.12 * rnd())); }
+      // (stamped when the antler starts to grow)
+      const a = agents[agents.length - 1]; a.burr = [];
+      for (let i = 0; i < 9; i++) { const g = i / 9 * Math.PI * 2 + rnd() * 0.4; a.burr.push(a.x + Math.cos(g) * w0 * 1.05, a.y + Math.sin(g) * w0 * 1.05, w0 * (0.22 + 0.12 * rnd())); }
     }
   }
 }
@@ -321,6 +324,13 @@ function growAll() {
   seedPairs(Math.round(P.thorns), true);
   if (P.axis) axisSpikes();
   for (const n of nodes) growNode(n);
+  // the buildup, from the text outwards: the name alone first, then the spine, the antlers from the middle letters
+  // to the outer ones, and the small thorns last (its own random stream, so the logo itself is unchanged)
+  const tr = mulberry(seed ^ 0x5bd1e995);
+  for (const a of agents) {
+    const o = Math.min(1, Math.abs(a.x - F.cx) / F.hw);
+    a.wait = a.tx != null ? 0 : a.axis ? P.hold * 0.7 : P.hold + P.stagger * (a.gen === 3 ? 1 + 0.5 * tr() : 0.75 * o + 0.25 * tr());
+  }
 }
 // nodes the visitor adds by holding: an antler (and its mirror) from the nearest letter edge toward the finger
 const nodes = [];
@@ -347,7 +357,10 @@ function stamp(a, x, y, r) {
 function stepAgent(a, dt) {
   const cap = F.cap, rem = a.L - a.s;
   if (rem < 0.4) return false;
-  let ds = Math.max(rem * (3.2 / P.grow) * dt, cap * 0.02 * dt);
+  if (a.wait > 0) { a.wait = dt >= 1e3 ? 0 : a.wait - dt; if (a.wait > 0) return true; }
+  if (a.burr) { for (let i = 0; i < a.burr.length; i += 3) stamp(a, a.burr[i], a.burr[i + 1], a.burr[i + 2]); a.burr = null; }
+  // a steady push that eases into the tip, so each antler is seen leaving its letter (not a burst in the first frame)
+  let ds = Math.max(a.L * (0.25 + 0.75 * rem / a.L) / (0.45 * P.grow) * dt, cap * 0.02 * dt);
   if (dt >= 1e3) ds = rem; // finish at once
   ds = Math.min(ds, rem);
   const f = 2 / cap;
@@ -734,7 +747,7 @@ let rt = 0;
 addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(build, 200); });
 
 // ---------- settings sheet ----------
-const KEYS = ['pairs', 'thorns', 'len', 'lenVar', 'width', 'taper', 'wing', 'up', 'down', 'side', 'curve', 'outward', 'wiggle', 'vert', 'gravity', 'fan', 'branch', 'bAngle', 'bScale', 'tines', 'blunt', 'gnarl', 'knuckle', 'sens', 'reach', 'shake', 'tearS', 'jag', 'jolt', 'punch', 'flash', 'mirrors', 'pad', 'melt', 'soft', 'size', 'grow'];
+const KEYS = ['pairs', 'thorns', 'len', 'lenVar', 'width', 'taper', 'wing', 'up', 'down', 'side', 'curve', 'outward', 'wiggle', 'vert', 'gravity', 'fan', 'branch', 'bAngle', 'bScale', 'tines', 'blunt', 'gnarl', 'knuckle', 'sens', 'reach', 'shake', 'tearS', 'jag', 'jolt', 'punch', 'flash', 'mirrors', 'pad', 'melt', 'soft', 'size', 'grow', 'hold', 'stagger'];
 const LOOK = new Set(['melt', 'soft', 'pad', 'sens', 'reach', 'shake', 'tearS', 'jag', 'jolt', 'punch', 'flash', 'mirrors']);
 for (const id of ['ax', 'ay']) {
   for (const k in AXES) { const o = document.createElement('option'); o.value = k; o.textContent = AXES[k][0]; $(id).appendChild(o); }

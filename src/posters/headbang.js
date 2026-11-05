@@ -10,6 +10,8 @@
 // steers around other letters and stops if it hits one; antler beams carry tines on one side, knuckles at the joints, a burr
 // at the base and bony bumps. Every spike has its own random stream, so the same seed always grows the same logo: a drag can
 // regrow it live, and a node can be added or taken back without reshaping the rest.
+// It builds up from the text outwards: the name alone (hold), then the spine, the antlers from the middle letters to the
+// outer ones (stagger), small thorns last; each antler grows at a steady push that eases into its tip.
 //
 // Gestures (src/gestures.js): tap = another style and seed; drag = left/right turns the hook, down/up drips or raises the
 // beams (live); hold = a new antler (and its mirror) grows toward the finger for as long as it is held; double tap takes the
@@ -37,7 +39,7 @@ const GENRES = {
 };
 for (const g in GENRES) GENRES[g] = { ...BASE, ...GENRES[g] };
 const ORDER = Object.keys(GENRES);
-const DEF = { ...GENRES.antler, axis: true, soft: 0.04, size: 0.5, grow: 1.6, sens: 1, reach: 1.4,
+const DEF = { ...GENRES.antler, axis: true, soft: 0.04, size: 0.5, grow: 1.6, hold: 0.7, stagger: 1.2, sens: 1, reach: 1.4,
   shake: 2.3, tearS: 0.45, jag: 0.5, jolt: 1, punch: 1, flash: 1 };
 const BLOOD = [0xa3 / 255, 0x08 / 255, 0x0c / 255];   // #a3080c
 
@@ -368,8 +370,9 @@ export async function mount(stage) {
       seeds.push([e.x, e.y, tw.x, tw.y]);
       if (P.antler && !small) {
         // the burr: a ring of knobs where the antler leaves the letter
-        const a = agents[agents.length - 1];
-        for (let i = 0; i < 9; i++) { const g = i / 9 * Math.PI * 2 + rnd() * 0.4; stamp(a, a.x + Math.cos(g) * w0 * 1.05, a.y + Math.sin(g) * w0 * 1.05, w0 * (0.22 + 0.12 * rnd())); }
+        // (stamped when the antler starts to grow)
+        const a = agents[agents.length - 1]; a.burr = [];
+        for (let i = 0; i < 9; i++) { const g = i / 9 * Math.PI * 2 + rnd() * 0.4; a.burr.push(a.x + Math.cos(g) * w0 * 1.05, a.y + Math.sin(g) * w0 * 1.05, w0 * (0.22 + 0.12 * rnd())); }
       }
     }
   }
@@ -387,6 +390,13 @@ export async function mount(stage) {
       if (hit) for (const dir of [-1, 1]) spike({ x: F.cx, y: (dir < 0 ? y0 : y1) - dir * w0 * 0.5, th: dir * Math.PI / 2, w0, L: w0 * 0.5 + P.len * F.cap * 1.3, k: 0, side: 0, twin: false, axis: true });
     }
     for (const n of nodes) growNode(n);
+    // the buildup, from the text outwards: the name alone first, then the spine, the antlers from the middle letters
+    // to the outer ones, and the small thorns last (its own random stream, so the logo itself is unchanged)
+    const tr = mulberry32(S.seed ^ 0x5bd1e995);
+    for (const a of agents) {
+      const o = Math.min(1, Math.abs(a.x - F.cx) / F.hw);
+      a.wait = a.tx != null ? 0 : a.axis ? P.hold * 0.7 : P.hold + P.stagger * (a.gen === 3 ? 1 + 0.5 * tr() : 0.75 * o + 0.25 * tr());
+    }
   }
   function stamp(a, x, y, r) {
     stamps.push(x, y, r);
@@ -395,7 +405,10 @@ export async function mount(stage) {
   function stepAgent(a, dt) {
     const cap = F.cap, rem = a.L - a.s;
     if (rem < 0.4) return false;
-    let ds = dt >= 1e3 ? rem : Math.max(rem * (3.2 / P.grow) * dt, cap * 0.02 * dt);
+    if (a.wait > 0) { a.wait = dt >= 1e3 ? 0 : a.wait - dt; if (a.wait > 0) return true; }
+    if (a.burr) { for (let i = 0; i < a.burr.length; i += 3) stamp(a, a.burr[i], a.burr[i + 1], a.burr[i + 2]); a.burr = null; }
+    // a steady push that eases into the tip, so each antler is seen leaving its letter (not a burst in the first frame)
+    let ds = dt >= 1e3 ? rem : Math.max(a.L * (0.25 + 0.75 * rem / a.L) / (0.45 * P.grow) * dt, cap * 0.02 * dt);
     ds = Math.min(ds, rem);
     const f = 2 / cap;
     while (ds > 0) {
@@ -616,7 +629,7 @@ export async function mount(stage) {
       { name: 'Where they grow', items: [Ctl('up', 'From tops', 0, 3, 0.05), Ctl('down', 'From bottoms', 0, 3, 0.05), Ctl('side', 'From outer sides', 0, 3, 0.05)] },
       { name: 'Curve', items: [Ctl('curve', 'Hook', 0, 4, 0.05), Ctl('outward', 'Hooks bend outward', 0, 1, 0.01), Ctl('wiggle', 'Wiggle', 0, 6, 0.05), Ctl('vert', 'Pull to vertical', 0, 3, 0.05), Ctl('gravity', 'Drip (below 0: rise)', -2, 2, 0.01), Ctl('fan', 'Fan out', 0, 3, 0.05)] },
       { name: 'Antler', items: [Ctl('tines', 'Tines per beam', 0, 7, 1), Ctl('bAngle', 'Tine angle', 5, 90, 1), Ctl('bScale', 'Tine width', 0.2, 1, 0.01), Ctl('blunt', 'Blunt tips', 0, 0.8, 0.01), Ctl('gnarl', 'Bony bumps', 0, 0.5, 0.01), Ctl('knuckle', 'Knuckles', 1, 2, 0.01)] },
-      { name: 'Finish', items: [Ctl('melt', 'Melt', 0, 4, 0.05), Ctl('soft', 'Edge softness', 0.005, 0.2, 0.005), Ctl('grow', 'Grow time (s)', 0.2, 5, 0.05), Ctl('sens', 'Drag sensitivity', 0.2, 3, 0.05), Ctl('reach', 'Hold: node growth speed', 0.3, 4, 0.05)] },
+      { name: 'Finish', items: [Ctl('melt', 'Melt', 0, 4, 0.05), Ctl('soft', 'Edge softness', 0.005, 0.2, 0.005), Ctl('grow', 'Grow time (s)', 0.2, 5, 0.05), Ctl('hold', 'Name alone first (s)', 0, 2, 0.05), Ctl('stagger', 'Middle → outside (s)', 0, 3, 0.05), Ctl('sens', 'Drag sensitivity', 0.2, 3, 0.05), Ctl('reach', 'Hold: node growth speed', 0.3, 4, 0.05)] },
       { name: 'Headbang', items: [Ctl('shake', 'Shake sensitivity', 0.4, 3, 0.05), Ctl('tearS', 'Tear time (s)', 0.15, 3, 0.05), Ctl('jag', 'Serrated edge', 0, 2, 0.05), Ctl('jolt', 'Screen shake', 0, 3, 0.05), Ctl('punch', 'Logo punch', 0, 3, 0.05), Ctl('flash', 'Flash', 0, 1, 0.05)] },
     ],
     set(key, v) { P[key] = v; if (REGROW.has(key)) { clearTimeout(bt); bt = setTimeout(() => { if (alive) regrowNow(); }, 120); } else dirty = true; },
