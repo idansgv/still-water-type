@@ -130,6 +130,22 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Theme | both: light and dark |
 | Face | Archivo Black (Google Fonts, the name's letters only) |
 
+## Handbang (published 5 Nov 2026)
+
+| | Handbang |
+|---|---|
+| At rest | the name (or an album title) in Pirata One grown into a symmetric metal-band logo of bone antlers; it grows once on load, then nothing moves |
+| Tap | another style (antlers, thorns, roots, wings, brutal) and a new seed (acts a beat later, so taps can be counted) |
+| Tap on background | the same as a tap |
+| Hold | a new antler and its mirror grow from the nearest letter toward the finger while held, following it |
+| Drag | left/right turns the hooks, down/up drips or raises the beams; regrows live from the same seed |
+| Double tap | takes the last held antler back (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | the seeds on the letter edges, each joined to its twin across the dashed mirror axis |
+| Headbang (easter egg) | shake the phone or scribble fast left and right: the page tears down the axis onto blood red (#a3080c) with a shake, a punch and a flash; again to tear back. Red is Idan's exception to black and white |
+| Self-demo | the first growth on load; under reduced motion it is grown at once and stands still |
+| Theme | both: light and dark |
+| Face | Pirata One (Google Fonts, the name's letters only) |
+
 ## Embers (published 5 Nov 2026)
 
 | | Embers |
