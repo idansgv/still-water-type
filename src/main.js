@@ -15,6 +15,8 @@ const toastEl = $('toast');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const params = new URLSearchParams(location.search);
 const REC = document.documentElement.dataset.rec !== undefined;   // the recording page (/rec/): no words around the poster, the top-right corner shuffles
+const YOURS = REC && params.has('yours');                       // /rec/?yours: a demo of the name, with Make it yours as the only control (and full screen on the first press)
+if (YOURS) document.documentElement.dataset.yours = '';
 const urlName = validateName(params.get('n')).name || null;     // a shared link carries its name: it shows for that visit only
 let myName = urlName || savedName();                           // the visitor's own name (Customize, or typing on a keyboard), or null for each poster's own
 const LYRICS = params.has('lyrics');                           // lyrics mode (src/lyrics.js): the posters that take a name draw the word Spotify is singing
@@ -430,14 +432,17 @@ addEventListener('keydown', (e) => {
     return;
   }
   // typing a letter starts the name (r, s and t keep their shortcuts)
-  if (!LYRICS && !nameOpen && !REC && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key)) { e.preventDefault(); openName(e.key); return; }
+  if (!LYRICS && !nameOpen && (!REC || YOURS) && document.documentElement.dataset.bare === undefined && /^\p{L}$/u.test(e.key)) { e.preventDefault(); openName(e.key); return; }
   const onControl = e.target.closest && e.target.closest('button, a');
   if (e.key === ' ' || e.key === 'Enter') { if (onControl) return; e.preventDefault(); shuffle(); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); shuffle(); }
 });
 
 // The recording page's corner: a tap shuffles, and the first one also asks for full screen where the browser allows it (Android, iPad; an iPhone needs the home-screen icon).
-if (REC) {
+if (YOURS) {
+  const full = () => { const el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {}); };
+  addEventListener('pointerdown', full, { capture: true, once: true });
+} else if (REC) {
   const corner = document.createElement('button');
   corner.type = 'button'; corner.className = 'rec-next'; corner.setAttribute('aria-label', 'Next poster');
   corner.addEventListener('pointerdown', (e) => {
