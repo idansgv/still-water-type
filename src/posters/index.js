@@ -134,6 +134,18 @@ export const POSTERS = [
     prompt: "The name \"Idan Segev\" grown as plants on a 2D canvas, each species a typeface. Render the name in Inter Tight 600, thin it to a one-pixel centre line (Zhang-Suen), build a BFS tree from each letter's lowest pixel, prune short spurs, carry a per-pixel flow so trunk width follows the pipe model, smooth the chains and graft where a letter's loop meets itself. Each of 21 species (oak, willow, pine, saguaro, birch, cherry, Joshua tree, Douglas fir, apple, dogwood, wisteria, bamboo, mangrove, bonsai juniper, fern, ivy, weeping cherry, baobab, palm, prickly pear, banyan) has its own branching (a 2D port of ez-tree's per-level model, or turtle twigs with gravity), foliage, inflorescences (umbels, corymbs, cymes, racemes, panicles, catkins, bract heads; each flower its own size, tilt, petal count and stage) and bark. The name grows from the roots; then every limb runs a life cycle: grow, hold, age as its leaves drift down, stand bare, fade back from the tip, and regrow elsewhere. Every twig is a damped spring tuned by its thickness and length; a gust starts at the pointer and crosses the page. Tap grows it again as the next species. Black and white only.",
   },
   {
+    slug: 'jet',
+    title: 'Jet',
+    words: ['Idan', 'Segev'],
+    blurb: 'The name written by a stream of water in mid-air. Cut it and it flows back; tap the page and it runs dry.',
+    hint: null,
+    themes: { dark: 1, light: 1 },
+    nameable: true,
+    face: { family: 'Inter Tight', weight: 600 },
+    load: () => import('./jet.js'),
+    prompt: "The name \"Idan Segev\" written by a stream of water flowing in mid-air along each letter's centre line, as if a hose could write, on a 2D WebGL2 canvas. Render the name in Inter Tight 600, thin it to a one-pixel centre line (Zhang-Suen), build a tree from each letter's lowest pixel (the source), prune short spurs and smooth the chains. Particles in the stream are kinematic: emitted at each chain's start at a fixed flow rate, carried along it, offset across the jet's width, with pulses riding along so you see it flow. Knocked-out water becomes a live 2D particle liquid (double-density relaxation after Clavet et al. 2005: viscosity, surface tension, gravity) that falls, fades and returns to a shared reserve that feeds the sources, so a cut gap is carried downstream and the stream mends by itself. Render as metaballs: splat the particles into a soft Gaussian field plus droplet discs and threshold it into one smooth body. Drag cuts the stream and flings the water; a tap on the water splashes it; a tap on empty page drains it, as if held, until the letters are empty, then they fill again; hold turns up the pressure so the stroke ends spray; a double tap pulls the loose water back. Black and white only.",
+  },
+  {
     slug: 'rewind',
     title: 'Rewind',
     words: ['Idan', 'Segev'],

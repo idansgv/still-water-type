@@ -1,0 +1,703 @@
+<title>Jet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter+Tight:wght@600&display=block">
+<style>
+/* Layout: one full-bleed poster, the name written by a stream of water flowing along the letters' centre lines in mid-air. A quiet mono line at the foot; a settings sheet for this test only. White page by default, black in the dark slot. */
+:root {
+  --bg: #ffffff; --ink: #000000; --dim: #8a8a8a; --line: rgba(0, 0, 0, 0.14); --sheet: rgba(252, 252, 252, 0.96);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+:root.dark { --bg: #000000; --ink: #ffffff; --dim: #7c7c7c; --line: rgba(255, 255, 255, 0.16); --sheet: rgba(8, 8, 8, 0.96); color-scheme: dark; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden; font: 400 12px/1.35 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  color: #8a8a8a; pointer-events: none; mix-blend-mode: difference;
+}
+.foot b { color: #ffffff; font-weight: 500; }
+.foot button { pointer-events: auto; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 8px 0; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sheet {
+  position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 24px));
+  background: var(--sheet); border: 1px solid var(--line); padding: 14px 16px 10px; display: grid; gap: 12px; max-height: calc(100% - 80px); overflow: auto;
+}
+.sheet[hidden] { display: none; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.row output { font-variant-numeric: tabular-nums; color: var(--dim); }
+.row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); margin: 0; }
+.row.tog input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
+.row select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 3px 4px; }
+.row input[type="text"] { grid-column: 1 / -1; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 4px 6px; min-width: 0; }
+.sub { color: var(--dim); border-top: 1px solid var(--line); padding-top: 8px; }
+.acts { display: flex; gap: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.acts button { color: var(--dim); } .acts button:hover { color: var(--ink); }
+</style>
+
+<canvas id="c" aria-label="Idan Segev, written by a stream of water flowing along the letters. Drag across it to cut the stream; it re-forms."></canvas>
+<div class="foot"><span><b>Jet</b> &nbsp;draft</span><button id="gear" type="button" aria-expanded="false" aria-controls="sheet">Settings</button></div>
+<div class="sheet" id="sheet" hidden>
+  <label class="row tog" for="dark"><span>Black page (white water)</span><input type="checkbox" id="dark"></label>
+  <label class="row" for="words"><span>Words (empty: an album title)</span><input type="text" id="words" maxlength="14" autocomplete="off" spellcheck="false"></label>
+  <div class="acts"><button id="nextAlbum" type="button">Next album</button></div>
+  <div class="sub">Stream</div>
+  <label class="row" for="width"><span>Stream width</span><output id="widthO"></output><input type="range" id="width" min="0.4" max="2.5" step="0.05"></label>
+  <label class="row" for="speed"><span>Flow speed</span><output id="speedO"></output><input type="range" id="speed" min="0.1" max="2.5" step="0.05"></label>
+  <label class="row" for="pulse"><span>Pulses</span><output id="pulseO"></output><input type="range" id="pulse" min="0" max="0.8" step="0.01"></label>
+  <label class="row" for="spray"><span>Stroke ends spray</span><select id="spray">
+    <option value="hold">While held</option>
+    <option value="always">Always</option>
+    <option value="off">Never</option>
+  </select></label>
+  <div class="sub">Cut and splash</div>
+  <label class="row" for="cut"><span>Cut reach</span><output id="cutO"></output><input type="range" id="cut" min="0.4" max="3" step="0.05"></label>
+  <label class="row" for="fling"><span>Cut throw</span><output id="flingO"></output><input type="range" id="fling" min="0" max="1.5" step="0.05"></label>
+  <label class="row" for="splash"><span>Tap splash</span><output id="splashO"></output><input type="range" id="splash" min="0.3" max="2.5" step="0.05"></label>
+  <label class="row" for="grav"><span>Gravity</span><output id="gravO"></output><input type="range" id="grav" min="0.2" max="2" step="0.05"></label>
+  <label class="row" for="life"><span>Loose water lasts (s)</span><output id="lifeO"></output><input type="range" id="life" min="0.6" max="5" step="0.1"></label>
+  <div class="sub">Liquid</div>
+  <label class="row" for="tens"><span>Surface tension</span><output id="tensO"></output><input type="range" id="tens" min="0" max="2" step="0.05"></label>
+  <label class="row" for="visc"><span>Viscosity</span><output id="viscO"></output><input type="range" id="visc" min="0" max="1" step="0.01"></label>
+  <label class="row" for="th"><span>Metaball threshold</span><output id="thO"></output><input type="range" id="th" min="0.15" max="0.8" step="0.01"></label>
+  <label class="row" for="blur"><span>Metaball blur</span><output id="blurO"></output><input type="range" id="blur" min="0.5" max="1.8" step="0.05"></label>
+  <label class="row" for="shine"><span>Highlight</span><output id="shineO"></output><input type="range" id="shine" min="0" max="1.5" step="0.05"></label>
+  <label class="row" for="drop"><span>Droplet size</span><output id="dropO"></output><input type="range" id="drop" min="0" max="1.2" step="0.05"></label>
+  <div class="acts"><button id="copy" type="button">Copy settings</button><button id="reset" type="button">Reset</button></div>
+</div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+// The site's default words (src/albums.js): with no name of their own, posters set an album title.
+const ALBUMS = ["Rubber Soul","Revolver","Abbey Road","Let It Be","Pet Sounds","Blue","Hejira","Thriller","Off the Wall","Purple Rain","Nevermind","In Utero","OK Computer","Kid A","Amnesiac","In Rainbows","The Bends","Graceland","Kind of Blue","Bitches Brew","A Love Supreme","Blue Train","Time Out","Mingus Ah Um","Hunky Dory","Low","Heroes","Blackstar","Let It Bleed","Sticky Fingers","Harvest","Astral Weeks","Pink Moon","Horses","Marquee Moon","Parallel Lines","London Calling","Closer","Loveless","Screamadelica","Doolittle","Surfer Rosa","Ten","Dummy","Mezzanine","Blue Lines","Homogenic","Violator","Lust for Life","Ready to Die","Aquemini","Stankonia","Parklife","Yeezus","Graduation","Blonde","Channel Orange","Frank","Back to Black","Ctrl","1989","21","Discovery","Moon Safari","Sea Change","Rain Dogs","Bone Machine","Blood Money","Closing Time","Geogaddi","Inferno","SOS","GNX","DAMN","ye","Demon Days","Plastic Beach","Donuts","Half Moon Bay","On the Beach","Harvest Moon","Wish","Bryter Layter","Dream River","Skeleton Tree","Play","Cheat Codes","Wildflower","Odelay","Mutations","Fun House","The Idiot","Old Ideas","Dirt","Stony Hill","Third","Giant Steps","Ascension","Knock Knock","Person Pitch","Treasure","Endless Summer","X's","Black Earth","Raw Power","Longing","18","Black One","Travel","Bleed","Piñata","Mosaic","Venice","Meditations","Natty Dread","Uprising","Squared Roots","Small Change","Blue Valentine","Alice","Bad as Me","Real Gone","Hi Scores","Sun","Ruff Draft","Talkie Walkie","Homework","Go","Sleep","Drumming","The Blueprint"];
+let album = ALBUMS[Math.floor(Math.random() * ALBUMS.length)];
+const nextAlbum = () => { let a; do a = ALBUMS[Math.floor(Math.random() * ALBUMS.length)]; while (a === album); album = a; };
+const WORDS_OK = /^[\p{L}\p{M}0-9' -]+$/u; // same rule as the site's names (src/name.js)
+const text = () => (P.words && WORDS_OK.test(P.words.trim()) ? P.words : album).replace(/\s+/g, ' ').trim();
+const DEF = { dark: false, words: '', width: 1.25, speed: 1.3, pulse: 0.29, shine: 0, spray: 'hold', cut: 2.15, fling: 0.75, splash: 1.85, grav: 0.55, life: 3.2, tens: 1.35, visc: 1, th: 0.29, blur: 1.8, drop: 0.3, k: 0.3, kn: 0.5, dmax: 0.05 }; // Idan's tuning, 5 Nov 2026
+const P = Object.assign({}, DEF);
+try { Object.assign(P, JSON.parse(localStorage.getItem('jet') || '{}')); } catch (e) { /* defaults */ }
+const save = () => { try { localStorage.setItem('jet', JSON.stringify(P)); } catch (e) { /* fine */ } };
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// ---------- centre lines (Arboretum's skeleton: mask -> Zhang-Suen -> tree from the lowest pixel -> chains) ----------
+function buildSkeleton(lines) {
+  const fs = 220, font = `600 ${fs}px "Inter Tight"`;
+  const c = document.createElement('canvas'), g = c.getContext('2d', { willReadFrequently: true });
+  g.font = font;
+  const cap = g.measureText('H').actualBoundingBoxAscent;
+  const lh = fs * 1.12, pad = Math.round(fs * 0.3);
+  const W = Math.ceil(Math.max(...lines.map(l => g.measureText(l).width))) + pad * 2;
+  const H = Math.ceil(cap + (lines.length - 1) * lh + fs * 0.32) + pad * 2;
+  c.width = W; c.height = H;
+  g.font = font; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillStyle = '#000';
+  lines.forEach((l, i) => g.fillText(l, W / 2, pad + cap + i * lh));
+  const px = g.getImageData(0, 0, W, H).data;
+  const m = new Uint8Array(W * H);
+  let x0 = W, y0 = H, x1 = 0, y1 = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (px[(y * W + x) * 4 + 3] > 127) {
+    m[y * W + x] = 1; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  thin(m, W, x0, y0, x1, y1);
+
+  const N8 = [-W - 1, -W, -W + 1, -1, 1, W - 1, W, W + 1];
+  const seen = new Uint8Array(W * H);
+  const parent = new Int32Array(W * H).fill(-1);
+  const dist = new Float32Array(W * H);
+  const comps = [];
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const s = y * W + x;
+    if (!m[s] || seen[s]) continue;
+    // flood the component, find its lowest pixel (closest to centre on ties) as the root: the water's source
+    const pix = [s]; seen[s] = 1;
+    for (let k = 0; k < pix.length; k++) for (const o of N8) { const j = pix[k] + o; if (m[j] && !seen[j]) { seen[j] = 1; pix.push(j); } }
+    if (pix.length < 10) continue;
+    let root = pix[0], ry = -1, rcx = 0;
+    for (const p of pix) rcx += p % W; rcx /= pix.length;
+    for (const p of pix) { const py = (p / W) | 0, pxx = p % W; if (py > ry || (py === ry && Math.abs(pxx - rcx) < Math.abs(root % W - rcx))) { ry = py; root = p; } }
+    const order = [root]; const inT = new Set([root]); dist[root] = 0;
+    for (let k = 0; k < order.length; k++) {
+      const p = order[k];
+      for (const o of [-W, -1, 1, W, -W - 1, -W + 1, W - 1, W + 1]) {
+        const j = p + o;
+        if (m[j] && !inT.has(j)) { inT.add(j); parent[j] = p; dist[j] = dist[p] + (o === -W || o === W || o === 1 || o === -1 ? 1 : Math.SQRT2); order.push(j); }
+      }
+    }
+    comps.push({ root, order });
+  }
+  // prune short leaf spurs (thinning artefacts at corners and terminals)
+  const alive = new Uint8Array(W * H), kidsN = new Int32Array(W * H);
+  for (const cp of comps) for (const p of cp.order) { alive[p] = 1; if (parent[p] >= 0) kidsN[parent[p]]++; }
+  const minSpur = cap * 0.13;
+  for (let pass = 0; pass < 3; pass++) for (const cp of comps) for (const leaf of cp.order) {
+    if (!alive[leaf] || kidsN[leaf] > 0) continue;
+    const path = [leaf]; let cur = parent[leaf];
+    while (cur >= 0 && kidsN[cur] === 1) { path.push(cur); cur = parent[cur]; }
+    if (cur < 0 || dist[leaf] - dist[cur] >= minSpur) continue;
+    for (const p of path) alive[p] = 0;
+    kidsN[cur]--;
+  }
+  const out = { chains: [], cap, bbox: [x0, y0, x1, y1] };
+  for (const cp of comps) {
+    const ord = cp.order.filter(p => alive[p]);
+    const kids = new Map();
+    for (const p of ord) if (parent[p] >= 0) { if (!kids.has(parent[p])) kids.set(parent[p], []); kids.get(parent[p]).push(p); }
+    const pt = p => ({ x: p % W, y: (p / W) | 0 });
+    const stack = [cp.root];
+    while (stack.length) {
+      const s = stack.pop();
+      for (const c0 of kids.get(s) || []) {
+        const ch = [s, c0]; let cur = c0;
+        while ((kids.get(cur) || []).length === 1) { cur = kids.get(cur)[0]; ch.push(cur); }
+        if ((kids.get(cur) || []).length > 1) stack.push(cur);
+        const sm = smooth(ch.map(pt));
+        sm.terminal = !(kids.get(cur) || []).length;
+        out.chains.push(sm);
+      }
+    }
+  }
+  return out;
+}
+function smooth(pts) {
+  if (pts.length < 5) return pts;
+  const r = 3, o = pts.map(p => ({ ...p }));
+  for (let i = 1; i < pts.length - 1; i++) {
+    const k = Math.min(r, i, pts.length - 1 - i);
+    let sx = 0, sy = 0;
+    for (let j = -k; j <= k; j++) { sx += pts[i + j].x; sy += pts[i + j].y; }
+    o[i].x = sx / (2 * k + 1); o[i].y = sy / (2 * k + 1);
+  }
+  return o;
+}
+function thin(m, W, x0, y0, x1, y1) {
+  const del = [];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let pass = 0; pass < 2; pass++) {
+      del.length = 0;
+      for (let y = Math.max(1, y0); y <= Math.min(y1, (m.length / W) - 2); y++) for (let x = Math.max(1, x0); x <= x1; x++) {
+        const i = y * W + x; if (!m[i]) continue;
+        const p2 = m[i - W], p3 = m[i - W + 1], p4 = m[i + 1], p5 = m[i + W + 1], p6 = m[i + W], p7 = m[i + W - 1], p8 = m[i - 1], p9 = m[i - W - 1];
+        const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+        if (B < 2 || B > 6) continue;
+        const A = (!p2 && p3) + (!p3 && p4) + (!p4 && p5) + (!p5 && p6) + (!p6 && p7) + (!p7 && p8) + (!p8 && p9) + (!p9 && p2);
+        if (A !== 1) continue;
+        if (pass === 0 ? (p2 && p4 && p6) || (p4 && p6 && p8) : (p2 && p4 && p8) || (p2 && p6 && p8)) continue;
+        del.push(i);
+      }
+      if (del.length) { changed = true; for (const i of del) m[i] = 0; }
+    }
+  }
+}
+function layoutLines() {
+  const t = text();
+  if (W / H < 1 && t.includes(' ')) {
+    const mid = t.length / 2; let best = -1;
+    for (let i = 0; i < t.length; i++) if (t[i] === ' ' && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i;
+    return [t.slice(0, best), t.slice(best + 1)];
+  }
+  return [t];
+}
+
+// ---------- the stream ----------
+// Units are CSS px. Particles in the stream are kinematic: emitted at each chain's start, carried along it at the flow speed,
+// offset across the jet's width. Loose particles are a 2D liquid (Clavet double-density relaxation, as Rewind) under gravity.
+const cv = $('c');
+const gl = cv.getContext('webgl2', { antialias: false, premultipliedAlpha: false, alpha: false });
+let W = 0, H = 0, dpr = 1;
+let L = null; // { chains, R, s, cap, dens, flow }
+const FREE = 0, ON = 1, LOOSE = 2, HOME = 3;
+let N = 0, x, y, vx, vy, ox, oy, st, chI, arc, lat, age, life, wgt;
+let freeList = [], nFree = 0;
+let act = new Int32Array(0), nAct = 0;
+let rho, rhoN, pr, prN, cell, idx, start, nb, nq, nux, nuy, cnt, gw = 0, gh = 0, gcell = 1;
+const M = 28, SIM_H = 2.1;
+function latticeSum(fn, R) {
+  let sum = 0; const dy = Math.sqrt(3) / 2;
+  for (let r = -R; r <= R; r++) for (let c = -R; c <= R; c++) {
+    const xx = c + (r & 1 ? 0.5 : 0), yy = r * dy, d = Math.hypot(xx, yy);
+    if (d > 0) sum += fn(d);
+  }
+  return sum;
+}
+const RHO0 = latticeSum((d) => (d < SIM_H ? (1 - d / SIM_H) ** 2 : 0), 6);
+const RHON0 = latticeSum((d) => (d < SIM_H ? (1 - d / SIM_H) ** 3 : 0), 6);
+
+function resample(pts, k, ox0, oy0, step) {
+  const sx = pts.map(p => p.x * k + ox0), sy = pts.map(p => p.y * k + oy0);
+  const cum = [0];
+  for (let i = 1; i < sx.length; i++) cum.push(cum[i - 1] + Math.hypot(sx[i] - sx[i - 1], sy[i] - sy[i - 1]));
+  const len = cum[cum.length - 1], n = Math.max(2, Math.ceil(len / step) + 1);
+  const X = new Float32Array(n), Y = new Float32Array(n), NX = new Float32Array(n), NY = new Float32Array(n);
+  let j = 0;
+  for (let i = 0; i < n; i++) {
+    const a = Math.min(len, i * step);
+    while (j < cum.length - 2 && cum[j + 1] < a) j++;
+    const seg = cum[j + 1] - cum[j] || 1, f = (a - cum[j]) / seg;
+    X[i] = sx[j] + (sx[j + 1] - sx[j]) * f; Y[i] = sy[j] + (sy[j + 1] - sy[j]) * f;
+  }
+  for (let i = 0; i < n; i++) {
+    const a = Math.max(0, i - 2), b = Math.min(n - 1, i + 2);
+    let tx = X[b] - X[a], ty = Y[b] - Y[a]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+    NX[i] = -ty; NY[i] = tx;
+  }
+  return { X, Y, NX, NY, n, len, step };
+}
+
+function layout() {
+  const lines = layoutLines();
+  const sk = buildSkeleton(lines);
+  const [x0, y0, x1, y1] = sk.bbox, bw = x1 - x0, bh = y1 - y0;
+  const narrow = W < 640;
+  const k = Math.min((narrow ? 0.84 : 0.72) * W / bw, (lines.length > 1 ? 0.5 : 0.34) * H / bh);
+  const ox0 = W / 2 - (x0 + bw / 2) * k, oy0 = H * 0.44 - (y0 + bh / 2) * k;
+  const cap = sk.cap * k;
+  const R = Math.max(2.5, P.width * cap * 0.05);           // half the stream's width
+  const s = clamp(R / 1.9, 1.6, 8);                         // particle spacing: about four across
+  const chains = [];
+  for (const c of sk.chains) {
+    if (c.length < 2) continue;
+    const ch = resample(c, k, ox0, oy0, 1.5);
+    if (ch.len < 2) continue;
+    ch.terminal = c.terminal; ch.acc = 0; ch.seq = Math.random();
+    chains.push(ch);
+  }
+  const dens = (2 * R) / (s * s) * 1.15;                    // particles per px of stream
+  const total = chains.reduce((a, c) => a + c.len, 0) * dens;
+  return { chains, R, s, cap, dens, total };
+}
+
+function alloc(n) {
+  N = n;
+  x = new Float32Array(N); y = new Float32Array(N); vx = new Float32Array(N); vy = new Float32Array(N); ox = new Float32Array(N); oy = new Float32Array(N);
+  st = new Uint8Array(N); chI = new Int32Array(N); arc = new Float32Array(N); lat = new Float32Array(N); age = new Float32Array(N); life = new Float32Array(N); wgt = new Float32Array(N);
+  rho = new Float32Array(N); rhoN = new Float32Array(N); pr = new Float32Array(N); prN = new Float32Array(N);
+  cell = new Int32Array(N); idx = new Int32Array(N); act = new Int32Array(N);
+  nb = new Int32Array(N * M); nq = new Float32Array(N * M); nux = new Float32Array(N * M); nuy = new Float32Array(N * M); cnt = new Int32Array(N);
+  freeList = new Int32Array(N); nFree = 0;
+  for (let i = N - 1; i >= 0; i--) freeList[nFree++] = i;
+}
+const take = () => (nFree > 0 ? freeList[--nFree] : -1);
+const release = (i) => { st[i] = FREE; wgt[i] = 0; freeList[nFree++] = i; };
+
+// where the stream puts a particle: on the chain at arc length a, across the jet by lat
+let simT = 0, pres = 0, drain = false;
+function place(i, ch, a) {
+  const f = clamp(a / ch.step, 0, ch.n - 1.001), j = f | 0, u = f - j;
+  const cx = ch.X[j] + (ch.X[j + 1] - ch.X[j]) * u, cy = ch.Y[j] + (ch.Y[j + 1] - ch.Y[j]) * u;
+  const nx = ch.NX[j], ny = ch.NY[j];
+  // pulses ride with the water (phase in the water's frame), so they show the flow
+  const ph = (a - flowPx() * simT) / (L.R * 12);
+  const wob = 1 + P.pulse * (0.7 * Math.sin(ph * 6.2832) + 0.3 * Math.sin(ph * 2.3 * 6.2832 + 1.3));
+  const r = L.R * (1 + 0.35 * pres) * wob;
+  return [cx + nx * lat[i] * r, cy + ny * lat[i] * r];
+}
+const flowPx = () => (reduced ? 0.3 : 1) * P.speed * L.cap * 0.9 * (1 + 1.6 * pres);
+function tangentAt(ch, a) { const j = clamp((a / ch.step) | 0, 0, ch.n - 1); return [ch.NY[j], -ch.NX[j]]; }
+
+function emit(ch, ci, a) {
+  const i = take(); if (i < 0) return;
+  st[i] = ON; chI[i] = ci; arc[i] = a; ch.seq = (ch.seq + 0.6180339887) % 1; lat[i] = ch.seq * 2 - 1; age[i] = 0; wgt[i] = 1;
+  const [px, py] = place(i, ch, a); x[i] = ox[i] = px; y[i] = oy[i] = py;
+  const [tx, ty] = tangentAt(ch, a), f = flowPx(); vx[i] = tx * f; vy[i] = ty * f;
+}
+function fill() {
+  L.chains.forEach((ch, ci) => { for (let a = 0; a < ch.len; a += 1 / L.dens) emit(ch, ci, a); });
+}
+function loosen(i, vxi, vyi) {
+  st[i] = LOOSE; vx[i] = vxi; vy[i] = vyi; age[i] = 0; life[i] = P.life * (0.7 + 0.6 * Math.random());
+}
+
+function grid() {
+  start.fill(0);
+  const ih = 1 / gcell;
+  for (let k = 0; k < nAct; k++) {
+    const i = act[k];
+    const cx = clamp((x[i] * ih + 2) | 0, 0, gw - 1), cy = clamp((y[i] * ih + 2) | 0, 0, gh - 1);
+    const c = cy * gw + cx; cell[i] = c; start[c + 1]++;
+  }
+  for (let c = 0; c < gw * gh; c++) start[c + 1] += start[c];
+  const cur = start.slice(0, gw * gh);
+  for (let k = 0; k < nAct; k++) { const i = act[k]; idx[cur[cell[i]]++] = i; }
+}
+const HX = [0, 1, -1, 0, 1], HY = [0, 0, 1, 1, 1];
+function neighbours() {
+  const h = gcell, h2 = h * h, ih = 1 / h;
+  for (let k0 = 0; k0 < nAct; k0++) {
+    const i = act[k0], xi = x[i], yi = y[i], c = cell[i], cx = c % gw, cy = (c / gw) | 0, base = i * M, onI = st[i] === ON;
+    let n = 0;
+    for (let s4 = 0; s4 < 5; s4++) {
+      const xx = cx + HX[s4], yy = cy + HY[s4];
+      if (xx < 0 || xx >= gw || yy >= gh) continue;
+      const cc = yy * gw + xx, e = start[cc + 1];
+      for (let k = start[cc]; k < e; k++) {
+        const j = idx[k];
+        if (s4 === 0 && j <= i) continue;
+        if (onI && st[j] === ON) continue; // the stream is kinematic: no forces inside it
+        const dx = x[j] - xi, dy = y[j] - yi, r2 = dx * dx + dy * dy;
+        if (r2 >= h2 || n >= M) continue;
+        const r = Math.sqrt(r2) || 1e-6;
+        nb[base + n] = j; nq[base + n] = r * ih; nux[base + n] = dx / r; nuy[base + n] = dy / r; n++;
+      }
+    }
+    cnt[i] = n;
+  }
+}
+function step(dt) {
+  simT += dt;
+  const f = flowPx(), g = 1.3 * H * P.grav, spray = drain || P.spray === 'always' || (P.spray === 'hold' && pres > 0.3);
+  // 1. sources: each chain emits at the flow rate
+  if (f > 0 && !drain) L.chains.forEach((ch, ci) => {
+    ch.acc += f * dt * L.dens;
+    while (ch.acc >= 1) { ch.acc -= 1; emit(ch, ci, ch.acc / L.dens); }
+  });
+  // 2. move: the stream along its chains, loose water under gravity
+  nAct = 0;
+  for (let i = 0; i < N; i++) {
+    const s0 = st[i]; if (s0 === FREE) continue;
+    const ch = L.chains[chI[i]];
+    arc[i] += f * dt; // loose water remembers where it would have been
+    ox[i] = x[i]; oy[i] = y[i];
+    if (s0 === ON) {
+      if (arc[i] >= ch.len) {
+        if (spray && ch.terminal) {
+          const [tx, ty] = tangentAt(ch, ch.len), jit = (Math.random() - 0.5) * 0.35;
+          loosen(i, (tx - ty * jit) * f * 1.05, (ty + tx * jit) * f * 1.05 - f * 0.25);
+        } else { release(i); continue; }
+      } else {
+        const [px, py] = place(i, ch, arc[i]); x[i] = px; y[i] = py;
+      }
+    } else if (s0 === HOME) {
+      if (arc[i] >= ch.len) { release(i); continue; }
+      age[i] += dt;
+      const [px, py] = place(i, ch, arc[i]);
+      const kk = 1 - Math.exp(-dt * (4 + age[i] * 14));
+      x[i] += (px - x[i]) * kk; y[i] += (py - y[i]) * kk;
+      if (Math.hypot(px - x[i], py - y[i]) < L.s * 0.6) { st[i] = ON; x[i] = px; y[i] = py; }
+    } else {
+      age[i] += dt;
+      if (age[i] > life[i] || y[i] > H + 60 || x[i] < -60 || x[i] > W + 60) { release(i); continue; }
+      vy[i] += g * dt; vx[i] *= 0.998; vy[i] *= 0.998;
+      x[i] += vx[i] * dt; y[i] += vy[i] * dt;
+      // loose water draws a little heavier, so small drops stay round instead of turning to dust
+      const fade = clamp((life[i] - age[i]) / 0.5, 0, 1); wgt[i] = 1.5 * fade * fade * (3 - 2 * fade);
+    }
+    act[nAct++] = i;
+  }
+  // 3. liquid forces between loose water and anything near it
+  grid(); neighbours();
+  const s = L.s, K = P.k, KN = P.kn, TENS = P.tens, DMAX = P.dmax * s, rho0 = RHO0 * 0.98, SIG = P.visc * 0.6, BETA = P.visc * 0.4;
+  for (let k0 = 0; k0 < nAct; k0++) { const i = act[k0]; rho[i] = 0; rhoN[i] = 0; }
+  for (let k0 = 0; k0 < nAct; k0++) {
+    const i = act[k0], base = i * M, n = cnt[i];
+    for (let k = 0; k < n; k++) {
+      const j = nb[base + k], a = 1 - nq[base + k], a2 = a * a, a3 = a2 * a;
+      rho[i] += a2; rho[j] += a2; rhoN[i] += a3; rhoN[j] += a3;
+    }
+  }
+  for (let k0 = 0; k0 < nAct; k0++) {
+    const i = act[k0]; let p = K * (rho[i] - rho0); if (p < 0) p *= TENS;
+    const pn = rhoN[i] - RHON0; pr[i] = p; prN[i] = pn > 0 ? KN * pn : 0;
+  }
+  for (let k0 = 0; k0 < nAct; k0++) {
+    const i = act[k0], base = i * M, n = cnt[i], fi = st[i] !== ON;
+    for (let k = 0; k < n; k++) {
+      const j = nb[base + k], fj = st[j] !== ON, a = 1 - nq[base + k];
+      // viscosity
+      const ux = nux[base + k], uy = nuy[base + k];
+      const u = (vx[i] - vx[j]) * ux + (vy[i] - vy[j]) * uy;
+      if (u > 0) {
+        let fv = a * (SIG + BETA * u * dt / s); if (fv > 0.5) fv = 0.5;
+        const I = fv * u * dt;
+        if (fi && fj) { x[i] -= I * ux * 0.5; y[i] -= I * uy * 0.5; x[j] += I * ux * 0.5; y[j] += I * uy * 0.5; }
+        else if (fi) { x[i] -= I * ux; y[i] -= I * uy; } else { x[j] += I * ux; y[j] += I * uy; }
+      }
+      // pressure and surface tension
+      let D = 0.25 * ((pr[i] + pr[j]) * a + (prN[i] + prN[j]) * a * a) * s;
+      if (D > DMAX) D = DMAX; else if (D < -DMAX) D = -DMAX;
+      const dx = D * ux, dy = D * uy;
+      if (fi && fj) { x[i] -= dx; y[i] -= dy; x[j] += dx; y[j] += dy; }
+      else if (fi) { x[i] -= 2 * dx; y[i] -= 2 * dy; } else { x[j] += 2 * dx; y[j] += 2 * dy; }
+    }
+  }
+  for (let k0 = 0; k0 < nAct; k0++) {
+    const i = act[k0];
+    if (st[i] === LOOSE) { vx[i] = (x[i] - ox[i]) / dt; vy[i] = (y[i] - oy[i]) / dt; }
+    else if (st[i] === ON) { vx[i] = (x[i] - ox[i]) / dt; vy[i] = (y[i] - oy[i]) / dt; }
+  }
+}
+
+// ---------- what touch does ----------
+const rnd = () => Math.random() - 0.5;
+function cut(ax, ay, bx, by, pvx, pvy) {
+  const rc = P.cut * Math.max(L.R * 1.6, 12), rc2 = rc * rc;
+  const ex = bx - ax, ey = by - ay, el = ex * ex + ey * ey || 1;
+  const sp = Math.min(3200, Math.hypot(pvx, pvy)), sc = sp > 0 ? sp / Math.hypot(pvx, pvy) : 0;
+  const tvx = pvx * sc * P.fling, tvy = pvy * sc * P.fling;
+  for (let i = 0; i < N; i++) {
+    if (st[i] === FREE) continue;
+    const t = clamp(((x[i] - ax) * ex + (y[i] - ay) * ey) / el, 0, 1);
+    const dx = x[i] - (ax + ex * t), dy = y[i] - (ay + ey * t), d2 = dx * dx + dy * dy;
+    if (d2 > rc2) continue;
+    const w = 1 - Math.sqrt(d2) / rc;
+    if (st[i] === ON || st[i] === HOME) {
+      const side = Math.sign(dx * -ey + dy * ex) || 1; // a little push away from the blade on either side
+      const nx = -ey / Math.sqrt(el) * side, ny = ex / Math.sqrt(el) * side;
+      // the knocked-out piece leaves as one slug; surface tension then breaks it into drops
+      loosen(i, vx[i] * 0.6 + tvx * (0.5 + 0.5 * w) + nx * sp * 0.05 + rnd() * 25, vy[i] * 0.6 + tvy * (0.5 + 0.5 * w) + ny * sp * 0.05 + rnd() * 25);
+    } else { vx[i] += (tvx - vx[i]) * 0.25 * w; vy[i] += (tvy - vy[i]) * 0.25 * w; }
+  }
+}
+function splash(px, py) {
+  const rs = P.splash * L.cap * 0.22, v0 = P.splash * L.cap * 3.2;
+  for (let i = 0; i < N; i++) {
+    if (st[i] === FREE) continue;
+    const dx = x[i] - px, dy = y[i] - py, d = Math.hypot(dx, dy);
+    if (d > rs) continue;
+    const w = 1 - d / rs, ux = dx / (d || 1), uy = dy / (d || 1), v = v0 * (0.35 + 0.65 * w) * (0.7 + 0.6 * Math.random());
+    loosen(i, ux * v + rnd() * 30, uy * v - v0 * 0.35 * w + rnd() * 30);
+  }
+}
+// a tap on the page, away from the water: the whole stream sprays out at once, then the sources fill it again
+function nearWater(px, py) {
+  const r2 = (L.R * 3 + 14) ** 2;
+  for (let i = 0; i < N; i++) if (st[i] === ON || st[i] === HOME) { const dx = x[i] - px, dy = y[i] - py; if (dx * dx + dy * dy < r2) return true; }
+  return false;
+}
+// as if held until the letters are empty: the sources shut and the ends spray; then they fill again
+function burst() { drain = true; }
+function regather() { for (let i = 0; i < N; i++) if (st[i] === LOOSE) { st[i] = HOME; age[i] = 0; wgt[i] = 1; } }
+
+// ---------- WebGL (Rewind's splat: a summed Gaussian field plus droplet discs, thresholded) ----------
+function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+function prog(vs, fs) { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
+const splatP = prog(`#version 300 es
+layout(location=0) in vec3 aP; uniform vec2 uRes; uniform float uSize; out float vW;
+void main() { vW = aP.z; gl_Position = vec4(aP.x / uRes.x * 2.0 - 1.0, 1.0 - aP.y / uRes.y * 2.0, 0.0, 1.0); gl_PointSize = uSize; }`,
+`#version 300 es
+precision highp float; in float vW; uniform float uR; uniform float uSig; uniform float uDisc; uniform float uScale; out vec4 o;
+void main() {
+  float d = length(gl_PointCoord * 2.0 - 1.0) * uR;
+  if (d > uR) discard;
+  float w = exp(-d * d / (uSig * uSig)) * uScale * vW;
+  float a = clamp(uDisc * vW - d + 0.5, 0.0, 1.0);
+  o = vec4(w, 0.0, 0.0, a);
+}`);
+const compP = prog(`#version 300 es
+void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`,
+`#version 300 es
+precision highp float; uniform sampler2D uField; uniform vec2 uPx; uniform float uInv; uniform float uTh; uniform float uShine; uniform float uRad;
+uniform vec3 uBg; uniform vec3 uInk; out vec4 o;
+float hv(vec2 uv) { return smoothstep(0.5, 1.6, texture(uField, uv).r * uInv * 0.5 / uTh); }
+void main() {
+  vec2 uv = gl_FragCoord.xy * uPx;
+  vec4 f = texture(uField, uv);
+  float v = max(f.r * uInv * 0.5 / uTh, f.a);
+  float aa = max(fwidth(v), 1e-4);
+  float c = clamp((v - 0.5) / (aa * 1.4) + 0.5, 0.0, 1.0);
+  // the water's highlight: the body read as a height field, lit from the upper left, its glint cut out in the page colour
+  vec2 e = uPx * uRad;
+  float gx = hv(uv + vec2(e.x, 0.0)) - hv(uv - vec2(e.x, 0.0)), gy = hv(uv + vec2(0.0, e.y)) - hv(uv - vec2(0.0, e.y));
+  vec3 n = normalize(vec3(-gx * 4.0, -gy * 4.0, 1.0));
+  vec3 l = normalize(vec3(-0.55, 0.65, 0.55));
+  float spec = pow(max(dot(reflect(-l, n), vec3(0.0, 0.0, 1.0)), 0.0), 10.0);
+  float g = spec * uShine;
+  float sa = max(fwidth(g), 1e-4);
+  float hi = clamp((g - 0.5) / (sa * 1.4) + 0.5, 0.0, 1.0) * c;
+  o = vec4(mix(mix(uBg, uInk, c), uBg, hi), 1.0);
+}`);
+const U = (p, n) => gl.getUniformLocation(p, n);
+const uS = { res: U(splatP, 'uRes'), size: U(splatP, 'uSize'), r: U(splatP, 'uR'), sig: U(splatP, 'uSig'), disc: U(splatP, 'uDisc'), scale: U(splatP, 'uScale') };
+const uC = { field: U(compP, 'uField'), px: U(compP, 'uPx'), inv: U(compP, 'uInv'), th: U(compP, 'uTh'), shine: U(compP, 'uShine'), rad: U(compP, 'uRad'), bg: U(compP, 'uBg'), ink: U(compP, 'uInk') };
+const floatOK = !!gl.getExtension('EXT_color_buffer_float');
+const maxPoint = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1];
+const vao = gl.createVertexArray(), buf = gl.createBuffer();
+gl.bindVertexArray(vao);
+gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+gl.bindVertexArray(null);
+const emptyVao = gl.createVertexArray();
+let fieldTex = null, fbo = null, pts = new Float32Array(0);
+function makeTargets() {
+  const w = cv.width, h = cv.height;
+  if (fieldTex) gl.deleteTexture(fieldTex);
+  if (fbo) gl.deleteFramebuffer(fbo);
+  fieldTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, fieldTex);
+  if (floatOK) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fieldTex, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+function draw() {
+  let n = 0;
+  for (let k = 0; k < nAct; k++) { const i = act[k]; if (wgt[i] <= 0.01) continue; pts[3 * n] = x[i]; pts[3 * n + 1] = y[i]; pts[3 * n + 2] = wgt[i]; n++; }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, pts.subarray(0, 3 * n), gl.STREAM_DRAW);
+  const s = L.s, sig = P.blur * s * dpr, disc = P.drop * 0.5 * s * dpr;
+  const R = Math.min(Math.max(3 * sig, disc + 1), maxPoint / 2);
+  const interior = 1 + latticeSum((d) => Math.exp(-(d * d) / (P.blur * P.blur)), 6);
+  const scale = floatOK ? 1 : 0.35 / interior;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.viewport(0, 0, cv.width, cv.height);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendEquationSeparate(gl.FUNC_ADD, gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
+  gl.useProgram(splatP);
+  gl.uniform2f(uS.res, W, H); gl.uniform1f(uS.size, 2 * R); gl.uniform1f(uS.r, R);
+  gl.uniform1f(uS.sig, sig); gl.uniform1f(uS.disc, disc); gl.uniform1f(uS.scale, scale);
+  gl.bindVertexArray(vao); gl.drawArrays(gl.POINTS, 0, n);
+  gl.disable(gl.BLEND);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.useProgram(compP);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fieldTex); gl.uniform1i(uC.field, 0);
+  gl.uniform2f(uC.px, 1 / cv.width, 1 / cv.height);
+  gl.uniform1f(uC.inv, 1 / (interior * scale)); gl.uniform1f(uC.th, P.th);
+  gl.uniform1f(uC.shine, P.shine * 1.6); gl.uniform1f(uC.rad, Math.max(2, L.R * 0.9 * dpr));
+  gl.uniform3fv(uC.bg, P.dark ? [0, 0, 0] : [1, 1, 1]); gl.uniform3fv(uC.ink, P.dark ? [1, 1, 1] : [0, 0, 0]);
+  gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+// ---------- loop ----------
+const T = { holding: false, demo: null, touched: false, ms: 0 };
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
+  if (L) {
+    const hold = T.holding || drain;
+    pres += ((hold ? 1 : 0) - pres) * (1 - Math.exp(-dt * (hold ? 2.2 : 3.5)));
+    const t0 = performance.now();
+    if (T.demo) demoStep(now);
+    const n = Math.max(1, Math.ceil(dt * 180));
+    for (let k = 0; k < n; k++) step(dt / n);
+    if (drain) { let on = 0; for (let i = 0; i < N; i++) if (st[i] === ON || st[i] === HOME) { on = 1; break; } if (!on) drain = false; }
+    draw();
+    T.ms = T.ms * 0.95 + (performance.now() - t0) * 0.05;
+  }
+  requestAnimationFrame(frame);
+}
+// the one self-demo: a single cut across the name, until the first touch
+function demoStep(now) {
+  const d = T.demo, u = clamp((now - d.t0) / d.dur, 0, 1);
+  if (u <= 0) return;
+  const e = u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u);
+  const px = d.ax + (d.bx - d.ax) * e, py = d.ay + (d.by - d.ay) * e;
+  const dts = Math.max(1e-3, (now - d.lt) / 1000);
+  cut(d.lx, d.ly, px, py, (px - d.lx) / dts, (py - d.ly) / dts);
+  d.lx = px; d.ly = py; d.lt = now;
+  if (u >= 1) T.demo = null;
+}
+function startDemo() {
+  if (reduced || T.touched) return;
+  const now = performance.now(), ax = W * 0.12, ay = H * 0.3, bx = W * 0.88, by = H * 0.56;
+  T.demo = { t0: now + 900, dur: 520, ax, ay, bx, by, lx: ax, ly: ay, lt: now + 900 };
+}
+
+// ---------- gestures: drag cuts, tap splashes, hold opens the tap, double tap gathers the loose water ----------
+let ptr = null, holdTimer = 0, lastTap = 0, gatherTimer = 0;
+cv.addEventListener('pointerdown', (e) => {
+  if (e.button > 0 || ptr || !L) return;
+  cv.setPointerCapture(e.pointerId);
+  T.touched = true; T.demo = null;
+  ptr = { id: e.pointerId, x0: e.clientX, y0: e.clientY, lx: e.clientX, ly: e.clientY, lt: performance.now(), t0: performance.now(), kind: 'pending', vx: 0, vy: 0 };
+  holdTimer = setTimeout(() => { if (ptr && ptr.kind === 'pending') { ptr.kind = 'hold'; T.holding = true; } }, 250);
+});
+cv.addEventListener('pointermove', (e) => {
+  if (!ptr || e.pointerId !== ptr.id) return;
+  const now = performance.now();
+  if (ptr.kind !== 'drag' && Math.hypot(e.clientX - ptr.x0, e.clientY - ptr.y0) > 8) {
+    clearTimeout(holdTimer); ptr.kind = 'drag'; T.holding = false;
+  }
+  if (ptr.kind === 'drag') {
+    const dts = Math.max(4, now - ptr.lt) / 1000;
+    ptr.vx = ptr.vx * 0.4 + ((e.clientX - ptr.lx) / dts) * 0.6; ptr.vy = ptr.vy * 0.4 + ((e.clientY - ptr.ly) / dts) * 0.6;
+    cut(ptr.lx, ptr.ly, e.clientX, e.clientY, ptr.vx, ptr.vy);
+  }
+  ptr.lx = e.clientX; ptr.ly = e.clientY; ptr.lt = now;
+});
+function up(e, cancelled) {
+  if (!ptr || e.pointerId !== ptr.id) return;
+  clearTimeout(holdTimer);
+  const now = performance.now();
+  T.holding = false;
+  if (ptr.kind === 'pending' && !cancelled && now - ptr.t0 < 250) {
+    if (now - lastTap < 380) { lastTap = 0; clearTimeout(gatherTimer); gatherTimer = setTimeout(regather, 420 - 380 + 40); }
+    else { lastTap = now; if (nearWater(e.clientX, e.clientY)) splash(e.clientX, e.clientY); else burst(); }
+  }
+  ptr = null;
+}
+cv.addEventListener('pointerup', (e) => up(e, false));
+cv.addEventListener('pointercancel', (e) => up(e, true));
+cv.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ---------- build ----------
+let buildId = 0;
+async function build() {
+  const my = ++buildId;
+  dpr = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  try { await document.fonts.load('600 220px "Inter Tight"', text()); } catch (e) { /* falls back */ }
+  if (my !== buildId) return;
+  cv.setAttribute('aria-label', `${text()}, written by a stream of water flowing along the letters. Drag across it to cut the stream; it re-forms.`);
+  L = layout();
+  const n = Math.ceil(L.total * 1.9) + 600;
+  alloc(n); pts = new Float32Array(3 * n);
+  gcell = SIM_H * L.s; gw = Math.ceil(W / gcell) + 5; gh = Math.ceil(H / gcell) + 5; start = new Int32Array(gw * gh + 1);
+  simT = 0; pres = 0;
+  fill();
+  makeTargets();
+}
+let booted = false;
+async function boot() {
+  await build();
+  booted = true; startDemo();
+  requestAnimationFrame((t) => { last = t; frame(t); });
+}
+let rt = 0;
+addEventListener('resize', () => { if (!booted) return; clearTimeout(rt); rt = setTimeout(build, 200); });
+
+// ---------- settings sheet ----------
+const KEYS = ['width', 'speed', 'pulse', 'cut', 'fling', 'splash', 'grav', 'life', 'tens', 'visc', 'th', 'blur', 'shine', 'drop'];
+const REBUILD = new Set(['width']);
+const fmt = (v) => (Math.abs(v) >= 10 ? v.toFixed(0) : (Math.abs(v) >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(/\.?0+$/, '')) || '0';
+function syncUI() {
+  document.documentElement.classList.toggle('dark', !!P.dark);
+  $('dark').checked = !!P.dark; $('spray').value = P.spray;
+  $('words').value = P.words || ''; $('words').placeholder = album;
+  for (const k of KEYS) { $(k).value = P[k]; $(k + 'O').textContent = fmt(+P[k]); }
+}
+let bt = 0;
+for (const k of KEYS) {
+  $(k).addEventListener('input', () => {
+    P[k] = +$(k).value; $(k + 'O').textContent = fmt(P[k]); save();
+    if (REBUILD.has(k)) { clearTimeout(bt); bt = setTimeout(build, 250); }
+  });
+}
+let wt = 0;
+$('words').addEventListener('input', () => {
+  const v = $('words').value; if (v.trim() && !WORDS_OK.test(v.trim())) return;
+  P.words = v; save(); clearTimeout(wt); wt = setTimeout(build, 500);
+});
+$('nextAlbum').addEventListener('click', () => { P.words = ''; $('words').value = ''; save(); nextAlbum(); $('words').placeholder = album; build(); });
+$('spray').addEventListener('change', () => { P.spray = $('spray').value; save(); });
+$('dark').addEventListener('change', () => { P.dark = $('dark').checked; save(); syncUI(); });
+$('gear').addEventListener('click', () => { const s = $('sheet'); s.hidden = !s.hidden; $('gear').setAttribute('aria-expanded', String(!s.hidden)); });
+$('copy').addEventListener('click', () => { const txt = JSON.stringify(P);
+  navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => { $('copy').textContent = 'Copy settings'; }, 1200); },
+    () => { $('copy').textContent = txt; }); });
+$('reset').addEventListener('click', () => { Object.assign(P, DEF); save(); syncUI(); build(); });
+syncUI();
+window.__jet = { P, T, get L() { return L; }, stats() { let c = [0, 0, 0, 0]; for (let i = 0; i < N; i++) c[st[i]]++; return { N, free: c[0], on: c[1], loose: c[2], home: c[3], ms: +T.ms.toFixed(2) }; }, cut, splash, burst, regather, build };
+boot();
+</script>

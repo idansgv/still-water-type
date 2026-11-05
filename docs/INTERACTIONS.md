@@ -130,6 +130,21 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Theme | both: light and dark |
 | Face | Archivo Black (Google Fonts, the name's letters only) |
 
+## Jet (published 5 Nov 2026)
+
+| | Jet |
+|---|---|
+| At rest | the name (or an album title) written by a stream of water flowing along the letters' centre lines in Inter Tight 600, each letter fed from its lowest point; it flows at rest (Idan's call) |
+| Drag | cuts the stream where it crosses; the water flies off along the drag and the gap is carried away as the stream mends |
+| Tap on the water | splashes the stream there |
+| Tap on background | drains it: as if held, the sources shut, until the letters are empty; then they fill again |
+| Hold | turns up the pressure: faster, wider, the stroke ends spray |
+| Double tap | the loose water flies back into the stream (a beat later, so a third tap can still mean reveal) |
+| Three taps (reveal) | the centre lines, each source and every particle |
+| Self-demo | one cut across the name, until the first touch; off under reduced motion (the water then stands still until touched) |
+| Theme | both: light and dark |
+| Face | Inter Tight 600 (Google Fonts, the name's letters only) |
+
 ## Rewind (published 4 Nov 2026)
 
 | | Rewind |
