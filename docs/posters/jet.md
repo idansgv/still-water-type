@@ -10,7 +10,7 @@ Idea taken from github.com/prinzipiell/tsl, *Splish Splash* (SPH water running a
 
 ## Interactions
 - **Drag:** cuts the stream where it crosses. The water flies off along the drag.
-- **Tap on the water:** splashes the stream at that point.
+- **Tap on the water:** opens the tap for 4 s, like a short hold (Idan, 5 Nov 2026): 2.6x faster, 35% wider, the ends spray; then it eases back.
 - **Tap on the page:** drains it: as if held, with the sources shut, until the letters are empty; then they fill again (Idan, 5 Nov 2026).
 - **Hold:** turns up the pressure. The stream runs faster and wider, and the stroke ends spray out in arcs, like a fountain.
 - **Double tap:** the loose water flies back into the stream.

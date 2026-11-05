@@ -290,7 +290,7 @@ const take = () => (nFree > 0 ? freeList[--nFree] : -1);
 const release = (i) => { st[i] = FREE; wgt[i] = 0; freeList[nFree++] = i; };
 
 // where the stream puts a particle: on the chain at arc length a, across the jet by lat
-let simT = 0, pres = 0, drain = false;
+let simT = 0, pres = 0, drain = false, boostUntil = 0; // a tap on the water: the hold's pressure for 4 s
 function place(i, ch, a) {
   const f = clamp(a / ch.step, 0, ch.n - 1.001), j = f | 0, u = f - j;
   const cx = ch.X[j] + (ch.X[j + 1] - ch.X[j]) * u, cy = ch.Y[j] + (ch.Y[j + 1] - ch.Y[j]) * u;
@@ -362,6 +362,7 @@ function step(dt) {
   });
   // 2. move: the stream along its chains, loose water under gravity
   nAct = 0;
+  const ageK = nFree < N * 0.15 ? 4 : 1; // the reserve running low: loose water fades sooner, so the sources never starve
   for (let i = 0; i < N; i++) {
     const s0 = st[i]; if (s0 === FREE) continue;
     const ch = L.chains[chI[i]];
@@ -384,7 +385,7 @@ function step(dt) {
       x[i] += (px - x[i]) * kk; y[i] += (py - y[i]) * kk;
       if (Math.hypot(px - x[i], py - y[i]) < L.s * 0.6) { st[i] = ON; x[i] = px; y[i] = py; }
     } else {
-      age[i] += dt;
+      age[i] += dt * ageK;
       if (age[i] > life[i] || y[i] > H + 60 || x[i] < -60 || x[i] > W + 60) { release(i); continue; }
       vy[i] += g * dt; vx[i] *= 0.998; vy[i] *= 0.998;
       x[i] += vx[i] * dt; y[i] += vy[i] * dt;
@@ -574,8 +575,8 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
   if (L) {
-    const hold = T.holding || drain;
-    pres += ((hold ? 1 : 0) - pres) * (1 - Math.exp(-dt * (hold ? 2.2 : 3.5)));
+    const boost = now < boostUntil, hold = T.holding || drain || boost;
+    pres += ((hold ? 1 : 0) - pres) * (1 - Math.exp(-dt * (hold ? (boost ? 4 : 2.2) : 3.5)));
     const t0 = performance.now();
     if (T.demo) demoStep(now);
     const n = Math.max(1, Math.ceil(dt * 180));
@@ -632,7 +633,7 @@ function up(e, cancelled) {
   T.holding = false;
   if (ptr.kind === 'pending' && !cancelled && now - ptr.t0 < 250) {
     if (now - lastTap < 380) { lastTap = 0; clearTimeout(gatherTimer); gatherTimer = setTimeout(regather, 420 - 380 + 40); }
-    else { lastTap = now; if (nearWater(e.clientX, e.clientY)) splash(e.clientX, e.clientY); else burst(); }
+    else { lastTap = now; if (nearWater(e.clientX, e.clientY)) boostUntil = now + 4000; else burst(); }
   }
   ptr = null;
 }
@@ -651,7 +652,7 @@ async function build() {
   if (my !== buildId) return;
   cv.setAttribute('aria-label', `${text()}, written by a stream of water flowing along the letters. Drag across it to cut the stream; it re-forms.`);
   L = layout();
-  const n = Math.ceil(L.total * 1.9) + 600;
+  const n = Math.ceil(L.total * 3) + 600; // room for the stream plus the spray of a full-pressure hold
   alloc(n); pts = new Float32Array(3 * n);
   gcell = SIM_H * L.s; gw = Math.ceil(W / gcell) + 5; gh = Math.ceil(H / gcell) + 5; start = new Int32Array(gw * gh + 1);
   simT = 0; pres = 0;

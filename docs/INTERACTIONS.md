@@ -136,7 +136,7 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 |---|---|
 | At rest | the name (or an album title) written by a stream of water flowing along the letters' centre lines in Inter Tight 600, each letter fed from its lowest point; it flows at rest (Idan's call) |
 | Drag | cuts the stream where it crosses; the water flies off along the drag and the gap is carried away as the stream mends |
-| Tap on the water | splashes the stream there |
+| Tap on the water | opens the tap for 4 s, like a short hold: the water runs 2.6x faster, 35% wider, the stroke ends spray; then it eases back |
 | Tap on background | drains it: as if held, the sources shut, until the letters are empty; then they fill again |
 | Hold | turns up the pressure: faster, wider, the stroke ends spray |
 | Double tap | the loose water flies back into the stream (a beat later, so a third tap can still mean reveal) |

@@ -10,7 +10,7 @@
 // carried downstream and the stream re-forms by itself. Render: Rewind's metaball splat (Gaussian field plus droplet discs,
 // thresholded) in pure ink on the page colour.
 //
-// Gestures (src/gestures.js): drag cuts the stream; tap on the water splashes it; tap on the page away from the water drains it:
+// Gestures (src/gestures.js): drag cuts the stream; tap on the water opens the tap for a moment, as a short hold (Idan, 5 Nov 2026); tap on the page away from the water drains it:
 // as if held, with the sources shut, until the letters are empty, then they fill again (Idan, 5 Nov 2026); hold turns up the pressure (faster, wider, the stroke ends spray); double tap sends
 // the loose water back into the stream (a beat later, so a third tap can still mean reveal). Reveal: the centre lines, each
 // source and every particle. Self-demo: one cut across the name until the first touch. The water flows at rest (Idan's call, like
@@ -306,7 +306,8 @@ export async function mount(stage) {
   const take = () => (nFree > 0 ? freeList[--nFree] : -1);
   const release = (i) => { st[i] = FREE; wgt[i] = 0; freeList[nFree++] = i; };
 
-  let simT = 0, pres = 0, wakeUntil = 0, drain = false, nOn = 0;
+  let simT = 0, pres = 0, wakeUntil = 0, drain = false, nOn = 0, boostUntil = 0;
+  const BOOST_MS = 4000;   // a tap on the water: the hold's pressure for this long, then it eases back
   // under reduced motion the water stands still, and flows only for a few seconds after a touch so a cut can mend
   const flowPx = () => (reduced && performance.now() > wakeUntil ? 0 : (reduced ? 0.3 : 1)) * P.speed * L.cap * 0.9 * (1 + 1.6 * pres);
   // where the stream puts a particle: on the chain at arc length a, across the jet by lat
@@ -367,6 +368,7 @@ export async function mount(stage) {
   }
   function move(dt, f, g, spray) {
     nAct = 0; nOn = 0;
+    const ageK = nFree < N * 0.15 ? 4 : 1;   // the reserve running low: loose water fades sooner, so the sources never starve
     for (let i = 0; i < N; i++) {
       const s0 = st[i]; if (s0 === FREE) continue;
       const ch = L.chains[chI[i]];
@@ -387,7 +389,7 @@ export async function mount(stage) {
         x[i] += (PL[0] - x[i]) * kk; y[i] += (PL[1] - y[i]) * kk;
         if (Math.hypot(PL[0] - x[i], PL[1] - y[i]) < L.s * 0.6) { st[i] = ON; x[i] = PL[0]; y[i] = PL[1]; }
       } else {
-        age[i] += dt;
+        age[i] += dt * ageK;
         if (age[i] > life[i] || y[i] > H + 60 || x[i] < -60 || x[i] > W + 60) { release(i); continue; }
         vy[i] += g * dt; vx[i] *= 0.998; vy[i] *= 0.998;
         x[i] += vx[i] * dt; y[i] += vy[i] * dt;
@@ -520,10 +522,10 @@ export async function mount(stage) {
   function build() {
     W = stage.W; H = stage.H; dpr = stage.pw / stage.W;
     L = layout();
-    alloc(Math.ceil(L.total * 1.9) + 600);
+    alloc(Math.ceil(L.total * 3) + 600);   // room for the stream plus the spray of a full-pressure hold
     gcell = SIM_H * L.s; gw = Math.ceil(W / gcell) + 5; gh = Math.ceil(H / gcell) + 5;
     start = new Int32Array(gw * gh + 1); cur = new Int32Array(gw * gh);
-    simT = 0; flowT = 0; pres = 0; drain = false;
+    simT = 0; flowT = 0; pres = 0; drain = false; boostUntil = 0;
     fill();
     makeTargets();
     move(0, 0, 0, false);
@@ -579,7 +581,7 @@ export async function mount(stage) {
       gatherT = setTimeout(() => { if (alive && !stage.revealed) { regather(); wake(); } }, REFORM_DELAY_MS - DOUBLE_MS + 40);
     } else {
       lastTap = now;
-      if (nearWater(q.x, q.y)) splash(q.x, q.y); else { empty(); wake(); }
+      if (nearWater(q.x, q.y)) { boostUntil = now + BOOST_MS; wake(); } else { empty(); wake(); }
     }
   }));
   offs.push(stage.on('reveal', () => { clearTimeout(gatherT); lastTap = 0; }));
@@ -606,9 +608,9 @@ export async function mount(stage) {
     if (!L) return;
     const now = performance.now();
     dt = Math.min(dt, 1 / 30);
-    const holding = (press.active && ptr && !ptr.drag && press.holding) || drain;
+    const boost = now < boostUntil, holding = (press.active && ptr && !ptr.drag && press.holding) || drain || boost;
     if (holding) wake();
-    pres += ((holding ? 1 : 0) - pres) * (1 - Math.exp(-dt * (holding ? 2.2 : 3.5)));
+    pres += ((holding ? 1 : 0) - pres) * (1 - Math.exp(-dt * (holding ? (boost ? 4 : 2.2) : 3.5)));   // a tap's boost opens faster than a hold
     if (T.demo) demoStep(now);
     const n = Math.max(1, Math.ceil(dt * 180));
     for (let k = 0; k < n; k++) step(dt / n);
