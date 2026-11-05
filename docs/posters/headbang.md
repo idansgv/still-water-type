@@ -1,6 +1,6 @@
-# Handbang
+# Headbang
 
-**Status:** published 2026-11-05. Test at `/?p=handbang`. Poster: `src/posters/handbang.js` (settings: `&tune`). Test page: https://claude.ai/artifact/41ErYe8fR7Wt6JiUquYD8S, prototype `docs/posters/prototypes/handbang.html`.
+**Status:** published 2026-11-05. Test at `/?p=headbang`. Poster: `src/posters/headbang.js` (settings: `&tune`). Test page: https://claude.ai/artifact/41ErYe8fR7Wt6JiUquYD8S, prototype `docs/posters/prototypes/headbang.html`.
 
 **What it is:** the name grown into a symmetric metal-band logo, procedurally: antlers (or thorns, roots, wings) sprout from the letter edges, mirrored about the word's centre and melted into the letters with Embers' blur + threshold. Pirata One.
 
@@ -68,8 +68,8 @@ Three quick taps toggle black bones on #FF1111 (faded in over ~0.3 s); three mor
 ## Easter egg: blood red (5 Nov 2026, Idan's ask)
 Three quick taps toggle black bones on #FF1111 (faded in over about 0.3 s); three more go back. Taps are now counted and acted on once they stop (380 ms): one = shuffle style, two = take the last node back, three = blood red. **Conflict when porting:** triple tap is the site-wide Reveal (`src/posters/reveal.js`; the shell also inverts the page, which would turn the red cyan). The proposed site gesture is a headbang: shake the phone (`devicemotion`) or scribble fast on desktop. Idan to decide.
 
-## Handbang: headbang + tear (5 Nov 2026)
-Idan named the poster **Handbang** and chose shake over triple tap (which stays the site's Reveal). Shaking the phone (4 jolts within 0.9 s, `devicemotion`; iOS asks for motion access on the first touch) or scribbling fast left and right during a drag (5 direction flips at > 900 px/s within 0.9 s) toggles blood red. The change tears the page down the logo's mirror axis: the two halves rotate away from their top outer corners and fall, each carrying the old scheme and half the logo, with a grey torn-paper core along the jagged edge, while the new scheme lies underneath. This works both ways (black to red, red to black). Settings: Shake sensitivity, Tear time (0.9 s), "Headbang now". Under reduced motion it switches without the tear. The file keeps its name (`prototypes/metal-logo.html`) so the test link stays the same.
+## Headbang: headbang + tear (5 Nov 2026)
+Idan named the poster **Headbang** (first published as "Handbang" by mistake on 5 Nov 2026; `/p/handbang/` redirects here) and chose shake over triple tap (which stays the site's Reveal). Shaking the phone (4 jolts within 0.9 s, `devicemotion`; iOS asks for motion access on the first touch) or scribbling fast left and right during a drag (5 direction flips at > 900 px/s within 0.9 s) toggles blood red. The change tears the page down the logo's mirror axis: the two halves rotate away from their top outer corners and fall, each carrying the old scheme and half the logo, with a grey torn-paper core along the jagged edge, while the new scheme lies underneath. This works both ways (black to red, red to black). Settings: Shake sensitivity, Tear time (0.9 s), "Headbang now". Under reduced motion it switches without the tear. The file keeps its name (`prototypes/metal-logo.html`) so the test link stays the same.
 
 **Update (5 Nov 2026, Idan):** only the background tears. The logo stays in place and whole, inked white over the old (black) page and black over the new (red) one as the tear opens. Deeper red: `#a3080c` by default, with a "Blood colour" picker in Settings.
 

@@ -1,4 +1,4 @@
-// Handbang: the name grows into a symmetric metal-band logo. Antlers (or thorns, roots, wings) sprout from the letter edges,
+// Headbang: the name grows into a symmetric metal-band logo. Antlers (or thorns, roots, wings) sprout from the letter edges,
 // mirrored about the word's centre, and melt into the letters with Embers' blur + threshold. Port of the test page
 // docs/posters/prototypes/metal-logo.html with Idan's tuning (5 Nov 2026). Procedural throughout; nothing is drawn by hand.
 //
@@ -568,7 +568,7 @@ export async function mount(stage) {
     c.stroke();
     c.fillStyle = colr(0.85 * k);
     for (const [x0, y0, x1, y1] of seeds) { c.fillRect(x0 - 1.5, y0 - 1.5, 3, 3); c.fillRect(x1 - 1.5, y1 - 1.5, 3, 3); }
-    titleBlock(c, W_, H_, [`HANDBANG · ${P.genre.toUpperCase()}`, `· ${seeds.length} seeds on the letter edges, grown on the left`, '— each joined to its twin across the mirror', '| the axis: everything right of it is a reflection'], colr, k);
+    titleBlock(c, W_, H_, [`HEADBANG · ${P.genre.toUpperCase()}`, `· ${seeds.length} seeds on the letter edges, grown on the left`, '— each joined to its twin across the mirror', '| the axis: everything right of it is a reflection'], colr, k);
   }, { dim: 0.5 });
 
   // ---------- the frame: draws only while something grows, tears or shakes ----------
@@ -609,7 +609,7 @@ export async function mount(stage) {
   const REGROW = new Set(['pairs', 'thorns', 'len', 'lenVar', 'width', 'taper', 'wing', 'up', 'down', 'side', 'curve', 'outward', 'wiggle', 'vert', 'gravity', 'fan', 'branch', 'bAngle', 'bScale', 'tines', 'blunt', 'gnarl', 'knuckle']);
   let bt = 0;
   const tune = {
-    title: 'Handbang', values: P, defaults: { ...DEF, genre: 'antler' },
+    title: 'Headbang', values: P, defaults: { ...DEF, genre: 'antler' },
     groups: [
       { name: 'Spikes', items: [Ctl('pairs', 'Spike pairs', 0, 200, 1), Ctl('thorns', 'Small thorn pairs', 0, 200, 1), Ctl('len', 'Length', 0.05, 2.6, 0.01), Ctl('lenVar', 'Length variety', 0, 0.95, 0.01), Ctl('width', 'Base width', 0.01, 0.25, 0.005), Ctl('taper', 'Taper', 0.3, 3, 0.05), Ctl('wing', 'Outer letters longer', 0, 8, 0.1)] },
       { name: 'Where they grow', items: [Ctl('up', 'From tops', 0, 3, 0.05), Ctl('down', 'From bottoms', 0, 3, 0.05), Ctl('side', 'From outer sides', 0, 3, 0.05)] },

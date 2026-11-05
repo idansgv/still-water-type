@@ -130,9 +130,9 @@ Hover the top-left corner and a quiet "Posters" appears (on a touch screen it is
 | Theme | both: light and dark |
 | Face | Archivo Black (Google Fonts, the name's letters only) |
 
-## Handbang (published 5 Nov 2026)
+## Headbang (published 5 Nov 2026)
 
-| | Handbang |
+| | Headbang |
 |---|---|
 | At rest | the name (or an album title) in Pirata One grown into a symmetric metal-band logo of bone antlers; it grows once on load, then nothing moves |
 | Tap | another style (antlers, thorns, roots, wings, brutal) and a new seed (acts a beat later, so taps can be counted) |

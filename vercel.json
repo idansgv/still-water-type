@@ -19,6 +19,16 @@
       "permanent": true
     },
     {
+      "source": "/p/handbang/",
+      "destination": "/p/headbang/",
+      "permanent": true
+    },
+    {
+      "source": "/p/handbang",
+      "destination": "/p/headbang/",
+      "permanent": true
+    },
+    {
       "source": "/p/jazz-fan/",
       "destination": "/p/fan/",
       "permanent": true

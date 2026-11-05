@@ -28,11 +28,11 @@ const SCENES = {
   gyosho: async (p) => { await p.evaluate(() => window.__poster.inst.debug.finish()); await p.mouse.move(180, 560); await p.mouse.down(); for (let i = 0; i <= 30; i++) { await p.mouse.move(180 + i * 30, 560 - Math.sin(i / 9) * 90); await sleep(16 + i); } await p.mouse.up(); await sleep(300); },   // written, then one stroke of your own drying out across it
   arboretum: async (p) => { await sleep(4200); await p.mouse.move(150, 300); for (let i = 0; i <= 24; i++) { await p.mouse.move(150 + i * 36, 300); await sleep(16); } await sleep(500); },   // grown, with a gust crossing it
   drop: async (p) => { await sleep(3600); },   // mid-break: some letters in pieces, the pile building, a whole one standing
-  handbang: async (p) => { await sleep(3200); },   // grown: the name as an antlered, mirrored logo
+  headbang: async (p) => { await sleep(3200); },   // grown: the name as an antlered, mirrored logo
   embers: async (p) => { await sleep(7500); },   // held: the name as merged glowing blobs (after the self-demo's release has come back)
   jet: async (p) => { await sleep(2600); await p.mouse.move(380, 250); await p.mouse.down(); for (let i = 0; i <= 10; i++) { await p.mouse.move(380 + i * 40, 250 + i * 22); await sleep(16); } await p.mouse.up(); await sleep(350); },   // just after a cut: the water flies off, the stream still reads
   rewind: async (p) => { await sleep(1500); await p.mouse.click(640, 400); await sleep(2300); },   // mid-splash: a tap lets the letters go, in slow motion
 };
 
-const PREVIEW_THEME = { embers: 'dark', handbang: 'dark', glint: 'dark', glitter: 'dark', moonlit: 'dark', goblet: 'dark', drop: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
+const PREVIEW_THEME = { embers: 'dark', headbang: 'dark', glint: 'dark', glitter: 'dark', moonlit: 'dark', goblet: 'dark', drop: 'dark' };                // the menu preview is black on white unless a poster's picture is a night scene
 module.exports = { SCENES, PREVIEW_THEME, sleep };
