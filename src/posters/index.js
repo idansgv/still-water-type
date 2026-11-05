@@ -15,7 +15,7 @@ export const POSTERS = [
   {
     slug: 'still-water',
     colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
-    prompt: "Flat black type reading \"Idan Segev\" on a white page (with an inverted white-on-black variant), drawn with WebGL2. Underneath the flat graphic runs a real 2D wave-equation height field, stepped on the GPU with ping-pong float textures. Pointer and touch drop ripples into it that spread, reflect off the edges and slowly fade, and the type refracts through the surface so every touch distorts the letters. Hidden extra: press L (or tap three times) to turn on a lamp that throws caustics through the water onto the type. Only black and white, no UI, no instructions.",
+    prompt: "Flat black type in Bitter reading \"Idan Segev\" on a white page (with an inverted white-on-black variant), drawn with WebGL2. Underneath the flat graphic runs a real 2D wave-equation height field, stepped on the GPU with ping-pong float textures. Pointer and touch drop ripples into it that spread, reflect off the edges and slowly fade, and the type refracts through the surface so every touch distorts the letters. Hidden extra: press L (or tap three times) to turn on a lamp that throws caustics through the water onto the type. Only black and white, no UI, no instructions.",
     title: 'Still Water',
     words: ['Idan', 'Segev'],
     blurb: 'Type that remembers every touch. Ripples, and a lamp if you find it.',
@@ -48,7 +48,7 @@ export const POSTERS = [
   {
     slug: 'soft-type',
     colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
-    prompt: "The name \"Idan Segev\" in huge bold type, where each letter is a few skeleton strokes sampled into round particles that behave like one soft elastic material (position-based dynamics: distance links, a bending-smoothing pass, a spatial hash for contacts, a weak pull back to each letter's rest shape). The thick bubbly look is a round-capped stroke drawn along the particle path. Drag a letter and it bends and squashes against its neighbours. Hold one without moving and it inflates through a point on the letter; let go and air rushes out, rocketing it the other way. Hold too long and it trembles, then bursts, throwing the other letters across the page. Cartoon speed lines and little flicks tell the story. Black on white, canvas 2D.",
+    prompt: "The name \"Idan Segev\" in huge bold type, drawn as its own letters, not a font, where each letter is a few skeleton strokes sampled into round particles that behave like one soft elastic material (position-based dynamics: distance links, a bending-smoothing pass, a spatial hash for contacts, a weak pull back to each letter's rest shape). The thick bubbly look is a round-capped stroke drawn along the particle path. Drag a letter and it bends and squashes against its neighbours. Hold one without moving and it inflates through a point on the letter; let go and air rushes out, rocketing it the other way. Hold too long and it trembles, then bursts, throwing the other letters across the page. Cartoon speed lines and little flicks tell the story. Black on white, canvas 2D.",
     title: 'Soft',
     words: ['Idan', 'Segev'],
     blurb: 'Letters made of one soft material. Drag them, squash them, hold one until it pops.',
@@ -61,7 +61,7 @@ export const POSTERS = [
   {
     slug: 'collapse',
     colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
-    prompt: "The name \"Idan Segev\" as flat black-and-white type that is secretly a field of tall standing columns, seen straight down through an orthographic camera so only the tops show. Use a 3D rigid-body engine (Rapier, WASM) and render with WebGL. Columns are cut from the letter shapes as overlapping boxes. Tap a column and it is knocked over and falls onto its neighbours; drag one and it follows the pointer on a spring. At rest it must look like plain flat type.",
+    prompt: "The name \"Idan Segev\" as flat black-and-white type, drawn as its own letters, that is secretly a field of tall standing columns, seen straight down through an orthographic camera so only the tops show. Use a 3D rigid-body engine (Rapier, WASM) and render with WebGL. Columns are cut from the letter shapes as overlapping boxes. Tap a column and it is knocked over and falls onto its neighbours; drag one and it follows the pointer on a spring. At rest it must look like plain flat type.",
     title: 'Collapse',
     words: ['Idan', 'Segev'],
     blurb: 'Flat type that is really standing columns. Knock one over and watch them fall on each other.',
@@ -74,7 +74,7 @@ export const POSTERS = [
   {
     slug: 'explode',
     colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
-    prompt: "The name \"Idan Segev\" as flat black-and-white type that is secretly a field of solid anchored columns, seen straight down through an orthographic camera. Use a 3D rigid-body engine (Rapier, WASM) and render with WebGL. Tap a letter and its column blows into triangular slabs; slabs that hit another letter hard enough set that one off too, a little weaker each time, so a chain reaction spreads. At rest it must look like plain flat type.",
+    prompt: "The name \"Idan Segev\" as flat black-and-white type, drawn as its own letters, that is secretly a field of solid anchored columns, seen straight down through an orthographic camera. Use a 3D rigid-body engine (Rapier, WASM) and render with WebGL. Tap a letter and its column blows into triangular slabs; slabs that hit another letter hard enough set that one off too, a little weaker each time, so a chain reaction spreads. At rest it must look like plain flat type.",
     title: 'Shatter',
     words: ['Idan', 'Segev'],
     blurb: 'Flat type that is really solid. Touch a letter and it shatters, and the pieces set off the rest.',
@@ -95,7 +95,7 @@ export const POSTERS = [
     nameable: true,
     face: { family: 'Archivo Black', weight: 400 },
     load: () => import('./splintered.js'),
-    prompt: "The name \"Idan Segev\" as polished extruded 3D type (three.js), rendered realistically: chrome on black or porcelain on white, studio reflections, soft shadows, depth of field, bloom. Tap a letter and the type is cut into Voronoi shards at that point (finer near the hit) and blows apart toward the camera. Time is directed: a forceful hit with a flash, sparks and glowing crack faces, then an ease into slow motion so shards drift past the lens and blur. Motion is closed-form in time, so hold rewinds it and the shards fly back together; double tap re-forms. Black and white only.",
+    prompt: "The name \"Idan Segev\" as polished extruded 3D type in Archivo Black (three.js), rendered realistically: chrome on black or porcelain on white, studio reflections, soft shadows, depth of field, bloom. Tap a letter and the type is cut into Voronoi shards at that point (finer near the hit) and blows apart toward the camera. Time is directed: a forceful hit with a flash, sparks and glowing crack faces, then an ease into slow motion so shards drift past the lens and blur. Motion is closed-form in time, so hold rewinds it and the shards fly back together; double tap re-forms. Black and white only.",
   },
   {
     slug: 'goblet',
@@ -223,7 +223,7 @@ export const POSTERS = [
   {
     slug: 'metal',
     colour: 'native',            // colours itself (src/colour.js colourOf): the shell adds no overlay
-    prompt: "The name \"Idan Segev\" as liquid mercury: about 95% black, lit like a mirror that reflects a black room with two small lamps, so only a few crisp highlights slide across it as it moves. Particles drawn as a metaball field, with surface tension (close pairs push apart, displaced pairs pull together) and neighbours sharing velocity. Left alone it holds its letter shapes. Pull a letter and the metal follows the finger, thins to a thread and beads into droplets that stay where they land; push two letters together and they fuse; tap to scatter into beads; double-tap empty space to pour it back into the name. On a phone, tilting rolls the beads.",
+    prompt: "The name \"Idan Segev\" as liquid mercury, drawn as its own letters: about 95% black, lit like a mirror that reflects a black room with two small lamps, so only a few crisp highlights slide across it as it moves. Particles drawn as a metaball field, with surface tension (close pairs push apart, displaced pairs pull together) and neighbours sharing velocity. Left alone it holds its letter shapes. Pull a letter and the metal follows the finger, thins to a thread and beads into droplets that stay where they land; push two letters together and they fuse; tap to scatter into beads; double-tap empty space to pour it back into the name. On a phone, tilting rolls the beads.",
     title: 'Liquid metal',
     words: ['Idan', 'Segev'],
     blurb: 'The name as liquid metal: black, with a few bright highlights. Pull it, scatter it, fuse it.',
@@ -269,7 +269,7 @@ export const POSTERS = [
     title: 'Slinky',
     words: ['Idan', 'Segev'],
     blurb: 'Solid letters that are really coiled Slinkys. Tap one and it springs free.',
-    prompt: "The name \"Idan Segev\" as condensed solid slinkys stood on an upright backdrop, each letter a coiled slinky chain standing out from the wall with its solid cap facing the viewer, flat and still at rest. Simulate each chain as a row of rigid rings with a rigid-body solver, one chain per letter, each in its own vertical plane running out from the wall toward the viewer, rendered with WebGL. Tap a letter and it lets go of the wall, drops onto a ledge in front and bounces there. Tap it again and it is pushed off the ledge and falls off the screen; a moment later it is back on the wall. Drag empty space to turn the view. Keys 1 to 6 jump between fixed views, X puts every letter back on the wall, L locks the camera. One colour: black on white, or white on black. Black and white only.",
+    prompt: "The name \"Idan Segev\" in Boldonse, as condensed solid slinkys stood on an upright backdrop, each letter a coiled slinky chain standing out from the wall with its solid cap facing the viewer, flat and still at rest. Simulate each chain as a row of rigid rings with a rigid-body solver, one chain per letter, each in its own vertical plane running out from the wall toward the viewer, rendered with WebGL. Tap a letter and it lets go of the wall, drops onto a ledge in front and bounces there. Tap it again and it is pushed off the ledge and falls off the screen; a moment later it is back on the wall. Drag empty space to turn the view. Keys 1 to 6 jump between fixed views, X puts every letter back on the wall, L locks the camera. One colour: black on white, or white on black. Black and white only.",
     hint: null,
     themes: { dark: 0, light: 1 },
     nameable: true,
@@ -305,7 +305,7 @@ export const POSTERS = [
     title: 'Rain',
     words: ['Idan', 'Segev'],
     blurb: 'Heavy type the colour of the page. Rain follows you and leaves its mark. Press, and it pours.',
-    prompt: "The name \"Idan Segev\" as heavy 3D type in exactly the colour of the page, so at first there is nothing to see, rendered with WebGL2. The word is an extruded mask (two lines of type, a slab of depth), ray-marched in the fragment shader with an orthographic camera that tilts a little with the pointer. Rain follows the pointer as slanted straight falls simulated on the CPU; each drop is tested against the mask, and where it lands it leaves a mark on the front face and a small volume on the tops and sides. Marks pile up and never fade, until the name stands there in ink. The shader reads the paint through a noisy threshold, so the edges are splatter-shaped. The body of the type stays page-coloured; only its tops and sides are tinted a few per cent. A press makes it pour. Black and white only.",
+    prompt: "The name \"Idan Segev\" as heavy 3D type in Bitter 700, exactly the colour of the page, so at first there is nothing to see, rendered with WebGL2. The word is an extruded mask (two lines of type, a slab of depth), ray-marched in the fragment shader with an orthographic camera that tilts a little with the pointer. Rain follows the pointer as slanted straight falls simulated on the CPU; each drop is tested against the mask, and where it lands it leaves a mark on the front face and a small volume on the tops and sides. Marks pile up and never fade, until the name stands there in ink. The shader reads the paint through a noisy threshold, so the edges are splatter-shaped. The body of the type stays page-coloured; only its tops and sides are tinted a few per cent. A press makes it pour. Black and white only.",
     hint: null,
     themes: { dark: 0.5, light: 0.5 },
     nameable: true,
@@ -360,7 +360,7 @@ export const POSTERS = [
     nameable: true,
     face: { family: 'Archivo', weight: 900, upper: true },
     load: () => import('./glint.js'),
-    prompt: "The name \"Idan Segev\" as a bevelled slab in black on black, nearly invisible, seen only where a small lamp low over the page catches the edges of the letters, rendered with WebGL2. Build a height field of the type with a smooth bevel, light it with a point lamp (specular on the bevel, a bloom from a blurred copy), and add volumetric light: a screen-space light-scattering pass marched from each pixel toward the lamp that the letters block, so beams spread from the lamp and the letters throw shafts of shadow away from it. The lamp follows the pointer.",
+    prompt: "The name \"Idan Segev\" as a bevelled slab in Archivo 900, black on black, nearly invisible, seen only where a small lamp low over the page catches the edges of the letters, rendered with WebGL2. Build a height field of the type with a smooth bevel, light it with a point lamp (specular on the bevel, a bloom from a blurred copy), and add volumetric light: a screen-space light-scattering pass marched from each pixel toward the lamp that the letters block, so beams spread from the lamp and the letters throw shafts of shadow away from it. The lamp follows the pointer.",
   },
   {
     slug: 'splat-type',
