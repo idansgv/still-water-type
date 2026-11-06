@@ -59,6 +59,7 @@ function edt(grid, w, h) {
   for (let x = 0; x < w; x++) { for (let y = 0; y < h; y++) f[y] = grid[y * w + x]; edt1(f, h, d, v, z); for (let y = 0; y < h; y++) grid[y * w + x] = d[y]; }
   for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) f[x] = grid[y * w + x]; edt1(f, w, d, v, z); for (let x = 0; x < w; x++) grid[y * w + x] = d[x]; }
 }
+const PITCH = 1.35;   // stacked lines, baseline to baseline, in caps: tight, like a logo, with just room for the descenders
 const font = (s) => `${WEIGHT} ${s}px "${FAMILY}", "Helvetica Neue", Arial, sans-serif`;
 function field(words, W, H, pw, ph, size) {
   // the full-resolution mask (the letters themselves, drawn into the logo)
@@ -72,16 +73,15 @@ function field(words, W, H, pw, ph, size) {
   const one = ink(words.join(' '));
   let lines = [one], k = Math.min(size * W / one.w, 0.17 * H / cap200);
   if (H > W && words.length > 1) {
-    const pitch = 1.9;   // line to line, in caps: room for the ascenders, descenders and the spikes between them
     for (let mask = 1; mask < 1 << (words.length - 1); mask++) {
       const ls = []; let cur = [words[0]];
       for (let i = 1; i < words.length; i++) { if (mask & (1 << (i - 1))) { ls.push(cur.join(' ')); cur = []; } cur.push(words[i]); }
       ls.push(cur.join(' '));
-      const ms = ls.map(ink), kk = Math.min(Math.min(0.8, size * 1.4) * W / Math.max(...ms.map((q) => q.w)), 0.36 * H / (cap200 * (1 + pitch * (ms.length - 1))));
+      const ms = ls.map(ink), kk = Math.min(Math.min(0.8, size * 1.4) * W / Math.max(...ms.map((q) => q.w)), 0.36 * H / (cap200 * (1 + PITCH * (ms.length - 1))));
       if (kk > k * 1.05) { k = kk; lines = ms; }
     }
   }
-  const fs = 200 * k, cap = cap200 * k, pitch = cap * 1.9;
+  const fs = 200 * k, cap = cap200 * k, pitch = cap * PITCH;
   const set = lines.map((q, i) => ({ t: q.t, x: W / 2 - q.w * k / 2 + q.l * k, y: H * 0.47 + cap / 2 + (i - (lines.length - 1) / 2) * pitch }));
   const draw = (c) => { c.font = font(fs); c.fillStyle = '#fff'; c.textBaseline = 'alphabetic'; for (const q of set) c.fillText(q.t, q.x, q.y); };
   mx.setTransform(pw / W, 0, 0, ph / H, 0, 0); draw(mx);
@@ -102,7 +102,7 @@ function field(words, W, H, pw, ph, size) {
   if (x0 > x1) { x0 = W / 2 - 1; x1 = W / 2 + 1; y0 = H / 2 - 1; y1 = H / 2 + 1; }
   // stacked, the type is set larger than the ornament it carries: the antlers keep the one-line scale
   const F = { sd, gw, gh, gs, cap: cap * (set.length > 1 ? 0.55 : 1), mask: m, cx: (x0 + x1) / 2 + 1 / gs / 2, hw: Math.max(1, (x1 - x0) / 2), top: y0, bot: y1, edges: [],
-    lines: set.map((q) => [Math.max(y0, q.y - cap * 1.45), Math.min(y1, q.y + cap * 0.6)]) };
+    lines: set.map((q) => [Math.max(y0, q.y - cap * 1.15), Math.min(y1, q.y + cap * 0.2)]) };
   for (let i = 0; i < n; i++) {
     if (sd[i] > -2.2 && sd[i] <= -0.2) {
       const ex = ((i % gw) + 0.5) / gs, ey = (((i / gw) | 0) + 0.5) / gs;
