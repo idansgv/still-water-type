@@ -503,8 +503,11 @@ export async function mount(stage) {
 
   // ---------- the headbang (easter egg): the page tears onto blood red, and back ----------
   function paint() {
-    // the shell's own chrome follows the page
-    if (S.blood) { const r = document.documentElement.style; r.setProperty('--bg', '#a3080c'); r.setProperty('--fg', '#000'); }
+    // the shell's own chrome follows the page: white words on the red
+    if (S.blood) {
+      const r = document.documentElement.style; r.setProperty('--bg', '#a3080c'); r.setProperty('--fg', '#fff'); r.setProperty('--dim', 'rgba(255,255,255,0.78)');
+      const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', '#a3080c');
+    }
     else stage.setBackdrop(dark ? 0 : 1);
   }
   function headbang() {

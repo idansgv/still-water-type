@@ -152,11 +152,11 @@ body {
 
 /* On a phone or a touch screen, Make it yours moves to the top right, where the menu corner's label sits at the top left. */
 @media (max-width: 720px), (pointer: coarse) {
-  #btn-customize {
+  html:not([data-yours]) #btn-customize {
     position: fixed; top: 0; right: var(--gutter); z-index: 45; margin: 0; padding: calc(18px + env(safe-area-inset-top, 0px)) 0 0;
     font: 400 12px/1.2 var(--mono); color: var(--dim); background: none; border: 0;
   }
-  #btn-customize.nudge { color: transparent; }
+  html:not([data-yours]) #btn-customize.nudge { color: transparent; }
 }
 
 /* ---------- click spark: ascii glyphs that pop and fade ---------- */
@@ -263,6 +263,8 @@ html[data-rec] #menu-corner, html[data-rec] #index, html[data-rec] #hint, html[d
 html[data-rec]:not([data-yours]) .chrome, html[data-rec]:not([data-yours]) #name-form { display: none !important; }
 /* /rec/?yours: a demo of the name, so Make it yours (and its field) is the only thing left around the poster */
 html[data-yours] .chrome .id, html[data-yours] #btn-share, html[data-yours] #btn-shuffle { display: none !important; }
+/* and Random, Export and Make it yours share the one line, bottom right */
+html[data-yours] #btn-random { order: 1; } html[data-yours] #btn-export { order: 2; } html[data-yours] #btn-customize { order: 3; }
 .rec-next { position: fixed; top: 0; right: 0; z-index: 60; width: calc(64px + env(safe-area-inset-right)); height: calc(64px + env(safe-area-inset-top)); border: 0; padding: 0; background: transparent; opacity: 0; -webkit-tap-highlight-color: transparent; touch-action: none; }
 
 /* ---------- the menu: a quiet corner, and the posters in large type ---------- */

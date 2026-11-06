@@ -427,6 +427,17 @@ $('btn-share').addEventListener('click', share);
 const exportBtn = document.createElement('button');
 exportBtn.id = 'btn-export'; exportBtn.type = 'button'; exportBtn.textContent = 'Export'; exportBtn.hidden = true;
 $('btn-share').before(exportBtn);
+// Random (the recording page only): another name on the same poster, from the albums (src/albums.js)
+if (YOURS) {
+  const randomBtn = document.createElement('button');
+  randomBtn.id = 'btn-random'; randomBtn.type = 'button'; randomBtn.textContent = 'Random';
+  $('btn-customize').before(randomBtn);
+  randomBtn.addEventListener('click', () => {
+    if (busy || !current) return;
+    myName = null; closeName();
+    show(current.poster, { themeName: current.theme.name });
+  });
+}
 exportBtn.addEventListener('click', async () => {
   const inst = current && current.inst; if (!inst || !inst.export || exportBtn.disabled) return;
   const slug = current.poster.slug;
