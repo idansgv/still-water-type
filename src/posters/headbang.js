@@ -60,24 +60,36 @@ function edt(grid, w, h) {
   for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) f[x] = grid[y * w + x]; edt1(f, w, d, v, z); for (let x = 0; x < w; x++) grid[y * w + x] = d[x]; }
 }
 const font = (s) => `${WEIGHT} ${s}px "${FAMILY}", "Helvetica Neue", Arial, sans-serif`;
-function field(t, W, H, pw, ph, size) {
+function field(words, W, H, pw, ph, size) {
   // the full-resolution mask (the letters themselves, drawn into the logo)
   const m = document.createElement('canvas'); m.width = pw; m.height = ph;
   const mx = m.getContext('2d');
   mx.font = font(200);
   const cap200 = mx.measureText('H').actualBoundingBoxAscent;
-  const mt = mx.measureText(t), tw200 = mt.actualBoundingBoxLeft + mt.actualBoundingBoxRight;
-  // a metal logo is one line; leave room around it for the spikes
-  const k = Math.min(size * W / tw200, 0.17 * H / cap200), fs = 200 * k, cap = cap200 * k;
-  const left = W / 2 - tw200 * k / 2 + mt.actualBoundingBoxLeft * k, base = H * 0.47 + cap / 2;
-  mx.setTransform(pw / W, 0, 0, ph / H, 0, 0); mx.font = font(fs); mx.fillStyle = '#fff'; mx.textBaseline = 'alphabetic';
-  mx.fillText(t, left, base);
+  const ink = (t) => { const mt = mx.measureText(t); return { t, l: mt.actualBoundingBoxLeft, w: mt.actualBoundingBoxLeft + mt.actualBoundingBoxRight }; };
+  // a metal logo is one line; on a portrait screen the words stack instead (the split that sets the type largest),
+  // so the name stays legible; leave room around it for the spikes
+  const one = ink(words.join(' '));
+  let lines = [one], k = Math.min(size * W / one.w, 0.17 * H / cap200);
+  if (H > W && words.length > 1) {
+    const pitch = 1.9;   // line to line, in caps: room for the ascenders, descenders and the spikes between them
+    for (let mask = 1; mask < 1 << (words.length - 1); mask++) {
+      const ls = []; let cur = [words[0]];
+      for (let i = 1; i < words.length; i++) { if (mask & (1 << (i - 1))) { ls.push(cur.join(' ')); cur = []; } cur.push(words[i]); }
+      ls.push(cur.join(' '));
+      const ms = ls.map(ink), kk = Math.min(Math.min(0.8, size * 1.4) * W / Math.max(...ms.map((q) => q.w)), 0.36 * H / (cap200 * (1 + pitch * (ms.length - 1))));
+      if (kk > k * 1.05) { k = kk; lines = ms; }
+    }
+  }
+  const fs = 200 * k, cap = cap200 * k, pitch = cap * 1.9;
+  const set = lines.map((q, i) => ({ t: q.t, x: W / 2 - q.w * k / 2 + q.l * k, y: H * 0.47 + cap / 2 + (i - (lines.length - 1) / 2) * pitch }));
+  const draw = (c) => { c.font = font(fs); c.fillStyle = '#fff'; c.textBaseline = 'alphabetic'; for (const q of set) c.fillText(q.t, q.x, q.y); };
+  mx.setTransform(pw / W, 0, 0, ph / H, 0, 0); draw(mx);
   // the distance field at half resolution
   const gs = 0.5, gw = Math.ceil(W * gs), gh = Math.ceil(H * gs);
   const c = document.createElement('canvas'); c.width = gw; c.height = gh;
   const x = c.getContext('2d', { willReadFrequently: true });
-  x.setTransform(gs, 0, 0, gs, 0, 0); x.font = font(fs); x.fillStyle = '#fff'; x.textBaseline = 'alphabetic';
-  x.fillText(t, left, base);
+  x.setTransform(gs, 0, 0, gs, 0, 0); draw(x);
   const a = x.getImageData(0, 0, gw, gh).data;
   const n = gw * gh, o = new Float64Array(n), ii = new Float64Array(n), sd = new Float32Array(n);
   let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
@@ -88,7 +100,9 @@ function field(t, W, H, pw, ph, size) {
   edt(o, gw, gh); edt(ii, gw, gh);
   for (let i = 0; i < n; i++) sd[i] = (o[i] > 0 ? Math.sqrt(o[i]) - 0.5 : 0.5 - Math.sqrt(ii[i])) / gs;
   if (x0 > x1) { x0 = W / 2 - 1; x1 = W / 2 + 1; y0 = H / 2 - 1; y1 = H / 2 + 1; }
-  const F = { sd, gw, gh, gs, cap, mask: m, cx: (x0 + x1) / 2 + 1 / gs / 2, hw: Math.max(1, (x1 - x0) / 2), top: y0, bot: y1, edges: [] };
+  // stacked, the type is set larger than the ornament it carries: the antlers keep the one-line scale
+  const F = { sd, gw, gh, gs, cap: cap * (set.length > 1 ? 0.55 : 1), mask: m, cx: (x0 + x1) / 2 + 1 / gs / 2, hw: Math.max(1, (x1 - x0) / 2), top: y0, bot: y1, edges: [],
+    lines: set.map((q) => [Math.max(y0, q.y - cap * 1.45), Math.min(y1, q.y + cap * 0.6)]) };
   for (let i = 0; i < n; i++) {
     if (sd[i] > -2.2 && sd[i] <= -0.2) {
       const ex = ((i % gw) + 0.5) / gs, ey = (((i / gw) | 0) + 0.5) / gs;
@@ -345,6 +359,8 @@ export async function mount(stage) {
     const cx = F.cx, hw = F.hw, cap = F.cap;
     const pick = pickEdge((e) => {
       if (e.x > cx - 1) return 0;
+      // stacked, nothing grows into the gap between two lines (it would fill it and close the name up)
+      if (F.lines.length > 1 && ((e.ny > 0.3 && e.y < F.lines[F.lines.length - 1][0]) || (e.ny < -0.3 && e.y > F.lines[0][1]))) return 0;
       const o = Math.abs(e.x - cx) / hw;
       const w = P.up * Math.max(0, -e.ny) ** 2 + P.down * Math.max(0, e.ny) ** 2 + P.side * Math.max(0, -e.nx) ** 2 * (small ? 1 : 0.4 + o * o * 1.6);
       return small ? w + 0.15 : w * (0.5 + o);
@@ -383,11 +399,11 @@ export async function mount(stage) {
     seedPairs(Math.round(P.thorns), true);
     if (P.axis) {
       // the centre spikes leave from the type's top and bottom edge on the axis, never through the letters,
-      // and only where a letter sits on the axis (between two words they would float)
-      const w0 = P.width * F.cap * 1.15;
-      let y0 = F.top, y1 = F.bot, hit = false;
-      for (let y = F.top; y <= F.bot; y++) if (sample(F, F.cx, y) < -w0 * 0.25) { if (!hit) y0 = y; y1 = y; hit = true; }
-      if (hit) for (const dir of [-1, 1]) spike({ x: F.cx, y: (dir < 0 ? y0 : y1) - dir * w0 * 0.5, th: dir * Math.PI / 2, w0, L: w0 * 0.5 + P.len * F.cap * 1.3, k: 0, side: 0, twin: false, axis: true });
+      // and only where a letter sits on the axis (between two words they would float); stacked, the top one leaves
+      // the first line and the bottom one the last
+      const w0 = P.width * F.cap * 1.15, ink = (b) => { const ys = []; for (let y = b[0]; y <= b[1]; y++) if (sample(F, F.cx, y) < -w0 * 0.25) ys.push(y); return ys; };
+      const up = ink(F.lines[0]), dn = ink(F.lines[F.lines.length - 1]);
+      for (const dir of [-1, 1]) if ((dir < 0 ? up : dn).length) spike({ x: F.cx, y: (dir < 0 ? up[0] : dn[dn.length - 1]) - dir * w0 * 0.5, th: dir * Math.PI / 2, w0, L: w0 * 0.5 + P.len * F.cap * 1.3, k: 0, side: 0, twin: false, axis: true });
     }
     for (const n of nodes) growNode(n);
     // the buildup, from the text outwards: the name alone first, then the spine, the antlers from the middle letters
@@ -609,7 +625,7 @@ export async function mount(stage) {
 
   function build() {
     W = stage.W; H = stage.H;
-    F = field(text, W, H, stage.pw, stage.ph, P.size);
+    F = field(words, W, H, stage.pw, stage.ph, P.size);
     nodes.length = 0;
     makeTargets(); regrow(false);
     if (reduced) regrowNow();   // grown at once: the picture stands still
