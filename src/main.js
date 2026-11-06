@@ -224,7 +224,7 @@ async function show(poster, { seed = randomSeed(), themeName, fast = false } = {
     const mod = await poster.load();
     inst = await mod.mount(stage);
     current.inst = inst;
-    exportBtn.hidden = !inst.export;
+    exportBtn.hidden = !inst.export || !REC;                       // the recording page only (/rec/?yours), for demos
     if (stage.colour && poster.colour !== 'native') colourPass(stageEl, stage.colour, { dark: stage.flip, immediate: params.get('colourat') === 'load', trigger: poster.colourTrigger || 'press' });
     stage.start();
     syncPanel();
@@ -423,7 +423,7 @@ let restShuffle = () => {};                                                    /
   restShuffle = rest; rest();
 }
 $('btn-share').addEventListener('click', share);
-// Export: on a poster that can save itself (it returns the picture as a PNG blob), a button before Share
+// Export (the recording page only): on a poster that can save itself (it returns the picture as a PNG blob), a button before Share
 const exportBtn = document.createElement('button');
 exportBtn.id = 'btn-export'; exportBtn.type = 'button'; exportBtn.textContent = 'Export'; exportBtn.hidden = true;
 $('btn-share').before(exportBtn);

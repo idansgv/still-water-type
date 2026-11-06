@@ -59,7 +59,7 @@ function edt(grid, w, h) {
   for (let x = 0; x < w; x++) { for (let y = 0; y < h; y++) f[y] = grid[y * w + x]; edt1(f, h, d, v, z); for (let y = 0; y < h; y++) grid[y * w + x] = d[y]; }
   for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) f[x] = grid[y * w + x]; edt1(f, w, d, v, z); for (let x = 0; x < w; x++) grid[y * w + x] = d[x]; }
 }
-const PITCH = 1.35;   // stacked lines, baseline to baseline, in caps: tight, like a logo, with just room for the descenders
+const PITCH = 1.15;   // stacked lines, baseline to baseline, in caps: tight, like a logo
 const font = (s) => `${WEIGHT} ${s}px "${FAMILY}", "Helvetica Neue", Arial, sans-serif`;
 function field(words, W, H, pw, ph, size) {
   // the full-resolution mask (the letters themselves, drawn into the logo)
@@ -102,7 +102,7 @@ function field(words, W, H, pw, ph, size) {
   if (x0 > x1) { x0 = W / 2 - 1; x1 = W / 2 + 1; y0 = H / 2 - 1; y1 = H / 2 + 1; }
   // stacked, the type is set larger than the ornament it carries: the antlers keep the one-line scale
   const F = { sd, gw, gh, gs, cap: cap * (set.length > 1 ? 0.55 : 1), mask: m, cx: (x0 + x1) / 2 + 1 / gs / 2, hw: Math.max(1, (x1 - x0) / 2), top: y0, bot: y1, edges: [],
-    lines: set.map((q) => [Math.max(y0, q.y - cap * 1.15), Math.min(y1, q.y + cap * 0.2)]) };
+    lines: set.map((q) => [Math.max(y0, q.y - cap * 1.05), Math.min(y1, q.y + cap * 0.1)]) };
   for (let i = 0; i < n; i++) {
     if (sd[i] > -2.2 && sd[i] <= -0.2) {
       const ex = ((i % gw) + 0.5) / gs, ey = (((i / gw) | 0) + 0.5) / gs;
