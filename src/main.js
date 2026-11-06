@@ -202,6 +202,7 @@ async function show(poster, { seed = randomSeed(), themeName, fast = false } = {
   if (panel) { panel.destroy(); panel = null; }
   if (current) {
     if (!fast) { stageEl.classList.add('swap'); await wait(reduced ? 0 : 200); }   // a new lyric word swaps in place, without the fade; the wait matches the 0.2s fade in shell.css
+    exportBtn.hidden = true;
     try { if (current.inst && current.inst.destroy) current.inst.destroy(); } catch (err) { console.error('[poster destroy]', err); }   // the poster's own listeners, overlays and backdrop
     if (current.stage) current.stage.destroy();
     stageEl.querySelectorAll('.fallback').forEach((n) => n.remove());
@@ -223,6 +224,7 @@ async function show(poster, { seed = randomSeed(), themeName, fast = false } = {
     const mod = await poster.load();
     inst = await mod.mount(stage);
     current.inst = inst;
+    exportBtn.hidden = !inst.export;
     if (stage.colour && poster.colour !== 'native') colourPass(stageEl, stage.colour, { dark: stage.flip, immediate: params.get('colourat') === 'load', trigger: poster.colourTrigger || 'press' });
     stage.start();
     syncPanel();
@@ -421,6 +423,27 @@ let restShuffle = () => {};                                                    /
   restShuffle = rest; rest();
 }
 $('btn-share').addEventListener('click', share);
+// Export: on a poster that can save itself (it returns the picture as a PNG blob), a button before Share
+const exportBtn = document.createElement('button');
+exportBtn.id = 'btn-export'; exportBtn.type = 'button'; exportBtn.textContent = 'Export'; exportBtn.hidden = true;
+$('btn-share').before(exportBtn);
+exportBtn.addEventListener('click', async () => {
+  const inst = current && current.inst; if (!inst || !inst.export || exportBtn.disabled) return;
+  const slug = current.poster.slug;
+  track('export', { slug });
+  exportBtn.disabled = true;
+  try {
+    const blob = await inst.export();
+    if (!blob || !current || current.inst !== inst) return;
+    const name = `${slug}${myName ? '-' + myName.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-') : ''}.png`;
+    const file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && matchMedia('(pointer: coarse)').matches && navigator.canShare({ files: [file] })) {   // a phone: the share sheet saves it to Photos
+      try { await navigator.share({ files: [file] }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } finally { exportBtn.disabled = false; }
+});
 // Parked (7 Oct 2026): the rotating aside after the role line is off for now (see docs/PROJECT.md, "To reconsider"). To bring it back, restore <span id="tagline"> in index.html and uncomment:
 // $('tagline').textContent = ASIDES[Math.floor(Math.random() * ASIDES.length)];
 

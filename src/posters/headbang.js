@@ -620,8 +620,22 @@ export async function mount(stage) {
       agents = live; dirty = true;
     }
     if (dirty || stage.revealed) { drawStamps(); present(); dirty = false; }
+    if (exporting) exportStep();
     rv.draw(performance.now());
   }
+
+  // ---------- export: the page rumbles onto red, the logo finishes growing, and the picture is saved ----------
+  let exporting = null;
+  function exportStep() {
+    if (stage.revealed) return;
+    if (S.tear >= 1 && !S.blood) { headbang(); return; }
+    if (S.tear < 1 || agents.length || performance.now() - S.hitAt < 600) return;
+    // read in the same frame it was drawn (the WebGL buffer is cleared once the page composites)
+    const done = exporting; exporting = null;
+    drawStamps(); present();
+    canvas.toBlob(done, 'image/png');
+  }
+  function exportLogo() { return new Promise((res) => { if (exporting) exporting(null); exporting = res; }); }
 
   function build() {
     W = stage.W; H = stage.H;
@@ -654,6 +668,7 @@ export async function mount(stage) {
 
   return {
     tune,
+    export: exportLogo,
     debug: { P, S, nodes, headbang, setGenre, regrowNow, addNode, get F() { return F; }, stats() { return { agents: agents.length, seeds: seeds.length, nodes: nodes.length, blood: S.blood }; } },
     destroy() {
       alive = false; clearTimeout(rt); clearTimeout(bt); clearTimeout(pending);
