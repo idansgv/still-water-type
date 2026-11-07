@@ -265,7 +265,9 @@ html[data-rec]:not([data-yours]) .chrome, html[data-rec]:not([data-yours]) #name
 html[data-yours] .chrome .id, html[data-yours] #btn-share, html[data-yours] #btn-shuffle { display: none !important; }
 /* and Random, Export and Make it yours share the one line, bottom right */
 html[data-yours] #btn-random { order: 1; } html[data-yours] #btn-export { order: 2; } html[data-yours] #btn-customize { order: 3; }
-.rec-next { position: fixed; top: 0; right: 0; z-index: 60; width: calc(64px + env(safe-area-inset-right)); height: calc(64px + env(safe-area-inset-top)); border: 0; padding: 0; background: transparent; opacity: 0; -webkit-tap-highlight-color: transparent; touch-action: none; }
+.rec-next, .rec-album { position: fixed; right: 0; z-index: 60; width: calc(64px + env(safe-area-inset-right)); height: calc(64px + env(safe-area-inset-top)); border: 0; padding: 0; background: transparent; opacity: 0; -webkit-tap-highlight-color: transparent; touch-action: none; }
+.rec-next { top: 0; }
+.rec-album { bottom: 0; height: calc(64px + env(safe-area-inset-bottom)); }
 
 /* ---------- the menu: a quiet corner, and the posters in large type ---------- */
 .menu-corner {

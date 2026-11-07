@@ -193,7 +193,7 @@ function armHint(poster, stage) {
 // A phone held upright: long words go over two lines so the type stays big (src/name.js).
 const fitWords = (words) => (matchMedia('(max-width: 700px) and (orientation: portrait)').matches ? breakLong(words) : words);
 
-async function show(poster, { seed = randomSeed(), themeName, fast = false } = {}) {
+async function show(poster, { seed = randomSeed(), themeName, fast = false, album: chosen } = {}) {
   busy = true;
   const darkOnly = poster.darkOnly === true;                          // a poster that only exists on black (Glint): always dark, and the sequence carries on from there
   if (darkOnly && shuffles % 2 === 0) shuffles++;
@@ -211,7 +211,7 @@ async function show(poster, { seed = randomSeed(), themeName, fast = false } = {
   setChrome(poster);
   clearColourPass();
 
-  const album = poster.nameable && !myName && !LYRICS ? nextAlbum() : null;   // no name of their own: an album title instead (src/albums.js); ?lyrics never shows one
+  const album = poster.nameable && !myName && !LYRICS ? (chosen || nextAlbum()) : null;   // no name of their own: an album title instead (src/albums.js); ?lyrics never shows one. The recording page's corner passes one in to swap only the title
   const stage = createStage(stageEl, { seed, theme, toast, setBackdrop, words: poster.nameable && (myName || album) ? fitWords(nameWords(myName || album.title)) : null });   // a name, else a lyric (?lyrics), else an album title
   stage.refreshPanel = syncPanel;                                   // a poster whose settings change (a mode switch) asks for the panel to be rebuilt
   stage.flip = theme.name === 'dark';
@@ -486,6 +486,15 @@ if (YOURS) {
     shuffle();
   });
   document.body.appendChild(corner);
+  // The bottom-right corner: the same poster, the same seed and theme, with another album title.
+  const album = document.createElement('button');
+  album.type = 'button'; album.className = 'rec-album'; album.setAttribute('aria-label', 'Another album title');
+  album.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (busy || !current || !current.poster.nameable || LYRICS) return;
+    show(current.poster, { seed: current.seed, themeName: current.theme.name, album: nextAlbum() });
+  });
+  document.body.appendChild(album);
 }
 
 const first = pickFirst();
